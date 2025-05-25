@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  name          String?
+  firstName     String?
+  lastName      String?
+  email         String    @unique
+  emailVerified DateTime? // Stores when the email was verified
+  password      String?   // Nullable if you allow OAuth-only signups
+  image         String?   // Profile picture URL
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // For NextAuth Adapter (OAuth account linking)
+  accounts Account[]
+  // For NextAuth Adapter (if using database sessions, optional with JWTs)
+  sessions Session[]
+
+  // Custom email verification
+  verificationToken      String?   @unique
+  // verificationTokenExpires DateTime? // Optional: if you want tokens to expire
+
+  // Custom password reset
+  passwordResetToken      String?   @unique
+  passwordResetExpires    DateTime?
+}
+
+// NextAuth Adapter Models
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// This is the standard NextAuth verification token model, useful if you use their email provider.
+// For custom email flow, we're using `verificationToken` on the User model.
+// You can choose to use this one if you prefer the NextAuth default email provider.
+// model VerificationToken {
+//   identifier String
+//   token      String   @unique
+//   expires    DateTime
+//   @@unique([identifier, token])
+// }

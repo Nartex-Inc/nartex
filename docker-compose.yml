@@ -1,0 +1,18 @@
+services:
+  nartex-app:
+    build: .
+    image: nartex-next-prod
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "postgresql://nartexadmin:NartexImmo1%2C@nartex-db.c7cso4mwwo3r.ca-central-1.rds.amazonaws.com:5432/nartex-db?sslmode=prefer"
+      NEXTAUTH_URL: "https://app.nartex.ca"
+      NEXTAUTH_SECRET: "K9mX2vL8pQ4rN6sT1wE5yU3iO7aB0cF9dG8hJ2kM5nP1"
+      EMAIL_SERVER_HOST: "smtp.gmail.com"
+      EMAIL_SERVER_PORT: "587"
+      EMAIL_SERVER_USER: "n.labranche@nartex.ca"
+      EMAIL_SERVER_PASSWORD: "mubx hjrk qesk zcxt" # Make sure this is the Gmail App Password
+      EMAIL_FROM: "Nartex <noreply@nartex.ca>"
+      PORT: "3000"
+      # Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET if needed
