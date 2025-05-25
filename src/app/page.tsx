@@ -9,7 +9,6 @@ import type { NextPage } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
-// REMOVE: import type { SignInResponse } from "next-auth/react"; (NextAuth's signIn returns a different shape now)
 
 // --- Icon Components ---
 const EyeIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
@@ -55,8 +54,8 @@ const CheckIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4 text
 // ─── Inner client component ─────────────────────────────────────────────
 function LoginForm() {
   const params = useSearchParams();
-  const confirmed = params?.get("confirmed") === "true"; // For email verified message
-  const newUserEmailSent = params?.get("emailVerificationSent") === "true"; // For "check your email" after signup
+  const confirmed = params?.get("confirmed") === "true";
+  const newUserEmailSent = params?.get("emailVerificationSent") === "true";
   const [showBanner, setShowBanner] = useState(confirmed);
   const [showNewUserBanner, setShowNewUserBanner] = useState(newUserEmailSent);
 
@@ -69,7 +68,7 @@ function LoginForm() {
 
   useEffect(() => {
     if (newUserEmailSent) {
-      const t = setTimeout(() => setShowNewUserBanner(false), 7000); // Longer for this message
+      const t = setTimeout(() => setShowNewUserBanner(false), 7000);
       return () => clearTimeout(t);
     }
   }, [newUserEmailSent]);
@@ -79,14 +78,10 @@ function LoginForm() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  // REMOVED Cognito specific state:
-  // const [newPassword, setNewPassword] = useState("");
-  // const [showNewPass, setShowNewPass] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // redirect if already signed in
   useEffect(() => {
     if (status === "authenticated") {
       router.push("/dashboard");
@@ -108,61 +103,45 @@ function LoginForm() {
     setLoading(true);
 
     const res = await signIn("credentials", {
-      redirect: false, // Important: handle redirection manually to show errors
+      redirect: false,
       email,
       password,
-      callbackUrl: "/dashboard", // NextAuth will use this if login is successful
+      callbackUrl: "/dashboard",
     });
 
     if (res?.error) {
-      // Errors from NextAuth (e.g., from authorize function in your NextAuth config)
-      // The `res.error` will be the string you threw in the `authorize` function
-      // Or a generic NextAuth error like "CredentialsSignin"
       setError(res.error === "CredentialsSignin" ? "Adresse e-mail ou mot de passe incorrect." : res.error);
       setLoading(false);
       return;
     }
 
-    // If res is defined, and there's no error, login was successful.
-    // NextAuth with redirect:false will provide a res.url to redirect to.
-    // Or, if res.ok is true, it's also an indicator of success.
     if (res && res.ok && !res.error) {
-      // No need to clear fields here, as router.push will navigate away
-      // router.push(res.url || "/dashboard"); // res.url should be populated by NextAuth
-      // Let the useEffect for authenticated status handle the redirect
-      // Or if you want immediate redirect:
        router.push(res.url ?? "/dashboard");
     } else if (!res?.ok && !res?.error) {
-      // This case should ideally not happen if signIn is working as expected
       setError("Une erreur inattendue s'est produite lors de la connexion. Veuillez réessayer.");
       setLoading(false);
     }
-    // setLoading(false) is handled in error cases or by navigation
   };
 
-  const handleSSOLogin = (provider: "google" /* | "microsoft" | "azure-ad-b2c" */) => {
-    // Ensure the 'provider' string matches the ID used in your NextAuth providers array
+  const handleSSOLogin = (provider: "google" | "azure-ad-b2c") => { // Added "azure-ad-b2c"
     setLoading(true);
     setError(null);
-    signIn(provider, { callbackUrl: "/dashboard" }); // Use the NextAuth provider ID
+    signIn(provider, { callbackUrl: "/dashboard" });
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-900 via-gray-950 to-black text-gray-100 font-sans">
-      {/* confirmed-user banner */}
       {showBanner && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-100 border border-green-400 text-green-800 px-4 py-2 rounded shadow-lg z-50">
           Votre compte a bien été activé ! Vous pouvez maintenant vous connecter.
         </div>
       )}
-      {/* Banner for new user after signup */}
       {showNewUserBanner && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-blue-100 border border-blue-400 text-blue-800 px-4 py-2 rounded shadow-lg z-50">
           Compte créé ! Veuillez consulter votre boîte de réception pour vérifier votre adresse e-mail.
         </div>
       )}
 
-      {/* Header */}
       <header className="relative z-10 bg-black/80 backdrop-blur-md border-b border-white/5 py-4 px-4">
         <div className="container mx-auto flex items-center">
           <Image
@@ -176,13 +155,11 @@ function LoginForm() {
         </div>
       </header>
 
-      {/* Main */}
       <main className="flex-1 flex items-center justify-center py-6 px-4 relative z-10 overflow-hidden">
         <div className="flex w-full max-w-5xl">
-          {/* Marketing column */}
           <div className="hidden lg:flex lg:flex-col lg:w-1/2 p-12 pr-8">
             <h1 className="text-4xl font-bold mb-6 bg-gradient-to-r from-emerald-400 to-blue-500 bg-clip-text text-transparent">
-              Bienvenue sur SINTO
+              Bienvenue sur Nartex
             </h1>
             <p className="text-lg mb-8 text-gray-300">
               La plateforme de gestion centralisée qui révolutionne votre productivité et transforme radicalement vos flux de travail.
@@ -215,10 +192,8 @@ function LoginForm() {
             </div>
           </div>
 
-          {/* Login form */}
           <div className="w-full lg:w-1/2 px-6">
             <div className="bg-gray-900/70 backdrop-blur-lg border border-gray-800 rounded-xl shadow-2xl p-8 md:p-10">
-              {/* mobile logo */}
               <div className="lg:hidden flex justify-center mb-6">
                 <Image
                   src="/nartex-logo.svg"
@@ -242,7 +217,6 @@ function LoginForm() {
               )}
 
               <form onSubmit={handleSubmit} className="space-y-5">
-                {/* Email */}
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1.5">
                     Adresse e-mail
@@ -258,7 +232,6 @@ function LoginForm() {
                   />
                 </div>
 
-                {/* Password */}
                 <div>
                   <div className="flex justify-between items-center mb-1.5">
                     <label htmlFor="password" className="block text-sm font-medium text-gray-300">
@@ -288,8 +261,6 @@ function LoginForm() {
                   </div>
                 </div>
 
-                {/* REMOVED Cognito's NEW_PASSWORD_REQUIRED section */}
-
                 <button
                   type="submit"
                   disabled={loading}
@@ -299,16 +270,12 @@ function LoginForm() {
                 </button>
               </form>
 
-              {/* new-user banner (original, maybe keep or adapt for the new query param) */}
-              {/* This `newUser` param from Cognito flow might be redundant if `emailVerificationSent` covers the intended message */}
               {params?.get("newUser") === "true" && !newUserEmailSent && !confirmed && (
                  <div className="mt-4 text-center text-green-400 text-sm">
-                   {/* Consider removing or rephrasing this if it's confusing with the emailVerificationSent banner */}
                    Votre lien d’activation a été envoyé par courriel. Veuillez activer votre compte pour vous connecter.
                  </div>
                )}
 
-              {/* separator */}
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center" aria-hidden="true">
                   <div className="w-full border-t border-gray-700" />
@@ -318,23 +285,21 @@ function LoginForm() {
                 </div>
               </div>
 
-              {/* SSO buttons */}
               <div className="space-y-3">
                 <button
-                  onClick={() => handleSSOLogin("google")} // Provider ID must match your NextAuth config
+                  onClick={() => handleSSOLogin("google")}
                   className="w-full inline-flex justify-center items-center py-2.5 px-4 border border-gray-700 rounded-lg bg-gray-800 text-sm font-medium text-gray-200 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-offset-gray-900 transition duration-150 ease-in-out"
                 >
                   <GoogleIcon /> <span className="ml-2">Continuer avec Google Workspace</span>
                 </button>
-                {/* <button
-                  onClick={() => handleSSOLogin("azure-ad-b2c")} // Example if you add Microsoft Entra ID (Azure AD B2C)
+                <button
+                  onClick={() => handleSSOLogin("azure-ad-b2c")} // Use the correct provider ID
                   className="w-full inline-flex justify-center items-center py-2.5 px-4 border border-gray-700 rounded-lg bg-gray-800 text-sm font-medium text-gray-200 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-offset-gray-900 transition duration-150 ease-in-out"
                 >
                   <MicrosoftIcon /> <span className="ml-2">Continuer avec Microsoft Entra ID</span>
-                </button> */}
+                </button>
               </div>
 
-              {/* sign-up link */}
               <p className="mt-6 text-center text-gray-400 text-sm">
                 Vous n’avez pas de compte ?{" "}
                 <Link href="/signup" className="text-emerald-400 hover:text-emerald-300">
@@ -346,7 +311,6 @@ function LoginForm() {
         </div>
       </main>
 
-      {/* Footer */}
       <footer className="py-6 px-4 text-center text-xs text-gray-500 border-t border-gray-800">
         © {new Date().getFullYear()} Nartex. Tous droits réservés.
       </footer>
@@ -354,7 +318,6 @@ function LoginForm() {
   );
 }
 
-// ─── Wrap in Suspense at the top level ───────────────────────────────────
 const PremiumLoginPage: NextPage = () => (
   <Suspense
     fallback={

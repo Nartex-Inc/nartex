@@ -63,11 +63,11 @@ function VerifyEmailContent() {
         });
         const data = await res.json();
         if (res.ok && data.success) {
-          setMessage(data.message || "E-mail vérifié avec succès ! Redirection en cours...");
+          setMessage(data.message || "Compte courriel vérifié avec succès ! Redirection en cours...");
           setStatus("success");
           setTimeout(() => router.push("/?confirmed=true"), 2500); // Redirect to login
         } else {
-          setMessage(data.error || "Échec de la vérification de l'e-mail. Le lien est peut-être invalide ou a expiré.");
+          setMessage(data.error || "Échec de la vérification du compte courriel. Le lien est peut-être invalide ou a expiré.");
           setStatus("error");
         }
       } catch (err) {
@@ -92,7 +92,7 @@ function VerifyEmailContent() {
         {status === "verifying" && (
           <>
             <ProfessionalSpinner className="w-16 h-16 mx-auto mb-6" />
-            <h1 className="text-2xl font-semibold mb-3 text-white">Vérification en Cours</h1>
+            <h1 className="text-2xl font-semibold mb-3 text-white">Vérification en cours</h1>
             <p className="text-gray-400">{message}</p>
           </>
         )}
@@ -100,13 +100,13 @@ function VerifyEmailContent() {
         {status === "success" && (
           <>
             <SuccessCheckmark className="w-20 h-20 mx-auto mb-5 text-green-500" />
-            <h1 className="text-2xl font-semibold mb-3 text-green-400">Vérification Réussie !</h1>
+            <h1 className="text-2xl font-semibold mb-3 text-green-400">Vérification réussie !</h1>
             <p className="text-gray-300 mb-6">{message}</p>
             <Link
               href="/"
               className="mt-2 inline-block bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 px-6 rounded-lg text-sm transition-colors duration-150"
             >
-              Aller à la Connexion
+              Aller vers la page de connexion
             </Link>
           </>
         )}
@@ -117,13 +117,13 @@ function VerifyEmailContent() {
             <svg className="w-20 h-20 mx-auto mb-5 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
             </svg>
-            <h1 className="text-2xl font-semibold mb-3 text-red-400">Erreur de Vérification</h1>
+            <h1 className="text-2xl font-semibold mb-3 text-red-400">Erreur de vérification</h1>
             <p className="text-gray-300 mb-6">{message}</p>
             <Link
               href="/"
               className="mt-2 inline-block bg-gray-600 hover:bg-gray-500 text-white font-medium py-3 px-6 rounded-lg text-sm transition-colors duration-150"
             >
-              Retour à la Connexion
+              Retour à la page de connexion
             </Link>
           </>
         )}
