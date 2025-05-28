@@ -9,15 +9,18 @@ datasource db {
 
 model User {
   id            String    @id @default(uuid())
-  name          String?
-  firstName     String?
-  lastName      String?
+  name          String?   // This seems to be for full name. Your form has given_name and family_name.
+                          // Consider if this 'name' field is still needed or how it's populated.
+                          // If populated from firstName and lastName, NextAuth callbacks can do this.
+  firstName     String?   // Corresponds to 'given_name' in your form
+  lastName      String?   // Corresponds to 'family_name' in your form
   email         String    @unique
   emailVerified DateTime? // Stores when the email was verified
   password      String?   // Nullable if you allow OAuth-only signups
   image         String?   // Profile picture URL
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  role          String    @default("unassigned") // <<< NEW FIELD ADDED HERE
 
   // For NextAuth Adapter (OAuth account linking)
   accounts Account[]
