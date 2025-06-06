@@ -1,44 +1,117 @@
 // tailwind.config.js
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  // Enable class-based dark mode
-  darkMode: 'class',
-
-  // Ensure all paths where you use Tailwind classes are included.
-  // Adjust these paths to accurately reflect your project structure.
+  darkMode: ["class"], // Keep this, Shadcn uses class-based dark mode
   content: [
-    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",        // For Next.js 13+ `app` directory (you had this)
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",     // Add if you also use the `pages` directory
-    "./src/components/**/*.{js,ts,jsx,tsx,mdx}", // Add if you have a common `components` directory in `src`
-    // Add any other specific paths if necessary, e.g., "./src/layouts/**/*.{js,ts,jsx,tsx,mdx}"
+    "./pages/**/*.{ts,tsx,js,jsx,mdx}", // For Next.js pages directory (if used)
+    "./components/**/*.{ts,tsx,js,jsx,mdx}", // For components at root level
+    "./app/**/*.{ts,tsx,js,jsx,mdx}", // For Next.js app directory
+    "./src/**/*.{ts,tsx,js,jsx,mdx}", // General src directory catch-all
+    // Your original paths were good, this is just a bit more inclusive
+    // "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    // "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
+    // "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
   ],
-
+  prefix: "", // Recommended for Shadcn/ui
   theme: {
-    extend: { // This 'extend' object was not correctly closed in the previous example
-      // Your existing font family definitions
-      fontFamily: {
-        sans: "var(--font-geist-sans)",
-        mono: "var(--font-geist-mono)",
-      },
-      // You can add custom colors here if needed for your theme.
-      // For example, if you want to define Nartex Green globally:
-      colors: {
-        // 'nartex-green': {
-        //   DEFAULT: '#10B981', // Corresponds to emerald-500
-        //   '50': '#ecfdf5',
-        //   '100': '#d1fae5',
-        //   // ... other shades if needed
-        // },
-        // You could also define your light/dark mode base colors here
-        // for more semantic usage in your components if you prefer over direct slate/gray.
-      },
-      // ... any other theme extensions for Tailwind could go here
-      // e.g., spacing, borderRadius, keyframes, etc.
-    }, // Correctly closing the 'extend' object
+  	container: {
+  		center: true,
+  		padding: '2rem',
+  		screens: {
+  			'2xl': '1400px'
+  		}
+  	},
+  	extend: {
+  		fontFamily: {
+  			sans: [
+  				'var(--font-geist-sans)',
+  				'Arial',
+  				'Helvetica',
+  				'sans-serif'
+  			],
+  			mono: [
+  				'var(--font-geist-mono)',
+  				'monospace'
+  			]
+  		},
+  		colors: {
+  			border: 'hsl(var(--border))',
+  			input: 'hsl(var(--input))',
+  			ring: 'hsl(var(--ring))',
+  			background: 'hsl(var(--background))',
+  			foreground: 'hsl(var(--foreground))',
+  			primary: {
+  				DEFAULT: 'hsl(var(--primary))',
+  				foreground: 'hsl(var(--primary-foreground))'
+  			},
+  			secondary: {
+  				DEFAULT: 'hsl(var(--secondary))',
+  				foreground: 'hsl(var(--secondary-foreground))'
+  			},
+  			destructive: {
+  				DEFAULT: 'hsl(var(--destructive))',
+  				foreground: 'hsl(var(--destructive-foreground))'
+  			},
+  			muted: {
+  				DEFAULT: 'hsl(var(--muted))',
+  				foreground: 'hsl(var(--muted-foreground))'
+  			},
+  			accent: {
+  				DEFAULT: 'hsl(var(--accent))',
+  				foreground: 'hsl(var(--accent-foreground))'
+  			},
+  			popover: {
+  				DEFAULT: 'hsl(var(--popover))',
+  				foreground: 'hsl(var(--popover-foreground))'
+  			},
+  			card: {
+  				DEFAULT: 'hsl(var(--card))',
+  				foreground: 'hsl(var(--card-foreground))'
+  			},
+  			'nartex-green': {
+  				DEFAULT: '#16A75C',
+  				light: '#1eba69',
+  				dark: '#108a4c'
+  			},
+  			chart: {
+  				'1': 'hsl(var(--chart-1))',
+  				'2': 'hsl(var(--chart-2))',
+  				'3': 'hsl(var(--chart-3))',
+  				'4': 'hsl(var(--chart-4))',
+  				'5': 'hsl(var(--chart-5))'
+  			}
+  		},
+  		borderRadius: {
+  			lg: 'var(--radius)',
+  			md: 'calc(var(--radius) - 2px)',
+  			sm: 'calc(var(--radius) - 4px)'
+  		},
+  		keyframes: {
+  			'accordion-down': {
+  				from: {
+  					height: '0'
+  				},
+  				to: {
+  					height: 'var(--radix-accordion-content-height)'
+  				}
+  			},
+  			'accordion-up': {
+  				from: {
+  					height: 'var(--radix-accordion-content-height)'
+  				},
+  				to: {
+  					height: '0'
+  				}
+  			}
+  		},
+  		animation: {
+  			'accordion-down': 'accordion-down 0.2s ease-out',
+  			'accordion-up': 'accordion-up 0.2s ease-out'
+  		}
+  	}
   },
-
   plugins: [
-    // ... any Tailwind CSS plugins you are using or plan to use
-    // E.g., require('@tailwindcss/forms'), require('@tailwindcss/typography')
+    require("tailwindcss-animate"), // Essential for Shadcn/ui animations
+    // ... any other Tailwind CSS plugins you are using
   ],
 };
