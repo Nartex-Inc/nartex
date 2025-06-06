@@ -3,8 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-// --- FIX: Removed the .tsx extensions ---
-import { Header } from "@/components/dashboard/header"; 
+import { Header } from "@/components/dashboard/header";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { mockApprovalRequestsData, mockUserTasksData } from "@/lib/data";
 import { TaskStatus } from "@/lib/types";
@@ -19,9 +18,10 @@ export default function DashboardLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   useEffect(() => {
+    // Set initial state based on screen size, but only on the client
     const checkSize = () => setIsSidebarOpen(window.innerWidth >= 1024);
-    window.addEventListener('resize', checkSize);
     checkSize();
+    window.addEventListener('resize', checkSize);
     return () => window.removeEventListener('resize', checkSize);
   }, []);
 
@@ -31,7 +31,7 @@ export default function DashboardLayout({
     }
   }, [status]);
 
-  if (status === "loading") {
+  if (status === "loading" || !session) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -39,25 +39,29 @@ export default function DashboardLayout({
     );
   }
 
+  // Calculate notification count for the header
   const overdueTasksCount = mockUserTasksData.filter(t => t.status === TaskStatus.EN_RETARD).length;
   const pendingApprovalsCount = mockApprovalRequestsData.filter(a => a.status === 'pending').length;
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground font-sans">
+      {/* Pass the toggle function to the Header */}
       <Header
-        onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
+        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         notificationCount={pendingApprovalsCount + overdueTasksCount}
       />
-      <div className="flex-1 flex overflow-hidden">
-        {isSidebarOpen && (
-          <div className="lg:hidden fixed inset-0 z-20 bg-black/40" onClick={() => setIsSidebarOpen(false)}></div>
-        )}
+      
+      <div className="flex flex-1 overflow-hidden">
+        {/* Pass the state and toggle function to the Sidebar */}
         <Sidebar
           isOpen={isSidebarOpen}
-          toggleSidebar={() => setIsSidebarOpen(prev => !prev)}
+          toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         />
-        <main className="flex-grow min-w-0 overflow-y-auto">
-          {children}
+        
+        <main className="flex-1 flex flex-col overflow-y-auto">
+          <div className="flex-grow p-4 sm:p-6 lg:p-8">
+            {children}
+          </div>
         </main>
       </div>
     </div>
