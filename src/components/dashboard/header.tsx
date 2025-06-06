@@ -3,78 +3,65 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Menu, Bell } from 'lucide-react';
+import { Bell } from 'lucide-react';
+import { UserNav } from '@/components/dashboard/user-nav'; // Standardized path alias
+import { ModeToggle } from '@/components/theme-toggle';   // Standardized path alias
 
-// --- FIX: Corrected relative import paths ---
-// Assuming UserNav is also a dashboard-specific component
-import { UserNav } from './user-nav'; 
-// Assuming ModeToggle is a general component, so we go up one level from 'dashboard'
-import { ModeToggle } from '../theme-toggle'; 
-
+// FIX: Correctly define the props the component receives from layout.tsx
 interface HeaderProps {
-  onToggleSidebar: () => void;
+  onToggleSidebar: () => void; // This was missing
   notificationCount: number;
 }
 
+// FIX: Correctly destructure the props from the function argument
 export function Header({ onToggleSidebar, notificationCount }: HeaderProps) {
-  const [currentTime, setCurrentTime] = useState("");
   const [currentDate, setCurrentDate] = useState("");
+  const [currentTime, setCurrentTime] = useState("");
 
   useEffect(() => {
     const updateDateTime = () => {
       const now = new Date();
       setCurrentTime(now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
-      setCurrentDate(now.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
+      setCurrentDate(now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
     };
     updateDateTime();
-    const intervalId = setInterval(updateDateTime, 60000); // Update every minute
+    const intervalId = setInterval(updateDateTime, 60000);
     return () => clearInterval(intervalId);
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 bg-black/90 backdrop-blur-md border-b border-gray-700 py-3 shadow-sm">
-      <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 max-w-full mx-auto">
-        <div className="flex items-center">
-          <button
-            onClick={onToggleSidebar}
-            className="text-gray-400 hover:text-white transition-colors duration-150 p-2 -ml-2 mr-2 rounded-md focus:outline-none active:text-green-500 active:bg-gray-700/50"
-            aria-label="Toggle navigation menu"
-          >
-            <Menu size={20} />
-          </button>
-          <Link href="/dashboard" className="flex items-center">
-            <Image
-              src="/nartex-logo.svg"
-              alt="Nartex Logo"
-              width={110}
-              height={28}
-              priority
-              className="inline-block filter invert brightness-125 contrast-150"
-            />
-          </Link>
-        </div>
+    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur-sm">
+      <div className="flex h-16 items-center px-6">
+        {/* Nartex Logo */}
+        <Link href="/dashboard" className="flex items-center gap-2">
+          <Image
+            src="/nartex-logo.svg"
+            alt="Nartex Logo"
+            width={74} // 33% smaller
+            height={19}
+            priority
+            className="dark:invert"
+          />
+        </Link>
 
-        <div className="flex items-center space-x-4 md:space-x-6">
-          <div className="hidden md:flex items-center">
-            <div className="text-sm text-gray-400 mr-4">{currentDate}</div>
-            <div className="bg-gray-800/70 backdrop-blur-sm px-3.5 py-1.5 rounded-lg border border-gray-700">
-              <span className="text-green-400 font-medium">{currentTime}</span>
-            </div>
+        {/* Right side utilities */}
+        <div className="ml-auto flex items-center space-x-4">
+          <div className="hidden md:flex items-center text-sm text-muted-foreground">
+            <span>{currentDate}</span>
+            <span className="mx-2 text-muted-foreground/50">|</span>
+            <span className="font-mono tracking-tighter text-foreground">{currentTime}</span>
           </div>
-          
-          <div className="flex items-center space-x-3 md:space-x-4">
+
+          <div className="flex items-center space-x-2">
             <ModeToggle />
             <Link
               href="/dashboard/notifications"
-              className="text-gray-400 hover:text-white transition relative p-2 rounded-full hover:bg-gray-700/50"
+              className="group relative flex h-9 w-9 items-center justify-center rounded-full transition-colors hover:bg-muted"
               aria-label="Notifications"
             >
-              <Bell size={18} />
+              <Bell className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
               {notificationCount > 0 && (
-                <span className="absolute top-0 right-0 flex h-3 w-3 -mt-0.5 -mr-0.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                </span>
+                <span className="absolute top-1.5 right-1.5 block h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
               )}
             </Link>
             <UserNav />
