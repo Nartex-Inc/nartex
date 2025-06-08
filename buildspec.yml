@@ -1,5 +1,0 @@
-version: 0.2
-phases:
-  build:
-    commands:
-      - echo "SUCCESS: The buildspec file is now being read correctly."
