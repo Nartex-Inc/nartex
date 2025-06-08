@@ -1,0 +1,68 @@
+version: 0.2
+
+env:
+  variables:
+    AWS_ACCOUNT_ID      : "586359898361"        # <–– your real account number
+    AWS_DEFAULT_REGION  : "ca-central-1"
+    IMAGE_REPO_NAME     : "nartex-next"
+  secrets-manager:
+    DATABASE_URL        : nartex-db-credentials
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 18
+    commands:
+      - echo "📦  INSTALL – installing Node dependencies"
+      - npm ci
+      # If you intend to use docker‑compose **inside CodeBuild**
+      # uncomment the next two lines; otherwise drop them.
+      #- echo "📦  INSTALL – installing Docker‑Compose plugin"
+      #- curl -L https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose
+
+  pre_build:
+    commands:
+      - echo "🔑  PRE_BUILD – logging in to Amazon ECR"
+      - >
+        aws ecr get-login-password --region "$AWS_DEFAULT_REGION" |
+        docker login --username AWS --password-stdin
+        "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+
+  build:
+    commands:
+      - echo "🏗  BUILD – resolving commit hash"
+      - COMMIT_HASH=$(git rev-parse --short HEAD)
+
+      - echo "🏗  BUILD – building Docker image"
+      - |
+        ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
+        docker build -t "$ECR_IMAGE_URI:$COMMIT_HASH" -t "$ECR_IMAGE_URI:latest" .
+
+      - echo "🏗  BUILD – pushing both tags to ECR"
+      - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
+      - docker push "$ECR_IMAGE_URI:latest"
+
+      # Optional: replicate the manual tag/push you showed
+      - echo "🏗  BUILD – aliasing as nartex-next-prod:latest"
+      - docker tag "$ECR_IMAGE_URI:latest" nartex-next-prod:latest
+      - docker push "$ECR_IMAGE_URI:latest"
+
+  post_build:
+    commands:
+      - echo "✅ POST_BUILD – generating imagedefinitions.json"
+      - printf '[{"name":"nextjs","imageUri":"%s"}]' "$ECR_IMAGE_URI:$COMMIT_HASH" > imagedefinitions.json
+      - cat imagedefinitions.json
+
+      # -------- Optional smoke‑test with Docker‑Compose --------
+      # Comment out the next block if you prefer to test in ECS only.
+      #- echo "✅ POST_BUILD – smoke‑testing container locally"
+      #- >
+      #  printf 'version: "3.8"\nservices:\n  app:\n    image: "%s:latest"\n    ports:\n      - "3000:3000"\n' "$ECR_IMAGE_URI" > docker-compose.yml
+      #- docker-compose up --build --force-recreate -d
+      #- curl --retry 5 --retry-connrefused http://localhost:3000 || (echo "Health‑check failed" && exit 1)
+      #- docker-compose down
+      # ---------------------------------------------------------
+
+artifacts:
+  files:
+    - imagedefinitions.json
