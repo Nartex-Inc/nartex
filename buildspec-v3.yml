@@ -5,8 +5,16 @@ env:
     AWS_ACCOUNT_ID     : "586359898361"
     AWS_DEFAULT_REGION : "ca-central-1"
     IMAGE_REPO_NAME    : "nartex-next"
+
+    # ───── SMTP / NextAuth variables ──────────────────────────
+    EMAIL_SERVER_HOST      : "smtp.mailgun.org"
+    EMAIL_SERVER_PORT      : "587"
+    EMAIL_SERVER_USER      : "postmaster@smtp.mailgun.org"     # ≤‑‑ edit to real user
+    EMAIL_SERVER_PASSWORD  : "super‑long‑smtp‑password"        # ≤‑‑ edit to real password
+    NEXTAUTH_URL           : "https://nartex.app"
+
   secrets-manager:
-    DATABASE_URL        : nartex-db-credentials
+    DATABASE_URL : nartex-db-credentials      # unchanged
 
 phases:
   install:
@@ -25,12 +33,7 @@ phases:
 
   build:
     commands:
-      # inject mail variables so `next build` succeeds
-      - export EMAIL_SERVER_HOST="smtp.mailgun.org"
-      - export EMAIL_SERVER_PORT="587"
-      - export EMAIL_SERVER_USER="$EMAIL_USER"
-      - export EMAIL_SERVER_PASSWORD="$EMAIL_PASS"
-      - export NEXTAUTH_URL="https://nartex.app"
+      # these env vars are already set above; no need to export again
 
       - echo "🏗  BUILD – resolving commit hash"
       - COMMIT_HASH=$(git rev-parse --short HEAD)
