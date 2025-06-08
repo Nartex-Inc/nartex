@@ -7,8 +7,6 @@ env:
     IMAGE_REPO_NAME    : "nartex-next"
   secrets-manager:
     DATABASE_URL : nartex-db-credentials          # already existed
-    EMAIL_USER   : nartex-email-user              # new – SMTP username
-    EMAIL_PASS   : nartex-email-password          # new – SMTP password
 
 phases:
   install:
