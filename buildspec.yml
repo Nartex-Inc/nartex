@@ -1,18 +1,12 @@
 version: 0.2
 
-# =================================================================
-# ENVIRONMENT VARIABLES
-# =================================================================
 env:
   variables:
     IMAGE_REPO_NAME: "nartex-next"
+
   secrets-manager:
-    # Fetches the plaintext secret from Secrets Manager
     DATABASE_URL: nartex-db-credentials
 
-# =================================================================
-# BUILD PHASES
-# =================================================================
 phases:
   install:
     runtime-versions:
@@ -31,17 +25,12 @@ phases:
 
   build:
     commands:
-      # BEST PRACTICE: Get the short Git commit hash to use as the image tag.
-      # This requires your pipeline's source stage to be set to "Full clone".
       - echo "Phase: build - Getting Git commit hash..."
       - COMMIT_HASH=$(git rev-parse --short HEAD)
       - echo "Building Docker image with tags: $COMMIT_HASH and latest"
       - ECR_IMAGE_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME
-      # Build the image and tag it with the commit hash
       - docker build -t $ECR_IMAGE_URI:$COMMIT_HASH .
-      # Also tag the same image as 'latest' for convenience
       - docker tag $ECR_IMAGE_URI:$COMMIT_HASH $ECR_IMAGE_URI:latest
-      # Push both tags to ECR
       - echo "Pushing commit-tagged image to ECR..."
       - docker push $ECR_IMAGE_URI:$COMMIT_HASH
       - echo "Pushing 'latest' tagged image to ECR..."
@@ -50,15 +39,10 @@ phases:
   post_build:
     commands:
       - echo "Phase: post_build - Creating image definitions file for ECS deployment..."
-      # BEST PRACTICE: The imageUri MUST point to the specific commit-tagged image for reliable deployments.
       - printf '[{"name":"nextjs","imageUri":"%s"}]' "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$COMMIT_HASH" > imagedefinitions.json
       - echo "Generated imagedefinitions.json:"
       - cat imagedefinitions.json
 
-# =================================================================
-# ARTIFACTS
-# =================================================================
 artifacts:
   files:
-    # This artifact is passed to the pipeline's Deploy stage.
     - imagedefinitions.json
