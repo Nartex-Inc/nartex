@@ -6,7 +6,7 @@ env:
     AWS_DEFAULT_REGION : "ca-central-1"
     IMAGE_REPO_NAME    : "nartex-next"
   secrets-manager:
-    DATABASE_URL : nartex-db-credentials          # already existed
+    DATABASE_URL        : nartex-db-credentials
 
 phases:
   install:
