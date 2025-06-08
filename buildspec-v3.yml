@@ -1,23 +1,68 @@
+version: 0.2
+
 env:
   variables:
-    AWS_ACCOUNT_ID     : "586359898361"
+    AWS_ACCOUNT_ID     : "586359898361"     # your AWS account
     AWS_DEFAULT_REGION : "ca-central-1"
     IMAGE_REPO_NAME    : "nartex-next"
   secrets-manager:
     DATABASE_URL       : nartex-db-credentials
-    EMAIL_USER         : nartex-email-user         # <-- add in Secrets Manager
-    EMAIL_PASS         : nartex-email-password     # <-- add in Secrets Manager
+    EMAIL_USER         : nartex-email-user       # <‑‑ create these two secrets in Secrets Manager
+    EMAIL_PASS         : nartex-email-password
 
 phases:
+  install:
+    runtime-versions:
+      nodejs: 18
+    commands:
+      - echo "📦  INSTALL – installing Node dependencies"
+      - npm ci
+
+      # If you someday need docker‑compose inside CodeBuild, uncomment below:
+      # - echo "📦  INSTALL – installing Docker‑Compose plugin"
+      # - curl -L https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 \
+      #     -o /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose
+
+  pre_build:
+    commands:
+      - echo "🔑  PRE_BUILD – logging in to Amazon ECR"
+      - >
+        aws ecr get-login-password --region "$AWS_DEFAULT_REGION" |
+        docker login --username AWS --password-stdin \
+        "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+
   build:
     commands:
-      # ─── Inject mail env vars for next build ───────────────
+      # ── Inject mail‑related env vars so `next build` succeeds ──────────────
       - export EMAIL_SERVER_HOST="smtp.mailgun.org"
       - export EMAIL_SERVER_PORT="587"
       - export EMAIL_SERVER_USER="$EMAIL_USER"
       - export EMAIL_SERVER_PASSWORD="$EMAIL_PASS"
       - export NEXTAUTH_URL="https://nartex.app"
-      # ─── existing commands follow ─────────────────────────
+
       - echo "🏗  BUILD – resolving commit hash"
       - COMMIT_HASH=$(git rev-parse --short HEAD)
-      ...
+
+      - echo "🏗  BUILD – building Docker image"
+      - |
+        ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
+        docker build -t "$ECR_IMAGE_URI:$COMMIT_HASH" -t "$ECR_IMAGE_URI:latest" .
+
+      - echo "🏗  BUILD – pushing both tags to ECR"
+      - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
+      - docker push "$ECR_IMAGE_URI:latest"
+
+      # Optional manual alias/tag you showed earlier
+      - echo "🏗  BUILD – aliasing as nartex-next-prod:latest"
+      - docker tag "$ECR_IMAGE_URI:latest" nartex-next-prod:latest
+      - docker push "$ECR_IMAGE_URI:latest"
+
+  post_build:
+    commands:
+      - echo "✅ POST_BUILD – generating imagedefinitions.json"
+      - printf '[{"name":"nextjs","imageUri":"%s"}]' "$ECR_IMAGE_URI:$COMMIT_HASH" > imagedefinitions.json
+      - cat imagedefinitions.json
+
+artifacts:
+  files:
+    - imagedefinitions.json
