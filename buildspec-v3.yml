@@ -26,15 +26,15 @@ phases:
 
   build:
     commands:
-      - 'echo "Phase: build – Getting Git commit hash..."'
+      - 'echo "Phase: build – Getting Git commit hash..."'
       - COMMIT_HASH=$(git rev-parse --short HEAD)
-      - 'echo "Building Docker image with tags: $COMMIT_HASH and latest"'
+      - 'echo "Building Docker image with tags $COMMIT_HASH and latest"'
       - ECR_IMAGE_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME
       - docker build -t $ECR_IMAGE_URI:$COMMIT_HASH .
-      - docker tag  $ECR_IMAGE_URI:$COMMIT_HASH $ECR_IMAGE_URI:latest
-      - 'echo "Pushing commit‑tagged image to ECR..."'
+      - docker tag $ECR_IMAGE_URI:$COMMIT_HASH $ECR_IMAGE_URI:latest
+      - echo "Pushing image tagged $COMMIT_HASH to ECR..."
       - docker push $ECR_IMAGE_URI:$COMMIT_HASH
-      - 'echo "Pushing '\''latest'\'' tagged image to ECR..."'
+      - echo "Pushing image tagged latest to ECR..."
       - docker push $ECR_IMAGE_URI:latest
 
   post_build:
