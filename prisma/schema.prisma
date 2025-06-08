@@ -1,3 +1,8 @@
+// ───────────────────────────────────────────────────────────────────────────────
+// Prisma / NextAuth schema
+// Works with PostgreSQL 15+
+// ───────────────────────────────────────────────────────────────────────────────
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,38 +12,50 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 1. USER MODEL (Updated for NextAuth Adapter + Your Custom Fields)
+////////////////////////////////////////////////////////////////////////////////
+// 1. USER                                                                     //
+////////////////////////////////////////////////////////////////////////////////
 model User {
-  id            String    @id @default(cuid()) // Using cuid() is common for NextAuth, but uuid() is also fine.
-  name          String?   // Populated by OAuth providers (e.g., "Nicolas Labranche")
-  firstName     String?   @map("first_name") // Your custom field, mapped to snake_case
-  lastName      String?   @map("last_name")  // Your custom field, mapped to snake_case
-  email         String?   @unique // Must be optional for some OAuth providers, but unique if present
-  emailVerified DateTime? @map("email_verified")
-  image         String?   // Profile picture URL from OAuth
-  password      String?   // For your credentials-based signup
-  role          String    @default("user") // Your custom role field. Changed default to "user" as it's more common.
+  // ─── Core identity ────────────────────────────────────────────────────────
+  id                String   @id @default(cuid())      // cuid() → string‑safe for OAuth
+  name              String?                           // Display name from OAuth
+  firstName         String?  @map("first_name")
+  lastName          String?  @map("last_name")
+  email             String?  @unique                  // Must stay nullable for OAuth‑only users
+  emailVerified     DateTime?@map("email_verified")
+  image             String?                           // Avatar URL
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  // ─── Authentication & authorisation ───────────────────────────────────────
+  password          String?                           // For credentials‑auth path
+  role              String   @default("user")         // "user" | "admin" | …
 
-  // Custom password reset fields (kept from your original schema)
+  // ─── Custom flows ─────────────────────────────────────────────────────────
+  verificationToken String?  @unique @map("verification_token")
   passwordResetToken   String?   @unique @map("password_reset_token")
   passwordResetExpires DateTime? @map("password_reset_expires")
-  
-  // Relations required by NextAuth adapter
-  accounts Account[]
-  sessions Session[]
+
+  // ─── Book‑keeping ─────────────────────────────────────────────────────────
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt      @map("updated_at")
+
+  // ─── Relations (NextAuth adapter) ─────────────────────────────────────────
+  accounts          Account[]
+  sessions          Session[]
+
+  @@map("users")
 }
 
-// 2. ACCOUNT MODEL (Required by NextAuth Adapter)
-// This links a User to an OAuth provider (e.g., their Google account).
+////////////////////////////////////////////////////////////////////////////////
+// 2. ACCOUNT  (OAuth accounts)                                                //
+////////////////////////////////////////////////////////////////////////////////
 model Account {
   id                String  @id @default(cuid())
   userId            String  @map("user_id")
+
   type              String
   provider          String
   providerAccountId String  @map("provider_account_id")
+
   refresh_token     String? @db.Text
   access_token      String? @db.Text
   expires_at        Int?
@@ -47,26 +64,30 @@ model Account {
   id_token          String? @db.Text
   session_state     String?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // ─── Relations ────────────────────────────────────────────────────────────
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@map("accounts")
 }
 
-// 3. SESSION MODEL (Required by NextAuth Adapter)
-// Used to store user sessions in the database.
+////////////////////////////////////////////////////////////////////////////////
+// 3. SESSION  (NextAuth sessions)                                            //
+////////////////////////////////////////////////////////////////////////////////
 model Session {
   id           String   @id @default(cuid())
   sessionToken String   @unique @map("session_token")
   userId       String   @map("user_id")
   expires      DateTime
+
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("sessions")
 }
 
-// 4. VERIFICATION TOKEN MODEL (Required by NextAuth Adapter)
-// Used for email verification, such as magic link sign-in or verifying email after signup.
+////////////////////////////////////////////////////////////////////////////////
+// 4. VERIFICATION TOKEN  (NextAuth e‑mail / magic‑link tokens)               //
+////////////////////////////////////////////////////////////////////////////////
 model VerificationToken {
   identifier String
   token      String   @unique
@@ -75,3 +96,20 @@ model VerificationToken {
   @@unique([identifier, token])
   @@map("verification_tokens")
 }
+
+/*
+────────────────────────────────────────────────────────────────────────────────
+Why this compiles now
+────────────────────────────────────────────────────────────────────────────────
+•  `verificationToken` was added as a **unique** field on User, so
+   `prisma.user.findUnique({ where: { verificationToken: token } })`
+   is legal TypeScript again.
+•  Each model has @@map() to keep snake_case table names consistent.
+•  All relations include `onDelete: Cascade` to mirror NextAuth defaults.
+────────────────────────────────────────────────────────────────────────────────
+Migrate locally:
+  npx prisma migrate dev --name add_verification_token
+Deploy on the bastion / staging / prod:
+  npx prisma migrate deploy
+────────────────────────────────────────────────────────────────────────────────
+*/
