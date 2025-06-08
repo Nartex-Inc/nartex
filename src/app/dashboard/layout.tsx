@@ -1,12 +1,11 @@
+// src/app/dashboard/layout.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react"; // Added useState
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Header } from "@/components/dashboard/header";
+import { Header } from "@/components/dashboard/header"; 
 import { Sidebar } from "@/components/dashboard/sidebar";
-import { mockApprovalRequestsData, mockUserTasksData } from "@/lib/data";
-import { TaskStatus } from "@/lib/types";
 import { Loader2 } from "lucide-react";
 
 export default function DashboardLayout({
@@ -14,16 +13,9 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { data: session, status } = useSession();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
-  useEffect(() => {
-    // Set initial state based on screen size, but only on the client
-    const checkSize = () => setIsSidebarOpen(window.innerWidth >= 1024);
-    checkSize();
-    window.addEventListener('resize', checkSize);
-    return () => window.removeEventListener('resize', checkSize);
-  }, []);
+  const sessionHookData = useSession();
+  const { status } = sessionHookData;
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // State to control the sidebar
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -31,39 +23,40 @@ export default function DashboardLayout({
     }
   }, [status]);
 
-  if (status === "loading" || !session) {
+  if (status === "loading" || !sessionHookData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="flex h-screen items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
   }
 
-  // Calculate notification count for the header
-  const overdueTasksCount = mockUserTasksData.filter(t => t.status === TaskStatus.EN_RETARD).length;
-  const pendingApprovalsCount = mockApprovalRequestsData.filter(a => a.status === 'pending').length;
-
-  return (
-    <div className="min-h-screen flex flex-col bg-background text-foreground font-sans">
-      {/* Pass the toggle function to the Header */}
-      <Header
-        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-        notificationCount={pendingApprovalsCount + overdueTasksCount}
-      />
-      
-      <div className="flex flex-1 overflow-hidden">
-        {/* Pass the state and toggle function to the Sidebar */}
-        <Sidebar
-          isOpen={isSidebarOpen}
-          toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+  if (status === "authenticated") {
+    return (
+      <div className="flex h-screen flex-col bg-muted/40">
+        {/* Your MVP header, not the one from the old screenshot */}
+        <Header
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          notificationCount={0}
         />
         
-        <main className="flex-1 flex flex-col overflow-y-auto">
-          <div className="flex-grow p-4 sm:p-6 lg:p-8">
+        {/* FIX: This container is now the main layout area.
+            - `flex-1`: Takes up all remaining vertical space.
+            - `overflow-hidden`: CRITICAL FIX. Prevents this container from growing larger
+              than the viewport, which stops the whole page from scrolling.
+        */}
+        <div className="flex flex-1 overflow-hidden">
+          <Sidebar
+            isOpen={isSidebarOpen}
+            toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          />
+          <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
             {children}
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return null; // Fallback while redirecting or for other states
 }

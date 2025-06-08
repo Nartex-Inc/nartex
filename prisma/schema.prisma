@@ -7,42 +7,38 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// 1. USER MODEL (Updated for NextAuth Adapter + Your Custom Fields)
 model User {
-  id            String    @id @default(uuid())
-  name          String?   // This seems to be for full name. Your form has given_name and family_name.
-                          // Consider if this 'name' field is still needed or how it's populated.
-                          // If populated from firstName and lastName, NextAuth callbacks can do this.
-  firstName     String?   // Corresponds to 'given_name' in your form
-  lastName      String?   // Corresponds to 'family_name' in your form
-  email         String    @unique
-  emailVerified DateTime? // Stores when the email was verified
-  password      String?   // Nullable if you allow OAuth-only signups
-  image         String?   // Profile picture URL
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  role          String    @default("unassigned") // <<< NEW FIELD ADDED HERE
+  id            String    @id @default(cuid()) // Using cuid() is common for NextAuth, but uuid() is also fine.
+  name          String?   // Populated by OAuth providers (e.g., "Nicolas Labranche")
+  firstName     String?   @map("first_name") // Your custom field, mapped to snake_case
+  lastName      String?   @map("last_name")  // Your custom field, mapped to snake_case
+  email         String?   @unique // Must be optional for some OAuth providers, but unique if present
+  emailVerified DateTime? @map("email_verified")
+  image         String?   // Profile picture URL from OAuth
+  password      String?   // For your credentials-based signup
+  role          String    @default("user") // Your custom role field. Changed default to "user" as it's more common.
 
-  // For NextAuth Adapter (OAuth account linking)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Custom password reset fields (kept from your original schema)
+  passwordResetToken   String?   @unique @map("password_reset_token")
+  passwordResetExpires DateTime? @map("password_reset_expires")
+  
+  // Relations required by NextAuth adapter
   accounts Account[]
-  // For NextAuth Adapter (if using database sessions, optional with JWTs)
   sessions Session[]
-
-  // Custom email verification
-  verificationToken      String?   @unique
-  // verificationTokenExpires DateTime? // Optional: if you want tokens to expire
-
-  // Custom password reset
-  passwordResetToken      String?   @unique
-  passwordResetExpires    DateTime?
 }
 
-// NextAuth Adapter Models
+// 2. ACCOUNT MODEL (Required by NextAuth Adapter)
+// This links a User to an OAuth provider (e.g., their Google account).
 model Account {
-  id                String  @id @default(uuid())
-  userId            String
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
   type              String
   provider          String
-  providerAccountId String
+  providerAccountId String  @map("provider_account_id")
   refresh_token     String? @db.Text
   access_token      String? @db.Text
   expires_at        Int?
@@ -54,22 +50,28 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@map("accounts")
 }
 
+// 3. SESSION MODEL (Required by NextAuth Adapter)
+// Used to store user sessions in the database.
 model Session {
-  id           String   @id @default(uuid())
-  sessionToken String   @unique
-  userId       String
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
 }
 
-// This is the standard NextAuth verification token model, useful if you use their email provider.
-// For custom email flow, we're using `verificationToken` on the User model.
-// You can choose to use this one if you prefer the NextAuth default email provider.
-// model VerificationToken {
-//   identifier String
-//   token      String   @unique
-//   expires    DateTime
-//   @@unique([identifier, token])
-// }
+// 4. VERIFICATION TOKEN MODEL (Required by NextAuth Adapter)
+// Used for email verification, such as magic link sign-in or verifying email after signup.
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
