@@ -1,26 +1,31 @@
+# buildspec.yml  ── Node 18 / Docker‑in‑Docker / ECS rolling deploy
+
 version: 0.2
 
 env:
+  # ─── visible at build‑time (non‑secret) ────────────────────────────────
   variables:
-    # ───── AWS / image info ──────────────────────────────────
     AWS_ACCOUNT_ID     : "586359898361"
     AWS_DEFAULT_REGION : "ca-central-1"
     IMAGE_REPO_NAME    : "nartex-next"
 
-    # ───── Mail / NextAuth (edit to real creds) ──────────────
-    EMAIL_SERVER_HOST      : "smtp.mailgun.org"
-    EMAIL_SERVER_PORT      : "587"
-    EMAIL_SERVER_USER      : "postmaster@smtp.mailgun.org"
-    EMAIL_SERVER_PASSWORD  : "super‑long‑smtp‑password"
-    NEXTAUTH_URL           : "https://nartex.app"
+    # NextAuth + mail settings that are safe to log
+    NEXTAUTH_URL       : "http://localhost:3000"
+    NEXTAUTH_SECRET    : "aK9mX2vL8pQ4rN6sT1wE5yU3iO7aB0cF9dG8hJ2kM5nP1"
 
+    EMAIL_SERVER_HOST  : "smtp.gmail.com"
+    EMAIL_SERVER_PORT  : "587"
+    EMAIL_SERVER_USER  : "n.labranche@nartex.ca"
+    EMAIL_FROM         : "Nartex <noreply@nartex.ca>"
+
+  # ─── pulled securely from Secrets Manager ──────────────────────────────
   secrets-manager:
-    DATABASE_URL : nartex-db-credentials
+    DATABASE_URL           : nartex-db-url          # ⇐ your RDS or test DB string
+    EMAIL_SERVER_PASSWORD  : nartex-gmail-password  # ⇐ Gmail app‑password
 
 phases:
   install:
-    runtime-versions:
-      nodejs: 18
+    runtime-versions: { nodejs: 18 }
     commands:
       - echo "📦  INSTALL – installing Node dependencies"
       - npm ci
@@ -30,49 +35,49 @@ phases:
       - echo "📜  Running Prisma migrations"
       - npx prisma migrate deploy
       - echo "🔑  PRE_BUILD – logging in to Amazon ECR"
-      - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+      - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" |
+        docker login --username AWS --password-stdin \
+        "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
 
   build:
     commands:
       - echo "🏗  BUILD – resolving commit hash"
       - COMMIT_HASH=$(git rev-parse --short HEAD)
-  
-      # ─── Write a .env.production file into the build context ─────────
+
+      # ─── write .env.production for `next build` ───────────────────────
       - printf '%s\n' \
+          "DATABASE_URL=$DATABASE_URL" \
           "EMAIL_SERVER_HOST=$EMAIL_SERVER_HOST" \
           "EMAIL_SERVER_PORT=$EMAIL_SERVER_PORT" \
           "EMAIL_SERVER_USER=$EMAIL_SERVER_USER" \
           "EMAIL_SERVER_PASSWORD=$EMAIL_SERVER_PASSWORD" \
+          "EMAIL_FROM=$EMAIL_FROM" \
           "NEXTAUTH_URL=$NEXTAUTH_URL" \
+          "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" \
         > .env.production
-      # ─────────────────────────────────────────────────────────────────
-  
-      - echo "🏗  BUILD – building Docker image"
+
+      - echo "🏗  BUILD – building & tagging Docker image"
       - |
         ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
         docker build -t "$ECR_IMAGE_URI:$COMMIT_HASH" -t "$ECR_IMAGE_URI:latest" .
-  
-      - echo "🏗  BUILD – pushing both tags to ECR"
+
+      - echo "📤  Pushing both tags to ECR"
       - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
-      - docker push "$ECR_IMAGE_URI:latest"
-  
-      # optional alias
-      - docker tag "$ECR_IMAGE_URI:latest" nartex-next-prod:latest
       - docker push "$ECR_IMAGE_URI:latest"
 
   post_build:
     commands:
-      - echo '🔄  Updating ECS service with safe rollout settings'
+      - echo '🔄  POST_BUILD – rolling out to ECS with overlap'
       - aws ecs update-service \
           --cluster nartex-cluster \
           --service nartex-next-service \
-          --task-definition nartex-next-task:"$CODEBUILD_RESOLVED_SOURCE_VERSION" \
+          --task-definition "$IMAGE_REPO_NAME" \
           --desired-count 2 \
           --force-new-deployment \
           --deployment-configuration \
-              maximumPercent=200,minimumHealthyPercent=50, \
+              maximumPercent=200,minimumHealthyPercent=50,\
               deploymentCircuitBreaker={enable=true,rollback=true} \
-          --region $AWS_DEFAULT_REGION
+          --region "$AWS_DEFAULT_REGION"
 
 artifacts:
   files:
