@@ -34,17 +34,27 @@ phases:
     commands:
       - echo "🏗  BUILD – resolving commit hash"
       - COMMIT_HASH=$(git rev-parse --short HEAD)
-
+  
+      # ─── Write a .env.production file into the build context ─────────
+      - printf '%s\n' \
+          "EMAIL_SERVER_HOST=$EMAIL_SERVER_HOST" \
+          "EMAIL_SERVER_PORT=$EMAIL_SERVER_PORT" \
+          "EMAIL_SERVER_USER=$EMAIL_SERVER_USER" \
+          "EMAIL_SERVER_PASSWORD=$EMAIL_SERVER_PASSWORD" \
+          "NEXTAUTH_URL=$NEXTAUTH_URL" \
+        > .env.production
+      # ─────────────────────────────────────────────────────────────────
+  
       - echo "🏗  BUILD – building Docker image"
       - |
         ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
         docker build -t "$ECR_IMAGE_URI:$COMMIT_HASH" -t "$ECR_IMAGE_URI:latest" .
-
+  
       - echo "🏗  BUILD – pushing both tags to ECR"
       - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
       - docker push "$ECR_IMAGE_URI:latest"
-
-      # Optional extra alias
+  
+      # optional alias
       - docker tag "$ECR_IMAGE_URI:latest" nartex-next-prod:latest
       - docker push "$ECR_IMAGE_URI:latest"
 
