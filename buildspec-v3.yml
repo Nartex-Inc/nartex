@@ -20,8 +20,8 @@ env:
 
   # ─── pulled securely from Secrets Manager ──────────────────────────────
   secrets-manager:
-    DATABASE_URL           : nartex-db-url          # ⇐ your RDS or test DB string
-    EMAIL_SERVER_PASSWORD  : nartex-gmail-password  # ⇐ Gmail app‑password
+    DATABASE_URL           : nartex-db-credentials
+    EMAIL_SERVER_PASSWORD  : EMAIL_SERVER_PASSWORD
 
 phases:
   install:
