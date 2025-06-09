@@ -62,9 +62,17 @@ phases:
 
   post_build:
     commands:
-      - echo "✅ POST_BUILD – generating imagedefinitions.json"
-      - printf '[{"name":"nextjs","imageUri":"%s"}]' "$ECR_IMAGE_URI:$COMMIT_HASH" > imagedefinitions.json
-      - cat imagedefinitions.json
+      - echo '🔄  Updating ECS service with safe rollout settings'
+      - aws ecs update-service \
+          --cluster nartex-cluster \
+          --service nartex-next-service \
+          --task-definition nartex-next-task:"$CODEBUILD_RESOLVED_SOURCE_VERSION" \
+          --desired-count 2 \
+          --force-new-deployment \
+          --deployment-configuration \
+              maximumPercent=200,minimumHealthyPercent=50, \
+              deploymentCircuitBreaker={enable=true,rollback=true} \
+          --region $AWS_DEFAULT_REGION
 
 artifacts:
   files:
