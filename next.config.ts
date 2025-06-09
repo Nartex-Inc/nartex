@@ -1,4 +1,4 @@
-import type { NextConfig } from 'next';
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -8,8 +8,20 @@ const nextConfig: NextConfig = {
   images: {
     domains: ['api.placeholder.com', 'localhost'],
   },
-  // Add this back - it's essential for containerized Next.js apps
-  output: 'standalone'
-};
+  // Essential for containerized Next.js apps
+  output: 'standalone',
 
-export default nextConfig;
+  // ─────── Rewrites to map /next/* → /_next/* ─────────────
+  // (only needed if something is stripping the "_" off)
+  async rewrites() {
+    return [
+      {
+        source: '/next/:path*',
+        destination: '/_next/:path*',
+      },
+    ]
+  },
+  // ────────────────────────────────────────────────────────
+}
+
+export default nextConfig
