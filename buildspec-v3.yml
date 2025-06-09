@@ -69,15 +69,15 @@ phases:
     commands:
       - echo '🔄  POST_BUILD – rolling out to ECS with overlap'
       - aws ecs update-service \
-          --cluster nartex-cluster \
-          --service nartex-next-service \
-          --task-definition "$IMAGE_REPO_NAME" \
-          --desired-count 2 \
-          --force-new-deployment \
-          --deployment-configuration \
-              maximumPercent=200,minimumHealthyPercent=50,\
-              deploymentCircuitBreaker={enable=true,rollback=true} \
-          --region "$AWS_DEFAULT_REGION"
+        --cluster nartex-cluster \
+        --service nartex-next-service \
+        --force-new-deployment \
+        --desired-count 2 \
+        --deployment-configuration \
+            maximumPercent=200,minimumHealthyPercent=50,\
+            deploymentCircuitBreaker={enable=true,rollback=true} \
+        --region "$AWS_DEFAULT_REGION"
+
 
 artifacts:
   files:
