@@ -60,13 +60,15 @@ phases:
 
   post_build:
     commands:
-      - echo '🔄  Redeploying ECS service (force pull of :latest)'
-      - aws ecs update-service \
+      - echo '🔄  POST_BUILD – redeploying ECS service (force pull of :latest)'
+      - |
+        aws ecs update-service \
           --cluster nartex-cluster \
           --service nartex-next-service \
           --force-new-deployment \
+          --desired-count 2 \
           --deployment-configuration maximumPercent=200,minimumHealthyPercent=50,deploymentCircuitBreaker={enable=true,rollback=true} \
-          --region "$AWS_DEFAULT_REGION"
+          --region $AWS_DEFAULT_REGION
 
 artifacts:
   files:
