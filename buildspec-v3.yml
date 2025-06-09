@@ -60,9 +60,8 @@ phases:
 
   post_build:
     commands:
-      - echo '🔄  POST_BUILD – force a redeployment of the latest image'
-      - |
-        aws ecs update-service \
+      - echo '🔄  Redeploying ECS service (force pull of :latest)'
+      - aws ecs update-service \
           --cluster nartex-cluster \
           --service nartex-next-service \
           --force-new-deployment \
