@@ -2,21 +2,14 @@ version: 0.2
 
 env:
   variables:
-    # ───── Non-sensitive AWS / image info ──────────────────────
-    AWS_ACCOUNT_ID: "586359898361"
-    AWS_DEFAULT_REGION: "ca-central-1"
     IMAGE_REPO_NAME: "nartex-next"
-
-    # ───── Non-sensitive application configuration ─────────────
-    NEXTAUTH_URL: "https://nartex.app" # IMPORTANT: Use your production URL
+    NEXTAUTH_URL: "https://nartex.app"
     EMAIL_SERVER_HOST: "smtp.gmail.com"
     EMAIL_SERVER_PORT: "587"
     EMAIL_SERVER_USER: "n.labranche@nartex.ca"
     EMAIL_FROM: "Nartex <noreply@nartex.ca>"
 
   secrets-manager:
-    # ───── All sensitive credentials are fetched from the new secret ──────
-    # SYNTAX: <variable_name_in_build>: <secret_name>:<key_in_secret>
     DATABASE_URL:           nartex/prod/env:DATABASE_URL
     EMAIL_SERVER_PASSWORD:  nartex/prod/env:EMAIL_SERVER_PASSWORD
     NEXTAUTH_SECRET:        nartex/prod/env:NEXTAUTH_SECRET
@@ -28,71 +21,60 @@ env:
 
 phases:
   install:
-    runtime-versions: { nodejs: 18 }
+    runtime-versions:
+      nodejs: 18
     commands:
       - echo "📦  INSTALL – installing Node dependencies"
       - npm ci
 
   pre_build:
     commands:
-      - echo "📜  Running Prisma migrations"
+      - echo "📜  PRE_BUILD – running Prisma migrations"
       - npx prisma migrate deploy
       - echo "🔑  PRE_BUILD – logging in to Amazon ECR"
-      - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
 
-    build:
-      commands:
-        - echo "🏗  BUILD – resolving commit hash"
-        - COMMIT_HASH=$(git rev-parse --short HEAD)
-  
-        # ─── Write ALL environment variables into the .env.production file ───
-        # This file will be copied into the final Docker image for runtime use.
-        - echo "📝  BUILD – creating .env.production file"
-        - printf '%s\n' \
-            "DATABASE_URL=$DATABASE_URL" \
-            "EMAIL_SERVER_HOST=$EMAIL_SERVER_HOST" \
-            "EMAIL_SERVER_PORT=$EMAIL_SERVER_PORT" \
-            "EMAIL_SERVER_USER=$EMAIL_SERVER_USER" \
-            "EMAIL_SERVER_PASSWORD=$EMAIL_SERVER_PASSWORD" \
-            "EMAIL_FROM=$EMAIL_FROM" \
-            "NEXTAUTH_URL=$NEXTAUTH_URL" \
-            "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" \
-            "GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID" \
-            "GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET" \
-            "AZURE_AD_CLIENT_ID=$AZURE_AD_CLIENT_ID" \
-            "AZURE_AD_CLIENT_SECRET=$AZURE_AD_CLIENT_SECRET" \
-            "AZURE_AD_TENANT_ID=$AZURE_AD_TENANT_ID" \
-          > .env.production
-        # ───────────────────────────────────────────────────────────────────
-  
-        - echo "🏗  BUILD – building Docker image with consistent Build ID"
-        - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
-        
-        # --- THIS IS THE FIXED DOCKER BUILD COMMAND ---
-        # It passes the GIT_COMMIT_HASH to the Dockerfile via --build-arg.
-        # The literal block style `|` ensures it is parsed correctly by CodeBuild.
-        - |
-          docker build \
-            --build-arg GIT_COMMIT_HASH=$COMMIT_HASH \
-            -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
-            -t "$ECR_IMAGE_URI:latest" .
-  
-        - echo "📤  Pushing both tags to ECR"
-        - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
-        - docker push "$ECR_IMAGE_URI:latest"
+  build:
+    commands:
+      - echo "🏗  BUILD – resolving commit hash"
+      - COMMIT_HASH=$(git rev-parse --short HEAD)
+      - echo "📝  BUILD – creating .env.production file"
+      - printf '%s\n' \
+          "DATABASE_URL=$DATABASE_URL" \
+          "EMAIL_SERVER_HOST=$EMAIL_SERVER_HOST" \
+          "EMAIL_SERVER_PORT=$EMAIL_SERVER_PORT" \
+          "EMAIL_SERVER_USER=$EMAIL_SERVER_USER" \
+          "EMAIL_SERVER_PASSWORD=$EMAIL_SERVER_PASSWORD" \
+          "EMAIL_FROM=$EMAIL_FROM" \
+          "NEXTAUTH_URL=$NEXTAUTH_URL" \
+          "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" \
+          "GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID" \
+          "GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET" \
+          "AZURE_AD_CLIENT_ID=$AZURE_AD_CLIENT_ID" \
+          "AZURE_AD_CLIENT_SECRET=$AZURE_AD_CLIENT_SECRET" \
+          "AZURE_AD_TENANT_ID=$AZURE_AD_TENANT_ID" \
+        > .env.production
+      - echo "🏗  BUILD – building Docker image with consistent Build ID"
+      - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
+      - |
+        docker build \
+          --build-arg GIT_COMMIT_HASH=$COMMIT_HASH \
+          -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
+          -t "$ECR_IMAGE_URI:latest" .
+      - echo "📤  BUILD – pushing both tags to ECR"
+      - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
+      - docker push "$ECR_IMAGE_URI:latest"
 
-    post_build:
-      commands:
-        - echo '🔄  POST_BUILD – forcing new deployment of ECS service'
-        - |
-          aws ecs update-service \
-            --cluster nartex-cluster \
-            --service nartex-next-service \
-            --force-new-deployment \
-            --region $AWS_DEFAULT_REGION
+  post_build:
+    commands:
+      - echo '🔄  POST_BUILD – forcing new deployment of ECS service'
+      - |
+        aws ecs update-service \
+          --cluster nartex-cluster \
+          --service nartex-next-service \
+          --force-new-deployment \
+          --region $AWS_DEFAULT_REGION
 
-# The artifacts section is not strictly needed when deploying directly from the build stage,
-# but it's good practice to keep it for potential future pipeline structures.
 artifacts:
   files:
     - imagedefinitions.json
