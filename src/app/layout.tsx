@@ -1,9 +1,15 @@
 // src/app/layout.tsx
 import type { Metadata } from "next";
-import { GeistSans } from "geist/font/sans";
-import { GeistMono } from "geist/font/mono";
+import { Poppins } from "next/font/google"; // <-- NEW: Import Poppins
 import "./globals.css";
-import SessionProviderWrapper from "./SessionProviderWrapper"; // Ensure this path is correct
+import SessionProviderWrapper from "./SessionProviderWrapper";
+
+// --- NEW: Configure the Poppins font ---
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"], // Include various weights
+  variable: "--font-poppins", // Set a CSS variable
+});
 
 export const metadata: Metadata = {
   title: "Nartex | Plateforme de gestion centralisée",
@@ -17,16 +23,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" suppressHydrationWarning className={`${GeistSans.variable} ${GeistMono.variable} h-full`}>
+    // Add the new font variable to the html tag
+    <html lang="fr" suppressHydrationWarning className={`${poppins.variable} h-full`}>
       <body
-        // KEY FIXES:
-        // 1. `h-full`: Ensures the body can fill the viewport.
-        // 2. `bg-zinc-900`: Sets the dark grey background for the entire application.
-        // 3. `overflow-hidden`: Prevents the body itself from ever showing a scrollbar.
+        // Set the new font as the default sans-serif font
         className="h-full bg-zinc-900 font-sans antialiased overflow-hidden"
       >
         <SessionProviderWrapper>
-            {/* ThemeProvider is removed as it's not needed for a single dark theme */}
             {children}
         </SessionProviderWrapper>
       </body>
