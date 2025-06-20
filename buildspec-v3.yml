@@ -72,14 +72,15 @@ phases:
       - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
       - docker push "$ECR_IMAGE_URI:latest"
 
-  post_build:
-    commands:
-      - echo '🔄  POST_BUILD – redeploying ECS service (force pull of :latest)'
-      - aws ecs update-service \
-          --cluster nartex-cluster \
-          --service nartex-next-service \
-          --force-new-deployment \
-          --region $AWS_DEFAULT_REGION
+    post_build:
+      commands:
+        - echo '🔄  POST_BUILD – forcing new deployment of ECS service'
+        - |
+          aws ecs update-service \
+            --cluster nartex-cluster \
+            --service nartex-next-service \
+            --force-new-deployment \
+            --region $AWS_DEFAULT_REGION
 
 # The artifacts section is not strictly needed when deploying directly from the build stage,
 # but it's good practice to keep it for potential future pipeline structures.
