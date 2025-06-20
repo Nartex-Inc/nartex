@@ -2,21 +2,29 @@ version: 0.2
 
 env:
   variables:
-    AWS_ACCOUNT_ID     : "586359898361"
-    AWS_DEFAULT_REGION : "ca-central-1"
-    IMAGE_REPO_NAME    : "nartex-next"
+    # ───── Non-sensitive AWS / image info ──────────────────────
+    AWS_ACCOUNT_ID: "586359898361"
+    AWS_DEFAULT_REGION: "ca-central-1"
+    IMAGE_REPO_NAME: "nartex-next"
 
-    NEXTAUTH_URL       : "http://localhost:3000"
-    NEXTAUTH_SECRET    : "aK9mX2vL8pQ4rN6sT1wE5yU3iO7aB0cF9dG8hJ2kM5nP1"
-
-    EMAIL_SERVER_HOST  : "smtp.gmail.com"
-    EMAIL_SERVER_PORT  : "587"
-    EMAIL_SERVER_USER  : "n.labranche@nartex.ca"
-    EMAIL_FROM         : "Nartex <noreply@nartex.ca>"
+    # ───── Non-sensitive application configuration ─────────────
+    NEXTAUTH_URL: "https://nartex.app" # IMPORTANT: Use your production URL
+    EMAIL_SERVER_HOST: "smtp.gmail.com"
+    EMAIL_SERVER_PORT: "587"
+    EMAIL_SERVER_USER: "n.labranche@nartex.ca"
+    EMAIL_FROM: "Nartex <noreply@nartex.ca>"
 
   secrets-manager:
-    DATABASE_URL          : nartex-db-credentials
-    EMAIL_SERVER_PASSWORD : EMAIL_SERVER_PASSWORD
+    # ───── All sensitive credentials are fetched from the new secret ──────
+    # SYNTAX: <variable_name_in_build>: <secret_name>:<key_in_secret>
+    DATABASE_URL:           nartex/prod/env:DATABASE_URL
+    EMAIL_SERVER_PASSWORD:  nartex/prod/env:EMAIL_SERVER_PASSWORD
+    NEXTAUTH_SECRET:        nartex/prod/env:NEXTAUTH_SECRET
+    GOOGLE_CLIENT_ID:       nartex/prod/env:GOOGLE_CLIENT_ID
+    GOOGLE_CLIENT_SECRET:   nartex/prod/env:GOOGLE_CLIENT_SECRET
+    AZURE_AD_CLIENT_ID:     nartex/prod/env:AZURE_AD_CLIENT_ID
+    AZURE_AD_CLIENT_SECRET: nartex/prod/env:AZURE_AD_CLIENT_SECRET
+    AZURE_AD_TENANT_ID:     nartex/prod/env:AZURE_AD_TENANT_ID
 
 phases:
   install:
@@ -29,8 +37,7 @@ phases:
     commands:
       - echo "📜  Running Prisma migrations"
       - npx prisma migrate deploy
-
-      - echo "🔑  PRE_BUILD – logging in to Amazon ECR"
+      - echo "🔑  PRE_BUILD – logging in to Amazon ECR"
       - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
 
   build:
@@ -38,6 +45,8 @@ phases:
       - echo "🏗  BUILD – resolving commit hash"
       - COMMIT_HASH=$(git rev-parse --short HEAD)
 
+      # ─── Write ALL environment variables into the .env.production file ───
+      - echo "📝  BUILD – creating .env.production file"
       - printf '%s\n' \
           "DATABASE_URL=$DATABASE_URL" \
           "EMAIL_SERVER_HOST=$EMAIL_SERVER_HOST" \
@@ -47,12 +56,17 @@ phases:
           "EMAIL_FROM=$EMAIL_FROM" \
           "NEXTAUTH_URL=$NEXTAUTH_URL" \
           "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" \
+          "GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID" \
+          "GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET" \
+          "AZURE_AD_CLIENT_ID=$AZURE_AD_CLIENT_ID" \
+          "AZURE_AD_CLIENT_SECRET=$AZURE_AD_CLIENT_SECRET" \
+          "AZURE_AD_TENANT_ID=$AZURE_AD_TENANT_ID" \
         > .env.production
+      # ───────────────────────────────────────────────────────────────────
 
       - echo "🏗  BUILD – building & tagging Docker image"
-      - |
-        ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
-        docker build -t "$ECR_IMAGE_URI:$COMMIT_HASH" -t "$ECR_IMAGE_URI:latest" .
+      - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
+      - docker build -t "$ECR_IMAGE_URI:$COMMIT_HASH" -t "$ECR_IMAGE_URI:latest" .
 
       - echo "📤  Pushing both tags to ECR"
       - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
@@ -61,15 +75,14 @@ phases:
   post_build:
     commands:
       - echo '🔄  POST_BUILD – redeploying ECS service (force pull of :latest)'
-      - |
-        aws ecs update-service \
+      - aws ecs update-service \
           --cluster nartex-cluster \
           --service nartex-next-service \
           --force-new-deployment \
-          --desired-count 2 \
-          --deployment-configuration maximumPercent=200,minimumHealthyPercent=50,deploymentCircuitBreaker={enable=true,rollback=true} \
           --region $AWS_DEFAULT_REGION
 
+# The artifacts section is not strictly needed when deploying directly from the build stage,
+# but it's good practice to keep it for potential future pipeline structures.
 artifacts:
   files:
     - imagedefinitions.json
