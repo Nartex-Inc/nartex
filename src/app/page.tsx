@@ -1,3 +1,4 @@
+// src/app/page.tsx
 "use client";
 export const dynamic = "force-dynamic";
 
@@ -8,7 +9,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
 
-// --- Icon Components (No changes needed here) ---
+// --- Icon Components ---
 const EyeIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -44,7 +45,6 @@ const LoadingSpinner: React.FC<{ className?: string }> = ({ className = "h-5 w-5
   </svg>
 );
 
-// ─── Premium Particle System with updated drawing logic ───
 const ParticleField: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -53,24 +53,19 @@ const ParticleField: React.FC = () => {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
     let animationFrameId: number;
-    
     const resizeCanvas = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
     };
     resizeCanvas();
-    
     interface Particle {
       x: number; y: number; vx: number; vy: number;
       radius: number; opacity: number;
     }
-
     const particles: Particle[] = [];
     const particleCount = 60;
     const connectionDistance = 180;
-
     for (let i = 0; i < particleCount; i++) {
       particles.push({
         x: Math.random() * canvas.width,
@@ -81,30 +76,23 @@ const ParticleField: React.FC = () => {
         opacity: Math.random() * 0.5 + 0.2,
       });
     }
-
     const animate = () => {
-      // --- CHANGE HERE: Use fillRect for a trailing effect ---
-      ctx.fillStyle = 'rgba(24, 24, 27, 0.1)'; // Semi-transparent zinc-900
+      ctx.fillStyle = 'rgba(24, 24, 27, 0.1)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-
       particles.forEach((p, i) => {
         p.x += p.vx;
         p.y += p.vy;
-
         if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
         if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
-
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(165, 180, 252, ${p.opacity})`;
         ctx.fill();
-
         for (let j = i + 1; j < particles.length; j++) {
           const p2 = particles[j];
           const dx = p.x - p2.x;
           const dy = p.y - p2.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
-
           if (distance < connectionDistance) {
             ctx.beginPath();
             const opacity = 1 - (distance / connectionDistance);
@@ -116,12 +104,9 @@ const ParticleField: React.FC = () => {
           }
         }
       });
-
       animationFrameId = requestAnimationFrame(animate);
     };
-
     animate();
-
     window.addEventListener('resize', resizeCanvas);
     return () => {
       window.removeEventListener('resize', resizeCanvas);
@@ -132,10 +117,7 @@ const ParticleField: React.FC = () => {
   return <canvas ref={canvasRef} className="fixed inset-0 -z-10" />;
 };
 
-
-// ─── Inner client component ─────────────────────────────────────────────
 function LoginForm() {
-  // ... (No changes to state or functions needed)
   const params = useSearchParams();
   const confirmed = params?.get("confirmed") === "true";
   const newUserEmailSent = params?.get("emailVerificationSent") === "true";
@@ -158,7 +140,6 @@ function LoginForm() {
 
   const router = useRouter();
   const { status } = useSession();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -173,7 +154,7 @@ function LoginForm() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-900"> {/* Use new bg color */}
+      <div className="h-screen flex items-center justify-center">
         <LoadingSpinner className="h-8 w-8 text-indigo-500" />
       </div>
     );
@@ -184,14 +165,12 @@ function LoginForm() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-
     const res = await signIn("credentials", {
       redirect: false,
       email,
       password,
       callbackUrl: "/dashboard",
     });
-
     if (res?.error) {
       setError(res.error === "CredentialsSignin" ? "Adresse e-mail ou mot de passe incorrect." : "Une erreur est survenue.");
       setLoading(false);
@@ -206,15 +185,14 @@ function LoginForm() {
     signIn(provider, { callbackUrl: "/dashboard" });
   };
 
-
   return (
-    // --- CHANGE HERE: Updated background color ---
-    <div className="min-h-screen flex flex-col bg-zinc-900 text-gray-100 font-sans antialiased relative">
+    // KEY FIX: Removed `bg-zinc-900` and changed `min-h-screen` to `h-screen`
+    <div className="h-screen flex flex-col text-gray-100 font-sans antialiased relative">
       <ParticleField />
       
-      {/* ... (rest of the component JSX remains the same as it was already well-structured) ... */}
       <div className="absolute top-0 left-0 w-96 h-96 bg-indigo-900/30 rounded-full blur-3xl opacity-20 -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-blue-900/30 rounded-full blur-3xl opacity-20 translate-x-1/2 translate-y-1/2 pointer-events-none"></div>
+
       {showBanner && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-emerald-950/50 backdrop-blur-xl border border-emerald-500/20 text-emerald-300 px-4 py-2 rounded-full shadow-lg z-50 text-xs animate-fade-in-down">
           Votre compte a bien été activé ! Vous pouvez maintenant vous connecter.
@@ -225,38 +203,30 @@ function LoginForm() {
           Compte créé ! Veuillez consulter votre boîte de réception pour vérifier votre e-mail.
         </div>
       )}
+
       <header className="relative z-10 py-5 px-8">
         <div className="container mx-auto flex items-center justify-between">
           <Link href="/" className="relative group">
             <div className="absolute -inset-2 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg blur-xl opacity-0 group-hover:opacity-20 transition-opacity duration-500"></div>
-            <Image
-              src="/nartex-logo.svg"
-              alt="Nartex"
-              width={85}
-              height={21}
-              className="relative filter invert opacity-80 group-hover:opacity-100 transition-opacity"
-              onError={e => (e.currentTarget.src = "https://placehold.co/85x21/ffffff/000000?text=Nartex")}
-            />
+            <Image src="/nartex-logo.svg" alt="Nartex" width={85} height={21} className="relative filter invert opacity-80 group-hover:opacity-100 transition-opacity" onError={e => (e.currentTarget.src = "https://placehold.co/85x21/ffffff/000000?text=Nartex")} />
           </Link>
           <div className="hidden md:flex items-center gap-2 text-xs text-zinc-600">
             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-            <span>Portail d'entreprise unifiée</span>
+            <span>Enterprise Platform</span>
           </div>
         </div>
       </header>
-      <main className="flex-1 flex items-center justify-center py-8 px-6 relative z-10">
+      
+      {/* KEY FIX: Added overflow-y-auto to the main element for responsive scrolling */}
+      <main className="flex-1 flex items-center justify-center py-8 px-6 relative z-10 overflow-y-auto">
         <div className="flex w-full max-w-6xl gap-24 items-center">
           <div className="hidden lg:flex lg:flex-col lg:w-1/2 py-12">
             <h1 className="text-6xl font-thin tracking-tighter mb-6">
-              <span className="text-white/80">Bienvenue sur</span>
-              <br />
-              <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent font-normal">
-                Nartex
-              </span>
+              <span className="text-white/80">Bienvenue sur</span><br />
+              <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent font-normal">Nartex Enterprise</span>
             </h1>
             <p className="text-xl text-zinc-400 mb-12 leading-relaxed max-w-lg">
-              La plateforme de gestion centralisée qui révolutionne votre productivité 
-              et transforme vos flux de travail.
+              La plateforme de gestion centralisée qui révolutionne votre productivité et transforme vos flux de travail.
             </p>
             <div className="space-y-8">
               {[
@@ -286,9 +256,7 @@ function LoginForm() {
                 <h2 className="text-3xl font-light mb-2 text-white text-center">Connexion sécurisée</h2>
                 <p className="text-base text-zinc-500 mb-10 text-center">Accédez à votre espace de travail.</p>
                 {error && (
-                  <div className="bg-red-950/30 border border-red-900/50 text-red-400 px-4 py-3 rounded-lg mb-8 text-sm text-center" role="alert">
-                    {error}
-                  </div>
+                  <div className="bg-red-950/30 border border-red-900/50 text-red-400 px-4 py-3 rounded-lg mb-8 text-sm text-center" role="alert">{error}</div>
                 )}
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div>
@@ -340,7 +308,7 @@ function LoginForm() {
         </div>
       </main>
       <footer className="relative z-10 py-5 px-8 text-center text-xs text-zinc-700 font-mono tracking-widest">
-        © {new Date().getFullYear()} Nartex
+        © {new Date().getFullYear()} NARTEX ENTERPRISE
       </footer>
       <style jsx>{`
         @keyframes fade-in-down {
@@ -360,7 +328,7 @@ function LoginForm() {
 
 const PremiumLoginPage: NextPage = () => (
   <Suspense fallback={
-    <div className="min-h-screen flex items-center justify-center bg-zinc-900">
+    <div className="h-screen flex items-center justify-center bg-zinc-900">
       <LoadingSpinner className="h-8 w-8 text-indigo-500" />
     </div>
   }>
