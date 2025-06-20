@@ -21,9 +21,10 @@ RUN npm ci
 # This includes prisma, src, public, next.config.js, etc.
 COPY . .
 
-# --- THIS IS THE FIX ---
-# The .env.production file is created by your buildspec *before* `docker build` runs.
-# We need to copy it into this build stage so that it can be copied to the final runner stage later.
+# --- THIS IS THE CRITICAL FIX ---
+# The .env.production file is created by your buildspec. We need to
+# copy it into the builder so that the `next build` command can access
+# the environment variables (like SSO client IDs) it needs.
 COPY .env.production ./.env.production
 
 # 3. Generate Prisma Client
@@ -31,7 +32,7 @@ COPY .env.production ./.env.production
 RUN npx prisma generate
 
 # 4. Build the Next.js application for production
-# This creates the optimized build output in the .next folder.
+# This command will now succeed because the .env.production file is present.
 RUN npm run build
 
 
@@ -54,16 +55,14 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/public ./public
 
 # 3. Copy over the compiled static assets (.js, .css chunks)
-# This is the crucial step for your frontend assets.
 COPY --from=builder /app/.next/static ./.next/static
 
 # 4. Copy over the Prisma schema and generated client for runtime use
 COPY --from=builder /app/prisma/schema.prisma ./prisma/schema.prisma
 COPY --from=builder /app/node_modules/.prisma/client ./node_modules/.prisma/client
 
-# 5. Copy the production environment file created in the buildspec
-# This file contains all the secrets and will be read by your app at runtime.
-# This command now works because we copied the file into the builder stage first.
+# 5. Copy the production environment file again for the final runtime container
+# This command was already correct.
 COPY --from=builder /app/.env.production ./.env.production
 
 
