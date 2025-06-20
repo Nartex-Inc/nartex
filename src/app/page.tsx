@@ -8,7 +8,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
 
-// --- Icon Components (No changes needed) ---
+// --- Icon Components ---
 const EyeIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -44,66 +44,29 @@ const LoadingSpinner: React.FC<{ className?: string }> = ({ className = "h-5 w-5
   </svg>
 );
 
-
-// ─── Particle System with new GREEN color scheme ──────────────────
 const ParticleField: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const canvas = canvasRef.current; if (!canvas) return;
+    const ctx = canvas.getContext('2d'); if (!ctx) return;
     let animationFrameId: number;
-    const resizeCanvas = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
+    const resizeCanvas = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
     resizeCanvas();
-    interface Particle {
-      x: number; y: number; vx: number; vy: number;
-      radius: number; opacity: number;
-    }
-    const particles: Particle[] = [];
-    const particleCount = 60;
-    const connectionDistance = 180;
+    interface Particle { x: number; y: number; vx: number; vy: number; radius: number; opacity: number; }
+    const particles: Particle[] = []; const particleCount = 60; const connectionDistance = 180;
     for (let i = 0; i < particleCount; i++) {
-      particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.2,
-        vy: (Math.random() - 0.5) * 0.2,
-        radius: Math.random() * 1.5 + 0.5,
-        opacity: Math.random() * 0.5 + 0.2,
-      });
+      particles.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2, radius: Math.random() * 1.5 + 0.5, opacity: Math.random() * 0.5 + 0.2, });
     }
     const animate = () => {
-      ctx.fillStyle = 'rgba(24, 24, 27, 0.1)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'rgba(24, 24, 27, 0.1)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
       particles.forEach((p, i) => {
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
-        if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        // Using emerald-300 (110, 231, 183) for particles
-        ctx.fillStyle = `rgba(110, 231, 183, ${p.opacity})`;
-        ctx.fill();
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0 || p.x > canvas.width) p.vx *= -1; if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fillStyle = `rgba(110, 231, 183, ${p.opacity})`; ctx.fill();
         for (let j = i + 1; j < particles.length; j++) {
-          const p2 = particles[j];
-          const dx = p.x - p2.x;
-          const dy = p.y - p2.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
+          const p2 = particles[j]; const dx = p.x - p2.x; const dy = p.y - p2.y; const distance = Math.sqrt(dx * dx + dy * dy);
           if (distance < connectionDistance) {
-            ctx.beginPath();
-            const opacity = 1 - (distance / connectionDistance);
-            // Using emerald-400 (52, 211, 153) for connections
-            ctx.strokeStyle = `rgba(52, 211, 153, ${opacity * 0.2})`;
-            ctx.lineWidth = 0.5;
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.stroke();
+            ctx.beginPath(); const opacity = 1 - (distance / connectionDistance); ctx.strokeStyle = `rgba(52, 211, 153, ${opacity * 0.2})`; ctx.lineWidth = 0.5; ctx.moveTo(p.x, p.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
           }
         }
       });
@@ -111,10 +74,7 @@ const ParticleField: React.FC = () => {
     };
     animate();
     window.addEventListener('resize', resizeCanvas);
-    return () => {
-      window.removeEventListener('resize', resizeCanvas);
-      cancelAnimationFrame(animationFrameId);
-    }
+    return () => { window.removeEventListener('resize', resizeCanvas); cancelAnimationFrame(animationFrameId); }
   }, []);
   return <canvas ref={canvasRef} className="fixed inset-0 -z-10" />;
 };
@@ -152,8 +112,10 @@ function LoginForm() {
       return;
     }
     router.push("/dashboard");
-  }; // <--- THIS IS THE FIX: Added the missing closing brace and semicolon
+  };
 
+  // --- THIS IS THE FIX ---
+  // The provider ID for standard Entra ID is `azure-ad`.
   const handleSSOLogin = (provider: "google" | "azure-ad") => {
     setLoading(true);
     setError(null);
@@ -164,7 +126,6 @@ function LoginForm() {
     <div className="h-screen flex flex-col text-gray-100 font-sans antialiased relative">
       <ParticleField />
       
-      {/* UPDATED: Background glow elements now use emerald */}
       <div className="absolute top-0 left-0 w-96 h-96 bg-emerald-900/30 rounded-full blur-3xl opacity-20 -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-green-900/30 rounded-full blur-3xl opacity-20 translate-x-1/2 translate-y-1/2 pointer-events-none"></div>
 
@@ -173,7 +134,6 @@ function LoginForm() {
           Votre compte a bien été activé ! Vous pouvez maintenant vous connecter.
         </div>
       )}
-      {/* UPDATED: New user banner now uses a consistent green theme */}
       {showNewUserBanner && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-emerald-950/50 backdrop-blur-xl border border-emerald-500/20 text-emerald-300 px-4 py-2 rounded-full shadow-lg z-50 text-xs animate-fade-in-down">
           Compte créé ! Veuillez consulter votre boîte de réception pour vérifier votre e-mail.
@@ -182,7 +142,6 @@ function LoginForm() {
 
       <header className="relative z-10 py-5 px-8">
         <div className="container mx-auto flex items-center justify-between">
-          {/* UPDATED: Header logo glow on hover */}
           <Link href="/" className="relative group">
             <div className="absolute -inset-2 bg-gradient-to-r from-emerald-600 to-green-600 rounded-lg blur-xl opacity-0 group-hover:opacity-20 transition-opacity duration-500"></div>
             <Image src="/nartex-logo.svg" alt="Nartex" width={85} height={21} className="relative filter invert opacity-80 group-hover:opacity-100 transition-opacity" onError={e => (e.currentTarget.src = "https://placehold.co/85x21/ffffff/000000?text=Nartex")} />
@@ -199,7 +158,6 @@ function LoginForm() {
           <div className="hidden lg:flex lg:flex-col lg:w-1/2 py-12">
             <h1 className="text-6xl font-thin tracking-tighter mb-6">
               <span className="text-white/80">Bienvenue sur</span><br />
-              {/* UPDATED: Headline gradient is now green */}
               <span className="bg-gradient-to-r from-emerald-400 to-green-400 bg-clip-text text-transparent font-normal">Nartex.</span>
             </h1>
             <p className="text-xl text-zinc-400 mb-12 leading-relaxed max-w-lg">La plateforme de gestion centralisée qui révolutionne votre productivité et transforme vos flux de travail.</p>
@@ -223,7 +181,6 @@ function LoginForm() {
           </div>
           <div className="w-full lg:w-1/2">
             <div className="relative">
-              {/* UPDATED: Liquid glass effect glow is now green */}
               <div className="absolute -inset-2 bg-gradient-to-r from-emerald-800/20 via-green-800/20 to-emerald-800/20 rounded-3xl blur-3xl opacity-40 animate-pulse-slow"></div>
               <div className="relative bg-zinc-950/60 backdrop-blur-2xl border border-zinc-800/40 rounded-2xl p-12 shadow-2xl shadow-black/20">
                 <h2 className="text-3xl font-light mb-2 text-white text-center">Connexion sécurisée</h2>
@@ -234,18 +191,15 @@ function LoginForm() {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div>
                     <label htmlFor="email" className="block text-xs font-medium text-zinc-400 mb-2 uppercase tracking-wider">Adresse e-mail</label>
-                    {/* UPDATED: Input focus rings are now green */}
                     <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="vous@exemple.com"
                            className="w-full px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 focus:bg-zinc-900/70 transition-all text-sm" />
                   </div>
                   <div>
                     <div className="flex justify-between items-center mb-2">
                       <label htmlFor="password" className="block text-xs font-medium text-zinc-400 uppercase tracking-wider">Mot de passe</label>
-                      {/* UPDATED: Link color is now green */}
                       <Link href="/forgot-password" className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors">Mot de passe oublié ?</Link>
                     </div>
                     <div className="relative">
-                      {/* UPDATED: Input focus rings are now green */}
                       <input id="password" type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••••••"
                              className="w-full px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 focus:bg-zinc-900/70 transition-all pr-12 text-sm" />
                       <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-500 hover:text-zinc-300 transition-colors">
@@ -253,7 +207,6 @@ function LoginForm() {
                       </button>
                     </div>
                   </div>
-                  {/* UPDATED: Main button gradient and shadow are now green */}
                   <button type="submit" disabled={loading} className="w-full group relative overflow-hidden py-3 px-4 bg-gradient-to-r from-emerald-600 to-green-600 rounded-lg text-white font-semibold text-sm transition-all shadow-lg hover:shadow-emerald-500/30 disabled:opacity-50">
                     <span className="relative z-10 flex items-center justify-center">{loading ? <LoadingSpinner /> : "Se connecter"}</span>
                     <div className="absolute inset-0 bg-gradient-to-t from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -266,11 +219,12 @@ function LoginForm() {
                 <div className="space-y-4">
                   {[
                     { provider: 'google', label: 'Google Workspace', icon: <GoogleIcon /> },
+                    // --- THIS IS THE FIX ---
+                    // The button now calls handleSSOLogin with the correct 'azure-ad' provider ID
                     { provider: 'azure-ad', label: 'Microsoft Entra ID', icon: <MicrosoftIcon /> }
                   ].map(({ provider, label, icon }) => (
                      <button key={provider} onClick={() => handleSSOLogin(provider as "google" | "azure-ad")}
                             className="w-full group relative overflow-hidden inline-flex justify-center items-center py-3 px-4 bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 rounded-lg text-sm font-medium text-zinc-300 transition-all">
-                       {/* UPDATED: SSO button hover glow is now green */}
                        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-emerald-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                        <span className="relative z-10 flex items-center justify-center">{icon} <span className="ml-3">{label}</span></span>
                      </button>
@@ -278,7 +232,6 @@ function LoginForm() {
                 </div>
                 <p className="mt-10 text-center text-zinc-500 text-xs">
                   Vous n'avez pas de compte ?{" "}
-                  {/* UPDATED: Link color is now green */}
                   <Link href="/signup" className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">Créer un compte</Link>
                 </p>
               </div>
@@ -302,7 +255,6 @@ function LoginForm() {
 const PremiumLoginPage: NextPage = () => (
   <Suspense fallback={
     <div className="h-screen flex items-center justify-center bg-zinc-900">
-      {/* UPDATED: Loading spinner is now green */}
       <LoadingSpinner className="h-8 w-8 text-emerald-500" />
     </div>
   }>
