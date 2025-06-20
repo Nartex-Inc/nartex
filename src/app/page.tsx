@@ -240,7 +240,7 @@ function LoginForm() {
           </Link>
           <div className="hidden md:flex items-center gap-2 text-xs text-zinc-600">
             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-            <span>Enterprise Platform</span>
+            <span>Portail d'entreprise unifiée</span>
           </div>
         </div>
       </header>
@@ -251,7 +251,7 @@ function LoginForm() {
               <span className="text-white/80">Bienvenue sur</span>
               <br />
               <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent font-normal">
-                Nartex Enterprise
+                Nartex
               </span>
             </h1>
             <p className="text-xl text-zinc-400 mb-12 leading-relaxed max-w-lg">
@@ -340,7 +340,7 @@ function LoginForm() {
         </div>
       </main>
       <footer className="relative z-10 py-5 px-8 text-center text-xs text-zinc-700 font-mono tracking-widest">
-        © {new Date().getFullYear()} NARTEX ENTERPRISE
+        © {new Date().getFullYear()} Nartex
       </footer>
       <style jsx>{`
         @keyframes fade-in-down {
