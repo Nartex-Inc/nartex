@@ -11,14 +11,14 @@ import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
 
 // --- Icon Components ---
-const EyeIcon: React.FC<{ className?: string }> = ({ className = "w-3.5 h-3.5" }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+const EyeIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
     <circle cx="12" cy="12" r="3" />
   </svg>
 );
-const EyeOffIcon: React.FC<{ className?: string }> = ({ className = "w-3.5 h-3.5" }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+const EyeOffIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
     <line x1="1" y1="1" x2="23" y2="23" />
   </svg>
@@ -45,14 +45,9 @@ const LoadingSpinner: React.FC<{ className?: string }> = ({ className = "h-4 w-4
     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
   </svg>
 );
-const CheckIcon: React.FC<{ className?: string }> = ({ className = "w-3 h-3 text-white" }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-  </svg>
-);
 
-// Animated Background Component
-const AnimatedBackground: React.FC = () => {
+// Premium Particle System
+const ParticleField: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -65,41 +60,70 @@ const AnimatedBackground: React.FC = () => {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    const particles: Array<{
+    interface Particle {
       x: number;
       y: number;
-      size: number;
-      speedX: number;
-      speedY: number;
+      vx: number;
+      vy: number;
+      radius: number;
       opacity: number;
-    }> = [];
+      connections: number[];
+    }
+
+    const particles: Particle[] = [];
+    const particleCount = 80;
+    const connectionDistance = 150;
 
     // Create particles
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < particleCount; i++) {
       particles.push({
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        size: Math.random() * 2 + 0.5,
-        speedX: (Math.random() - 0.5) * 0.5,
-        speedY: (Math.random() - 0.5) * 0.5,
-        opacity: Math.random() * 0.5 + 0.2
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
+        radius: Math.random() * 1.5 + 0.5,
+        opacity: Math.random() * 0.3 + 0.1,
+        connections: []
       });
     }
 
     const animate = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      particles.forEach(particle => {
-        particle.x += particle.speedX;
-        particle.y += particle.speedY;
+      particles.forEach((particle, i) => {
+        // Update position
+        particle.x += particle.vx;
+        particle.y += particle.vy;
 
-        if (particle.x < 0 || particle.x > canvas.width) particle.speedX *= -1;
-        if (particle.y < 0 || particle.y > canvas.height) particle.speedY *= -1;
+        // Bounce off walls
+        if (particle.x < 0 || particle.x > canvas.width) particle.vx *= -1;
+        if (particle.y < 0 || particle.y > canvas.height) particle.vy *= -1;
 
+        // Draw particle
         ctx.beginPath();
-        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(52, 211, 153, ${particle.opacity})`;
+        const gradient = ctx.createRadialGradient(particle.x, particle.y, 0, particle.x, particle.y, particle.radius);
+        gradient.addColorStop(0, `rgba(59, 130, 246, ${particle.opacity})`);
+        gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+        ctx.fillStyle = gradient;
+        ctx.arc(particle.x, particle.y, particle.radius * 2, 0, Math.PI * 2);
         ctx.fill();
+
+        // Draw connections
+        particles.slice(i + 1).forEach(otherParticle => {
+          const dx = particle.x - otherParticle.x;
+          const dy = particle.y - otherParticle.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < connectionDistance) {
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(59, 130, 246, ${(1 - distance / connectionDistance) * 0.1})`;
+            ctx.lineWidth = 0.5;
+            ctx.moveTo(particle.x, particle.y);
+            ctx.lineTo(otherParticle.x, otherParticle.y);
+            ctx.stroke();
+          }
+        });
       });
 
       requestAnimationFrame(animate);
@@ -116,7 +140,7 @@ const AnimatedBackground: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" />;
+  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none opacity-30" />;
 };
 
 // ─── Inner client component ─────────────────────────────────────────────
@@ -126,15 +150,6 @@ function LoginForm() {
   const newUserEmailSent = params?.get("emailVerificationSent") === "true";
   const [showBanner, setShowBanner] = useState(confirmed);
   const [showNewUserBanner, setShowNewUserBanner] = useState(newUserEmailSent);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({ x: e.clientX, y: e.clientY });
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
 
   useEffect(() => {
     if (confirmed) {
@@ -158,7 +173,6 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [focusedInput, setFocusedInput] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -168,13 +182,8 @@ function LoginForm() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="relative">
-          <div className="absolute inset-0 animate-ping">
-            <div className="w-20 h-20 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-full opacity-20"></div>
-          </div>
-          <LoadingSpinner className="h-10 w-10 text-emerald-500 relative z-10" />
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-zinc-950">
+        <LoadingSpinner className="h-8 w-8 text-blue-500" />
       </div>
     );
   }
@@ -213,120 +222,86 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-black text-gray-100 font-sans text-sm overflow-hidden relative">
-      <AnimatedBackground />
+    <div className="min-h-screen flex flex-col bg-zinc-950 text-gray-100 font-sans overflow-hidden relative">
+      <ParticleField />
       
-      {/* Dynamic gradient overlay */}
-      <div 
-        className="fixed inset-0 opacity-30 pointer-events-none"
-        style={{
-          background: `radial-gradient(circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(52, 211, 153, 0.15) 0%, transparent 50%)`
-        }}
-      />
-
-      {/* Animated gradient background */}
-      <div className="fixed inset-0 bg-gradient-to-br from-black via-gray-950 to-black">
-        <div className="absolute inset-0 bg-gradient-to-tr from-emerald-900/10 via-transparent to-blue-900/10 animate-gradient-shift"></div>
-      </div>
+      {/* Subtle gradient overlay */}
+      <div className="fixed inset-0 bg-gradient-to-tr from-blue-950/20 via-transparent to-indigo-950/20 pointer-events-none" />
 
       {showBanner && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-emerald-500/10 backdrop-blur-md border border-emerald-500/30 text-emerald-300 px-4 py-2 rounded-full shadow-2xl z-50 text-xs animate-slide-down">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-            Votre compte a bien été activé ! Vous pouvez maintenant vous connecter.
-          </div>
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-emerald-950/50 backdrop-blur-xl border border-emerald-500/20 text-emerald-300 px-4 py-2 rounded-full shadow-lg z-50 text-xs animate-fade-in">
+          Votre compte a bien été activé ! Vous pouvez maintenant vous connecter.
         </div>
       )}
       {showNewUserBanner && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-blue-500/10 backdrop-blur-md border border-blue-500/30 text-blue-300 px-4 py-2 rounded-full shadow-2xl z-50 text-xs animate-slide-down">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-            Compte créé ! Veuillez consulter votre boîte de réception pour vérifier votre adresse e-mail.
-          </div>
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-blue-950/50 backdrop-blur-xl border border-blue-500/20 text-blue-300 px-4 py-2 rounded-full shadow-lg z-50 text-xs animate-fade-in">
+          Compte créé ! Veuillez consulter votre boîte de réception pour vérifier votre adresse e-mail.
         </div>
       )}
 
-      <header className="relative z-10 bg-black/40 backdrop-blur-xl border-b border-white/5 py-3 px-4">
+      <header className="relative z-10 py-4 px-6">
         <div className="container mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative group">
-              <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-lg blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
-              <Image
-                src="/nartex-logo.svg"
-                alt="Nartex Logo"
-                width={75}
-                height={18}
-                className="relative filter invert"
-                onError={e => (e.currentTarget.src = "https://placehold.co/75x18/ffffff/000000?text=Nartex")}
-              />
-            </div>
-            <div className="hidden md:flex items-center gap-2">
-              <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-              <span className="text-xs text-gray-400">Enterprise Platform</span>
-            </div>
+          <div className="relative">
+            <div className="absolute -inset-2 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 rounded-lg blur-lg opacity-0 hover:opacity-100 transition-opacity duration-500"></div>
+            <Image
+              src="/nartex-logo.svg"
+              alt="Nartex"
+              width={80}
+              height={20}
+              className="relative filter invert opacity-90"
+              onError={e => (e.currentTarget.src = "https://placehold.co/80x20/ffffff/000000?text=Nartex")}
+            />
           </div>
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-2 text-xs text-gray-400">
-              <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full"></div>
-              <span>Status: Operational</span>
-            </div>
+          <div className="hidden md:flex items-center gap-2 text-xs text-zinc-500">
+            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+            <span>Enterprise Platform</span>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 flex items-center justify-center py-4 px-4 md:py-6 relative z-10">
-        <div className="flex w-full max-w-5xl">
+      <main className="flex-1 flex items-center justify-center py-8 px-6 relative z-10">
+        <div className="flex w-full max-w-5xl gap-16">
 
-          <div className="hidden lg:flex lg:flex-col lg:w-1/2 p-6 md:p-8 pr-8">
-            <div className="animate-fade-in">
-              <h1 className="text-4xl xl:text-5xl font-bold mb-4 leading-tight">
-                <span className="bg-gradient-to-br from-white via-gray-200 to-gray-400 bg-clip-text text-transparent">
-                  Bienvenue sur
-                </span>
-                <br />
-                <span className="bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent animate-gradient-x">
-                  Nartex Enterprise
-                </span>
-              </h1>
-              <p className="text-base xl:text-lg mb-8 text-gray-400 leading-relaxed">
-                La plateforme de gestion centralisée qui révolutionne votre productivité 
-                et transforme radicalement vos flux de travail.
-              </p>
-            </div>
+          <div className="hidden lg:flex lg:flex-col lg:w-1/2 py-12">
+            <h1 className="text-5xl font-light mb-6">
+              <span className="text-white/90">Bienvenue sur</span>
+              <br />
+              <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent font-normal">
+                Nartex Enterprise
+              </span>
+            </h1>
+            <p className="text-lg text-zinc-400 mb-12 leading-relaxed">
+              La plateforme de gestion centralisée qui révolutionne votre productivité 
+              et transforme vos flux de travail.
+            </p>
             
-            <div className="space-y-6 animate-fade-in-delay">
+            <div className="space-y-8">
               {[
                 {
                   title: "Sécurité Quantique",
-                  description: "Protection next-gen avec chiffrement post-quantique et authentification biométrique avancée",
-                  icon: "🛡️",
-                  gradient: "from-purple-500 to-pink-500"
+                  description: "Protection next-gen avec chiffrement post-quantique",
+                  icon: "🛡️"
                 },
                 {
                   title: "IA Prédictive",
-                  description: "Intelligence artificielle qui anticipe vos besoins et optimise automatiquement vos workflows",
-                  icon: "🧠",
-                  gradient: "from-blue-500 to-cyan-500"
+                  description: "Intelligence artificielle qui anticipe vos besoins",
+                  icon: "🧠"
                 },
                 {
                   title: "Performance Extrême",
-                  description: "Infrastructure edge computing avec latence < 10ms et disponibilité garantie 99.99%",
-                  icon: "⚡",
-                  gradient: "from-emerald-500 to-green-500"
+                  description: "Infrastructure edge computing avec latence < 10ms",
+                  icon: "⚡"
                 }
               ].map((item, i) => (
-                <div key={i} className="group flex items-start gap-4 p-4 rounded-xl hover:bg-white/5 transition-all duration-300 cursor-pointer">
-                  <div className={`relative mt-0.5`}>
-                    <div className={`absolute -inset-1 bg-gradient-to-r ${item.gradient} rounded-lg blur opacity-50 group-hover:opacity-75 transition duration-300`}></div>
-                    <div className="relative bg-black rounded-lg p-2 text-lg">
-                      {item.icon}
-                    </div>
+                <div key={i} className="flex items-start gap-4">
+                  <div className="text-xl opacity-70">
+                    {item.icon}
                   </div>
-                  <div className="flex-1">
-                    <h3 className="text-base xl:text-lg font-semibold text-white mb-1 group-hover:text-emerald-400 transition-colors">
+                  <div>
+                    <h3 className="text-lg font-medium text-white mb-1">
                       {item.title}
                     </h3>
-                    <p className="text-sm xl:text-base text-gray-400 leading-relaxed">
+                    <p className="text-sm text-zinc-500">
                       {item.description}
                     </p>
                   </div>
@@ -334,247 +309,161 @@ function LoginForm() {
               ))}
             </div>
 
-            <div className="mt-auto pt-8 animate-fade-in-delay-2">
-              <div className="flex items-center gap-6 text-xs text-gray-500">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-emerald-400 rounded-full"></div>
-                  <span>ISO 27001</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                  <span>SOC 2 Type II</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
-                  <span>GDPR</span>
-                </div>
-              </div>
+            <div className="mt-auto pt-12 flex items-center gap-6 text-xs text-zinc-600">
+              <span>ISO 27001</span>
+              <span>•</span>
+              <span>SOC 2 Type II</span>
+              <span>•</span>
+              <span>GDPR</span>
             </div>
           </div>
 
-          <div className="w-full lg:w-1/2 px-4 md:px-6">
-            <div className="relative group">
-              {/* Glow effect */}
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-2xl blur opacity-20 group-hover:opacity-30 transition duration-1000"></div>
+          <div className="w-full lg:w-1/2">
+            <div className="relative">
+              {/* Subtle glow */}
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600/10 to-indigo-600/10 rounded-2xl blur-2xl"></div>
               
-              {/* Main card */}
-              <div className="relative bg-gray-900/50 backdrop-blur-2xl border border-gray-800/50 rounded-2xl shadow-2xl p-8 md:p-10 overflow-hidden">
-                {/* Animated border gradient */}
-                <div className="absolute inset-0 rounded-2xl overflow-hidden">
-                  <div className="absolute inset-[-2px] bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-500 opacity-0 group-hover:opacity-20 blur-sm transition-opacity duration-500 animate-gradient-xy"></div>
+              {/* Glass card */}
+              <div className="relative bg-zinc-900/40 backdrop-blur-xl border border-zinc-800/50 rounded-2xl p-10">
+                <div className="lg:hidden flex justify-center mb-8">
+                  <Image
+                    src="/nartex-logo.svg"
+                    alt="Nartex"
+                    width={100}
+                    height={25}
+                    className="filter invert opacity-90"
+                    onError={e => (e.currentTarget.src = "https://placehold.co/100x25/ffffff/000000?text=Nartex")}
+                  />
                 </div>
 
-                <div className="relative z-10">
-                  <div className="lg:hidden flex justify-center mb-6">
-                    <div className="relative group">
-                      <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-lg blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
-                      <Image
-                        src="/nartex-logo.svg"
-                        alt="Nartex Logo"
-                        width={100}
-                        height={25}
-                        className="relative filter invert"
-                        onError={e => (e.currentTarget.src = "https://placehold.co/100x25/ffffff/000000?text=Nartex")}
-                      />
-                    </div>
+                <h2 className="text-2xl font-light mb-2 text-white text-center lg:text-left">
+                  Connexion sécurisée
+                </h2>
+                <p className="text-sm text-zinc-500 mb-8 text-center lg:text-left">
+                  Accédez à votre espace de travail intelligent
+                </p>
+
+                {error && (
+                  <div className="bg-red-950/20 border border-red-900/50 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm" role="alert">
+                    {error}
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div>
+                    <label htmlFor="email" className="block text-xs font-medium text-zinc-400 mb-2 uppercase tracking-wider">
+                      Adresse e-mail
+                    </label>
+                    <input
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      required
+                      placeholder="vous@exemple.com"
+                      className="w-full px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 focus:bg-zinc-900/70 transition-all text-sm"
+                    />
                   </div>
 
-                  <h2 className="text-2xl xl:text-3xl font-bold mb-2 text-white text-center lg:text-left">
-                    Connexion sécurisée
-                  </h2>
-                  <p className="text-sm xl:text-base text-gray-400 mb-8 text-center lg:text-left">
-                    Accédez à votre espace de travail intelligent
-                  </p>
-
-                  {error && (
-                    <div className="bg-red-500/10 backdrop-blur-md border border-red-500/30 text-red-300 px-4 py-3 rounded-xl mb-6 text-sm flex items-start gap-2 animate-shake" role="alert">
-                      <span className="text-red-400">⚠️</span>
-                      <span>{error}</span>
-                    </div>
-                  )}
-
-                  <form onSubmit={handleSubmit} className="space-y-5">
-                    <div>
-                      <label htmlFor="email" className="block text-xs font-medium text-gray-300 mb-2 uppercase tracking-wider">
-                        Adresse e-mail
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label htmlFor="password" className="block text-xs font-medium text-zinc-400 uppercase tracking-wider">
+                        Mot de passe
                       </label>
-                      <div className="relative group">
-                        <input
-                          id="email"
-                          type="email"
-                          value={email}
-                          onChange={e => setEmail(e.target.value)}
-                          onFocus={() => setFocusedInput('email')}
-                          onBlur={() => setFocusedInput(null)}
-                          required
-                          placeholder="vous@exemple.com"
-                          className="w-full px-4 py-3 bg-black/50 border border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500/50 focus:border-transparent text-sm transition-all duration-300 hover:border-gray-600"
-                        />
-                        <div className={`absolute inset-0 rounded-xl bg-gradient-to-r from-emerald-500 to-blue-500 opacity-0 blur-xl transition-opacity duration-300 pointer-events-none ${focusedInput === 'email' ? 'opacity-20' : ''}`}></div>
-                      </div>
+                      <Link href="/forgot-password" className="text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                        Mot de passe oublié ?
+                      </Link>
                     </div>
-
-                    <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <label htmlFor="password" className="block text-xs font-medium text-gray-300 uppercase tracking-wider">
-                          Mot de passe
-                        </label>
-                        <Link href="/forgot-password" className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors hover:underline">
-                          Mot de passe oublié ?
-                        </Link>
-                      </div>
-                      <div className="relative group">
-                        <input
-                          id="password"
-                          type={showPassword ? "text" : "password"}
-                          value={password}
-                          onChange={e => setPassword(e.target.value)}
-                          onFocus={() => setFocusedInput('password')}
-                          onBlur={() => setFocusedInput(null)}
-                          required
-                          placeholder="••••••••••••"
-                          className="w-full px-4 py-3 bg-black/50 border border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500/50 focus:border-transparent pr-12 text-sm transition-all duration-300 hover:border-gray-600"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(v => !v)}
-                          className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-emerald-400 transition-colors duration-200"
-                        >
-                          {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                        </button>
-                        <div className={`absolute inset-0 rounded-xl bg-gradient-to-r from-emerald-500 to-blue-500 opacity-0 blur-xl transition-opacity duration-300 pointer-events-none ${focusedInput === 'password' ? 'opacity-20' : ''}`}></div>
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="relative w-full group overflow-hidden rounded-xl text-white bg-gradient-to-r from-emerald-600 to-blue-600 disabled:opacity-50 text-sm font-medium transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/25 hover:-translate-y-0.5"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-blue-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                      <div className="relative flex justify-center py-3.5 px-4">
-                        {loading ? (
-                          <div className="flex items-center gap-2">
-                            <LoadingSpinner />
-                            <span className="animate-pulse">Connexion en cours...</span>
-                          </div>
-                        ) : (
-                          "Se connecter"
-                        )}
-                      </div>
-                    </button>
-                  </form>
-
-                  {params?.get("newUser") === "true" && !newUserEmailSent && !confirmed && (
-                    <div className="mt-4 text-center text-emerald-400 text-xs animate-fade-in">
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-                        Votre lien d'activation a été envoyé par courriel.
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="relative my-8">
-                    <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                      <div className="w-full border-t border-gray-800"></div>
-                    </div>
-                    <div className="relative flex justify-center text-xs">
-                      <span className="px-3 bg-gray-900 text-gray-500 uppercase tracking-wider">ou continuer avec</span>
+                    <div className="relative">
+                      <input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        required
+                        placeholder="••••••••••••"
+                        className="w-full px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 focus:bg-zinc-900/70 transition-all pr-12 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(v => !v)}
+                        className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-500 hover:text-zinc-300 transition-colors"
+                      >
+                        {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                      </button>
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <button
-                      onClick={() => handleSSOLogin("google")}
-                      className="relative w-full group overflow-hidden rounded-xl bg-white/5 hover:bg-white/10 border border-gray-800 hover:border-gray-700 transition-all duration-300"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-red-500/10 via-yellow-500/10 to-green-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                      <div className="relative inline-flex justify-center items-center py-3 px-4 text-xs font-medium text-gray-200">
-                        <GoogleIcon />
-                        <span className="ml-2">Google Workspace</span>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => handleSSOLogin("azure-ad-b2c")}
-                      className="relative w-full group overflow-hidden rounded-xl bg-white/5 hover:bg-white/10 border border-gray-800 hover:border-gray-700 transition-all duration-300"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-green-500/10 to-yellow-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                      <div className="relative inline-flex justify-center items-center py-3 px-4 text-xs font-medium text-gray-200">
-                        <MicrosoftIcon />
-                        <span className="ml-2">Microsoft Entra ID</span>
-                      </div>
-                    </button>
-                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="relative w-full group"
+                  >
+                    <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg blur opacity-60 group-hover:opacity-100 transition duration-200"></div>
+                    <div className="relative flex justify-center py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg text-white font-medium text-sm transition-all">
+                      {loading ? (
+                        <LoadingSpinner />
+                      ) : (
+                        "Se connecter"
+                      )}
+                    </div>
+                  </button>
+                </form>
 
-                  <p className="mt-8 text-center text-gray-400 text-xs">
-                    Vous n'avez pas de compte ?{" "}
-                    <Link href="/signup" className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors hover:underline">
-                      Créer un compte
-                    </Link>
-                  </p>
+                {params?.get("newUser") === "true" && !newUserEmailSent && !confirmed && (
+                  <div className="mt-4 text-center text-emerald-400 text-xs">
+                    Votre lien d'activation a été envoyé par courriel.
+                  </div>
+                )}
+
+                <div className="relative my-8">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-zinc-800"></div>
+                  </div>
+                  <div className="relative flex justify-center text-xs">
+                    <span className="px-3 bg-zinc-900/40 text-zinc-500 uppercase tracking-wider">ou</span>
+                  </div>
                 </div>
+
+                <div className="space-y-3">
+                  <button
+                    onClick={() => handleSSOLogin("google")}
+                    className="w-full inline-flex justify-center items-center py-3 px-4 bg-zinc-900/50 hover:bg-zinc-900/70 border border-zinc-800 hover:border-zinc-700 rounded-lg text-sm font-medium text-zinc-300 transition-all"
+                  >
+                    <GoogleIcon />
+                    <span className="ml-2">Google Workspace</span>
+                  </button>
+                  <button
+                    onClick={() => handleSSOLogin("azure-ad-b2c")}
+                    className="w-full inline-flex justify-center items-center py-3 px-4 bg-zinc-900/50 hover:bg-zinc-900/70 border border-zinc-800 hover:border-zinc-700 rounded-lg text-sm font-medium text-zinc-300 transition-all"
+                  >
+                    <MicrosoftIcon />
+                    <span className="ml-2">Microsoft Entra ID</span>
+                  </button>
+                </div>
+
+                <p className="mt-8 text-center text-zinc-500 text-xs">
+                  Vous n'avez pas de compte ?{" "}
+                  <Link href="/signup" className="text-blue-400 hover:text-blue-300 font-medium transition-colors">
+                    Créer un compte
+                  </Link>
+                </p>
               </div>
             </div>
           </div>
         </div>
       </main>
 
-      <footer className="relative z-10 py-4 px-4 text-center text-xs text-gray-600 border-t border-gray-900">
-        <div className="flex items-center justify-center gap-4">
-          <span>© {new Date().getFullYear()} Nartex Enterprise</span>
-          <span className="text-gray-700">•</span>
-          <span className="text-emerald-400">Tous droits réservés</span>
-        </div>
+      <footer className="relative z-10 py-4 px-6 text-center text-xs text-zinc-600">
+        © {new Date().getFullYear()} Nartex Enterprise • Tous droits réservés
       </footer>
 
       <style jsx>{`
-        @keyframes gradient-shift {
-          0% { transform: translateX(-100%) translateY(-100%); }
-          100% { transform: translateX(100%) translateY(100%); }
-        }
-        @keyframes gradient-x {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-        }
-        @keyframes gradient-xy {
-          0%, 100% { transform: translateX(0) translateY(0); }
-          33% { transform: translateX(100%) translateY(100%); }
-          66% { transform: translateX(-100%) translateY(100%); }
-        }
-        @keyframes slide-down {
-          from { opacity: 0; transform: translate(-50%, -1rem); }
-          to { opacity: 1; transform: translate(-50%, 0); }
-        }
         @keyframes fade-in {
-          from { opacity: 0; transform: translateY(1rem); }
+          from { opacity: 0; transform: translateY(-0.5rem); }
           to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes fade-in-delay {
-          0% { opacity: 0; transform: translateY(1rem); }
-          50% { opacity: 0; transform: translateY(1rem); }
-          100% { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fade-in-delay-2 {
-          0% { opacity: 0; transform: translateY(1rem); }
-          66% { opacity: 0; transform: translateY(1rem); }
-          100% { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
-          20%, 40%, 60%, 80% { transform: translateX(2px); }
-        }
-        .animate-gradient-shift { animation: gradient-shift 20s ease infinite; }
-        .animate-gradient-x { 
-          background-size: 200% 200%;
-          animation: gradient-x 4s ease infinite;
-        }
-        .animate-gradient-xy { animation: gradient-xy 10s ease infinite; }
-        .animate-slide-down { animation: slide-down 0.5s ease-out; }
-        .animate-fade-in { animation: fade-in 0.8s ease-out; }
-        .animate-fade-in-delay { animation: fade-in-delay 1.2s ease-out; }
-        .animate-fade-in-delay-2 { animation: fade-in-delay-2 1.6s ease-out; }
-        .animate-shake { animation: shake 0.5s ease-in-out; }
+        .animate-fade-in { animation: fade-in 0.5s ease-out; }
       `}</style>
     </div>
   );
@@ -583,13 +472,8 @@ function LoginForm() {
 const PremiumLoginPage: NextPage = () => (
   <Suspense
     fallback={
-      <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="relative">
-          <div className="absolute inset-0 animate-ping">
-            <div className="w-20 h-20 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-full opacity-20"></div>
-          </div>
-          <LoadingSpinner className="h-10 w-10 text-emerald-500 relative z-10" />
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-zinc-950">
+        <LoadingSpinner className="h-8 w-8 text-blue-500" />
       </div>
     }
   >
