@@ -40,37 +40,46 @@ phases:
       - echo "🔑  PRE_BUILD – logging in to Amazon ECR"
       - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
 
-  build:
-    commands:
-      - echo "🏗  BUILD – resolving commit hash"
-      - COMMIT_HASH=$(git rev-parse --short HEAD)
-
-      # ─── Write ALL environment variables into the .env.production file ───
-      - echo "📝  BUILD – creating .env.production file"
-      - printf '%s\n' \
-          "DATABASE_URL=$DATABASE_URL" \
-          "EMAIL_SERVER_HOST=$EMAIL_SERVER_HOST" \
-          "EMAIL_SERVER_PORT=$EMAIL_SERVER_PORT" \
-          "EMAIL_SERVER_USER=$EMAIL_SERVER_USER" \
-          "EMAIL_SERVER_PASSWORD=$EMAIL_SERVER_PASSWORD" \
-          "EMAIL_FROM=$EMAIL_FROM" \
-          "NEXTAUTH_URL=$NEXTAUTH_URL" \
-          "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" \
-          "GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID" \
-          "GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET" \
-          "AZURE_AD_CLIENT_ID=$AZURE_AD_CLIENT_ID" \
-          "AZURE_AD_CLIENT_SECRET=$AZURE_AD_CLIENT_SECRET" \
-          "AZURE_AD_TENANT_ID=$AZURE_AD_TENANT_ID" \
-        > .env.production
-      # ───────────────────────────────────────────────────────────────────
-
-      - echo "🏗  BUILD – building & tagging Docker image"
-      - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
-      - docker build -t "$ECR_IMAGE_URI:$COMMIT_HASH" -t "$ECR_IMAGE_URI:latest" .
-
-      - echo "📤  Pushing both tags to ECR"
-      - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
-      - docker push "$ECR_IMAGE_URI:latest"
+    build:
+      commands:
+        - echo "🏗  BUILD – resolving commit hash"
+        - COMMIT_HASH=$(git rev-parse --short HEAD)
+  
+        # ─── Write ALL environment variables into the .env.production file ───
+        # This file will be copied into the final Docker image for runtime use.
+        - echo "📝  BUILD – creating .env.production file"
+        - printf '%s\n' \
+            "DATABASE_URL=$DATABASE_URL" \
+            "EMAIL_SERVER_HOST=$EMAIL_SERVER_HOST" \
+            "EMAIL_SERVER_PORT=$EMAIL_SERVER_PORT" \
+            "EMAIL_SERVER_USER=$EMAIL_SERVER_USER" \
+            "EMAIL_SERVER_PASSWORD=$EMAIL_SERVER_PASSWORD" \
+            "EMAIL_FROM=$EMAIL_FROM" \
+            "NEXTAUTH_URL=$NEXTAUTH_URL" \
+            "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" \
+            "GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID" \
+            "GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET" \
+            "AZURE_AD_CLIENT_ID=$AZURE_AD_CLIENT_ID" \
+            "AZURE_AD_CLIENT_SECRET=$AZURE_AD_CLIENT_SECRET" \
+            "AZURE_AD_TENANT_ID=$AZURE_AD_TENANT_ID" \
+          > .env.production
+        # ───────────────────────────────────────────────────────────────────
+  
+        - echo "🏗  BUILD – building Docker image with consistent Build ID"
+        - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
+        
+        # --- THIS IS THE FIXED DOCKER BUILD COMMAND ---
+        # It passes the GIT_COMMIT_HASH to the Dockerfile via --build-arg.
+        # The literal block style `|` ensures it is parsed correctly by CodeBuild.
+        - |
+          docker build \
+            --build-arg GIT_COMMIT_HASH=$COMMIT_HASH \
+            -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
+            -t "$ECR_IMAGE_URI:latest" .
+  
+        - echo "📤  Pushing both tags to ECR"
+        - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
+        - docker push "$ECR_IMAGE_URI:latest"
 
     post_build:
       commands:
