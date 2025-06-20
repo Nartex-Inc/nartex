@@ -1,4 +1,3 @@
-// src/app/page.tsx
 "use client";
 export const dynamic = "force-dynamic";
 
@@ -9,7 +8,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
 
-// --- Icon Components ---
+// --- Icon Components (No changes needed) ---
 const EyeIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -45,6 +44,8 @@ const LoadingSpinner: React.FC<{ className?: string }> = ({ className = "h-5 w-5
   </svg>
 );
 
+
+// ─── Particle System with new GREEN color scheme ──────────────────
 const ParticleField: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -86,7 +87,8 @@ const ParticleField: React.FC = () => {
         if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(165, 180, 252, ${p.opacity})`;
+        // Using emerald-300 (110, 231, 183) for particles
+        ctx.fillStyle = `rgba(110, 231, 183, ${p.opacity})`;
         ctx.fill();
         for (let j = i + 1; j < particles.length; j++) {
           const p2 = particles[j];
@@ -96,7 +98,8 @@ const ParticleField: React.FC = () => {
           if (distance < connectionDistance) {
             ctx.beginPath();
             const opacity = 1 - (distance / connectionDistance);
-            ctx.strokeStyle = `rgba(129, 140, 248, ${opacity * 0.2})`;
+            // Using emerald-400 (52, 211, 153) for connections
+            ctx.strokeStyle = `rgba(52, 211, 153, ${opacity * 0.2})`;
             ctx.lineWidth = 0.5;
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(p2.x, p2.y);
@@ -113,9 +116,9 @@ const ParticleField: React.FC = () => {
       cancelAnimationFrame(animationFrameId);
     }
   }, []);
-
   return <canvas ref={canvasRef} className="fixed inset-0 -z-10" />;
 };
+
 
 function LoginForm() {
   const params = useSearchParams();
@@ -123,21 +126,8 @@ function LoginForm() {
   const newUserEmailSent = params?.get("emailVerificationSent") === "true";
   const [showBanner, setShowBanner] = useState(confirmed);
   const [showNewUserBanner, setShowNewUserBanner] = useState(newUserEmailSent);
-
-  useEffect(() => {
-    if (confirmed) {
-      const t = setTimeout(() => setShowBanner(false), 5000);
-      return () => clearTimeout(t);
-    }
-  }, [confirmed]);
-
-  useEffect(() => {
-    if (newUserEmailSent) {
-      const t = setTimeout(() => setShowNewUserBanner(false), 7000);
-      return () => clearTimeout(t);
-    }
-  }, [newUserEmailSent]);
-
+  useEffect(() => { if (confirmed) { const t = setTimeout(() => setShowBanner(false), 5000); return () => clearTimeout(t); } }, [confirmed]);
+  useEffect(() => { if (newUserEmailSent) { const t = setTimeout(() => setShowNewUserBanner(false), 7000); return () => clearTimeout(t); } }, [newUserEmailSent]);
   const router = useRouter();
   const { status } = useSession();
   const [email, setEmail] = useState("");
@@ -145,19 +135,10 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (status === "authenticated") {
-      router.push("/dashboard");
-    }
-  }, [status, router]);
+  useEffect(() => { if (status === "authenticated") { router.push("/dashboard"); } }, [status, router]);
 
   if (status === "loading") {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <LoadingSpinner className="h-8 w-8 text-indigo-500" />
-      </div>
-    );
+    return <div className="h-screen flex items-center justify-center"><LoadingSpinner className="h-8 w-8 text-emerald-500" /></div>;
   }
   if (status === "authenticated") return null;
 
@@ -165,20 +146,14 @@ function LoginForm() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const res = await signIn("credentials", {
-      redirect: false,
-      email,
-      password,
-      callbackUrl: "/dashboard",
-    });
+    const res = await signIn("credentials", { redirect: false, email, password, callbackUrl: "/dashboard" });
     if (res?.error) {
       setError(res.error === "CredentialsSignin" ? "Adresse e-mail ou mot de passe incorrect." : "Une erreur est survenue.");
       setLoading(false);
       return;
     }
-     router.push("/dashboard");
+    router.push("/dashboard");
   };
-
   const handleSSOLogin = (provider: "google" | "azure-ad") => {
     setLoading(true);
     setError(null);
@@ -186,28 +161,30 @@ function LoginForm() {
   };
 
   return (
-    // KEY FIX: Removed `bg-zinc-900` and changed `min-h-screen` to `h-screen`
     <div className="h-screen flex flex-col text-gray-100 font-sans antialiased relative">
       <ParticleField />
       
-      <div className="absolute top-0 left-0 w-96 h-96 bg-indigo-900/30 rounded-full blur-3xl opacity-20 -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-blue-900/30 rounded-full blur-3xl opacity-20 translate-x-1/2 translate-y-1/2 pointer-events-none"></div>
+      {/* UPDATED: Background glow elements now use emerald */}
+      <div className="absolute top-0 left-0 w-96 h-96 bg-emerald-900/30 rounded-full blur-3xl opacity-20 -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-green-900/30 rounded-full blur-3xl opacity-20 translate-x-1/2 translate-y-1/2 pointer-events-none"></div>
 
       {showBanner && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-emerald-950/50 backdrop-blur-xl border border-emerald-500/20 text-emerald-300 px-4 py-2 rounded-full shadow-lg z-50 text-xs animate-fade-in-down">
           Votre compte a bien été activé ! Vous pouvez maintenant vous connecter.
         </div>
       )}
+      {/* UPDATED: New user banner now uses a consistent green theme */}
       {showNewUserBanner && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-blue-950/50 backdrop-blur-xl border border-blue-500/20 text-blue-300 px-4 py-2 rounded-full shadow-lg z-50 text-xs animate-fade-in-down">
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-emerald-950/50 backdrop-blur-xl border border-emerald-500/20 text-emerald-300 px-4 py-2 rounded-full shadow-lg z-50 text-xs animate-fade-in-down">
           Compte créé ! Veuillez consulter votre boîte de réception pour vérifier votre e-mail.
         </div>
       )}
 
       <header className="relative z-10 py-5 px-8">
         <div className="container mx-auto flex items-center justify-between">
+          {/* UPDATED: Header logo glow on hover */}
           <Link href="/" className="relative group">
-            <div className="absolute -inset-2 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg blur-xl opacity-0 group-hover:opacity-20 transition-opacity duration-500"></div>
+            <div className="absolute -inset-2 bg-gradient-to-r from-emerald-600 to-green-600 rounded-lg blur-xl opacity-0 group-hover:opacity-20 transition-opacity duration-500"></div>
             <Image src="/nartex-logo.svg" alt="Nartex" width={85} height={21} className="relative filter invert opacity-80 group-hover:opacity-100 transition-opacity" onError={e => (e.currentTarget.src = "https://placehold.co/85x21/ffffff/000000?text=Nartex")} />
           </Link>
           <div className="hidden md:flex items-center gap-2 text-xs text-zinc-600">
@@ -216,42 +193,38 @@ function LoginForm() {
           </div>
         </div>
       </header>
-      
-      {/* KEY FIX: Added overflow-y-auto to the main element for responsive scrolling */}
+
       <main className="flex-1 flex items-center justify-center py-8 px-6 relative z-10 overflow-y-auto">
         <div className="flex w-full max-w-6xl gap-24 items-center">
           <div className="hidden lg:flex lg:flex-col lg:w-1/2 py-12">
             <h1 className="text-6xl font-thin tracking-tighter mb-6">
               <span className="text-white/80">Bienvenue sur</span><br />
-              <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent font-normal">Nartex Enterprise</span>
+              {/* UPDATED: Headline gradient is now green */}
+              <span className="bg-gradient-to-r from-emerald-400 to-green-400 bg-clip-text text-transparent font-normal">Nartex.</span>
             </h1>
-            <p className="text-xl text-zinc-400 mb-12 leading-relaxed max-w-lg">
-              La plateforme de gestion centralisée qui révolutionne votre productivité et transforme vos flux de travail.
-            </p>
+            <p className="text-xl text-zinc-400 mb-12 leading-relaxed max-w-lg">La plateforme de gestion centralisée qui révolutionne votre productivité et transforme vos flux de travail.</p>
             <div className="space-y-8">
-              {[
-                { title: "Sécurité Quantique", description: "Protection next-gen avec chiffrement post-quantique.", icon: "🛡️" },
-                { title: "IA Prédictive", description: "Intelligence artificielle qui anticipe vos besoins.", icon: "🧠" },
-                { title: "Performance Extrême", description: "Infrastructure edge computing pour une latence < 10ms.", icon: "⚡" }
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-5">
-                  <div className="text-2xl opacity-70">{item.icon}</div>
-                  <div>
-                    <h3 className="text-lg font-medium text-white mb-0.5">{item.title}</h3>
-                    <p className="text-sm text-zinc-500">{item.description}</p>
-                  </div>
+            {[
+              { title: "Sécurité d'Entreprise", description: "Conformité SOC 2 et chiffrement de bout en bout.", icon: "🛡️" },
+              { title: "Automatisation Intelligente", description: "Workflows intelligents qui optimisent vos processus.", icon: "⚙️" },
+              { title: "Performance Globale", description: "Infrastructure edge pour une réactivité instantanée.", icon: "⚡" }
+            ].map((item, i) => (
+              <div key={i} className="flex items-center gap-5">
+                <div className="text-2xl opacity-70">{item.icon}</div>
+                <div>
+                  <h3 className="text-lg font-medium text-white mb-0.5">{item.title}</h3>
+                  <p className="text-sm text-zinc-500">{item.description}</p>
                 </div>
               ))}
             </div>
             <div className="mt-auto pt-16 flex items-center gap-6 text-xs text-zinc-700 font-mono tracking-widest">
-              <span>ISO 27001</span>
-              <span>SOC 2</span>
-              <span>GDPR</span>
+              <span>ISO 27001</span><span>SOC 2</span><span>GDPR</span>
             </div>
           </div>
           <div className="w-full lg:w-1/2">
             <div className="relative">
-              <div className="absolute -inset-2 bg-gradient-to-r from-blue-800/20 via-indigo-800/20 to-purple-800/20 rounded-3xl blur-3xl opacity-40 animate-pulse-slow"></div>
+              {/* UPDATED: Liquid glass effect glow is now green */}
+              <div className="absolute -inset-2 bg-gradient-to-r from-emerald-800/20 via-green-800/20 to-emerald-800/20 rounded-3xl blur-3xl opacity-40 animate-pulse-slow"></div>
               <div className="relative bg-zinc-950/60 backdrop-blur-2xl border border-zinc-800/40 rounded-2xl p-12 shadow-2xl shadow-black/20">
                 <h2 className="text-3xl font-light mb-2 text-white text-center">Connexion sécurisée</h2>
                 <p className="text-base text-zinc-500 mb-10 text-center">Accédez à votre espace de travail.</p>
@@ -261,23 +234,27 @@ function LoginForm() {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div>
                     <label htmlFor="email" className="block text-xs font-medium text-zinc-400 mb-2 uppercase tracking-wider">Adresse e-mail</label>
+                    {/* UPDATED: Input focus rings are now green */}
                     <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="vous@exemple.com"
-                           className="w-full px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 focus:bg-zinc-900/70 transition-all text-sm" />
+                           className="w-full px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 focus:bg-zinc-900/70 transition-all text-sm" />
                   </div>
                   <div>
                     <div className="flex justify-between items-center mb-2">
                       <label htmlFor="password" className="block text-xs font-medium text-zinc-400 uppercase tracking-wider">Mot de passe</label>
-                      <Link href="/forgot-password" className="text-xs text-blue-400 hover:text-blue-300 transition-colors">Mot de passe oublié ?</Link>
+                      {/* UPDATED: Link color is now green */}
+                      <Link href="/forgot-password" className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors">Mot de passe oublié ?</Link>
                     </div>
                     <div className="relative">
+                      {/* UPDATED: Input focus rings are now green */}
                       <input id="password" type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••••••"
-                             className="w-full px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 focus:bg-zinc-900/70 transition-all pr-12 text-sm" />
+                             className="w-full px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 focus:bg-zinc-900/70 transition-all pr-12 text-sm" />
                       <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-500 hover:text-zinc-300 transition-colors">
                         {showPassword ? <EyeOffIcon /> : <EyeIcon />}
                       </button>
                     </div>
                   </div>
-                  <button type="submit" disabled={loading} className="w-full group relative overflow-hidden py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg text-white font-semibold text-sm transition-all shadow-lg hover:shadow-blue-500/30 disabled:opacity-50">
+                  {/* UPDATED: Main button gradient and shadow are now green */}
+                  <button type="submit" disabled={loading} className="w-full group relative overflow-hidden py-3 px-4 bg-gradient-to-r from-emerald-600 to-green-600 rounded-lg text-white font-semibold text-sm transition-all shadow-lg hover:shadow-emerald-500/30 disabled:opacity-50">
                     <span className="relative z-10 flex items-center justify-center">{loading ? <LoadingSpinner /> : "Se connecter"}</span>
                     <div className="absolute inset-0 bg-gradient-to-t from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </button>
@@ -293,14 +270,16 @@ function LoginForm() {
                   ].map(({ provider, label, icon }) => (
                      <button key={provider} onClick={() => handleSSOLogin(provider as "google" | "azure-ad")}
                             className="w-full group relative overflow-hidden inline-flex justify-center items-center py-3 px-4 bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 rounded-lg text-sm font-medium text-zinc-300 transition-all">
-                       <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-blue-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                       {/* UPDATED: SSO button hover glow is now green */}
+                       <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-emerald-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                        <span className="relative z-10 flex items-center justify-center">{icon} <span className="ml-3">{label}</span></span>
                      </button>
                   ))}
                 </div>
                 <p className="mt-10 text-center text-zinc-500 text-xs">
                   Vous n'avez pas de compte ?{" "}
-                  <Link href="/signup" className="text-blue-400 hover:text-blue-300 font-medium transition-colors">Créer un compte</Link>
+                  {/* UPDATED: Link color is now green */}
+                  <Link href="/signup" className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">Créer un compte</Link>
                 </p>
               </div>
             </div>
@@ -308,18 +287,12 @@ function LoginForm() {
         </div>
       </main>
       <footer className="relative z-10 py-5 px-8 text-center text-xs text-zinc-700 font-mono tracking-widest">
-        © {new Date().getFullYear()} NARTEX ENTERPRISE
+        © {new Date().getFullYear()} NARTEX
       </footer>
       <style jsx>{`
-        @keyframes fade-in-down {
-          from { opacity: 0; transform: translate(-50%, -1.5rem); }
-          to { opacity: 1; transform: translate(-50%, 0); }
-        }
+        @keyframes fade-in-down { from { opacity: 0; transform: translate(-50%, -1.5rem); } to { opacity: 1; transform: translate(-50%, 0); } }
         .animate-fade-in-down { animation: fade-in-down 0.5s ease-out forwards; }
-        @keyframes pulse-slow {
-          0%, 100% { opacity: 0.4; transform: scale(1); }
-          50% { opacity: 0.6; transform: scale(1.05); }
-        }
+        @keyframes pulse-slow { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.05); } }
         .animate-pulse-slow { animation: pulse-slow 8s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
       `}</style>
     </div>
@@ -329,7 +302,8 @@ function LoginForm() {
 const PremiumLoginPage: NextPage = () => (
   <Suspense fallback={
     <div className="h-screen flex items-center justify-center bg-zinc-900">
-      <LoadingSpinner className="h-8 w-8 text-indigo-500" />
+      {/* UPDATED: Loading spinner is now green */}
+      <LoadingSpinner className="h-8 w-8 text-emerald-500" />
     </div>
   }>
     <LoginForm />
