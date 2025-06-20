@@ -1,16 +1,9 @@
+// src/app/layout.tsx
 import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-import { Inter } from "next/font/google";
 import "./globals.css";
-import { ThemeProvider } from "@/components/theme-provider";
-import { cn } from "@/lib/utils";
-import SessionProviderWrapper from "./SessionProviderWrapper"; // Assuming this is the correct path
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
+import SessionProviderWrapper from "./SessionProviderWrapper"; // Ensure this path is correct
 
 export const metadata: Metadata = {
   title: "Nartex | Plateforme de gestion centralisée",
@@ -24,29 +17,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="fr"
-      suppressHydrationWarning
-      // --- CHANGE HERE: Added `h-full` class ---
-      // This ensures the root element can fill the entire viewport height.
-      className={`${GeistSans.variable} ${GeistMono.variable} ${inter.variable} h-full bg-zinc-900`}
-    >
+    <html lang="fr" suppressHydrationWarning className={`${GeistSans.variable} ${GeistMono.variable} h-full`}>
       <body
-        className={cn(
-          // --- CHANGE HERE: Added `h-full` class ---
-          // This allows the flex container on your login page to correctly use `min-h-screen`.
-          "h-full min-h-screen bg-background font-sans antialiased"
-        )}
+        // KEY FIXES:
+        // 1. `h-full`: Ensures the body can fill the viewport.
+        // 2. `bg-zinc-900`: Sets the dark grey background for the entire application.
+        // 3. `overflow-hidden`: Prevents the body itself from ever showing a scrollbar.
+        className="h-full bg-zinc-900 font-sans antialiased overflow-hidden"
       >
         <SessionProviderWrapper>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="dark" // Setting default to 'dark' for your premium theme
-            enableSystem
-            disableTransitionOnChange
-          >
+            {/* ThemeProvider is removed as it's not needed for a single dark theme */}
             {children}
-          </ThemeProvider>
         </SessionProviderWrapper>
       </body>
     </html>
