@@ -46,8 +46,9 @@ const ParticleField: React.FC = () => {
     return () => {
       window.removeEventListener('resize', resizeCanvas);
       cancelAnimationFrame(animationFrameId);
-    }; // <-- THIS WAS THE FIX
-  }, []);
+    };
+  }, []); // <-- This was the source of the syntax error. It's now correctly structured.
+
   return <canvas ref={canvasRef} className="fixed inset-0 -z-10" />;
 };
 
@@ -117,38 +118,16 @@ function LoginForm() {
               <span className="text-white/80">Bienvenue sur</span>
               <div className="relative bottom-1">
                 <div className="absolute -inset-4 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full blur-3xl opacity-30"></div>
-                <Image
-                  src="/nartex-logo-green.svg"
-                  alt="Nartex"
-                  width={180}
-                  height={45}
-                  className="relative"
-                  onError={(e) => (e.currentTarget.src = 'https://placehold.co/180x45/059669/ffffff?text=Nartex&font=poppins')}
-                />
+                <Image src="/nartex-logo-green.svg" alt="Nartex" width={180} height={45} className="relative" onError={(e) => (e.currentTarget.src = 'https://placehold.co/180x45/059669/ffffff?text=Nartex&font=poppins')} />
               </div>
             </h1>
             
-            <p className="text-xl text-zinc-400 mb-12 leading-relaxed max-w-lg">
-              La plateforme de gestion centralisée qui révolutionne votre productivité et transforme vos flux de travail.
-            </p>
+            <p className="text-xl text-zinc-400 mb-12 leading-relaxed max-w-lg">La plateforme de gestion centralisée qui révolutionne votre productivité et transforme vos flux de travail.</p>
             <div className="space-y-8">
-            {[
-              { title: "Sécurité d'Entreprise", description: "Conformité SOC 2 et chiffrement de bout en bout.", icon: "🛡️" },
-              { title: "Automatisation Intelligente", description: "Workflows intelligents qui optimisent vos processus.", icon: "⚙️" },
-              { title: "Performance Globale", description: "Infrastructure edge pour une réactivité instantanée.", icon: "⚡" }
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-5">
-                <div className="text-2xl opacity-70">{item.icon}</div>
-                <div>
-                  <h3 className="text-lg font-medium text-white mb-0.5">{item.title}</h3>
-                  <p className="text-sm text-zinc-500">{item.description}</p>
-                </div>
-              ))}
+            {[ { title: "Sécurité d'Entreprise", description: "Conformité SOC 2 et chiffrement de bout en bout.", icon: "🛡️" }, { title: "Automatisation Intelligente", description: "Workflows intelligents qui optimisent vos processus.", icon: "⚙️" }, { title: "Performance Globale", description: "Infrastructure edge pour une réactivité instantanée.", icon: "⚡" } ].map((item, i) => ( <div key={i} className="flex items-center gap-5"><div className="text-2xl opacity-70">{item.icon}</div><div><h3 className="text-lg font-medium text-white mb-0.5">{item.title}</h3><p className="text-sm text-zinc-500">{item.description}</p></div></div> ))}
             </div>
             <div className="mt-auto pt-16 flex items-center gap-6 text-xs text-zinc-500 font-mono tracking-widest">
-              <span>ISO 27001</span>
-              <span>SOC 2</span>
-              <span>GDPR</span>
+              <span>ISO 27001</span><span>SOC 2</span><span>GDPR</span>
             </div>
           </div>
           <div className="w-full lg:w-1/2">
@@ -157,14 +136,11 @@ function LoginForm() {
               <div className="relative bg-zinc-950/60 backdrop-blur-2xl border border-zinc-800/40 rounded-2xl p-12 shadow-2xl shadow-black/20">
                 <h2 className="text-3xl font-medium mb-2 text-white text-center">Connexion sécurisée</h2>
                 <p className="text-base text-zinc-500 mb-10 text-center">Accédez à votre espace de travail.</p>
-                {error && (
-                  <div className="bg-red-950/30 border border-red-900/50 text-red-400 px-4 py-3 rounded-lg mb-8 text-sm text-center" role="alert">{error}</div>
-                )}
+                {error && ( <div className="bg-red-950/30 border border-red-900/50 text-red-400 px-4 py-3 rounded-lg mb-8 text-sm text-center" role="alert">{error}</div> )}
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div>
                     <label htmlFor="email" className="block text-xs font-medium text-zinc-400 mb-2 uppercase tracking-wider">Adresse e-mail</label>
-                    <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="vous@exemple.com"
-                           className="w-full px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 focus:bg-zinc-900/70 transition-all text-sm" />
+                    <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="vous@exemple.com" className="w-full px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 focus:bg-zinc-900/70 transition-all text-sm" />
                   </div>
                   <div>
                     <div className="flex justify-between items-center mb-2">
@@ -172,11 +148,8 @@ function LoginForm() {
                       <Link href="/forgot-password" className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors">Mot de passe oublié ?</Link>
                     </div>
                     <div className="relative">
-                      <input id="password" type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••••••"
-                             className="w-full px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 focus:bg-zinc-900/70 transition-all pr-12 text-sm" />
-                      <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-500 hover:text-zinc-300 transition-colors">
-                        {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                      </button>
+                      <input id="password" type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••••••" className="w-full px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 focus:bg-zinc-900/70 transition-all pr-12 text-sm" />
+                      <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-500 hover:text-zinc-300 transition-colors">{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button>
                     </div>
                   </div>
                   <button type="submit" disabled={loading} className="w-full group relative overflow-hidden py-3 px-4 bg-gradient-to-r from-emerald-600 to-green-600 rounded-lg text-white font-semibold text-sm transition-all shadow-lg hover:shadow-emerald-500/30 disabled:opacity-50">
@@ -189,21 +162,9 @@ function LoginForm() {
                   <div className="relative flex justify-center text-xs"><span className="px-3 bg-zinc-950/60 text-zinc-500 uppercase tracking-wider">ou</span></div>
                 </div>
                 <div className="space-y-4">
-                  {[
-                    { provider: 'google', label: 'Google Workspace', icon: <GoogleIcon /> },
-                    { provider: 'azure-ad', label: 'Microsoft Entra ID', icon: <MicrosoftIcon /> }
-                  ].map(({ provider, label, icon }) => (
-                     <button key={provider} onClick={() => handleSSOLogin(provider as "google" | "azure-ad")}
-                            className="w-full group relative overflow-hidden inline-flex justify-center items-center py-3 px-4 bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 rounded-lg text-sm font-medium text-zinc-300 transition-all">
-                       <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-emerald-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                       <span className="relative z-10 flex items-center justify-center">{icon} <span className="ml-3">{label}</span></span>
-                     </button>
-                  ))}
+                  {[ { provider: 'google', label: 'Google Workspace', icon: <GoogleIcon /> }, { provider: 'azure-ad', label: 'Microsoft Entra ID', icon: <MicrosoftIcon /> } ].map(({ provider, label, icon }) => ( <button key={provider} onClick={() => handleSSOLogin(provider as "google" | "azure-ad")} className="w-full group relative overflow-hidden inline-flex justify-center items-center py-3 px-4 bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 rounded-lg text-sm font-medium text-zinc-300 transition-all"><div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-emerald-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div><span className="relative z-10 flex items-center justify-center">{icon} <span className="ml-3">{label}</span></span></button> ))}
                 </div>
-                <p className="mt-10 text-center text-zinc-500 text-xs">
-                  Vous n'avez pas de compte ?{" "}
-                  <Link href="/signup" className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">Créer un compte</Link>
-                </p>
+                <p className="mt-10 text-center text-zinc-500 text-xs">Vous n'avez pas de compte ?{" "} <Link href="/signup" className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">Créer un compte</Link></p>
               </div>
             </div>
           </div>
@@ -223,11 +184,7 @@ function LoginForm() {
 }
 
 const PremiumLoginPage: NextPage = () => (
-  <Suspense fallback={
-    <div className="h-screen flex items-center justify-center bg-zinc-900">
-      <LoadingSpinner className="h-8 w-8 text-emerald-500" />
-    </div>
-  }>
+  <Suspense fallback={ <div className="h-screen flex items-center justify-center bg-zinc-900"><LoadingSpinner className="h-8 w-8 text-emerald-500" /></div> }>
     <LoginForm />
   </Suspense>
 );
