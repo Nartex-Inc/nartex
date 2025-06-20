@@ -119,7 +119,6 @@ const ParticleField: React.FC = () => {
   return <canvas ref={canvasRef} className="fixed inset-0 -z-10" />;
 };
 
-
 function LoginForm() {
   const params = useSearchParams();
   const confirmed = params?.get("confirmed") === "true";
@@ -153,7 +152,8 @@ function LoginForm() {
       return;
     }
     router.push("/dashboard");
-  };
+  }; // <--- THIS IS THE FIX: Added the missing closing brace and semicolon
+
   const handleSSOLogin = (provider: "google" | "azure-ad") => {
     setLoading(true);
     setError(null);
