@@ -8,7 +8,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
 
-// --- Icon Components (No changes needed) ---
+// --- Icon Components ---
 const EyeIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg> );
 const EyeOffIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg> );
 const GoogleIcon: React.FC<{ width?: number; height?: number; className?: string }> = ({ width = 18, height = 18, className = "" }) => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width={width} height={height} className={className}><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" /><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" /><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" /><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" /></svg> );
@@ -43,7 +43,10 @@ const ParticleField: React.FC = () => {
     };
     animate();
     window.addEventListener('resize', resizeCanvas);
-    return () => { window.removeEventListener('resize', resizeCanvas); cancelAnimationFrame(animationFrameId); }
+    return () => {
+      window.removeEventListener('resize', resizeCanvas);
+      cancelAnimationFrame(animationFrameId);
+    }; // <-- THIS WAS THE FIX
   }, []);
   return <canvas ref={canvasRef} className="fixed inset-0 -z-10" />;
 };
@@ -86,8 +89,10 @@ function LoginForm() {
   return (
     <div className="h-screen flex flex-col text-gray-100 font-sans antialiased relative">
       <ParticleField />
+      
       <div className="absolute top-0 left-0 w-96 h-96 bg-emerald-900/30 rounded-full blur-3xl opacity-20 -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-green-900/30 rounded-full blur-3xl opacity-20 translate-x-1/2 translate-y-1/2 pointer-events-none"></div>
+
       {showBanner && ( <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-emerald-950/50 backdrop-blur-xl border border-emerald-500/20 text-emerald-300 px-4 py-2 rounded-full shadow-lg z-50 text-xs animate-fade-in-down">Votre compte a bien été activé ! Vous pouvez maintenant vous connecter.</div> )}
       {showNewUserBanner && ( <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-emerald-950/50 backdrop-blur-xl border border-emerald-500/20 text-emerald-300 px-4 py-2 rounded-full shadow-lg z-50 text-xs animate-fade-in-down">Compte créé ! Veuillez consulter votre boîte de réception pour vérifier votre e-mail.</div> )}
 
@@ -108,19 +113,16 @@ function LoginForm() {
         <div className="flex w-full max-w-6xl gap-24 items-center">
           <div className="hidden lg:flex lg:flex-col lg:w-1/2 py-12">
             
-            {/* --- UPDATED: Title with logo --- */}
             <h1 className="text-6xl font-light tracking-tighter mb-6 flex items-end gap-4">
               <span className="text-white/80">Bienvenue sur</span>
-              {/* The logo is now part of the heading */}
               <div className="relative bottom-1">
                 <div className="absolute -inset-4 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full blur-3xl opacity-30"></div>
                 <Image
-                  src="/nartex-logo-green.svg" // Assumes you have a green version of your logo
+                  src="/nartex-logo-green.svg"
                   alt="Nartex"
                   width={180}
                   height={45}
                   className="relative"
-                  // Fallback in case the green logo fails to load
                   onError={(e) => (e.currentTarget.src = 'https://placehold.co/180x45/059669/ffffff?text=Nartex&font=poppins')}
                 />
               </div>
@@ -143,7 +145,6 @@ function LoginForm() {
                 </div>
               ))}
             </div>
-            {/* --- UPDATED: Compliance text color --- */}
             <div className="mt-auto pt-16 flex items-center gap-6 text-xs text-zinc-500 font-mono tracking-widest">
               <span>ISO 27001</span>
               <span>SOC 2</span>
@@ -159,7 +160,6 @@ function LoginForm() {
                 {error && (
                   <div className="bg-red-950/30 border border-red-900/50 text-red-400 px-4 py-3 rounded-lg mb-8 text-sm text-center" role="alert">{error}</div>
                 )}
-                {/* The rest of the form is already themed green, so no changes needed */}
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div>
                     <label htmlFor="email" className="block text-xs font-medium text-zinc-400 mb-2 uppercase tracking-wider">Adresse e-mail</label>
@@ -209,12 +209,9 @@ function LoginForm() {
           </div>
         </div>
       </main>
-      
-      {/* --- UPDATED: Footer text color --- */}
       <footer className="relative z-10 py-5 px-8 text-center text-xs text-zinc-500 font-mono tracking-widest">
         © {new Date().getFullYear()} NARTEX
       </footer>
-      
       <style jsx>{`
         @keyframes fade-in-down { from { opacity: 0; transform: translate(-50%, -1.5rem); } to { opacity: 1; transform: translate(-50%, 0); } }
         .animate-fade-in-down { animation: fade-in-down 0.5s ease-out forwards; }
