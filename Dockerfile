@@ -6,9 +6,9 @@ FROM node:18-alpine AS builder
 # Set working directory
 WORKDIR /app
 
-# Accept the Git commit hash as a build argument from the buildspec
+# Accept the Git commit hash as a build argument
 ARG GIT_COMMIT_HASH
-# Expose it as an environment variable so next.config.js can read it
+# Expose it as an environment variable for the `next build` command to use
 ENV GIT_COMMIT_HASH=$GIT_COMMIT_HASH
 
 # 1. Install dependencies
@@ -21,18 +21,14 @@ RUN npm ci
 # This includes prisma, src, public, next.config.js, etc.
 COPY . .
 
-# --- THIS IS THE CRITICAL FIX ---
-# The .env.production file is created by your buildspec. We need to
-# copy it into the builder so that the `next build` command can access
-# the environment variables (like SSO client IDs) it needs.
-COPY .env.production ./.env.production
-
 # 3. Generate Prisma Client
 # This must happen after `npm ci` and after `prisma/schema.prisma` is copied.
 RUN npx prisma generate
 
 # 4. Build the Next.js application for production
-# This command will now succeed because the .env.production file is present.
+# This creates the optimized build output in the .next folder.
+# The .env.production file is NOT needed here. Next.js uses build-time
+# environment variables which CodeBuild already provides.
 RUN npm run build
 
 
@@ -55,14 +51,15 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/public ./public
 
 # 3. Copy over the compiled static assets (.js, .css chunks)
+# This is the crucial step for your frontend assets.
 COPY --from=builder /app/.next/static ./.next/static
 
 # 4. Copy over the Prisma schema and generated client for runtime use
 COPY --from=builder /app/prisma/schema.prisma ./prisma/schema.prisma
 COPY --from=builder /app/node_modules/.prisma/client ./node_modules/.prisma/client
 
-# 5. Copy the production environment file again for the final runtime container
-# This command was already correct.
+# 5. Copy the production environment file created in the buildspec
+# This file contains all the secrets and will be read by your app at runtime.
 COPY --from=builder /app/.env.production ./.env.production
 
 
