@@ -6,6 +6,11 @@ FROM node:18-alpine AS builder
 # Set working directory
 WORKDIR /app
 
+# Accept the Git commit hash as a build argument
+ARG GIT_COMMIT_HASH
+# Expose it as an environment variable for the `next build` command to use
+ENV GIT_COMMIT_HASH=$GIT_COMMIT_HASH
+
 # 1. Install dependencies
 # Using `COPY package*.json` ensures this layer is cached unless
 # package.json or package-lock.json changes.
