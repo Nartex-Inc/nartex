@@ -62,11 +62,15 @@ const ParticleField: React.FC = () => {
       particles.forEach((p, i) => {
         p.x += p.vx; p.y += p.vy;
         if (p.x < 0 || p.x > canvas.width) p.vx *= -1; if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fillStyle = `rgba(110, 231, 183, ${p.opacity})`; ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(110, 231, 183, ${p.opacity})`; // emerald-300
+        ctx.fill();
         for (let j = i + 1; j < particles.length; j++) {
           const p2 = particles[j]; const dx = p.x - p2.x; const dy = p.y - p2.y; const distance = Math.sqrt(dx * dx + dy * dy);
           if (distance < connectionDistance) {
-            ctx.beginPath(); const opacity = 1 - (distance / connectionDistance); ctx.strokeStyle = `rgba(52, 211, 153, ${opacity * 0.2})`; ctx.lineWidth = 0.5; ctx.moveTo(p.x, p.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+            ctx.beginPath(); const opacity = 1 - (distance / connectionDistance);
+            ctx.strokeStyle = `rgba(52, 211, 153, ${opacity * 0.2})`; // emerald-400
+            ctx.lineWidth = 0.5; ctx.moveTo(p.x, p.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
           }
         }
       });
@@ -114,8 +118,6 @@ function LoginForm() {
     router.push("/dashboard");
   };
 
-  // --- THIS IS THE FIX ---
-  // The provider ID for standard Entra ID is `azure-ad`.
   const handleSSOLogin = (provider: "google" | "azure-ad") => {
     setLoading(true);
     setError(null);
@@ -152,31 +154,36 @@ function LoginForm() {
           </div>
         </div>
       </header>
-
+      
       <main className="flex-1 flex items-center justify-center py-8 px-6 relative z-10 overflow-y-auto">
         <div className="flex w-full max-w-6xl gap-24 items-center">
           <div className="hidden lg:flex lg:flex-col lg:w-1/2 py-12">
             <h1 className="text-6xl font-thin tracking-tighter mb-6">
               <span className="text-white/80">Bienvenue sur</span><br />
-              <span className="bg-gradient-to-r from-emerald-400 to-green-400 bg-clip-text text-transparent font-normal">Nartex.</span>
+              <span className="bg-gradient-to-r from-emerald-400 to-green-400 bg-clip-text text-transparent font-normal">Nartex Enterprise</span>
             </h1>
-            <p className="text-xl text-zinc-400 mb-12 leading-relaxed max-w-lg">La plateforme de gestion centralisée qui révolutionne votre productivité et transforme vos flux de travail.</p>
+            <p className="text-xl text-zinc-400 mb-12 leading-relaxed max-w-lg">
+              La plateforme de gestion centralisée qui révolutionne votre productivité et transforme vos flux de travail.
+            </p>
             <div className="space-y-8">
-            {[
-              { title: "Sécurité d'Entreprise", description: "Conformité SOC 2 et chiffrement de bout en bout.", icon: "🛡️" },
-              { title: "Automatisation Intelligente", description: "Workflows intelligents qui optimisent vos processus.", icon: "⚙️" },
-              { title: "Performance Globale", description: "Infrastructure edge pour une réactivité instantanée.", icon: "⚡" }
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-5">
-                <div className="text-2xl opacity-70">{item.icon}</div>
-                <div>
-                  <h3 className="text-lg font-medium text-white mb-0.5">{item.title}</h3>
-                  <p className="text-sm text-zinc-500">{item.description}</p>
+              {[
+                { title: "Sécurité d'Entreprise", description: "Conformité SOC 2 et chiffrement de bout en bout.", icon: "🛡️" },
+                { title: "Automatisation Intelligente", description: "Workflows intelligents qui optimisent vos processus.", icon: "⚙️" },
+                { title: "Performance Globale", description: "Infrastructure edge pour une réactivité instantanée.", icon: "⚡" }
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-5">
+                  <div className="text-2xl opacity-70">{item.icon}</div>
+                  <div>
+                    <h3 className="text-lg font-medium text-white mb-0.5">{item.title}</h3>
+                    <p className="text-sm text-zinc-500">{item.description}</p>
+                  </div>
                 </div>
               ))}
             </div>
             <div className="mt-auto pt-16 flex items-center gap-6 text-xs text-zinc-700 font-mono tracking-widest">
-              <span>ISO 27001</span><span>SOC 2</span><span>GDPR</span>
+              <span>ISO 27001</span>
+              <span>SOC 2</span>
+              <span>GDPR</span>
             </div>
           </div>
           <div className="w-full lg:w-1/2">
@@ -219,8 +226,6 @@ function LoginForm() {
                 <div className="space-y-4">
                   {[
                     { provider: 'google', label: 'Google Workspace', icon: <GoogleIcon /> },
-                    // --- THIS IS THE FIX ---
-                    // The button now calls handleSSOLogin with the correct 'azure-ad' provider ID
                     { provider: 'azure-ad', label: 'Microsoft Entra ID', icon: <MicrosoftIcon /> }
                   ].map(({ provider, label, icon }) => (
                      <button key={provider} onClick={() => handleSSOLogin(provider as "google" | "azure-ad")}
@@ -240,7 +245,7 @@ function LoginForm() {
         </div>
       </main>
       <footer className="relative z-10 py-5 px-8 text-center text-xs text-zinc-700 font-mono tracking-widest">
-        © {new Date().getFullYear()} NARTEX
+        © {new Date().getFullYear()} NARTEX ENTERPRISE
       </footer>
       <style jsx>{`
         @keyframes fade-in-down { from { opacity: 0; transform: translate(-50%, -1.5rem); } to { opacity: 1; transform: translate(-50%, 0); } }
