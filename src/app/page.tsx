@@ -253,7 +253,7 @@ function LoginForm() {
               <span className="text-white/80">Bienvenue sur</span>
               <br />
               <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent font-normal">
-                Nartex Enterprise
+                Nartex
               </span>
             </h1>
             <p className="text-xl text-zinc-400 mb-12 leading-relaxed max-w-lg">
