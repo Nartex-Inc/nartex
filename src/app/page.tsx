@@ -7,7 +7,7 @@ import type { NextPage } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
-import NartexLogo from "@/components/nartex-logo"; // 1. IMPORT THE LOGO COMPONENT
+import NartexLogo from "@/components/nartex-logo";
 
 // --- Icon Components ---
 const EyeIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg> );
@@ -111,13 +111,26 @@ function LoginForm() {
         </div>
       </header>
       
+      {/* 
+        FIX #1: `main` element has no vertical padding (`py-`).
+        Its job is to fill the space (`flex-1`) and manage its own scrollbar (`overflow-y-auto`).
+      */}
       <main className="flex-1 flex items-center justify-center px-6 relative z-10 overflow-y-auto">
-        {/* MODIFIED: The gap is now responsive */}
+        
+        {/* 
+          FIX #2: Vertical padding (`py-12`) is moved here, to the content wrapper.
+          This ensures content never touches the header/footer.
+        */}
         <div className="flex w-full max-w-6xl gap-16 xl:gap-24 items-center py-12">
-          <div className="hidden xl:flex xl:flex-col xl:w-1/2 py-12">
+          
+          {/* 
+            FIX #3: All layout classes use `xl:` instead of `lg:`.
+            This delays the two-column layout until the screen is wide enough.
+            Also removed the redundant `py-12` from this div.
+          */}
+          <div className="hidden xl:flex xl:flex-col xl:w-1/2">
             
-            {/* MODIFIED: The heading font size is now responsive */}
-            <h1 className="text-4xl lg:text-5xl xl:text-6xl font-light tracking-tighter mb-6 flex flex-col">
+            <h1 className="text-4xl xl:text-6xl font-light tracking-tighter mb-6 flex flex-col">
               <span className="text-white/80">Bienvenue sur</span>
               <NartexLogo 
                 width={180} 
@@ -126,7 +139,7 @@ function LoginForm() {
               />
             </h1>
             
-            <p className="text-xl text-zinc-400 mb-12 leading-relaxed max-w-lg">La plateforme de gestion centralisée qui révolutionne votre productivité et transforme vos flux de travail.</p>
+            <p className="text-lg xl:text-xl text-zinc-400 mb-12 leading-relaxed max-w-lg">La plateforme de gestion centralisée qui révolutionne votre productivité et transforme vos flux de travail.</p>
             <div className="space-y-8">
             {[ { title: "Sécurité d'Entreprise", description: "Conformité SOC 2 et chiffrement de bout en bout.", icon: "🛡️" }, { title: "Automatisation Intelligente", description: "Workflows intelligents qui optimisent vos processus.", icon: "⚙️" }, { title: "Performance Globale", description: "Infrastructure edge pour une réactivité instantanée.", icon: "⚡" } ].map((item, i) => ( <div key={i} className="flex items-center gap-5"><div className="text-2xl opacity-70">{item.icon}</div><div><h3 className="text-lg font-medium text-white mb-0.5">{item.title}</h3><p className="text-sm text-zinc-500">{item.description}</p></div></div> ))}
             </div>
@@ -137,7 +150,6 @@ function LoginForm() {
           <div className="w-full xl:w-1/2">
             <div className="relative">
               <div className="absolute -inset-2 bg-gradient-to-r from-emerald-800/20 via-green-800/20 to-emerald-800/20 rounded-3xl blur-3xl opacity-40 animate-pulse-slow"></div>
-              {/* MODIFIED: The padding is now responsive */}
               <div className="relative bg-zinc-950/60 backdrop-blur-2xl border border-zinc-800/40 rounded-2xl p-8 md:p-10 lg:p-12 shadow-2xl shadow-black/20">
                 <h2 className="text-3xl font-medium mb-2 text-white text-center">Connexion sécurisée</h2>
                 <p className="text-base text-zinc-500 mb-10 text-center">Accédez à votre espace de travail.</p>
