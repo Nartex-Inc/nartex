@@ -23,22 +23,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    // Add the font variable to the html tag
     <html lang="fr" suppressHydrationWarning className={`${poppins.variable} h-full`}>
-      {/*
-        ==================================================================
-        ===                        THE FIX                           ===
-        ==================================================================
-        The 'overflow-hidden' class has been removed from the body tag.
-        This was preventing individual pages from handling their own
-        scrolling and was the root cause of the layout breaking.
-      */}
-      <body
-        // Set the font as the default sans-serif font
-        className="h-full bg-zinc-900 font-sans antialiased"
-      >
-        <SessionProviderWrapper>
-            {children}
+      <body className="h-full bg-zinc-900 font-sans antialiased">
+        {/*
+          ==================================================================
+          ===                  THE DEFINITIVE FIX                      ===
+          ==================================================================
+          The wrapper must also have `h-full` to create an unbroken
+          chain of full-height containers for your page component.
+        */}
+        <SessionProviderWrapper className="h-full">
+          {children}
         </SessionProviderWrapper>
       </body>
     </html>
