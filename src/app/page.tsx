@@ -115,12 +115,12 @@ function LoginForm() {
         <div className="flex w-full max-w-6xl gap-24 items-center">
           <div className="hidden lg:flex lg:flex-col lg:w-1/2 py-12">
             
-            <h1 className="text-6xl font-light tracking-tighter mb-6 flex items-baseline flex-nowrap">
-              <span className="text-white/80 whitespace-nowrap">Bienvenue sur</span>
+            <h1 className="text-6xl font-light tracking-tighter mb-6">
+              <span className="text-white/80">Bienvenue sur </span>
               <NartexLogo 
                 width={180} 
                 height={45} 
-                className="ml-4 text-emerald-400" 
+                className="inline-block align-middle text-emerald-400" 
               />
             </h1>
             
