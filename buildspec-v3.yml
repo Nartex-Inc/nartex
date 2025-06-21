@@ -2,8 +2,6 @@ version: 0.2
 
 env:
   variables:
-   # ───── Non-sensitive AWS / image info ──────────────────────
-    AWS_ACCOUNT_ID: "586359898361"
     IMAGE_REPO_NAME: "nartex-next"
     NEXTAUTH_URL: "https://nartex.app"
     EMAIL_SERVER_HOST: "smtp.gmail.com"
@@ -26,11 +24,16 @@ phases:
     runtime-versions:
       nodejs: 18
     commands:
+      # --- THIS IS THE FIX ---
+      # Exit immediately if a command fails.
+      - set -e
       - echo "📦  INSTALL – installing Node dependencies"
       - npm ci
 
   pre_build:
     commands:
+      # Exit immediately if a command fails.
+      - set -e
       - echo "📜  PRE_BUILD – running Prisma migrations"
       - npx prisma migrate deploy
       - echo "🔑  PRE_BUILD – logging in to Amazon ECR"
@@ -38,6 +41,8 @@ phases:
 
   build:
     commands:
+      # Exit immediately if a command fails.
+      - set -e
       - echo "🏗  BUILD – resolving commit hash"
       - COMMIT_HASH=$(git rev-parse --short HEAD)
       - echo "📝  BUILD – creating .env.production file"
@@ -69,6 +74,8 @@ phases:
 
   post_build:
     commands:
+      # Exit immediately if a command fails.
+      - set -e
       - echo '🔄  POST_BUILD – forcing new deployment of ECS service'
       - |
         aws ecs update-service \
