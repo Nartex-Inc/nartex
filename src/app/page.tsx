@@ -89,7 +89,8 @@ function LoginForm() {
   };
 
   return (
-    <div className="h-screen flex flex-col text-gray-100 font-sans antialiased relative">
+    // FINAL FIX #1: Use `h-full` to inherit height from the now-fixed layout structure, instead of `h-screen`.
+    <div className="h-full flex flex-col text-gray-100 font-sans antialiased relative">
       <ParticleField />
       
       <div className="absolute top-0 left-0 w-96 h-96 bg-emerald-900/30 rounded-full blur-3xl opacity-20 -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
@@ -111,16 +112,12 @@ function LoginForm() {
         </div>
       </header>
       
+      {/* This structure is correct: flex-1 makes <main> fill the space, and overflow-y-auto gives it its own scrollbar IF NEEDED. */}
       <main className="flex-1 flex items-center justify-center px-6 relative z-10 overflow-y-auto">
+        {/* The padding is correctly on the content wrapper, not the <main> tag itself. */}
         <div className="flex w-full max-w-6xl gap-16 xl:gap-24 items-center py-12">
           
-          {/*
-            ==================================================================
-            ===                        THE FIX                           ===
-            ==================================================================
-            The redundant `py-12` has been REMOVED from this div.
-            This was the line causing the overflow and the double scrollbar.
-          */}
+          {/* The two-column layout correctly activates only on `xl` screens. */}
           <div className="hidden xl:flex xl:flex-col xl:w-1/2">
             
             <h1 className="text-4xl xl:text-6xl font-light tracking-tighter mb-6 flex flex-col">
