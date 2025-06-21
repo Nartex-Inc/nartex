@@ -7,6 +7,7 @@ import type { NextPage } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
+import { NartexLogo } from "@/components/ui/nartex-logo"; // Import the logo component
 
 // --- Icon Components ---
 const EyeIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg> );
@@ -47,8 +48,7 @@ const ParticleField: React.FC = () => {
       window.removeEventListener('resize', resizeCanvas);
       cancelAnimationFrame(animationFrameId);
     };
-  }, []); // <-- This was the source of the syntax error. It's now correctly structured.
-
+  }, []);
   return <canvas ref={canvasRef} className="fixed inset-0 -z-10" />;
 };
 
@@ -88,7 +88,7 @@ function LoginForm() {
   };
 
   return (
-    <div className="h-screen flex flex-col text-gray-100 font-sans antialiased relative">
+    <div className="h-screen flex flex-col font-sans antialiased relative">
       <ParticleField />
       
       <div className="absolute top-0 left-0 w-96 h-96 bg-emerald-900/30 rounded-full blur-3xl opacity-20 -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
@@ -114,20 +114,21 @@ function LoginForm() {
         <div className="flex w-full max-w-6xl gap-24 items-center">
           <div className="hidden lg:flex lg:flex-col lg:w-1/2 py-12">
             
-            <h1 className="text-6xl font-light tracking-tighter mb-6 flex items-end gap-4">
+            <h1 className="text-6xl font-semibold tracking-tight mb-6 flex items-center gap-x-4">
               <span className="text-white/80">Bienvenue sur</span>
-              <div className="relative bottom-1">
-                <div className="absolute -inset-4 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full blur-3xl opacity-30"></div>
-                <Image src="/nartex-logo-green.svg" alt="Nartex" width={180} height={45} className="relative" onError={(e) => (e.currentTarget.src = 'https://placehold.co/180x45/059669/ffffff?text=Nartex&font=poppins')} />
-              </div>
+              <NartexLogo className="h-[45px] w-auto text-emerald-400" />
             </h1>
             
-            <p className="text-xl text-zinc-400 mb-12 leading-relaxed max-w-lg">La plateforme de gestion centralisée qui révolutionne votre productivité et transforme vos flux de travail.</p>
+            <p className="text-xl text-zinc-400 mb-12 leading-relaxed max-w-lg">
+              La plateforme de gestion centralisée qui révolutionne votre productivité et transforme vos flux de travail.
+            </p>
             <div className="space-y-8">
-            {[ { title: "Sécurité d'Entreprise", description: "Conformité SOC 2 et chiffrement de bout en bout.", icon: "🛡️" }, { title: "Automatisation Intelligente", description: "Workflows intelligents qui optimisent vos processus.", icon: "⚙️" }, { title: "Performance Globale", description: "Infrastructure edge pour une réactivité instantanée.", icon: "⚡" } ].map((item, i) => ( <div key={i} className="flex items-center gap-5"><div className="text-2xl opacity-70">{item.icon}</div><div><h3 className="text-lg font-medium text-white mb-0.5">{item.title}</h3><p className="text-sm text-zinc-500">{item.description}</p></div></div> ))}
+            {[ { title: "Sécurité d'Entreprise", description: "Conformité SOC 2 et chiffrement de bout en bout.", icon: "🛡️" }, { title: "Automatisation Intelligente", description: "Workflows intelligents qui optimisent vos processus.", icon: "⚙️" }, { title: "Performance Globale", description: "Infrastructure edge pour une réactivité instantanée.", icon: "⚡" } ].map((item, i) => ( <div key={i} className="flex items-center gap-5"><div className="text-2xl opacity-70">{item.icon}</div><div><h3 className="text-lg font-bold text-white mb-0.5">{item.title}</h3><p className="text-sm text-zinc-500">{item.description}</p></div></div> ))}
             </div>
             <div className="mt-auto pt-16 flex items-center gap-6 text-xs text-zinc-500 font-mono tracking-widest">
-              <span>ISO 27001</span><span>SOC 2</span><span>GDPR</span>
+              <span>ISO 27001</span>
+              <span>SOC 2</span>
+              <span>GDPR</span>
             </div>
           </div>
           <div className="w-full lg:w-1/2">
