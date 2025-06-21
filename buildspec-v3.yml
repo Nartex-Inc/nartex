@@ -5,7 +5,7 @@ env:
    # ───── Non-sensitive AWS / image info ──────────────────────
     AWS_ACCOUNT_ID: "586359898361"
     IMAGE_REPO_NAME: "nartex-next"
-    NEXTAUTH_URL: "https://nartex.app"
+    NEXTAUTH_URL: "https://app.nartex.ca"
     EMAIL_SERVER_HOST: "smtp.gmail.com"
     EMAIL_SERVER_PORT: "587"
     EMAIL_SERVER_USER: "n.labranche@nartex.ca"
