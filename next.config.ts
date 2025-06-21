@@ -1,40 +1,35 @@
-import type { NextConfig } from 'next';
-
-const nextConfig: NextConfig = {
-  reactStrictMode: true,
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  images: {
-    // UPDATED: Added 'placehold.co' to support the new logo's fallback URL.
-    domains: ['api.placeholder.com', 'localhost', 'placehold.co'],
-  },
-  
-  // This is essential for containerized Next.js apps
-  output: 'standalone',
-
-  // This is the most robust solution to prevent ChunkLoadError issues
-  // in a multi-container environment like ECS.
-  generateBuildId: async () => {
-    // Check if the GIT_COMMIT_HASH environment variable is available.
-    if (process.env.GIT_COMMIT_HASH) {
-      return process.env.GIT_COMMIT_HASH;
-    }
+// tsconfig.json
+{
+  "compilerOptions": {
+    "target": "es2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
     
-    // Fallback to a timestamp for local development.
-    return `${new Date().getTime()}`;
-  },
-
-  // This is a good defensive measure for certain proxy configurations.
-  // It's safe to keep.
-  async rewrites() {
-    return [
+    // --- THIS IS THE CRITICAL FIX ---
+    // This tells TypeScript to start looking for paths from the project root (`.`).
+    "baseUrl": ".",
+    // This tells TypeScript that "@/*" means "look inside the ./src/ folder".
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    
+    "plugins": [
       {
-        source: '/next/:path*',
-        destination: '/_next/:path*',
-      },
-    ];
+        "name": "next"
+      }
+    ],
+    "forceConsistentCasingInFileNames": true
   },
-};
-
-export default nextConfig;
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
