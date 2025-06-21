@@ -1,3 +1,4 @@
+// buildspec-v3.yml
 version: 0.2
 
 env:
@@ -26,7 +27,6 @@ phases:
     runtime-versions:
       nodejs: 18
     commands:
-      # Exit immediately if any command fails.
       - set -e
       - echo "📦  INSTALL – installing Node dependencies"
       - npm ci
@@ -64,7 +64,7 @@ phases:
       - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
       
       # --- THIS IS THE FIX ---
-      # The command is now a single line, ensuring `set -e` will catch the failure.
+      # This is now a single-line command, which allows `set -e` to reliably catch failures.
       - docker build --build-arg GIT_COMMIT_HASH=$COMMIT_HASH -t "$ECR_IMAGE_URI:$COMMIT_HASH" -t "$ECR_IMAGE_URI:latest" .
 
       - echo "📤  BUILD – pushing both tags to ECR"
