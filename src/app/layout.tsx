@@ -1,14 +1,14 @@
 // src/app/layout.tsx
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google"; // <-- NEW: Import Poppins
+import { Poppins } from "next/font/google";
 import "./globals.css";
 import SessionProviderWrapper from "./SessionProviderWrapper";
 
-// --- NEW: Configure the Poppins font ---
+// Configure the Poppins font
 const poppins = Poppins({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"], // Include various weights
-  variable: "--font-poppins", // Set a CSS variable
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-poppins",
 });
 
 export const metadata: Metadata = {
@@ -23,11 +23,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    // Add the new font variable to the html tag
+    // Add the font variable to the html tag
     <html lang="fr" suppressHydrationWarning className={`${poppins.variable} h-full`}>
+      {/*
+        ==================================================================
+        ===                        THE FIX                           ===
+        ==================================================================
+        The 'overflow-hidden' class has been removed from the body tag.
+        This was preventing individual pages from handling their own
+        scrolling and was the root cause of the layout breaking.
+      */}
       <body
-        // Set the new font as the default sans-serif font
-        className="h-full bg-zinc-900 font-sans antialiased overflow-hidden"
+        // Set the font as the default sans-serif font
+        className="h-full bg-zinc-900 font-sans antialiased"
       >
         <SessionProviderWrapper>
             {children}
