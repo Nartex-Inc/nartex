@@ -112,15 +112,17 @@ function LoginForm() {
       </header>
       
       <main className="flex-1 flex items-center justify-center py-8 px-6 relative z-10 overflow-y-auto">
-        <div className="flex w-full max-w-6xl gap-24 items-center">
+        {/* MODIFIED: The gap is now responsive */}
+        <div className="flex w-full max-w-6xl gap-12 lg:gap-16 xl:gap-24 items-center">
           <div className="hidden lg:flex lg:flex-col lg:w-1/2 py-12">
             
-            <h1 className="text-6xl font-light tracking-tighter mb-6 flex flex-col">
+            {/* MODIFIED: The heading font size is now responsive */}
+            <h1 className="text-4xl lg:text-5xl xl:text-6xl font-light tracking-tighter mb-6 flex flex-col">
               <span className="text-white/80">Bienvenue sur</span>
               <NartexLogo 
                 width={180} 
                 height={45} 
-                className="mt-2 text-green-500" // <-- Color changed and margin added
+                className="mt-2 text-green-500"
               />
             </h1>
             
@@ -135,7 +137,8 @@ function LoginForm() {
           <div className="w-full lg:w-1/2">
             <div className="relative">
               <div className="absolute -inset-2 bg-gradient-to-r from-emerald-800/20 via-green-800/20 to-emerald-800/20 rounded-3xl blur-3xl opacity-40 animate-pulse-slow"></div>
-              <div className="relative bg-zinc-950/60 backdrop-blur-2xl border border-zinc-800/40 rounded-2xl p-12 shadow-2xl shadow-black/20">
+              {/* MODIFIED: The padding is now responsive */}
+              <div className="relative bg-zinc-950/60 backdrop-blur-2xl border border-zinc-800/40 rounded-2xl p-8 md:p-10 lg:p-12 shadow-2xl shadow-black/20">
                 <h2 className="text-3xl font-medium mb-2 text-white text-center">Connexion sécurisée</h2>
                 <p className="text-base text-zinc-500 mb-10 text-center">Accédez à votre espace de travail.</p>
                 {error && ( <div className="bg-red-950/30 border border-red-900/50 text-red-400 px-4 py-3 rounded-lg mb-8 text-sm text-center" role="alert">{error}</div> )}
