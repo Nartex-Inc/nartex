@@ -111,9 +111,9 @@ function LoginForm() {
         </div>
       </header>
       
-      <main className="flex-1 flex items-center justify-center py-8 px-6 relative z-10 overflow-y-auto">
+      <main className="flex-1 flex items-center justify-center px-6 relative z-10 overflow-y-auto">
         {/* MODIFIED: The gap is now responsive */}
-        <div className="flex w-full max-w-6xl gap-16 xl:gap-24 items-center">
+        <div className="flex w-full max-w-6xl gap-16 xl:gap-24 items-center py-12">
           <div className="hidden xl:flex xl:flex-col xl:w-1/2 py-12">
             
             {/* MODIFIED: The heading font size is now responsive */}
