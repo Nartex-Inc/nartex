@@ -113,8 +113,8 @@ function LoginForm() {
       
       <main className="flex-1 flex items-center justify-center py-8 px-6 relative z-10 overflow-y-auto">
         {/* MODIFIED: The gap is now responsive */}
-        <div className="flex w-full max-w-6xl gap-12 lg:gap-16 xl:gap-24 items-center">
-          <div className="hidden lg:flex lg:flex-col lg:w-1/2 py-12">
+        <div className="flex w-full max-w-6xl gap-16 xl:gap-24 items-center">
+          <div className="hidden xl:flex xl:flex-col xl:w-1/2 py-12">
             
             {/* MODIFIED: The heading font size is now responsive */}
             <h1 className="text-4xl lg:text-5xl xl:text-6xl font-light tracking-tighter mb-6 flex flex-col">
@@ -134,7 +134,7 @@ function LoginForm() {
               <span>ISO 27001</span><span>SOC 2</span><span>GDPR</span>
             </div>
           </div>
-          <div className="w-full lg:w-1/2">
+          <div className="w-full xl:w-1/2">
             <div className="relative">
               <div className="absolute -inset-2 bg-gradient-to-r from-emerald-800/20 via-green-800/20 to-emerald-800/20 rounded-3xl blur-3xl opacity-40 animate-pulse-slow"></div>
               {/* MODIFIED: The padding is now responsive */}
