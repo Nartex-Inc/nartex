@@ -114,8 +114,13 @@ function LoginForm() {
         <div className="flex w-full max-w-6xl gap-24 items-center">
           <div className="hidden lg:flex lg:flex-col lg:w-1/2 py-12">
             
+            {/* THIS IS THE UPDATED HEADING */}
             <h1 className="text-6xl font-semibold tracking-tight mb-6 flex items-center gap-x-4">
               <span className="text-white/80">Bienvenue sur</span>
+              {/* 
+                We apply size (h-[45px] w-auto) and color (text-emerald-400)
+                classes directly to the component.
+              */}
               <NartexLogo className="h-[45px] w-auto text-emerald-400" />
             </h1>
             
