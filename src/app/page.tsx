@@ -7,7 +7,8 @@ import type { NextPage } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
-import { NartexLogo } from "@/app/components/ui/nartex-logo";
+// --- THIS IS THE FINAL FIX ---
+import { NartexLogo } from "@/components/ui/nartex-logo"; 
 
 // --- Icon Components ---
 const EyeIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg> );
@@ -48,7 +49,7 @@ const ParticleField: React.FC = () => {
       window.removeEventListener('resize', resizeCanvas);
       cancelAnimationFrame(animationFrameId);
     };
-  }, []);
+  }, []); 
   return <canvas ref={canvasRef} className="fixed inset-0 -z-10" />;
 };
 
@@ -88,7 +89,7 @@ function LoginForm() {
   };
 
   return (
-    <div className="h-screen flex flex-col font-sans antialiased relative">
+    <div className="h-screen flex flex-col text-gray-100 font-sans antialiased relative">
       <ParticleField />
       
       <div className="absolute top-0 left-0 w-96 h-96 bg-emerald-900/30 rounded-full blur-3xl opacity-20 -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
@@ -114,13 +115,8 @@ function LoginForm() {
         <div className="flex w-full max-w-6xl gap-24 items-center">
           <div className="hidden lg:flex lg:flex-col lg:w-1/2 py-12">
             
-            {/* THIS IS THE UPDATED HEADING */}
             <h1 className="text-6xl font-semibold tracking-tight mb-6 flex items-center gap-x-4">
               <span className="text-white/80">Bienvenue sur</span>
-              {/* 
-                We apply size (h-[45px] w-auto) and color (text-emerald-400)
-                classes directly to the component.
-              */}
               <NartexLogo className="h-[45px] w-auto text-emerald-400" />
             </h1>
             
