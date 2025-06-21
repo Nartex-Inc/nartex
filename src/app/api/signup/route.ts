@@ -1,17 +1,20 @@
-// src/app/api/signup/route.ts
+// src/app/api/signup/route.ts (UPDATED AND CORRECTED)
+
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { randomUUID } from "crypto"; // Node.js built-in
+import { randomUUID } from "crypto";
 import { sendVerificationEmail } from "@/lib/email";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { email, password, password_confirm, given_name, family_name /*, phone_number, gender */ } = body;
+    // --- CHANGED ---: We only need email and password now.
+    const { email, password, password_confirm } = body;
 
-    if (!email || !password || !given_name || !family_name) {
-      return NextResponse.json({ success: false, error: "Champs requis manquants." }, { status: 400 });
+    // --- CHANGED ---: Validation now only checks for email and password.
+    if (!email || !password) {
+      return NextResponse.json({ success: false, error: "L'e-mail et le mot de passe sont requis." }, { status: 400 });
     }
     if (password !== password_confirm) {
       return NextResponse.json({ success: false, error: "Les mots de passe ne correspondent pas." }, { status: 400 });
@@ -28,15 +31,17 @@ export async function POST(req: Request) {
     const hashedPassword = await bcrypt.hash(password, 10);
     const verificationToken = randomUUID();
 
+    // --- CHANGED ---: The prisma.user.create call is now much simpler.
     await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
-        firstName: given_name,
-        lastName: family_name,
-        name: `${given_name} ${family_name}`.trim(),
+        // We set the `name` field to the email as a sensible default.
+        // It can be changed by the user later in a profile page.
+        name: email, 
         verificationToken,
-        // phone_number and gender can be added if they are in your Prisma schema
+        // `firstName` and `lastName` are omitted, and Prisma will
+        // leave them as null since they are optional in the schema.
       },
     });
 
