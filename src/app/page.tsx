@@ -111,22 +111,15 @@ function LoginForm() {
         </div>
       </header>
       
-      {/* 
-        FIX #1: `main` element has no vertical padding (`py-`).
-        Its job is to fill the space (`flex-1`) and manage its own scrollbar (`overflow-y-auto`).
-      */}
       <main className="flex-1 flex items-center justify-center px-6 relative z-10 overflow-y-auto">
-        
-        {/* 
-          FIX #2: Vertical padding (`py-12`) is moved here, to the content wrapper.
-          This ensures content never touches the header/footer.
-        */}
         <div className="flex w-full max-w-6xl gap-16 xl:gap-24 items-center py-12">
           
-          {/* 
-            FIX #3: All layout classes use `xl:` instead of `lg:`.
-            This delays the two-column layout until the screen is wide enough.
-            Also removed the redundant `py-12` from this div.
+          {/*
+            ==================================================================
+            ===                        THE FIX                           ===
+            ==================================================================
+            The redundant `py-12` has been REMOVED from this div.
+            This was the line causing the overflow and the double scrollbar.
           */}
           <div className="hidden xl:flex xl:flex-col xl:w-1/2">
             
