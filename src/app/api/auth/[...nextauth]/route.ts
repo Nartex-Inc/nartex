@@ -7,6 +7,12 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
+console.log("--- INITIALIZING NEXTAUTH ---");
+console.log("AZURE_AD_CLIENT_ID is set:", !!process.env.AZURE_AD_CLIENT_ID);
+console.log("AZURE_AD_CLIENT_SECRET is set:", !!process.env.AZURE_AD_CLIENT_SECRET);
+console.log("AZURE_AD_TENANT_ID value:", process.env.AZURE_AD_TENANT_ID);
+console.log("----------------------------");
+
 // Define authOptions but DO NOT export it from this file
 const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
