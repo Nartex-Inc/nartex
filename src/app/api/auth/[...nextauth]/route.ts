@@ -1,12 +1,11 @@
 // src/app/api/auth/[...nextauth]/route.ts
+
 import NextAuth, { NextAuthOptions, User as NextAuthUser } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import GoogleProvider, { GoogleProfile } from "next-auth/providers/google"; // Import GoogleProfile
+import GoogleProvider, { GoogleProfile } from "next-auth/providers/google";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-// If you need TokenSetParameters type, you might need to install openid-client
-// import type { TokenSetParameters } from "openid-client";
 
 // Define authOptions but DO NOT export it from this file
 const authOptions: NextAuthOptions = {
@@ -15,13 +14,18 @@ const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+
+      // --- THIS IS THE ADDED LOGIC ---
+      // This allows users who signed up with email/password to later
+      // sign in with Google using the same email address. The accounts
+      // will be automatically linked by the Prisma adapter.
+      allowDangerousEmailAccountLinking: true,
+
       // The profile function maps the provider's profile to the User model structure.
-      // The object returned here must conform to the `User` type defined in `next-auth.d.ts`.
-      profile(profile: GoogleProfile /*, tokens: TokenSetParameters - can be added if needed */) {
+      profile(profile: GoogleProfile) {
         return {
           // Standard fields NextAuth expects or uses for linking/user creation
-          id: profile.sub, // This is used by the adapter as the providerAccountId for the Account model.
-                           // The `User` model itself will have its own separate `id`.
+          id: profile.sub,
           name: profile.name,
           email: profile.email,
           image: profile.picture,
@@ -30,9 +34,7 @@ const authOptions: NextAuthOptions = {
           // Custom fields that are part of our augmented User model in next-auth.d.ts
           firstName: profile.given_name,
           lastName: profile.family_name,
-          role: undefined, // <<< ADDED: Satisfies the User type requirement.
-                           // For new users, Prisma adapter creating the user will likely omit
-                           // this field if undefined, allowing DB default for `role` to apply.
+          role: undefined, // Allows the database default for `role` to apply on new user creation.
         };
       },
     }),
@@ -74,7 +76,7 @@ const authOptions: NextAuthOptions = {
           firstName: user.firstName,
           lastName: user.lastName,
           emailVerified: user.emailVerified,
-          role: user.role, // Role is correctly included here
+          role: user.role,
         };
       },
     }),
@@ -89,20 +91,19 @@ const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async jwt({ token, user, account }) {
-      if (user) { // user is present on initial sign-in (from authorize or adapter)
+      if (user) {
         token.id = user.id;
 
-        const fullUser = user as NextAuthUser & { // Type assertion for custom props
+        const fullUser = user as NextAuthUser & {
           role?: string | null;
           firstName?: string | null;
           lastName?: string | null;
-          // emailVerified is already part of NextAuthUser if correctly typed in next-auth.d.ts
         };
 
         token.role = fullUser.role;
         token.firstName = fullUser.firstName;
         token.lastName = fullUser.lastName;
-        token.emailVerified = fullUser.emailVerified as Date | null; // Ensure type
+        token.emailVerified = fullUser.emailVerified as Date | null;
 
         if (fullUser.name) token.name = fullUser.name;
         if (fullUser.image) token.picture = fullUser.image;
@@ -161,7 +162,6 @@ const authOptions: NextAuthOptions = {
         return baseUrl + "/dashboard";
     },
   },
-  // debug: process.env.NODE_ENV === "development",
 };
 
 const handler = NextAuth(authOptions);
