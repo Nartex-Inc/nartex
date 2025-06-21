@@ -2,6 +2,12 @@ version: 0.2
 
 env:
   variables:
+    # --- THIS IS THE FIX ---
+    # We are explicitly defining the AWS variables to ensure they are available.
+    AWS_ACCOUNT_ID: "586359898361"
+    AWS_DEFAULT_REGION: "ca-central-1"
+    
+    # ───── Non-sensitive application configuration ─────────────
     IMAGE_REPO_NAME: "nartex-next"
     NEXTAUTH_URL: "https://nartex.app"
     EMAIL_SERVER_HOST: "smtp.gmail.com"
@@ -10,6 +16,7 @@ env:
     EMAIL_FROM: "Nartex <noreply@nartex.ca>"
 
   secrets-manager:
+    # ───── All sensitive credentials are fetched securely ──────
     DATABASE_URL:           nartex/prod/env:DATABASE_URL
     EMAIL_SERVER_PASSWORD:  nartex/prod/env:EMAIL_SERVER_PASSWORD
     NEXTAUTH_SECRET:        nartex/prod/env:NEXTAUTH_SECRET
@@ -24,25 +31,21 @@ phases:
     runtime-versions:
       nodejs: 18
     commands:
-      # --- THIS IS THE FIX ---
-      # Exit immediately if a command fails.
-      - set -e
       - echo "📦  INSTALL – installing Node dependencies"
       - npm ci
 
   pre_build:
     commands:
-      # Exit immediately if a command fails.
-      - set -e
       - echo "📜  PRE_BUILD – running Prisma migrations"
       - npx prisma migrate deploy
       - echo "🔑  PRE_BUILD – logging in to Amazon ECR"
-      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      # --- ROBUST FORMATTING FIX ---
+      - |
+        aws ecr get-login-password --region $AWS_DEFAULT_REGION | \
+        docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
 
   build:
     commands:
-      # Exit immediately if a command fails.
-      - set -e
       - echo "🏗  BUILD – resolving commit hash"
       - COMMIT_HASH=$(git rev-parse --short HEAD)
       - echo "📝  BUILD – creating .env.production file"
@@ -74,8 +77,6 @@ phases:
 
   post_build:
     commands:
-      # Exit immediately if a command fails.
-      - set -e
       - echo '🔄  POST_BUILD – forcing new deployment of ECS service'
       - |
         aws ecs update-service \
