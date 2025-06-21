@@ -1,85 +1,79 @@
 "use client";
+export const dynamic = "force-dynamic";
 
-import { FormEvent, useState } from "react";
+import React, { Suspense, FormEvent, useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import type { NextPage } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import NartexLogo from "@/components/nartex-logo";
 
-// --- Icon Components ---
-// Note: Adjusted to match the smaller sizing from your login page for consistency
-const EyeIcon: React.FC<{ className?: string }> = ({ className = "w-3.5 h-3.5" }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-    <circle cx="12" cy="12" r="3" />
-  </svg>
-);
+// --- Icon Components (Matching Login Page) ---
+const EyeIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg> );
+const EyeOffIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg> );
+const GoogleIcon: React.FC<{ width?: number; height?: number; className?: string }> = ({ width = 18, height = 18, className = "" }) => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width={width} height={height} className={className}><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" /><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" /><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" /><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" /></svg> );
+const MicrosoftIcon: React.FC<{ width?: number; height?: number; className?: string }> = ({ width = 18, height = 18, className = "" }) => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 23 23" width={width} height={height} className={className}><path d="M11 0H0v11h11V0z" fill="#f25022" /><path d="M23 0H12v11h11V0z" fill="#7fba00" /><path d="M11 12H0v11h11V12z" fill="#00a4ef" /><path d="M23 12H12v11h11V12z" fill="#ffb900" /></svg> );
+const LoadingSpinner: React.FC<{ className?: string }> = ({ className = "h-5 w-5 text-white" }) => ( <svg className={`animate-spin ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg> );
 
-const EyeOffIcon: React.FC<{ className?: string }> = ({ className = "w-3.5 h-3.5" }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-    <line x1="1" y1="1" x2="23" y2="23" />
-  </svg>
-);
+// --- Shared ParticleField Component from Login Page ---
+const ParticleField: React.FC = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const ctx = canvas.getContext('2d'); if (!ctx) return;
+    let animationFrameId: number;
+    const resizeCanvas = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+    resizeCanvas();
+    interface Particle { x: number; y: number; vx: number; vy: number; radius: number; opacity: number; }
+    const particles: Particle[] = []; const particleCount = 60; const connectionDistance = 180;
+    for (let i = 0; i < particleCount; i++) { particles.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2, radius: Math.random() * 1.5 + 0.5, opacity: Math.random() * 0.5 + 0.2, }); }
+    const animate = () => {
+      ctx.fillStyle = 'rgba(24, 24, 27, 0.1)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      particles.forEach((p, i) => {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0 || p.x > canvas.width) p.vx *= -1; if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fillStyle = `rgba(110, 231, 183, ${p.opacity})`; ctx.fill();
+        for (let j = i + 1; j < particles.length; j++) {
+          const p2 = particles[j]; const dx = p.x - p2.x; const dy = p.y - p2.y; const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance < connectionDistance) {
+            ctx.beginPath(); const opacity = 1 - (distance / connectionDistance); ctx.strokeStyle = `rgba(52, 211, 153, ${opacity * 0.2})`; ctx.lineWidth = 0.5; ctx.moveTo(p.x, p.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+          }
+        }
+      });
+      animationFrameId = requestAnimationFrame(animate);
+    };
+    animate();
+    window.addEventListener('resize', resizeCanvas);
+    return () => {
+      window.removeEventListener('resize', resizeCanvas);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
 
-const LoadingSpinner: React.FC<{ className?: string }> = ({ className = "h-4 w-4 text-white" }) => (
-  <svg className={`animate-spin ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-  </svg>
-);
+  return <canvas ref={canvasRef} className="fixed inset-0 -z-10" />;
+};
 
-const CheckIcon: React.FC<{ className?: string }> = ({ className = "w-2.5 h-2.5 text-white" }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-  </svg>
-);
-
-const GoogleIcon: React.FC<{ width?: number; height?: number; className?: string }> = ({ width = 18, height = 18, className = "" }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width={width} height={height} className={className}>
-    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-  </svg>
-);
-
-const MicrosoftIcon: React.FC<{ width?: number; height?: number; className?: string }> = ({ width = 18, height = 18, className = "" }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 23 23" width={width} height={height} className={className}>
-    <path d="M11 0H0v11h11V0z" fill="#f25022" />
-    <path d="M23 0H12v11h11V0z" fill="#7fba00" />
-    <path d="M11 12H0v11h11V12z" fill="#00a4ef" />
-    <path d="M23 12H12v11h11V12z" fill="#ffb900" />
-  </svg>
-);
-
-
-const SignUpPage = () => {
+// --- The Signup Form Component ---
+function SignupForm() {
   const router = useRouter();
-  // --- STATE SIMPLIFIED ---
-  const [form, setForm] = useState({
-    email: "",
-    password: "",
-    password_confirm: "",
-  });
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState<boolean>(false);
-  const [showPasswordConfirm, setShowPasswordConfirm] = useState<boolean>(false);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (form.password !== form.password_confirm) {
+    if (password !== confirmPassword) {
       setError("Les mots de passe ne correspondent pas.");
       return;
     }
-    if (form.password.length < 8) {
+    if (password.length < 8) {
       setError("Le mot de passe doit comporter au moins 8 caractères.");
       return;
     }
@@ -87,15 +81,10 @@ const SignUpPage = () => {
     setLoading(true);
 
     try {
-      // --- FETCH BODY SIMPLIFIED ---
       const res = await fetch("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: form.email,
-          password: form.password,
-          password_confirm: form.password_confirm,
-        }),
+        body: JSON.stringify({ email, password, password_confirm: confirmPassword }),
       });
 
       const body = await res.json();
@@ -103,6 +92,7 @@ const SignUpPage = () => {
       if (!res.ok || !body.success) {
         setError(body.error || "Impossible de créer le compte. Veuillez réessayer.");
       } else {
+        // Redirect to the login page which will show the "check your email" banner
         router.push("/?emailVerificationSent=true");
       }
     } catch (err) {
@@ -114,188 +104,109 @@ const SignUpPage = () => {
   };
   
   const handleSSOSignUp = (provider: "google" | "azure-ad") => {
-    // For signup, it's the same as login. next-auth handles user creation automatically.
+    setLoading(true);
+    setError(null);
+    // next-auth handles user creation automatically on first SSO sign-in.
     signIn(provider, { callbackUrl: "/dashboard" });
   };
 
-  // --- STYLING UPDATED TO MATCH LOGIN PAGE ---
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-900 via-gray-950 to-black text-gray-100 font-sans text-sm">
-      {/* Header with reduced size */}
-      <header className="relative z-10 bg-black/80 backdrop-blur-md border-b border-white/5 py-3 px-4">
-        <div className="container mx-auto flex items-center">
-          <Image
-            src="/nartex-logo.svg"
-            alt="Nartex Logo"
-            width={75}
-            height={18}
-            className="inline-block filter invert"
-            onError={(e) => (e.currentTarget.src = 'https://placehold.co/75x18/ffffff/000000?text=Nartex')}
-          />
+    <div className="h-screen flex flex-col text-gray-100 font-sans antialiased relative">
+      <ParticleField />
+      
+      <div className="absolute top-0 left-0 w-96 h-96 bg-emerald-900/30 rounded-full blur-3xl opacity-20 -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-green-900/30 rounded-full blur-3xl opacity-20 translate-x-1/2 translate-y-1/2 pointer-events-none"></div>
+
+      <header className="relative z-10 py-5 px-8">
+        <div className="container mx-auto flex items-center justify-between">
+          <Link href="/" className="relative group">
+            <div className="absolute -inset-2 bg-gradient-to-r from-emerald-600 to-green-600 rounded-lg blur-xl opacity-0 group-hover:opacity-20 transition-opacity duration-500"></div>
+            <Image src="/nartex-logo.svg" alt="Nartex" width={85} height={21} className="relative filter invert opacity-80 group-hover:opacity-100 transition-opacity" onError={e => (e.currentTarget.src = "https://placehold.co/85x21/ffffff/000000?text=Nartex")} />
+          </Link>
+          <div className="hidden md:flex items-center gap-2 text-xs text-zinc-600">
+            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+            <span>Enterprise Platform</span>
+          </div>
         </div>
       </header>
-
-      {/* Main Content with adjusted sizing */}
-      <main className="flex-1 flex items-center justify-center py-4 px-4 md:py-6">
-        <div className="flex w-full max-w-3xl xl:max-w-4xl">
-          {/* Left Marketing Content with adjusted sizing */}
-          <div className="hidden lg:flex lg:flex-col lg:w-1/2 p-6 md:p-8 pr-4 md:pr-6">
-            <h1 className="text-2xl xl:text-3xl font-bold mb-3 bg-gradient-to-r from-emerald-400 to-blue-500 bg-clip-text text-transparent">
-              Rejoignez Nartex
+      
+      <main className="flex-1 flex items-center justify-center py-8 px-6 relative z-10 overflow-y-auto">
+        <div className="flex w-full max-w-6xl gap-24 items-center">
+          <div className="hidden lg:flex lg:flex-col lg:w-1/2 py-12">
+            <h1 className="text-6xl font-light tracking-tighter mb-6 flex items-baseline flex-nowrap">
+                <span className="text-white/80 whitespace-nowrap">Rejoignez</span>
+                <NartexLogo width={180} height={45} className="ml-4 text-emerald-400" />
             </h1>
-            <p className="text-sm xl:text-base mb-5 text-gray-300">
-              La plateforme de gestion centralisée qui révolutionne votre productivité et transforme radicalement vos flux de travail.
-            </p>
-            <div className="space-y-5">
-              {[
-                  ["Sécurité inégalée", "Protection blindée de vos données avec chiffrement de niveau militaire et conformité aux normes les plus strictes."],
-                  ["Intégration parfaite", "Synchronisation instantanée avec tous vos outils existants, unifiant votre écosystème numérique."],
-                  ["Support 24/7", "Une équipe d'experts dédiés à vos côtés pour assurer votre réussite, avec un temps de réponse moyen de moins de 15 minutes."],
-              ].map(([title, description], i) => (
-                <div key={i} className="flex items-start">
-                  <div className="mt-0.5 bg-gradient-to-br from-emerald-500 to-blue-500 rounded-full p-1 mr-2.5">
-                    <CheckIcon />
-                  </div>
-                  <div>
-                    <h3 className="text-sm xl:text-base font-medium text-white">{title}</h3>
-                    <p className="text-xs xl:text-sm text-gray-400">{description}</p>
-                  </div>
-                </div>
-              ))}
+            <p className="text-xl text-zinc-400 mb-12 leading-relaxed max-w-lg">La plateforme de gestion centralisée qui révolutionne votre productivité et transforme vos flux de travail.</p>
+            <div className="space-y-8">
+            {[ { title: "Sécurité inégalée", description: "Protection blindée de vos données avec chiffrement de niveau militaire.", icon: "🛡️" }, { title: "Intégration parfaite", description: "Synchronisation instantanée avec tous vos outils existants.", icon: "🔗" }, { title: "Support 24/7", description: "Une équipe d'experts dédiée avec un temps de réponse rapide.", icon: "💬" } ].map((item, i) => ( <div key={i} className="flex items-center gap-5"><div className="text-2xl opacity-70">{item.icon}</div><div><h3 className="text-lg font-medium text-white mb-0.5">{item.title}</h3><p className="text-sm text-zinc-500">{item.description}</p></div></div> ))}
+            </div>
+            <div className="mt-auto pt-16 flex items-center gap-6 text-xs text-zinc-500 font-mono tracking-widest">
+              <span>ISO 27001</span><span>SOC 2</span><span>GDPR</span>
             </div>
           </div>
-
-          {/* Right Signup Form with adjusted sizing */}
-          <div className="w-full lg:w-1/2 px-4 md:px-6">
-            <div className="bg-gray-900/70 backdrop-blur-lg border border-gray-700 rounded-xl shadow-2xl p-6 md:p-8">
-              <div className="lg:hidden flex justify-center mb-5">
-                <Image
-                  src="/nartex-logo.svg"
-                  alt="Nartex Logo"
-                  width={100}
-                  height={25}
-                  className="inline-block filter invert"
-                  onError={(e) => (e.currentTarget.src = "https://placehold.co/100x25/ffffff/000000?text=Nartex")}
-                />
-              </div>
-
-              <h2 className="text-lg xl:text-xl font-bold mb-1 text-white text-center lg:text-left">Créer un compte</h2>
-              <p className="text-xs xl:text-sm text-gray-400 mb-5 text-center lg:text-left">
-                Utilisez votre e-mail ou un fournisseur SSO.
-              </p>
-              
-              {error && (
-                <div className="bg-red-900/30 border border-red-700 text-red-300 px-3 py-2 rounded-lg mb-4 text-xs" role="alert">
-                  {error}
-                </div>
-              )}
-
-              {/* --- SIMPLIFIED FORM --- */}
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Email */}
-                <div>
-                  <label htmlFor="email" className="block text-xs font-medium text-gray-300 mb-1">Adresse e-mail</label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={form.email}
-                    onChange={handleChange}
-                    required
-                    placeholder="vous@exemple.com"
-                    className="w-full px-3 py-2 bg-gray-800/80 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:ring-1 focus:ring-emerald-500 text-sm"
-                  />
-                </div>
-
-                {/* Mot de passe */}
-                <div>
-                  <label htmlFor="password" className="block text-xs font-medium text-gray-300 mb-1">Mot de passe</label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      id="password"
-                      name="password"
-                      value={form.password}
-                      onChange={handleChange}
-                      required
-                      placeholder="8+ caractères"
-                      className="w-full px-3 py-2 bg-gray-800/80 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:ring-1 focus:ring-emerald-500 pr-9 text-sm"
-                    />
-                     <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-gray-400 hover:text-emerald-400">
-                      {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                    </button>
+          <div className="w-full lg:w-1/2">
+            <div className="relative">
+              <div className="absolute -inset-2 bg-gradient-to-r from-emerald-800/20 via-green-800/20 to-emerald-800/20 rounded-3xl blur-3xl opacity-40 animate-pulse-slow"></div>
+              <div className="relative bg-zinc-950/60 backdrop-blur-2xl border border-zinc-800/40 rounded-2xl p-12 shadow-2xl shadow-black/20">
+                <h2 className="text-3xl font-medium mb-2 text-white text-center">Créer un compte</h2>
+                <p className="text-base text-zinc-500 mb-10 text-center">Utilisez votre e-mail ou un fournisseur SSO.</p>
+                {error && ( <div className="bg-red-950/30 border border-red-900/50 text-red-400 px-4 py-3 rounded-lg mb-8 text-sm text-center" role="alert">{error}</div> )}
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div>
+                    <label htmlFor="email" className="block text-xs font-medium text-zinc-400 mb-2 uppercase tracking-wider">Adresse e-mail</label>
+                    <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="vous@exemple.com" className="w-full px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 focus:bg-zinc-900/70 transition-all text-sm" />
                   </div>
-                </div>
-
-                {/* Confirmation du mot de passe */}
-                <div>
-                  <label htmlFor="password_confirm" className="block text-xs font-medium text-gray-300 mb-1">Confirmer le mot de passe</label>
-                  <div className="relative">
-                    <input
-                      type={showPasswordConfirm ? "text" : "password"}
-                      id="password_confirm"
-                      name="password_confirm"
-                      value={form.password_confirm}
-                      onChange={handleChange}
-                      required
-                      placeholder="Confirmez votre mot de passe"
-                      className="w-full px-3 py-2 bg-gray-800/80 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:ring-1 focus:ring-emerald-500 pr-9 text-sm"
-                    />
-                    <button type="button" onClick={() => setShowPasswordConfirm(v => !v)} className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-gray-400 hover:text-emerald-400">
-                      {showPasswordConfirm ? <EyeOffIcon /> : <EyeIcon />}
-                    </button>
+                  <div>
+                    <label htmlFor="password" className="block text-xs font-medium text-zinc-400 mb-2 uppercase tracking-wider">Mot de passe</label>
+                    <div className="relative">
+                      <input id="password" type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required placeholder="8+ caractères" className="w-full px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 focus:bg-zinc-900/70 transition-all pr-12 text-sm" />
+                      <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-500 hover:text-zinc-300 transition-colors">{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button>
+                    </div>
                   </div>
+                  <div>
+                    <label htmlFor="confirmPassword" className="block text-xs font-medium text-zinc-400 mb-2 uppercase tracking-wider">Confirmer le mot de passe</label>
+                    <div className="relative">
+                      <input id="confirmPassword" type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required placeholder="••••••••••••" className="w-full px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 focus:bg-zinc-900/70 transition-all pr-12 text-sm" />
+                      <button type="button" onClick={() => setShowConfirmPassword(v => !v)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-500 hover:text-zinc-300 transition-colors">{showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}</button>
+                    </div>
+                  </div>
+                  <button type="submit" disabled={loading} className="w-full group relative overflow-hidden py-3 px-4 bg-gradient-to-r from-emerald-600 to-green-600 rounded-lg text-white font-semibold text-sm transition-all shadow-lg hover:shadow-emerald-500/30 disabled:opacity-50">
+                    <span className="relative z-10 flex items-center justify-center">{loading ? <LoadingSpinner /> : "Créer le compte"}</span>
+                    <div className="absolute inset-0 bg-gradient-to-t from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  </button>
+                </form>
+                <div className="relative my-8">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-zinc-800"></div></div>
+                  <div className="relative flex justify-center text-xs"><span className="px-3 bg-zinc-950/60 text-zinc-500 uppercase tracking-wider">ou</span></div>
                 </div>
-
-                {/* Submit Button */}
-                <button type="submit" disabled={loading} className="w-full flex justify-center py-2.5 px-4 rounded-md text-white bg-gradient-to-r from-emerald-600 to-blue-600 disabled:opacity-50 text-sm font-medium">
-                  {loading ? <LoadingSpinner /> : "Créer le compte"}
-                </button>
-              </form>
-
-              {/* --- ADDED SSO SECTION --- */}
-              <div className="relative my-5">
-                <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                  <div className="w-full border-t border-gray-700" />
+                <div className="space-y-4">
+                  {[ { provider: 'google', label: "S'inscrire avec Google Workspace", icon: <GoogleIcon /> }, { provider: 'azure-ad', label: "S'inscrire avec Microsoft Entra ID", icon: <MicrosoftIcon /> } ].map(({ provider, label, icon }) => ( <button key={provider} onClick={() => handleSSOSignUp(provider as "google" | "azure-ad")} className="w-full group relative overflow-hidden inline-flex justify-center items-center py-3 px-4 bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 rounded-lg text-sm font-medium text-zinc-300 transition-all"><div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-emerald-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div><span className="relative z-10 flex items-center justify-center">{icon} <span className="ml-3">{label}</span></span></button> ))}
                 </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="px-2 bg-gray-900 text-gray-400">ou</span>
-                </div>
+                <p className="mt-10 text-center text-zinc-500 text-xs">Vous avez déjà un compte ?{" "} <Link href="/" className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">Se connecter</Link></p>
               </div>
-
-              <div className="space-y-2.5">
-                <button
-                  onClick={() => handleSSOSignUp("google")}
-                  className="w-full inline-flex justify-center items-center py-2 px-3 border border-gray-700 rounded-md bg-gray-800 text-xs font-medium text-gray-200 hover:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-gray-500 focus:ring-offset-gray-900 transition duration-150 ease-in-out"
-                >
-                  <GoogleIcon /> <span className="ml-1.5">S'inscrire avec Google Workspace</span>
-                </button>
-                <button
-                  onClick={() => handleSSOSignUp("azure-ad")}
-                  className="w-full inline-flex justify-center items-center py-2 px-3 border border-gray-700 rounded-md bg-gray-800 text-xs font-medium text-gray-200 hover:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-gray-500 focus:ring-offset-gray-900 transition duration-150 ease-in-out"
-                >
-                  <MicrosoftIcon /> <span className="ml-1.5">S'inscrire avec Microsoft Entra ID</span>
-                </button>
-              </div>
-
-              {/* Sign In Link */}
-              <p className="mt-5 text-center text-gray-400 text-xs">
-                Vous avez déjà un compte ?{" "}
-                <Link href="/" className="text-emerald-400 hover:text-emerald-300">
-                  Se connecter
-                </Link>
-              </p>
             </div>
           </div>
         </div>
       </main>
-
-      {/* Footer with reduced size */}
-      <footer className="py-3 px-4 text-center text-xs text-gray-500 border-t border-gray-800">
-        © {new Date().getFullYear()} Nartex. Tous droits réservés.
+      <footer className="relative z-10 py-5 px-8 text-center text-xs text-zinc-500 font-mono tracking-widest">
+        © {new Date().getFullYear()} NARTEX
       </footer>
+      <style jsx>{`
+        @keyframes fade-in-down { from { opacity: 0; transform: translate(-50%, -1.5rem); } to { opacity: 1; transform: translate(-50%, 0); } }
+        .animate-fade-in-down { animation: fade-in-down 0.5s ease-out forwards; }
+        @keyframes pulse-slow { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.05); } }
+        .animate-pulse-slow { animation: pulse-slow 8s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+      `}</style>
     </div>
   );
-};
+}
 
-export default SignUpPage;
+// --- Main Page Export ---
+const PremiumSignupPage: NextPage = () => (
+  <Suspense fallback={ <div className="h-screen flex items-center justify-center bg-zinc-900"><LoadingSpinner className="h-8 w-8 text-emerald-500" /></div> }>
+    <SignupForm />
+  </Suspense>
+);
+
+export default PremiumSignupPage;
