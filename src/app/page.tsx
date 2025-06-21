@@ -115,17 +115,13 @@ function LoginForm() {
         <div className="flex w-full max-w-6xl gap-24 items-center">
           <div className="hidden lg:flex lg:flex-col lg:w-1/2 py-12">
             
-            <h1 className="text-6xl font-light tracking-tighter mb-6 flex items-end gap-4">
+            <h1 className="text-6xl font-light tracking-tighter mb-6 flex items-baseline">
               <span className="text-white/80">Bienvenue sur</span>
-              {/* --- 2. THIS IS THE MODIFIED SECTION --- */}
-              <div className="relative bottom-1">
-                <div className="absolute -inset-4 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full blur-3xl opacity-30"></div>
-                <NartexLogo 
-                  width={180} 
-                  height={45} 
-                  className="relative text-emerald-400" 
-                />
-              </div>
+              <NartexLogo 
+                width={180} 
+                height={45} 
+                className="ml-3 text-emerald-400" 
+              />
             </h1>
             
             <p className="text-xl text-zinc-400 mb-12 leading-relaxed max-w-lg">La plateforme de gestion centralisée qui révolutionne votre productivité et transforme vos flux de travail.</p>
