@@ -10,6 +10,7 @@ env:
     EMAIL_SERVER_PORT: "587"
     EMAIL_SERVER_USER: "n.labranche@nartex.ca"
     EMAIL_FROM: "Nartex <noreply@nartex.ca>"
+    AZURE_AD_TENANT_ID: "organizations"
 
   secrets-manager:
     DATABASE_URL:           nartex/prod/env:DATABASE_URL
@@ -19,7 +20,6 @@ env:
     GOOGLE_CLIENT_SECRET:   nartex/prod/env:GOOGLE_CLIENT_SECRET
     AZURE_AD_CLIENT_ID:     nartex/prod/env:AZURE_AD_CLIENT_ID
     AZURE_AD_CLIENT_SECRET: nartex/prod/env:AZURE_AD_CLIENT_SECRET
-    AZURE_AD_TENANT_ID: "organizations"
 
 phases:
   install:
