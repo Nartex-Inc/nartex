@@ -25,15 +25,10 @@ COPY . .
 # This must happen after `npm ci` and after `prisma/schema.prisma` is copied.
 RUN npx prisma generate
 
-
-# --- THIS IS THE FIX ---
-# 4. Force a clean build by removing any potentially stale .next cache directory.
-# This resolves stubborn module resolution errors.
-RUN rm -rf .next
-
-
-# 5. Build the Next.js application for production
-# This command will now run from a guaranteed clean slate.
+# 4. Build the Next.js application for production
+# This creates the optimized build output in the .next folder.
+# The .env.production file is NOT needed here. Next.js uses build-time
+# environment variables which CodeBuild already provides.
 RUN npm run build
 
 
@@ -65,7 +60,6 @@ COPY --from=builder /app/node_modules/.prisma/client ./node_modules/.prisma/clie
 
 # 5. Copy the production environment file created in the buildspec
 # This file contains all the secrets and will be read by your app at runtime.
-# This COPY command is missing from your original Dockerfile and is essential.
 COPY --from=builder /app/.env.production ./.env.production
 
 
