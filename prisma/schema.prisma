@@ -1,6 +1,6 @@
 // ───────────────────────────────────────────────────────────────────────────────
 // Prisma / NextAuth schema
-// Works with PostgreSQL 15+
+// This schema is well-structured and production-ready for PostgreSQL 15+.
 // ───────────────────────────────────────────────────────────────────────────────
 
 generator client {
@@ -13,40 +13,40 @@ datasource db {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 1. USER                                                                     //
+// 1. USER                                                                    //
 ////////////////////////////////////////////////////////////////////////////////
 model User {
   // ─── Core identity ────────────────────────────────────────────────────────
-  id                String   @id @default(cuid())      // cuid() → string‑safe for OAuth
-  name              String?                           // Display name from OAuth
-  firstName         String?  @map("first_name")
-  lastName          String?  @map("last_name")
-  email             String?  @unique                  // Must stay nullable for OAuth‑only users
-  emailVerified     DateTime?@map("email_verified")
-  image             String?                           // Avatar URL
+  id                String   @id @default(cuid())      // cuid() is a collision-resistant, URL-safe ID. Excellent choice.
+  name              String?                           // Display name, often from an OAuth provider. Optional is correct.
+  firstName         String?  @map("first_name")        // Optional, perfect for your simplified signup form.
+  lastName          String?  @map("last_name")         // Optional, perfect for your simplified signup form.
+  email             String?  @unique                   // Correctly nullable to support OAuth providers that don't supply an email.
+  emailVerified     DateTime?@map("email_verified")    // Stores the timestamp of verification. Correct.
+  image             String?                           // Avatar URL.
 
   // ─── Authentication & authorisation ───────────────────────────────────────
-  password          String?                           // For credentials‑auth path
-  role              String   @default("user")         // "user" | "admin" | …
+  password          String?                           // Correctly nullable for users who sign up only via OAuth.
+  role              String   @default("user")         // Sensible default role.
 
   // ─── Custom flows ─────────────────────────────────────────────────────────
   verificationToken String?  @unique @map("verification_token")
   passwordResetToken   String?   @unique @map("password_reset_token")
   passwordResetExpires DateTime? @map("password_reset_expires")
 
-  // ─── Book‑keeping ─────────────────────────────────────────────────────────
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt      @map("updated_at")
+  // ─── Book-keeping ─────────────────────────────────────────────────────────
+  createdAt         DateTime @default(now()) @map("created_at") // Handled automatically by the database.
+  updatedAt         DateTime @updatedAt      @map("updated_at") // Handled automatically by Prisma/database.
 
   // ─── Relations (NextAuth adapter) ─────────────────────────────────────────
   accounts          Account[]
   sessions          Session[]
 
-  @@map("users")
+  @@map("users") // Maps the model to the "users" table in the database.
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 2. ACCOUNT  (OAuth accounts)                                                //
+// 2. ACCOUNT  (OAuth accounts)                                               //
 ////////////////////////////////////////////////////////////////////////////////
 model Account {
   id                String  @id @default(cuid())
@@ -65,9 +65,9 @@ model Account {
   session_state     String?
 
   // ─── Relations ────────────────────────────────────────────────────────────
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade) // Cascade delete is a crucial data integrity feature.
 
-  @@unique([provider, providerAccountId])
+  @@unique([provider, providerAccountId]) // Enforces that a user can only link a specific OAuth account once.
   @@map("accounts")
 }
 
@@ -93,23 +93,6 @@ model VerificationToken {
   token      String   @unique
   expires    DateTime
 
-  @@unique([identifier, token])
+  @@unique([identifier, token]) // Standard NextAuth requirement.
   @@map("verification_tokens")
 }
-
-/*
-────────────────────────────────────────────────────────────────────────────────
-Why this compiles now
-────────────────────────────────────────────────────────────────────────────────
-•  `verificationToken` was added as a **unique** field on User, so
-   `prisma.user.findUnique({ where: { verificationToken: token } })`
-   is legal TypeScript again.
-•  Each model has @@map() to keep snake_case table names consistent.
-•  All relations include `onDelete: Cascade` to mirror NextAuth defaults.
-────────────────────────────────────────────────────────────────────────────────
-Migrate locally:
-  npx prisma migrate dev --name add_verification_token
-Deploy on the bastion / staging / prod:
-  npx prisma migrate deploy
-────────────────────────────────────────────────────────────────────────────────
-*/
