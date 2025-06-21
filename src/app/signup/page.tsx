@@ -1,5 +1,3 @@
-// src/app/signup/page.tsx (UPDATED AND CORRECTED)
-
 "use client";
 export const dynamic = "force-dynamic";
 
@@ -8,11 +6,10 @@ import { useRouter } from "next/navigation";
 import type { NextPage } from "next";
 import Image from "next/image";
 import Link from "next/link";
-// --- ADDED ---
 import { signIn, useSession } from "next-auth/react";
 import NartexLogo from "@/components/nartex-logo";
 
-// --- Icon Components (Matching Login Page) ---
+// --- Icon Components ---
 const EyeIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg> );
 const EyeOffIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg> );
 const GoogleIcon: React.FC<{ width?: number; height?: number; className?: string }> = ({ width = 18, height = 18, className = "" }) => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width={width} height={height} className={className}><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" /><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" /><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" /><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" /></svg> );
@@ -22,7 +19,6 @@ const LoadingSpinner: React.FC<{ className?: string }> = ({ className = "h-5 w-5
 const ParticleField: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    // ... ParticleField implementation is fine, no changes needed
     const canvas = canvasRef.current; if (!canvas) return;
     const ctx = canvas.getContext('2d'); if (!ctx) return;
     let animationFrameId: number;
@@ -56,10 +52,28 @@ const ParticleField: React.FC = () => {
   return <canvas ref={canvasRef} className="fixed inset-0 -z-10" />;
 };
 
-function SignupForm() {
+
+// The self-contained client component with all logic
+function SignupPageClient() {
   const router = useRouter();
-  // --- ADDED ---: Session checking logic
   const { status } = useSession();
+
+  // Session guard logic
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.push("/dashboard");
+    }
+  }, [status, router]);
+
+  // Handle loading and authenticated states
+  if (status === "loading") {
+    return <div className="h-screen flex items-center justify-center bg-zinc-950"><LoadingSpinner className="h-8 w-8 text-emerald-500" /></div>;
+  }
+  if (status === "authenticated") {
+    return null; // Or a loading spinner while redirecting
+  }
+
+  // Form state and handlers
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -67,21 +81,6 @@ function SignupForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  // --- ADDED ---: Redirect if already authenticated
-  useEffect(() => {
-    if (status === "authenticated") {
-      router.push("/dashboard");
-    }
-  }, [status, router]);
-  
-  // --- ADDED ---: Guards to prevent rendering the form for authenticated users
-  if (status === "loading") {
-    return <div className="h-screen flex items-center justify-center"><LoadingSpinner className="h-8 w-8 text-emerald-500" /></div>;
-  }
-  if (status === "authenticated") {
-    return null; // or a redirect component
-  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -110,7 +109,6 @@ function SignupForm() {
     signIn(provider, { callbackUrl: "/dashboard" });
   };
 
-  // The rest of the return statement is fine...
   return (
     <div className="h-screen flex flex-col text-gray-100 font-sans antialiased relative">
       <ParticleField />
@@ -157,7 +155,7 @@ function SignupForm() {
                   </div>
                   <div>
                     <label htmlFor="password" className="block text-xs font-medium text-zinc-400 mb-2 uppercase tracking-wider">Mot de passe</label>
-                    <div className="relative">
+                    <div className=".relative">
                       <input id="password" type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required placeholder="8+ caractères" className="w-full px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 focus:bg-zinc-900/70 transition-all pr-12 text-sm" />
                       <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-500 hover:text-zinc-300 transition-colors">{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button>
                     </div>
@@ -200,10 +198,13 @@ function SignupForm() {
   );
 }
 
-const PremiumSignupPage: NextPage = () => (
-  <Suspense fallback={ <div className="h-screen flex items-center justify-center bg-zinc-900"><LoadingSpinner className="h-8 w-8 text-emerald-500" /></div> }>
-    <SignupForm />
-  </Suspense>
-);
+// The main page export, now cleaner
+const PremiumSignupPage: NextPage = () => {
+  return (
+    <Suspense fallback={<div className="h-screen flex items-center justify-center bg-zinc-900"><LoadingSpinner className="h-8 w-8 text-emerald-500" /></div>}>
+      <SignupPageClient />
+    </Suspense>
+  );
+};
 
 export default PremiumSignupPage;
