@@ -2,8 +2,8 @@ version: 0.2
 
 env:
   variables:
+   # ───── Non-sensitive AWS / image info ──────────────────────
     AWS_ACCOUNT_ID: "586359898361"
-    AWS_DEFAULT_REGION: "ca-central-1"
     IMAGE_REPO_NAME: "nartex-next"
     NEXTAUTH_URL: "https://nartex.app"
     EMAIL_SERVER_HOST: "smtp.gmail.com"
@@ -26,13 +26,11 @@ phases:
     runtime-versions:
       nodejs: 18
     commands:
-      - set -e
       - echo "📦  INSTALL – installing Node dependencies"
       - npm ci
 
   pre_build:
     commands:
-      - set -e
       - echo "📜  PRE_BUILD – running Prisma migrations"
       - npx prisma migrate deploy
       - echo "🔑  PRE_BUILD – logging in to Amazon ECR"
@@ -40,7 +38,6 @@ phases:
 
   build:
     commands:
-      - set -e
       - echo "🏗  BUILD – resolving commit hash"
       - COMMIT_HASH=$(git rev-parse --short HEAD)
       - echo "📝  BUILD – creating .env.production file"
@@ -61,20 +58,24 @@ phases:
         > .env.production
       - echo "🏗  BUILD – building Docker image with consistent Build ID"
       - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
-      
-      # --- THIS IS THE FIX ---
-      # This is now a single-line command, which allows `set -e` to reliably catch failures.
-      - docker build --build-arg GIT_COMMIT_HASH=$COMMIT_HASH -t "$ECR_IMAGE_URI:$COMMIT_HASH" -t "$ECR_IMAGE_URI:latest" .
-
+      - |
+        docker build \
+          --build-arg GIT_COMMIT_HASH=$COMMIT_HASH \
+          -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
+          -t "$ECR_IMAGE_URI:latest" .
       - echo "📤  BUILD – pushing both tags to ECR"
       - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
       - docker push "$ECR_IMAGE_URI:latest"
 
   post_build:
     commands:
-      - set -e
       - echo '🔄  POST_BUILD – forcing new deployment of ECS service'
-      - aws ecs update-service --cluster nartex-cluster --service nartex-next-service --force-new-deployment --region $AWS_DEFAULT_REGION
+      - |
+        aws ecs update-service \
+          --cluster nartex-cluster \
+          --service nartex-next-service \
+          --force-new-deployment \
+          --region $AWS_DEFAULT_REGION
 
 artifacts:
   files:
