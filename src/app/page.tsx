@@ -7,6 +7,7 @@ import type { NextPage } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
+import NartexLogo from "@/components/nartex-logo"; // 1. IMPORT THE LOGO COMPONENT
 
 // --- Icon Components ---
 const EyeIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg> );
@@ -47,7 +48,7 @@ const ParticleField: React.FC = () => {
       window.removeEventListener('resize', resizeCanvas);
       cancelAnimationFrame(animationFrameId);
     };
-  }, []); // <-- This was the source of the syntax error. It's now correctly structured.
+  }, []);
 
   return <canvas ref={canvasRef} className="fixed inset-0 -z-10" />;
 };
@@ -116,9 +117,14 @@ function LoginForm() {
             
             <h1 className="text-6xl font-light tracking-tighter mb-6 flex items-end gap-4">
               <span className="text-white/80">Bienvenue sur</span>
+              {/* --- 2. THIS IS THE MODIFIED SECTION --- */}
               <div className="relative bottom-1">
                 <div className="absolute -inset-4 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full blur-3xl opacity-30"></div>
-                <Image src="/nartex-logo-green.svg" alt="Nartex" width={180} height={45} className="relative" onError={(e) => (e.currentTarget.src = 'https://placehold.co/180x45/059669/ffffff?text=Nartex&font=poppins')} />
+                <NartexLogo 
+                  width={180} 
+                  height={45} 
+                  className="relative text-emerald-400" 
+                />
               </div>
             </h1>
             
