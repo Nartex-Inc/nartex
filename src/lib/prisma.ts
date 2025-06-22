@@ -1,18 +1,27 @@
 // src/lib/prisma.ts
+
 import { PrismaClient } from '@prisma/client';
 
+// This declares a global variable 'prisma' but only for TypeScript's type-checking.
+// It allows us to safely attach our Prisma client to the global scope.
 declare global {
-  // allow global `var` declarations
-  // eslint-disable-next-line no-unused-vars
+  // eslint-disable-next-line no-var
   var prisma: PrismaClient | undefined;
 }
 
-const prisma =
-  global.prisma ||
-  new PrismaClient({
-    // log: ['query', 'info', 'warn', 'error'], // Uncomment for debugging
-  });
+// This line is the core of the fix. It does the following:
+// 1. Looks for an existing Prisma client on the global object (`globalThis.prisma`).
+// 2. If it doesn't find one, it creates a `new PrismaClient()`.
+// This prevents creating multiple clients during development hot-reloads.
+const prisma = globalThis.prisma || new PrismaClient({
+  // log: ['query'], // Uncomment for detailed query logging if needed
+});
 
-if (process.env.NODE_ENV !== 'production') global.prisma = prisma;
+// In non-production environments, we store the created client on the global object
+// so it can be reused across hot-reloads.
+if (process.env.NODE_ENV !== 'production') {
+  globalThis.prisma = prisma;
+}
 
+// Export the single, shared Prisma client instance.
 export default prisma;
