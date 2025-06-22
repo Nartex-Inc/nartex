@@ -27,16 +27,12 @@ phases:
       nodejs: 18
     commands:
       - echo "📦  INSTALL – installing Node dependencies"
-      - npm install # ✅ THIS IS THE FIX. Changed from 'npm ci'.
+      - npm ci
 
   pre_build:
     commands:
       - echo "📜  PRE_BUILD – running Prisma migrations"
       - npx prisma migrate deploy
-      # --- FINAL DELETE COMMAND (REMOVE AFTER BUILD) ---
-      - echo "🗑️  PRE_BUILD – Deleting specific user via Prisma execute"
-      - npx prisma db execute --file ./delete-user.sql --schema=./prisma/schema.prisma
-      # ------------------------------------------------
       - echo "🔑  PRE_BUILD – logging in to Amazon ECR"
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
 
