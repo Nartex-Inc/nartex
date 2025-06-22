@@ -92,7 +92,8 @@ const authOptions: NextAuthOptions = {
     strategy: "jwt",
   },
   pages: {
-    error: "/auth/error",
+    // The signIn line has been completely removed.
+    error: "/auth/error", 
   },
   callbacks: {
     async jwt({ token, user, account }) {
