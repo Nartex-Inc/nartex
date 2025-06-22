@@ -1,6 +1,6 @@
 // src/app/api/auth/[...nextauth]/route.ts
 
-import NextAuth, { NextAuthOptions, User as NextAuthUser, Session } from "next-auth";
+import NextAuth, { NextAuthOptions, User as NextAuthUser, DefaultSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider, { GoogleProfile } from "next-auth/providers/google";
 import AzureADProvider, { AzureADProfile } from "next-auth/providers/azure-ad";
@@ -9,13 +9,17 @@ import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { JWT } from "next-auth/jwt";
 
-// Extend Session types to include custom properties
+// Correct way to extend NextAuth types
 declare module "next-auth" {
   interface User {
+    role?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    emailVerified?: Date | null;
     azureOid?: string;
   }
   
-  interface Session {
+  interface Session extends DefaultSession {
     user: {
       id: string;
       role?: string | null;
@@ -26,12 +30,16 @@ declare module "next-auth" {
       image?: string | null;
       emailVerified?: Date | null;
       azureOid?: string;
-    };
+    } & DefaultSession["user"];
   }
 }
 
 declare module "next-auth/jwt" {
   interface JWT {
+    role?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    emailVerified?: Date | null;
     azureOid?: string;
   }
 }
@@ -70,12 +78,11 @@ const authOptions: NextAuthOptions = {
       },
       
       profile(profile: AzureADProfile) {
-        // Use both oid and sub for maximum compatibility
         console.log("Azure AD Profile Received:", JSON.stringify(profile, null, 2));
         
         return {
-          id: profile.sub, // Primary identifier
-          azureOid: profile.oid, // Store Azure-specific OID separately
+          id: profile.sub, 
+          azureOid: profile.oid, 
           name: profile.name,
           email: profile.email,
           image: profile.picture,
@@ -140,13 +147,11 @@ const authOptions: NextAuthOptions = {
     async signIn({ user, account, profile }) {
       console.log(`SignIn callback triggered for ${user.email} via ${account?.provider}`);
       
-      // Always allow Azure AD users
       if (account?.provider === "azure-ad") {
         console.log("Allowing Azure AD user without email verification");
         return true;
       }
       
-      // Allow users with verified emails
       if (user.emailVerified) {
         console.log("Allowing user with verified email");
         return true;
@@ -157,30 +162,21 @@ const authOptions: NextAuthOptions = {
     },
 
     async jwt({ token, user, account, profile }) {
-      // Initial sign-in - populate token from user object
       if (user) {
         console.log(`JWT callback for new user: ${user.email}`);
         token.sub = user.id;
         
-        const fullUser = user as NextAuthUser & {
-          role?: string | null;
-          firstName?: string | null;
-          lastName?: string | null;
-          azureOid?: string | null;
-        };
+        token.role = user.role;
+        token.firstName = user.firstName;
+        token.lastName = user.lastName;
+        token.emailVerified = user.emailVerified;
+        token.azureOid = (user as any).azureOid;
         
-        token.role = fullUser.role;
-        token.firstName = fullUser.firstName;
-        token.lastName = fullUser.lastName;
-        token.emailVerified = fullUser.emailVerified as Date | null;
-        token.azureOid = fullUser.azureOid; // Capture Azure OID if present
-        
-        if (fullUser.name) token.name = fullUser.name;
-        if (fullUser.image) token.picture = fullUser.image;
-        if (fullUser.email) token.email = fullUser.email;
+        if (user.name) token.name = user.name;
+        if (user.image) token.picture = user.image;
+        if (user.email) token.email = user.email;
       }
       
-      // Subsequent calls - refresh user data if needed
       if (token.sub && (
         token.role === undefined || 
         token.firstName === undefined ||
@@ -220,21 +216,17 @@ const authOptions: NextAuthOptions = {
       console.log("Session callback triggered");
       
       if (token && session.user) {
-        // Core user information
         session.user.id = token.sub as string;
         session.user.role = token.role as string | null | undefined;
         session.user.email = token.email as string | null | undefined;
         
-        // Personal details
         session.user.name = token.name as string | null | undefined;
         session.user.firstName = token.firstName as string | null | undefined;
         session.user.lastName = token.lastName as string | null | undefined;
         session.user.image = token.picture as string | null | undefined;
         
-        // Verification status
         session.user.emailVerified = token.emailVerified as Date | null | undefined;
         
-        // Azure-specific information
         if (token.azureOid) {
           session.user.azureOid = token.azureOid as string;
         }
@@ -247,7 +239,6 @@ const authOptions: NextAuthOptions = {
     async redirect({ url, baseUrl }) {
       console.log(`Redirect callback: ${url} (base: ${baseUrl})`);
       
-      // Prevent open redirects
       const safeUrl = url.startsWith("/") 
         ? `${baseUrl}${url}`
         : new URL(url).origin === baseUrl
@@ -286,7 +277,7 @@ const authOptions: NextAuthOptions = {
       console.debug("NextAuth Debug:", code, metadata);
     }
   },
-  debug: true, // Always enable debug for now
+  debug: true,
 };
 
 const handler = NextAuth(authOptions);
