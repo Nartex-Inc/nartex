@@ -3,41 +3,58 @@
 import NextAuth, { NextAuthOptions, User as NextAuthUser } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider, { GoogleProfile } from "next-auth/providers/google";
+import AzureADProvider, { AzureADProfile } from "next-auth/providers/azure-ad";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
-// Define authOptions but DO NOT export it from this file
-const authOptions: NextAuthOptions = {
+// Define authOptions
+export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-
-      // --- THIS IS THE ADDED LOGIC ---
-      // This allows users who signed up with email/password to later
-      // sign in with Google using the same email address. The accounts
-      // will be automatically linked by the Prisma adapter.
       allowDangerousEmailAccountLinking: true,
-
-      // The profile function maps the provider's profile to the User model structure.
       profile(profile: GoogleProfile) {
         return {
-          // Standard fields NextAuth expects or uses for linking/user creation
           id: profile.sub,
           name: profile.name,
           email: profile.email,
           image: profile.picture,
           emailVerified: profile.email_verified ? new Date() : null,
-
-          // Custom fields that are part of our augmented User model in next-auth.d.ts
           firstName: profile.given_name,
           lastName: profile.family_name,
-          role: undefined, // Allows the database default for `role` to apply on new user creation.
+          role: undefined, // Let the DB handle the default role on creation
         };
       },
     }),
+
+    AzureADProvider({
+      clientId: process.env.AZURE_AD_CLIENT_ID!,
+      clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
+      tenantId: process.env.AZURE_AD_TENANT_ID!,
+      
+      // --- ADDED FOR CONSISTENCY WITH GOOGLE PROVIDER ---
+      allowDangerousEmailAccountLinking: true,
+      profile(profile: AzureADProfile) {
+        // The `oid` claim is the Object ID and is a stable identifier for the user.
+        // The `sub` claim can change for the same user over time, so `oid` is preferred for the user ID.
+        return {
+          id: profile.oid, 
+          name: profile.name,
+          email: profile.email,
+          image: profile.picture,
+          // Entra ID doesn't send a simple email_verified boolean. We assume if a user can log in
+          // via an org's IdP, their email is de facto verified.
+          emailVerified: new Date(),
+          firstName: profile.given_name,
+          lastName: profile.family_name,
+          role: undefined, // Let the DB handle the default role on creation
+        };
+      },
+    }),
+      
     CredentialsProvider({
       name: "Email + Password",
       credentials: {
@@ -57,7 +74,8 @@ const authOptions: NextAuthOptions = {
           throw new Error("Aucun utilisateur trouvé avec cet e-mail.");
         }
         if (!user.password) {
-            throw new Error("Ce compte nécessite une connexion via un fournisseur externe (ex: Google).");
+            // Updated error message to include Microsoft
+            throw new Error("Ce compte nécessite une connexion via un fournisseur externe (ex: Google, Microsoft).");
         }
         if (!user.emailVerified) {
           throw new Error("Veuillez vérifier votre adresse e-mail avant de vous connecter.");
@@ -91,6 +109,7 @@ const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async jwt({ token, user, account }) {
+      // This callback logic should work for all providers as it pulls from the generic `user` object.
       if (user) {
         token.id = user.id;
 
@@ -109,35 +128,15 @@ const authOptions: NextAuthOptions = {
         if (fullUser.image) token.picture = fullUser.image;
         if (fullUser.email) token.email = fullUser.email;
       }
-
-      if (token.id && (
-          token.role === undefined ||
-          token.firstName === undefined ||
-          token.lastName === undefined ||
-          token.emailVerified === undefined
-        )
-      ) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          select: {
-            role: true,
-            firstName: true,
-            lastName: true,
-            emailVerified: true,
-            name: true,
-            image: true,
-            email: true,
-          },
-        });
-
+      
+      // Refresh user data in token if it's missing (e.g., on subsequent loads)
+      if (token.id && (token.role === undefined || token.firstName === undefined)) {
+        const dbUser = await prisma.user.findUnique({ where: { id: token.id as string } });
         if (dbUser) {
-          if (token.role === undefined) token.role = dbUser.role;
-          if (token.firstName === undefined) token.firstName = dbUser.firstName;
-          if (token.lastName === undefined) token.lastName = dbUser.lastName;
-          if (token.emailVerified === undefined) token.emailVerified = dbUser.emailVerified;
-          if (token.name === undefined && dbUser.name) token.name = dbUser.name;
-          if (token.picture === undefined && dbUser.image) token.picture = dbUser.image;
-          if (token.email === undefined && dbUser.email) token.email = dbUser.email;
+          token.role = dbUser.role;
+          token.firstName = dbUser.firstName;
+          token.lastName = dbUser.lastName;
+          token.emailVerified = dbUser.emailVerified;
         }
       }
       return token;
