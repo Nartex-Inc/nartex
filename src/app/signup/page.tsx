@@ -103,11 +103,17 @@ const SignupPage: NextPage = () => {
     } finally { setLoading(false); }
   };
   
-  // This function is now in the correct scope and will be found by the compiler
   const handleSSOSignUp = (provider: "google" | "azure-ad") => {
     setLoading(true);
     setError(null);
-    signIn(provider, { callbackUrl: "/dashboard" });
+    
+    // --- THE FINAL FIX ---
+    // Bypass the client-side signIn() function entirely.
+    // We navigate directly to the server-side API endpoint for OAuth.
+    // This is the most reliable method and avoids all routing conflicts.
+    
+    const callbackUrl = encodeURIComponent("/dashboard");
+    window.location.href = `/api/auth/signin/${provider}?callbackUrl=${callbackUrl}`;
   };
 
   return (
