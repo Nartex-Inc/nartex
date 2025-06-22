@@ -27,7 +27,7 @@ phases:
       nodejs: 18
     commands:
       - echo "📦  INSTALL – installing Node dependencies"
-      - npm ci
+      - npm install # ✅ THIS IS THE FIX. Changed from 'npm ci'.
 
   pre_build:
     commands:
