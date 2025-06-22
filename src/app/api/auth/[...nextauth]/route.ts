@@ -1,12 +1,40 @@
 // src/app/api/auth/[...nextauth]/route.ts
 
-import NextAuth, { NextAuthOptions, User as NextAuthUser } from "next-auth";
+import NextAuth, { NextAuthOptions, User as NextAuthUser, Session } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider, { GoogleProfile } from "next-auth/providers/google";
 import AzureADProvider, { AzureADProfile } from "next-auth/providers/azure-ad";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { JWT } from "next-auth/jwt";
+
+// Extend Session types to include custom properties
+declare module "next-auth" {
+  interface User {
+    azureOid?: string;
+  }
+  
+  interface Session {
+    user: {
+      id: string;
+      role?: string | null;
+      firstName?: string | null;
+      lastName?: string | null;
+      email?: string | null;
+      name?: string | null;
+      image?: string | null;
+      emailVerified?: Date | null;
+      azureOid?: string;
+    };
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    azureOid?: string;
+  }
+}
 
 const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
