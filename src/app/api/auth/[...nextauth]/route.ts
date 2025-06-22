@@ -35,10 +35,12 @@ const authOptions: NextAuthOptions = {
       tenantId: process.env.AZURE_AD_TENANT_ID!,
       allowDangerousEmailAccountLinking: true,
       profile(profile: AzureADProfile) {
-        // Use 'sub' instead of 'oid' for stable user identification
-        console.log("Azure AD Profile Received:", profile);
+        // Use both oid and sub for maximum compatibility
+        console.log("Azure AD Profile Received:", JSON.stringify(profile, null, 2));
+        
         return {
-          id: profile.sub, // Changed from profile.oid to profile.sub
+          id: profile.sub, // Primary identifier
+          azureOid: profile.oid, // Store Azure-specific OID separately
           name: profile.name,
           email: profile.email,
           image: profile.picture,
@@ -92,46 +94,67 @@ const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
     signIn: "/",
     error: "/auth/error",
+    signOut: "/",
   },
   callbacks: {
-    // NEW SIGN-IN CALLBACK
-    async signIn({ user, account }) {
-      // Allow sign-in if email is already verified
-      if (user.emailVerified) return true;
+    async signIn({ user, account, profile }) {
+      console.log(`SignIn callback triggered for ${user.email} via ${account?.provider}`);
       
-      // Bypass email verification for Azure AD users
-      if (account?.provider === "azure-ad") return true;
+      // Always allow Azure AD users
+      if (account?.provider === "azure-ad") {
+        console.log("Allowing Azure AD user without email verification");
+        return true;
+      }
       
-      // Block sign-in for other unverified accounts
+      // Allow users with verified emails
+      if (user.emailVerified) {
+        console.log("Allowing user with verified email");
+        return true;
+      }
+      
+      console.log("Blocking sign-in for unverified non-Azure user");
       return false;
     },
 
-    async jwt({ token, user, account }) {
-      // Set JWT token properties from user object
+    async jwt({ token, user, account, profile }) {
+      // Initial sign-in - populate token from user object
       if (user) {
-        token.sub = user.id; // Use sub as stable user identifier
+        console.log(`JWT callback for new user: ${user.email}`);
+        token.sub = user.id;
+        
         const fullUser = user as NextAuthUser & {
           role?: string | null;
           firstName?: string | null;
           lastName?: string | null;
+          azureOid?: string | null;
         };
+        
         token.role = fullUser.role;
         token.firstName = fullUser.firstName;
         token.lastName = fullUser.lastName;
         token.emailVerified = fullUser.emailVerified as Date | null;
+        token.azureOid = fullUser.azureOid; // Capture Azure OID if present
+        
         if (fullUser.name) token.name = fullUser.name;
         if (fullUser.image) token.picture = fullUser.image;
         if (fullUser.email) token.email = fullUser.email;
       }
-
-      // Fetch additional user data if needed
-      if (token.sub && (token.role === undefined || token.firstName === undefined)) {
+      
+      // Subsequent calls - refresh user data if needed
+      if (token.sub && (
+        token.role === undefined || 
+        token.firstName === undefined ||
+        token.emailVerified === undefined
+      )) {
+        console.log(`Refreshing user data for ${token.sub}`);
+        
         const dbUser = await prisma.user.findUnique({
-          where: { id: token.sub }, // Changed to use token.sub
+          where: { id: token.sub },
           select: { 
             role: true, 
             firstName: true, 
@@ -154,34 +177,69 @@ const authOptions: NextAuthOptions = {
         }
       }
       
+      console.log("JWT token content:", JSON.stringify(token, null, 2));
       return token;
     },
 
-    // UPDATED SESSION CALLBACK
     async session({ session, token }) {
+      console.log("Session callback triggered");
+      
       if (token && session.user) {
-        // Use token.sub as the stable user ID
+        // Core user information
         session.user.id = token.sub as string;
-        session.user.role = token.role as string | undefined | null;
-        session.user.firstName = token.firstName as string | undefined | null;
-        session.user.lastName = token.lastName as string | undefined | null;
-        session.user.emailVerified = token.emailVerified as Date | undefined | null;
+        session.user.role = token.role as string | null | undefined;
+        session.user.email = token.email as string | null | undefined;
         
-        // Set optional properties
-        if (token.name) session.user.name = token.name as string;
-        if (token.email) session.user.email = token.email as string;
-        if (token.picture) session.user.image = token.picture as string;
+        // Personal details
+        session.user.name = token.name as string | null | undefined;
+        session.user.firstName = token.firstName as string | null | undefined;
+        session.user.lastName = token.lastName as string | null | undefined;
+        session.user.image = token.picture as string | null | undefined;
+        
+        // Verification status
+        session.user.emailVerified = token.emailVerified as Date | null | undefined;
+        
+        // Azure-specific information
+        if (token.azureOid) {
+          session.user.azureOid = token.azureOid as string;
+        }
       }
+      
+      console.log("Session content:", JSON.stringify(session, null, 2));
       return session;
     },
     
     async redirect({ url, baseUrl }) {
-        if (url.startsWith("/")) return `${baseUrl}${url}`;
-        if (new URL(url).origin === baseUrl) return url;
-        return baseUrl + "/dashboard";
+      console.log(`Redirect callback: ${url} (base: ${baseUrl})`);
+      
+      // Prevent open redirects
+      const safeUrl = url.startsWith("/") 
+        ? `${baseUrl}${url}`
+        : new URL(url).origin === baseUrl
+          ? url
+          : `${baseUrl}/dashboard`;
+      
+      console.log(`Redirecting to: ${safeUrl}`);
+      return safeUrl;
     },
   },
-  // Add logging for easier debugging
+  events: {
+    async signIn(message) {
+      console.log("SignIn event:", JSON.stringify(message, null, 2));
+    },
+    async signOut(message) {
+      console.log("SignOut event:", message);
+    },
+    async createUser(message) {
+      console.log("User created:", JSON.stringify(message.user, null, 2));
+    },
+    async linkAccount(message) {
+      console.log("Account linked:", JSON.stringify(message, null, 2));
+    },
+    async error(message) {
+      console.error("NextAuth error:", JSON.stringify(message, null, 2));
+    }
+  },
   logger: {
     error(code, metadata) {
       console.error("NextAuth Error:", code, metadata);
@@ -189,8 +247,11 @@ const authOptions: NextAuthOptions = {
     warn(code) {
       console.warn("NextAuth Warning:", code);
     },
+    debug(code, metadata) {
+      console.debug("NextAuth Debug:", code, metadata);
+    }
   },
-  debug: process.env.NODE_ENV === "development",
+  debug: true, // Always enable debug for now
 };
 
 const handler = NextAuth(authOptions);
