@@ -85,24 +85,7 @@ function LoginForm() {
   const handleSSOLogin = (provider: "google" | "azure-ad") => {
     setLoading(true);
     setError(null);
-    
-    // Use the exact same logic as the signup page
-    signIn(provider, {
-      redirect: false,
-      callbackUrl: "/dashboard",
-    })
-    .then((result) => {
-      if (result?.error) {
-        console.error("LOGIN SSO FAILED:", result);
-        setError(`Error: ${result.error}. Check console for details.`);
-        setLoading(false);
-      } else if (result?.url) {
-        window.location.href = result.url;
-      } else {
-        setLoading(false);
-        setError("An unknown error occurred. Please try again.");
-      }
-    });
+    signIn(provider, { callbackUrl: "/dashboard" });
   };
 
   return (
