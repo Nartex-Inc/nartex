@@ -103,23 +103,27 @@ function SignupPageClient() {
     } finally { setLoading(false); }
   };
 
-  const handleSSOLogin = (provider: "google" | "azure-ad") => {
+  const handleSSOSignUp = (provider: "google" | "azure-ad") => {
     setLoading(true);
     setError(null);
     
-    // Use the exact same logic as the signup page
+    // Use the official, secure signIn method with redirect: false
     signIn(provider, {
       redirect: false,
       callbackUrl: "/dashboard",
     })
     .then((result) => {
       if (result?.error) {
-        console.error("LOGIN SSO FAILED:", result);
+        // If there's an error before redirecting to the provider
+        console.error("SIGNUP SSO FAILED:", result);
         setError(`Error: ${result.error}. Check console for details.`);
         setLoading(false);
       } else if (result?.url) {
+        // Success! result.url contains the correct provider login URL.
+        // We manually navigate the user there.
         window.location.href = result.url;
       } else {
+        // Fallback for unexpected issues
         setLoading(false);
         setError("An unknown error occurred. Please try again.");
       }
