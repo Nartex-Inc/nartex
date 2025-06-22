@@ -34,6 +34,13 @@ const authOptions: NextAuthOptions = {
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
       tenantId: process.env.AZURE_AD_TENANT_ID!,
       allowDangerousEmailAccountLinking: true,
+
+      authorization: {
+        params: {
+          prompt: "select_account",
+        }
+      },
+      
       profile(profile: AzureADProfile) {
         // Use both oid and sub for maximum compatibility
         console.log("Azure AD Profile Received:", JSON.stringify(profile, null, 2));
