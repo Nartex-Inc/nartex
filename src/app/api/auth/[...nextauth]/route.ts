@@ -29,26 +29,41 @@ const authOptions: NextAuthOptions = {
       },
     }),
 
+    // --- UPDATED AZURE AD PROVIDER CONFIGURATION ---
     AzureADProvider({
       clientId: process.env.AZURE_AD_CLIENT_ID!,
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
       tenantId: process.env.AZURE_AD_TENANT_ID!,
+      // Explicitly define authorization object to ensure v2.0 endpoint usage
+      authorization: {
+        params: {
+          scope: "openid profile email User.Read",
+        },
+      },
       allowDangerousEmailAccountLinking: true,
       profile(profile: AzureADProfile) {
-        // Use 'sub' instead of 'oid' for stable user identification
-        console.log("Azure AD Profile Received:", profile);
+        // This log is critical for debugging. Check your server logs (e.g., AWS CloudWatch)
+        // for this output on both a successful signup and a failed login to compare.
+        console.log("Azure AD Profile Received on callback:", JSON.stringify(profile, null, 2));
+
+        // The 'sub' claim is the correct, immutable, unique ID for the user.
+        // It's used to link the external account to the user in your database.
+
+        // Safely handle the 'picture' claim, which is not always provided by Azure.
+        // Setting it to null prevents errors. It can be fetched later via Graph API if needed.
         return {
-          id: profile.sub, // Changed from profile.oid to profile.sub
+          id: profile.sub, // This becomes the `providerAccountId` in the database.
           name: profile.name,
           email: profile.email,
-          image: profile.picture,
-          emailVerified: new Date(),
+          image: null, // Set to null to be safe.
+          emailVerified: new Date(), // Azure AD federated accounts are considered verified.
           firstName: profile.given_name,
           lastName: profile.family_name,
-          role: undefined,
+          role: undefined, // Role should be managed by your app, not from the provider profile.
         };
       },
     }),
+    // --- END OF UPDATED SECTION ---
       
     CredentialsProvider({
       name: "Email + Password",
