@@ -1,8 +1,8 @@
 // src/scripts/delete-user.ts
 
-import { PrismaClient } from '@prisma/client';
+// Use require() for CommonJS compatibility
+const { PrismaClient } = require('@prisma/client');
 
-// The email address of the user you want to delete.
 // 🔴 IMPORTANT: CHANGE THIS TO THE CORRECT EMAIL ADDRESS.
 const emailToDelete = 'n.labranche@sintoexpert.com';
 
@@ -11,7 +11,6 @@ const prisma = new PrismaClient();
 async function main() {
   console.log(`Starting deletion process for user: ${emailToDelete}`);
 
-  // Find the user by their email address
   const user = await prisma.user.findUnique({
     where: { email: emailToDelete },
   });
@@ -23,13 +22,11 @@ async function main() {
 
   console.log(`Found user with ID: ${user.id}`);
 
-  // 1. Delete the associated Account records first to avoid foreign key errors.
   const deletedAccounts = await prisma.account.deleteMany({
     where: { userId: user.id },
   });
   console.log(`Deleted ${deletedAccounts.count} associated account(s).`);
   
-  // 2. Now, delete the user.
   await prisma.user.delete({
     where: { id: user.id },
   });
