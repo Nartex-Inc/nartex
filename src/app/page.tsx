@@ -3,7 +3,7 @@
 "use client";
 export const dynamic = "force-dynamic";
 
-import React, { Suspense, FormEvent, useState, useEffect, useRef } from "react";
+import React, { FormEvent, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { NextPage } from "next";
 import Image from "next/image";
@@ -54,8 +54,8 @@ const ParticleField: React.FC = () => {
   return <canvas ref={canvasRef} className="fixed inset-0 -z-10" />;
 };
 
-// The main component for the page, containing all logic
-const PremiumSignupPage: NextPage = () => {
+
+const SignupPage: NextPage = () => {
   const router = useRouter();
   const { status } = useSession();
 
@@ -71,10 +71,10 @@ const PremiumSignupPage: NextPage = () => {
     return <div className="h-screen flex items-center justify-center bg-zinc-950"><LoadingSpinner className="h-8 w-8 text-emerald-500" /></div>;
   }
   if (status === "authenticated") {
-    return null; // Or a loading spinner while redirecting
+    return null;
   }
 
-  // Form state and handlers are now part of the main component
+  // Form state and handlers
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -104,6 +104,7 @@ const PremiumSignupPage: NextPage = () => {
     } finally { setLoading(false); }
   };
   
+  // This function is now in the correct scope
   const handleSSOSignUp = (provider: "google" | "azure-ad") => {
     setLoading(true);
     setError(null);
@@ -199,19 +200,4 @@ const PremiumSignupPage: NextPage = () => {
   );
 };
 
-// The main page export now doesn't need a separate wrapper
-// export default PremiumSignupPage;
-
-// --- CORRECTED EXPORT ---
-// We still need the Suspense wrapper for Next.js 13+ App Router
-// because useSession can suspend during initial load.
-// We also need a proper SessionProviderWrapper for useSession to work.
-// This is the most robust pattern.
-
-const SignupPageWithProvider: NextPage = () => (
-  <Suspense fallback={<div className="h-screen flex items-center justify-center bg-zinc-900"><LoadingSpinner className="h-8 w-8 text-emerald-500" /></div>}>
-    <PremiumSignupPage />
-  </Suspense>
-);
-
-export default SignupPageWithProvider;
+export default SignupPage;
