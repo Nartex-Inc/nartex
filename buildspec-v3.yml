@@ -33,6 +33,12 @@ phases:
     commands:
       - echo "📜  PRE_BUILD – running Prisma migrations"
       - npx prisma migrate deploy
+      # --- TEMPORARY COMMANDS TO DELETE USER (REMOVE AFTER BUILD) ---
+      - echo "🔧  PRE_BUILD – installing ts-node to run script"
+      - npm install -g ts-node
+      - echo "🗑️  PRE_BUILD – RUNNING DELETE USER SCRIPT"
+      - npm run db:delete-user
+      # -----------------------------------------------------------
       - echo "🔑  PRE_BUILD – logging in to Amazon ECR"
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
 
