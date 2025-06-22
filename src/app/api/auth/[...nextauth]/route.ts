@@ -8,8 +8,6 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
-// `authOptions` is defined as a local constant and is NOT exported.
-// This resolves the build error "authOptions is not a valid Route export field."
 const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
@@ -26,7 +24,7 @@ const authOptions: NextAuthOptions = {
           emailVerified: profile.email_verified ? new Date() : null,
           firstName: profile.given_name,
           lastName: profile.family_name,
-          role: undefined, // Let the DB handle the default role on creation
+          role: undefined,
         };
       },
     }),
@@ -37,18 +35,23 @@ const authOptions: NextAuthOptions = {
       tenantId: process.env.AZURE_AD_TENANT_ID!,
       allowDangerousEmailAccountLinking: true,
       profile(profile: AzureADProfile) {
-        // The `oid` claim is the Object ID and is a stable identifier for the user.
+        // --- VITAL DEBUG LOGGING ---
+        // This will log the incoming profile from Microsoft to your server logs (AWS CloudWatch).
+        // It helps you see the exact data being used for the user ID.
+        console.log("Azure AD Profile Received:", profile);
+
+        // The `oid` (Object ID) is the guaranteed unique and immutable identifier for a user
+        // in a Microsoft Entra ID tenant. Using `sub` can be problematic in multi-tenant apps.
+        // This function ensures NextAuth uses the `oid` as the stable providerAccountId.
         return {
           id: profile.oid, 
           name: profile.name,
           email: profile.email,
           image: profile.picture,
-          // Entra ID doesn't send a simple email_verified boolean. We assume if a user can log in
-          // via an org's IdP, their email is de facto verified.
           emailVerified: new Date(),
           firstName: profile.given_name,
           lastName: profile.family_name,
-          role: undefined, // Let the DB handle the default role on creation
+          role: undefined,
         };
       },
     }),
@@ -63,11 +66,9 @@ const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Adresse e-mail et mot de passe requis.");
         }
-
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
         });
-
         if (!user) {
           throw new Error("Aucun utilisateur trouvé avec cet e-mail.");
         }
@@ -77,12 +78,10 @@ const authOptions: NextAuthOptions = {
         if (!user.emailVerified) {
           throw new Error("Veuillez vérifier votre adresse e-mail avant de vous connecter.");
         }
-
         const isValidPassword = await bcrypt.compare(credentials.password, user.password);
         if (!isValidPassword) {
           throw new Error("Mot de passe incorrect.");
         }
-
         return {
           id: user.id,
           name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
@@ -102,49 +101,30 @@ const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: "/",
-    error: "/auth/error",
+    error: "/auth/error", // NextAuth will redirect to this page with an error query param
   },
   callbacks: {
     async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
-
         const fullUser = user as NextAuthUser & {
           role?: string | null;
           firstName?: string | null;
           lastName?: string | null;
         };
-
         token.role = fullUser.role;
         token.firstName = fullUser.firstName;
         token.lastName = fullUser.lastName;
         token.emailVerified = fullUser.emailVerified as Date | null;
-
         if (fullUser.name) token.name = fullUser.name;
         if (fullUser.image) token.picture = fullUser.image;
         if (fullUser.email) token.email = fullUser.email;
       }
-
-      if (token.id && (
-          token.role === undefined ||
-          token.firstName === undefined ||
-          token.lastName === undefined ||
-          token.emailVerified === undefined
-        )
-      ) {
+      if (token.id && ( token.role === undefined || token.firstName === undefined )) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: {
-            role: true,
-            firstName: true,
-            lastName: true,
-            emailVerified: true,
-            name: true,
-            image: true,
-            email: true,
-          },
+          select: { role: true, firstName: true, lastName: true, emailVerified: true, name: true, image: true, email: true },
         });
-
         if (dbUser) {
           if (token.role === undefined) token.role = dbUser.role;
           if (token.firstName === undefined) token.firstName = dbUser.firstName;
@@ -164,7 +144,6 @@ const authOptions: NextAuthOptions = {
         session.user.firstName = token.firstName as string | undefined | null;
         session.user.lastName = token.lastName as string | undefined | null;
         session.user.emailVerified = token.emailVerified as Date | undefined | null;
-        
         if (token.name) session.user.name = token.name;
         if (token.email) session.user.email = token.email;
         if (token.picture) session.user.image = token.picture;
