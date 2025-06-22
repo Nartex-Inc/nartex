@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 
 // The email address of the user you want to delete.
 // 🔴 IMPORTANT: CHANGE THIS TO THE CORRECT EMAIL ADDRESS.
-const emailToDelete = 'your-entra-id-email@example.com';
+const emailToDelete = 'n.labranche@sintoexpert.com';
 
 const prisma = new PrismaClient();
 
