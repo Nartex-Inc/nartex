@@ -102,28 +102,30 @@ function SignupPageClient() {
       setError("Une erreur s'est produite lors de la communication avec le serveur.");
     } finally { setLoading(false); }
   };
-
+  
   const handleSSOSignUp = (provider: "google" | "azure-ad") => {
     setLoading(true);
     setError(null);
     
-    // Use the official, secure signIn method with redirect: false
+    // This is the correct, secure, and universal method.
     signIn(provider, {
-      redirect: false,
-      callbackUrl: "/dashboard",
+      redirect: false, // Tell NextAuth not to redirect the page automatically.
+      callbackUrl: "/dashboard", // Tell NextAuth where to go *after* a successful login.
     })
     .then((result) => {
+      // The promise resolves when NextAuth has prepared the login flow.
       if (result?.error) {
-        // If there's an error before redirecting to the provider
-        console.error("SIGNUP SSO FAILED:", result);
-        setError(`Error: ${result.error}. Check console for details.`);
+        // An error occurred on the client-side before redirecting.
+        console.error("SSO INITIATION FAILED:", result);
+        setError(`Error: ${result.error}. Check console.`);
         setLoading(false);
       } else if (result?.url) {
-        // Success! result.url contains the correct provider login URL.
-        // We manually navigate the user there.
+        // SUCCESS. The `result.url` is the secure, correct URL for the
+        // provider's login page (Google or Microsoft).
+        // We now manually tell the browser to go there.
         window.location.href = result.url;
       } else {
-        // Fallback for unexpected issues
+        // This is an edge case for an unknown failure.
         setLoading(false);
         setError("An unknown error occurred. Please try again.");
       }
