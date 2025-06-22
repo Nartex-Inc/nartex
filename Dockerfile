@@ -31,35 +31,20 @@ RUN npm run build
 # ================================================================
 # Stage 2: Production Image
 # ================================================================
-FROM node:18-alpine AS runner
+FROM node:18-slim AS runner
 
 WORKDIR /app
 
-# Set production environment variables
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Install openssl for Prisma (required for database connections)
-RUN apk add --no-cache openssl
-
-# 1. Copy over the standalone application output
+# Debian already includes OpenSSL
 COPY --from=builder /app/.next/standalone ./
-
-# 2. Copy over the public assets
 COPY --from=builder /app/public ./public
-
-# 3. Copy over the compiled static assets
 COPY --from=builder /app/.next/static ./.next/static
-
-# 4. Copy Prisma schema and client
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma/client ./node_modules/.prisma/client
-
-# 5. Copy the production environment file
 COPY --from=builder /app/.env.production ./.env.production
 
-# Expose the port
 EXPOSE 3000
-
-# Start the Node.js server
 CMD ["node", "server.js"]
