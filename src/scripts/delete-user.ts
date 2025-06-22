@@ -1,12 +1,11 @@
 // src/scripts/delete-user.ts
 
-// Use require() for CommonJS compatibility
-const { PrismaClient } = require('@prisma/client');
+// REUSE the existing Prisma client from your application's lib folder.
+// This resolves the "Cannot redeclare 'prisma'" build error.
+const { default: prisma } = require('../lib/prisma');
 
 // 🔴 IMPORTANT: CHANGE THIS TO THE CORRECT EMAIL ADDRESS.
 const emailToDelete = 'n.labranche@sintoexpert.com';
-
-const prisma = new PrismaClient();
 
 async function main() {
   console.log(`Starting deletion process for user: ${emailToDelete}`);
@@ -17,7 +16,8 @@ async function main() {
 
   if (!user) {
     console.log(`User with email ${emailToDelete} not found. Exiting.`);
-    return;
+    // We use a clean exit code 0 because not finding the user is not a build failure.
+    process.exit(0);
   }
 
   console.log(`Found user with ID: ${user.id}`);
@@ -39,6 +39,6 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
-    console.log('Prisma client disconnected.');
+    // The main prisma client does not need to be disconnected in a short-lived script.
+    console.log('Script finished.');
   });
