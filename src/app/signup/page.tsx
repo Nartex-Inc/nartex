@@ -102,20 +102,28 @@ function SignupPageClient() {
       setError("Une erreur s'est produite lors de la communication avec le serveur.");
     } finally { setLoading(false); }
   };
-  
-  // Inside your SignupPageClient component in signup/page.tsx
 
-  const handleSSOSignUp = (provider: "google" | "azure-ad") => {
+  const handleSSOLogin = (provider: "google" | "azure-ad") => {
     setLoading(true);
     setError(null);
     
-    // --- THIS IS THE NEW, DIRECT-LINK LOGIC ---
-    // Instead of using the client-side signIn() function, we will navigate
-    // directly to the server-side API endpoint for initiating an OAuth flow.
-    // This bypasses any client-side routing conflicts.
-    
-    const callbackUrl = encodeURIComponent("/dashboard");
-    window.location.href = `/api/auth/signin/${provider}?callbackUrl=${callbackUrl}`;
+    // Use the exact same logic as the signup page
+    signIn(provider, {
+      redirect: false,
+      callbackUrl: "/dashboard",
+    })
+    .then((result) => {
+      if (result?.error) {
+        console.error("LOGIN SSO FAILED:", result);
+        setError(`Error: ${result.error}. Check console for details.`);
+        setLoading(false);
+      } else if (result?.url) {
+        window.location.href = result.url;
+      } else {
+        setLoading(false);
+        setError("An unknown error occurred. Please try again.");
+      }
+    });
   };
 
   return (
