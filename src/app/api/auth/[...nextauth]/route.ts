@@ -44,7 +44,7 @@ const authOptions: NextAuthOptions = {
         // in a Microsoft Entra ID tenant. Using `sub` can be problematic in multi-tenant apps.
         // This function ensures NextAuth uses the `oid` as the stable providerAccountId.
         return {
-          id: profile.oid, 
+          id: profile.sub, 
           name: profile.name,
           email: profile.email,
           image: profile.picture,
