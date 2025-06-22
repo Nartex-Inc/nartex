@@ -1,7 +1,9 @@
+// src/app/signup/page.tsx (FINAL, UNIFIED, AND CORRECTED)
+
 "use client";
 export const dynamic = "force-dynamic";
 
-import React, { Suspense, FormEvent, useState, useEffect, useRef } from "react";
+import React, { FormEvent, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { NextPage } from "next";
 import Image from "next/image";
@@ -52,9 +54,7 @@ const ParticleField: React.FC = () => {
   return <canvas ref={canvasRef} className="fixed inset-0 -z-10" />;
 };
 
-
-// The self-contained client component with all logic
-function SignupPageClient() {
+const SignupPage: NextPage = () => {
   const router = useRouter();
   const { status } = useSession();
 
@@ -70,10 +70,10 @@ function SignupPageClient() {
     return <div className="h-screen flex items-center justify-center bg-zinc-950"><LoadingSpinner className="h-8 w-8 text-emerald-500" /></div>;
   }
   if (status === "authenticated") {
-    return null; // Or a loading spinner while redirecting
+    return null;
   }
 
-  // Form state and handlers
+  // Form state and handlers are now part of the main component
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -95,16 +95,16 @@ function SignupPageClient() {
         body: JSON.stringify({ email, password, password_confirm: confirmPassword }),
       });
       const body = await res.json();
-      if (!res.ok || !body.success) { setError(body.error || "Impossible de créer le compte. Veuillez réessayer."); } 
+      if (!res.ok || !body.success) { setError(body.error || "Impossible de créer le compte. Veuillez réessayer."); }
       else { router.push("/?emailVerificationSent=true"); }
     } catch (err) {
       console.error("Signup fetch error:", err);
       setError("Une erreur s'est produite lors de la communication avec le serveur.");
     } finally { setLoading(false); }
   };
-
-  // Use this clean handler on BOTH pages
-  const handleSSO = (provider: "google" | "azure-ad") => {
+  
+  // This function is now in the correct scope and will be found by the compiler
+  const handleSSOSignUp = (provider: "google" | "azure-ad") => {
     setLoading(true);
     setError(null);
     signIn(provider, { callbackUrl: "/dashboard" });
@@ -197,15 +197,6 @@ function SignupPageClient() {
       `}</style>
     </div>
   );
-}
-
-// The main page export, now cleaner
-const PremiumSignupPage: NextPage = () => {
-  return (
-    <Suspense fallback={<div className="h-screen flex items-center justify-center bg-zinc-900"><LoadingSpinner className="h-8 w-8 text-emerald-500" /></div>}>
-      <SignupPageClient />
-    </Suspense>
-  );
 };
 
-export default PremiumSignupPage;
+export default SignupPage;
