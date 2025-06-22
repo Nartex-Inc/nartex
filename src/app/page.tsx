@@ -82,39 +82,26 @@ function LoginForm() {
     router.push("/dashboard");
   };
 
-  // Find your login page component (the one for "/")
-// ... inside the LoginForm or equivalent component ...
-
   const handleSSOLogin = (provider: "google" | "azure-ad") => {
     setLoading(true);
     setError(null);
-
-    // --- REPLACE THE OLD signIn CALL WITH THIS NEW LOGIC ---
-
-    // We are telling NextAuth NOT to redirect the page automatically.
-    // Instead, it will return a promise with the result of the sign-in attempt.
+    
+    // Use the exact same logic as the signup page
     signIn(provider, {
-      redirect: false, // This is the crucial change
-      callbackUrl: "/dashboard"
+      redirect: false,
+      callbackUrl: "/dashboard",
     })
-    .then(result => {
-      // The promise has resolved. Let's check the result.
-      if (result?.ok) {
-        // The sign-in was successful, and NextAuth has the session.
-        // Now we can manually redirect to the dashboard.
-        router.push("/dashboard");
+    .then((result) => {
+      if (result?.error) {
+        console.error("LOGIN SSO FAILED:", result);
+        setError(`Error: ${result.error}. Check console for details.`);
+        setLoading(false);
+      } else if (result?.url) {
+        window.location.href = result.url;
       } else {
-        // The sign-in failed. The error message is in result.error.
-        console.error("Sign-in failed:", result); // Log the entire result object
-        setError(result?.error || "Une erreur inconnue est survenue lors de la connexion.");
         setLoading(false);
+        setError("An unknown error occurred. Please try again.");
       }
-    })
-    .catch(error => {
-        // This catches network errors or other unexpected issues.
-        console.error("signIn promise rejected:", error);
-        setError("Une erreur réseau s'est produite.");
-        setLoading(false);
     });
   };
 
