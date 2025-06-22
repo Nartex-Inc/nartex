@@ -1,60 +1,65 @@
-version: 0.2
-env:
-  variables:
-    AWS_ACCOUNT_ID: "586359898361"
-    IMAGE_REPO_NAME: "nartex-next"
-    NEXTAUTH_URL: "https://app.nartex.ca"
-    EMAIL_SERVER_HOST: "smtp.gmail.com"
-    EMAIL_SERVER_PORT: "587"
-    EMAIL_SERVER_USER: "n.labranche@nartex.ca"
-    EMAIL_FROM: "Nartex <noreply@nartex.ca>"
-    AZURE_AD_TENANT_ID: "organizations"
-  secrets-manager:
-    DATABASE_URL: nartex/prod/env:DATABASE_URL
-    EMAIL_SERVER_PASSWORD: nartex/prod/env:EMAIL_SERVER_PASSWORD
-    NEXTAUTH_SECRET: nartex/prod/env:NEXTAUTH_SECRET
-    GOOGLE_CLIENT_ID: nartex/prod/env:GOOGLE_CLIENT_ID
-    GOOGLE_CLIENT_SECRET: nartex/prod/env:GOOGLE_CLIENT_SECRET
-    AZURE_AD_CLIENT_ID: nartex/prod/env:AZURE_AD_CLIENT_ID
-    AZURE_AD_CLIENT_SECRET: nartex/prod/env:AZURE_AD_CLIENT_SECRET
-phases:
-  install:
-    runtime-versions:
-      nodejs: 18
-    commands:
-      - echo "📦  INSTALL – installing Node dependencies"
-      - npm install
-  pre_build:
-    commands:
-      - echo "📜  PRE_BUILD – running Prisma migrations"
-      - npx prisma migrate deploy
-      - echo "🔑  PRE_BUILD – logging in to Amazon ECR"
-      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
-  build:
-    commands:
-      - echo "🏗  BUILD – resolving commit hash"
-      - COMMIT_HASH=$(git rev-parse --short HEAD)
-      - echo "📝  BUILD – creating .env.production file"
-      - printf '%s\n' "DATABASE_URL=$DATABASE_URL" "EMAIL_SERVER_HOST=$EMAIL_SERVER_HOST" "EMAIL_SERVER_PORT=$EMAIL_SERVER_PORT" "EMAIL_SERVER_USER=$EMAIL_SERVER_USER" "EMAIL_SERVER_PASSWORD=$EMAIL_SERVER_PASSWORD" "EMAIL_FROM=$EMAIL_FROM" "NEXTAUTH_URL=$NEXTAUTH_URL" "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" "GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID" "GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET" "AZURE_AD_CLIENT_ID=$AZURE_AD_CLIENT_ID" "AZURE_AD_CLIENT_SECRET=$AZURE_AD_CLIENT_SECRET" "AZURE_AD_TENANT_ID=$AZURE_AD_TENANT_ID" > .env.production
-      - echo "🏗  BUILD – building Docker image with consistent Build ID"
-      - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
-      - |
-        docker build \
-          --build-arg GIT_COMMIT_HASH=$COMMIT_HASH \
-          -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
-          -t "$ECR_IMAGE_URI:latest" .
-      - echo "📤  BUILD – pushing both tags to ECR"
-      - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
-      - docker push "$ECR_IMAGE_URI:latest"
-  post_build:
-    commands:
-      - echo '🔄  POST_BUILD – forcing new deployment of ECS service'
-      - |
-        aws ecs update-service \
-          --cluster nartex-cluster \
-          --service nartex-next-service \
-          --force-new-deployment \
-          --region $AWS_DEFAULT_REGION
-artifacts:
-  files:
-    - imagedefinitions.json
+{
+  "name": "nartex",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start -H 0.0.0.0 -p 3000",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@heroicons/react": "^2.2.0",
+    "@next-auth/prisma-adapter": "^1.0.7",
+    "@prisma/client": "^6.8.2",
+    "@radix-ui/react-avatar": "^1.1.10",
+    "@radix-ui/react-dialog": "^1.1.14",
+    "@radix-ui/react-dropdown-menu": "^2.1.15",
+    "@radix-ui/react-separator": "^1.1.7",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-tooltip": "^1.2.7",
+    "aws-amplify": "^6.0.17",
+    "aws-sdk": "^2.1582.0",
+    "bcryptjs": "^3.0.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cookie": "^0.6.0",
+    "express": "^4.21.1",
+    "express-session": "^1.18.1",
+    "geist": "^1.4.2",
+    "jose": "^5.2.3",
+    "jsonwebtoken": "^9.0.2",
+    "lucide-react": "^0.509.0",
+    "next": "^15.3.2",
+    "next-auth": "^4.24.11",
+    "next-themes": "^0.4.6",
+    "nodemailer": "^6.10.1",
+    "openid-client": "^5.7.0",
+    "pg": "^8.16.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^3.3.0",
+    "tailwindcss-animate": "^1.0.7",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cookie": "^0.6.0",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^20",
+    "@types/nodemailer": "^6.4.17",
+    "@types/react": "^19.1.3",
+    "@types/react-dom": "^19.1.3",
+    "@types/uuid": "^10.0.0",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9",
+    "eslint-config-next": "15.3.0",
+    "postcss": "^8.5.3",
+    "prisma": "^6.8.2",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5"
+  }
+}
