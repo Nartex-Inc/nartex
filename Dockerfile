@@ -25,10 +25,17 @@ COPY . .
 # This must happen after `npm ci` and after `prisma/schema.prisma` is copied.
 RUN npx prisma generate
 
-# 4. Build the Next.js application for production
+# 4. Set Prisma engine environment variables
+ENV PRISMA_SCHEMA_ENGINE_BINARY=/app/node_modules/prisma/schema-engine
+ENV PRISMA_QUERY_ENGINE_BINARY=/app/node_modules/prisma/query-engine
+ENV PRISMA_QUERY_ENGINE_LIBRARY=/app/node_modules/@prisma/engines/libquery_engine.so.node
+ENV PRISMA_MIGRATION_ENGINE_BINARY=/app/node_modules/prisma/migration-engine
+
+# 5. Run database migrations
+RUN npx prisma migrate deploy
+
+# 6. Build the Next.js application for production
 # This creates the optimized build output in the .next folder.
-# The .env.production file is NOT needed here. Next.js uses build-time
-# environment variables which CodeBuild already provides.
 RUN npm run build
 
 
@@ -43,25 +50,29 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
+# Set Prisma engine environment variables for runtime
+ENV PRISMA_SCHEMA_ENGINE_BINARY=/app/node_modules/prisma/schema-engine
+ENV PRISMA_QUERY_ENGINE_BINARY=/app/node_modules/prisma/query-engine
+ENV PRISMA_QUERY_ENGINE_LIBRARY=/app/node_modules/@prisma/engines/libquery_engine.so.node
+ENV PRISMA_MIGRATION_ENGINE_BINARY=/app/node_modules/prisma/migration-engine
+
 # 1. Copy over the standalone application output
-# This includes the server.js file and a minimal node_modules folder.
 COPY --from=builder /app/.next/standalone ./
 
 # 2. Copy over the public assets (images, fonts, etc.)
 COPY --from=builder /app/public ./public
 
 # 3. Copy over the compiled static assets (.js, .css chunks)
-# This is the crucial step for your frontend assets.
 COPY --from=builder /app/.next/static ./.next/static
 
 # 4. Copy over the Prisma schema and generated client for runtime use
-COPY --from=builder /app/prisma/schema.prisma ./prisma/schema.prisma
+COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma/client ./node_modules/.prisma/client
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 # 5. Copy the production environment file created in the buildspec
-# This file contains all the secrets and will be read by your app at runtime.
 COPY --from=builder /app/.env.production ./.env.production
-
 
 # Expose the port the app will run on
 EXPOSE 3000
