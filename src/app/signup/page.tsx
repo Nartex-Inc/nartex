@@ -103,10 +103,41 @@ function SignupPageClient() {
     } finally { setLoading(false); }
   };
   
+  // Inside your SignupPageClient component in signup/page.tsx
+
   const handleSSOSignUp = (provider: "google" | "azure-ad") => {
     setLoading(true);
     setError(null);
-    signIn(provider, { callbackUrl: "/dashboard" });
+
+    // This is the new diagnostic logic.
+    // We tell NextAuth NOT to redirect automatically.
+    signIn(provider, {
+      redirect: false, // This is the most important change.
+      callbackUrl: "/dashboard",
+    })
+    .then((result) => {
+      // The signIn promise has resolved. Let's see what it says.
+
+      if (result?.error) {
+        // --- THIS IS OUR GOAL ---
+        // An error happened BEFORE the redirect to Microsoft.
+        // The real error message is in result.error.
+        console.error("CLIENT-SIDE SIGN-IN ERROR:", result);
+        setError(`Error: ${result.error}. Check console for details.`);
+        setLoading(false);
+
+      } else if (result?.url) {
+        // SUCCESS! If there's no error, result.url is the correct
+        // Microsoft login page URL. We can manually navigate there.
+        // (This means if everything was secretly working, it will now *actually* work)
+        window.location.href = result.url;
+
+      } else {
+        // This is an unexpected state, but we should handle it.
+        setError("An unknown error occurred during sign-in initiation.");
+        setLoading(false);
+      }
+    });
   };
 
   return (
