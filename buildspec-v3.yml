@@ -2,7 +2,7 @@ version: 0.2
 
 env:
   variables:
-   # ───── Non-sensitive AWS / image info ──────────────────────
+    # ───── Non-sensitive AWS / image info ──────────────────────
     AWS_ACCOUNT_ID: "586359898361"
     IMAGE_REPO_NAME: "nartex-next"
     NEXTAUTH_URL: "https://app.nartex.ca"
@@ -11,6 +11,12 @@ env:
     EMAIL_SERVER_USER: "n.labranche@nartex.ca"
     EMAIL_FROM: "Nartex <noreply@nartex.ca>"
     AZURE_AD_TENANT_ID: "organizations"
+    
+    # ───── Prisma Engine Configuration ─────────────────────────
+    PRISMA_SCHEMA_ENGINE_BINARY: "node_modules/prisma/schema-engine"
+    PRISMA_QUERY_ENGINE_BINARY: "node_modules/prisma/query-engine"
+    PRISMA_QUERY_ENGINE_LIBRARY: "node_modules/@prisma/engines/libquery_engine.so.node"
+    PRISMA_MIGRATION_ENGINE_BINARY: "node_modules/prisma/migration-engine"
 
   secrets-manager:
     DATABASE_URL:           nartex/prod/env:DATABASE_URL
@@ -55,6 +61,10 @@ phases:
           "AZURE_AD_CLIENT_ID=$AZURE_AD_CLIENT_ID" \
           "AZURE_AD_CLIENT_SECRET=$AZURE_AD_CLIENT_SECRET" \
           "AZURE_AD_TENANT_ID=$AZURE_AD_TENANT_ID" \
+          "PRISMA_SCHEMA_ENGINE_BINARY=$PRISMA_SCHEMA_ENGINE_BINARY" \
+          "PRISMA_QUERY_ENGINE_BINARY=$PRISMA_QUERY_ENGINE_BINARY" \
+          "PRISMA_QUERY_ENGINE_LIBRARY=$PRISMA_QUERY_ENGINE_LIBRARY" \
+          "PRISMA_MIGRATION_ENGINE_BINARY=$PRISMA_MIGRATION_ENGINE_BINARY" \
         > .env.production
       - echo "🏗  BUILD – building Docker image with consistent Build ID"
       - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
