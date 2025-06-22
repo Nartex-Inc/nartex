@@ -8,8 +8,9 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
-// Define authOptions
-export const authOptions: NextAuthOptions = {
+// `authOptions` is defined as a local constant and is NOT exported.
+// This resolves the build error "authOptions is not a valid Route export field."
+const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
@@ -34,12 +35,9 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.AZURE_AD_CLIENT_ID!,
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
       tenantId: process.env.AZURE_AD_TENANT_ID!,
-      
-      // --- ADDED FOR CONSISTENCY WITH GOOGLE PROVIDER ---
       allowDangerousEmailAccountLinking: true,
       profile(profile: AzureADProfile) {
         // The `oid` claim is the Object ID and is a stable identifier for the user.
-        // The `sub` claim can change for the same user over time, so `oid` is preferred for the user ID.
         return {
           id: profile.oid, 
           name: profile.name,
@@ -74,7 +72,6 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Aucun utilisateur trouvé avec cet e-mail.");
         }
         if (!user.password) {
-            // Updated error message to include Microsoft
             throw new Error("Ce compte nécessite une connexion via un fournisseur externe (ex: Google, Microsoft).");
         }
         if (!user.emailVerified) {
@@ -109,7 +106,6 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async jwt({ token, user, account }) {
-      // This callback logic should work for all providers as it pulls from the generic `user` object.
       if (user) {
         token.id = user.id;
 
@@ -128,15 +124,35 @@ export const authOptions: NextAuthOptions = {
         if (fullUser.image) token.picture = fullUser.image;
         if (fullUser.email) token.email = fullUser.email;
       }
-      
-      // Refresh user data in token if it's missing (e.g., on subsequent loads)
-      if (token.id && (token.role === undefined || token.firstName === undefined)) {
-        const dbUser = await prisma.user.findUnique({ where: { id: token.id as string } });
+
+      if (token.id && (
+          token.role === undefined ||
+          token.firstName === undefined ||
+          token.lastName === undefined ||
+          token.emailVerified === undefined
+        )
+      ) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: {
+            role: true,
+            firstName: true,
+            lastName: true,
+            emailVerified: true,
+            name: true,
+            image: true,
+            email: true,
+          },
+        });
+
         if (dbUser) {
-          token.role = dbUser.role;
-          token.firstName = dbUser.firstName;
-          token.lastName = dbUser.lastName;
-          token.emailVerified = dbUser.emailVerified;
+          if (token.role === undefined) token.role = dbUser.role;
+          if (token.firstName === undefined) token.firstName = dbUser.firstName;
+          if (token.lastName === undefined) token.lastName = dbUser.lastName;
+          if (token.emailVerified === undefined) token.emailVerified = dbUser.emailVerified;
+          if (token.name === undefined && dbUser.name) token.name = dbUser.name;
+          if (token.picture === undefined && dbUser.image) token.picture = dbUser.image;
+          if (token.email === undefined && dbUser.email) token.email = dbUser.email;
         }
       }
       return token;
