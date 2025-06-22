@@ -1,4 +1,4 @@
-// src/app/signup/page.tsx (FINAL AND CORRECTED)
+// src/app/signup/page.tsx (FINAL, UNIFIED, AND CORRECTED)
 
 "use client";
 export const dynamic = "force-dynamic";
@@ -58,12 +58,14 @@ const SignupPage: NextPage = () => {
   const router = useRouter();
   const { status } = useSession();
 
+  // Session guard logic
   useEffect(() => {
     if (status === "authenticated") {
       router.push("/dashboard");
     }
   }, [status, router]);
 
+  // Handle loading and authenticated states
   if (status === "loading") {
     return <div className="h-screen flex items-center justify-center bg-zinc-950"><LoadingSpinner className="h-8 w-8 text-emerald-500" /></div>;
   }
@@ -71,6 +73,7 @@ const SignupPage: NextPage = () => {
     return null;
   }
 
+  // Form state and handlers are now part of the main component
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -100,25 +103,11 @@ const SignupPage: NextPage = () => {
     } finally { setLoading(false); }
   };
   
+  // This function is now in the correct scope and will be found by the compiler
   const handleSSOSignUp = (provider: "google" | "azure-ad") => {
     setLoading(true);
     setError(null);
-    signIn(provider, {
-      redirect: false,
-      callbackUrl: "/dashboard",
-    })
-    .then((result) => {
-      if (result?.error) {
-        console.error("SIGNUP SSO FAILED:", result);
-        setError(`Error: ${result.error}. Check console for details.`);
-        setLoading(false);
-      } else if (result?.url) {
-        window.location.href = result.url;
-      } else {
-        setLoading(false);
-        setError("An unknown error occurred. Please try again.");
-      }
-    });
+    signIn(provider, { callbackUrl: "/dashboard" });
   };
 
   return (
