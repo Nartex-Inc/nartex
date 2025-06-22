@@ -1,7 +1,7 @@
 # ================================================================
 # Stage 1: Dependencies & Build
 # ================================================================
-FROM node:18-alpine AS builder
+FROM node:18-bullseye AS builder
 
 # Set working directory
 WORKDIR /app
@@ -12,37 +12,23 @@ ARG GIT_COMMIT_HASH
 ENV GIT_COMMIT_HASH=$GIT_COMMIT_HASH
 
 # 1. Install dependencies
-# Using `COPY package*.json` ensures this layer is cached unless
-# package.json or package-lock.json changes.
 COPY package*.json ./
 RUN npm ci
 
 # 2. Copy the rest of the application source code
-# This includes prisma, src, public, next.config.js, etc.
 COPY . .
 
 # 3. Generate Prisma Client
-# This must happen after `npm ci` and after `prisma/schema.prisma` is copied.
 RUN npx prisma generate
 
-# 4. Set Prisma engine environment variables
-ENV PRISMA_SCHEMA_ENGINE_BINARY=/app/node_modules/prisma/schema-engine
-ENV PRISMA_QUERY_ENGINE_BINARY=/app/node_modules/prisma/query-engine
-ENV PRISMA_QUERY_ENGINE_LIBRARY=/app/node_modules/@prisma/engines/libquery_engine.so.node
-ENV PRISMA_MIGRATION_ENGINE_BINARY=/app/node_modules/prisma/migration-engine
-
-# 5. Run database migrations
-RUN npx prisma migrate deploy
-
-# 6. Build the Next.js application for production
-# This creates the optimized build output in the .next folder.
+# 4. Build the Next.js application for production
 RUN npm run build
 
 
 # ================================================================
 # Stage 2: Production Image
 # ================================================================
-FROM node:18-alpine AS runner
+FROM node:18-bullseye-slim AS runner
 
 WORKDIR /app
 
@@ -50,11 +36,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Set Prisma engine environment variables for runtime
-ENV PRISMA_SCHEMA_ENGINE_BINARY=/app/node_modules/prisma/schema-engine
-ENV PRISMA_QUERY_ENGINE_BINARY=/app/node_modules/prisma/query-engine
-ENV PRISMA_QUERY_ENGINE_LIBRARY=/app/node_modules/@prisma/engines/libquery_engine.so.node
-ENV PRISMA_MIGRATION_ENGINE_BINARY=/app/node_modules/prisma/migration-engine
+# Install openssl for Prisma
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 # 1. Copy over the standalone application output
 COPY --from=builder /app/.next/standalone ./
@@ -65,13 +48,12 @@ COPY --from=builder /app/public ./public
 # 3. Copy over the compiled static assets (.js, .css chunks)
 COPY --from=builder /app/.next/static ./.next/static
 
-# 4. Copy over the Prisma schema and generated client for runtime use
+# 4. Copy Prisma schema and client
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma/client ./node_modules/.prisma/client
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
-# 5. Copy the production environment file created in the buildspec
+# 5. Copy the production environment file
 COPY --from=builder /app/.env.production ./.env.production
 
 # Expose the port the app will run on
