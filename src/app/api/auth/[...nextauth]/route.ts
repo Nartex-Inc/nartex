@@ -35,16 +35,10 @@ const authOptions: NextAuthOptions = {
       tenantId: process.env.AZURE_AD_TENANT_ID!,
       allowDangerousEmailAccountLinking: true,
       profile(profile: AzureADProfile) {
-        // --- VITAL DEBUG LOGGING ---
-        // This will log the incoming profile from Microsoft to your server logs (AWS CloudWatch).
-        // It helps you see the exact data being used for the user ID.
+        // Use 'sub' instead of 'oid' for stable user identification
         console.log("Azure AD Profile Received:", profile);
-
-        // The `oid` (Object ID) is the guaranteed unique and immutable identifier for a user
-        // in a Microsoft Entra ID tenant. Using `sub` can be problematic in multi-tenant apps.
-        // This function ensures NextAuth uses the `oid` as the stable providerAccountId.
         return {
-          id: profile.sub, 
+          id: profile.sub, // Changed from profile.oid to profile.sub
           name: profile.name,
           email: profile.email,
           image: profile.picture,
@@ -101,12 +95,25 @@ const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: "/",
-    error: "/auth/error", // NextAuth will redirect to this page with an error query param
+    error: "/auth/error",
   },
   callbacks: {
+    // NEW SIGN-IN CALLBACK
+    async signIn({ user, account }) {
+      // Allow sign-in if email is already verified
+      if (user.emailVerified) return true;
+      
+      // Bypass email verification for Azure AD users
+      if (account?.provider === "azure-ad") return true;
+      
+      // Block sign-in for other unverified accounts
+      return false;
+    },
+
     async jwt({ token, user, account }) {
+      // Set JWT token properties from user object
       if (user) {
-        token.id = user.id;
+        token.sub = user.id; // Use sub as stable user identifier
         const fullUser = user as NextAuthUser & {
           role?: string | null;
           firstName?: string | null;
@@ -120,42 +127,70 @@ const authOptions: NextAuthOptions = {
         if (fullUser.image) token.picture = fullUser.image;
         if (fullUser.email) token.email = fullUser.email;
       }
-      if (token.id && ( token.role === undefined || token.firstName === undefined )) {
+
+      // Fetch additional user data if needed
+      if (token.sub && (token.role === undefined || token.firstName === undefined)) {
         const dbUser = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          select: { role: true, firstName: true, lastName: true, emailVerified: true, name: true, image: true, email: true },
+          where: { id: token.sub }, // Changed to use token.sub
+          select: { 
+            role: true, 
+            firstName: true, 
+            lastName: true, 
+            emailVerified: true, 
+            name: true, 
+            image: true, 
+            email: true 
+          },
         });
+        
         if (dbUser) {
-          if (token.role === undefined) token.role = dbUser.role;
-          if (token.firstName === undefined) token.firstName = dbUser.firstName;
-          if (token.lastName === undefined) token.lastName = dbUser.lastName;
-          if (token.emailVerified === undefined) token.emailVerified = dbUser.emailVerified;
-          if (token.name === undefined && dbUser.name) token.name = dbUser.name;
-          if (token.picture === undefined && dbUser.image) token.picture = dbUser.image;
-          if (token.email === undefined && dbUser.email) token.email = dbUser.email;
+          token.role = dbUser.role;
+          token.firstName = dbUser.firstName;
+          token.lastName = dbUser.lastName;
+          token.emailVerified = dbUser.emailVerified;
+          token.name = dbUser.name || token.name;
+          token.picture = dbUser.image || token.picture;
+          token.email = dbUser.email || token.email;
         }
       }
+      
       return token;
     },
+
+    // UPDATED SESSION CALLBACK
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.id = token.id as string;
+        // Use token.sub as the stable user ID
+        session.user.id = token.sub as string;
         session.user.role = token.role as string | undefined | null;
         session.user.firstName = token.firstName as string | undefined | null;
         session.user.lastName = token.lastName as string | undefined | null;
         session.user.emailVerified = token.emailVerified as Date | undefined | null;
-        if (token.name) session.user.name = token.name;
-        if (token.email) session.user.email = token.email;
-        if (token.picture) session.user.image = token.picture;
+        
+        // Set optional properties
+        if (token.name) session.user.name = token.name as string;
+        if (token.email) session.user.email = token.email as string;
+        if (token.picture) session.user.image = token.picture as string;
       }
       return session;
     },
+    
     async redirect({ url, baseUrl }) {
         if (url.startsWith("/")) return `${baseUrl}${url}`;
         if (new URL(url).origin === baseUrl) return url;
         return baseUrl + "/dashboard";
     },
   },
+  // Add logging for easier debugging
+  logger: {
+    error(code, metadata) {
+      console.error("NextAuth Error:", code, metadata);
+    },
+    warn(code) {
+      console.warn("NextAuth Warning:", code);
+    },
+  },
+  debug: process.env.NODE_ENV === "development",
 };
 
 const handler = NextAuth(authOptions);
