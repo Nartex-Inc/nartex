@@ -1,4 +1,4 @@
-// src/app/signup/page.tsx (FINAL AND CORRECTED)
+// src/app/signup/page.tsx (FINAL, UNIFIED, AND CORRECTED)
 
 "use client";
 export const dynamic = "force-dynamic";
@@ -54,7 +54,6 @@ const ParticleField: React.FC = () => {
   return <canvas ref={canvasRef} className="fixed inset-0 -z-10" />;
 };
 
-
 const SignupPage: NextPage = () => {
   const router = useRouter();
   const { status } = useSession();
@@ -74,7 +73,7 @@ const SignupPage: NextPage = () => {
     return null;
   }
 
-  // Form state and handlers
+  // Form state and handlers are now part of the main component
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -104,7 +103,7 @@ const SignupPage: NextPage = () => {
     } finally { setLoading(false); }
   };
   
-  // This function is now in the correct scope
+  // This function is now in the correct scope and will be found by the compiler
   const handleSSOSignUp = (provider: "google" | "azure-ad") => {
     setLoading(true);
     setError(null);
