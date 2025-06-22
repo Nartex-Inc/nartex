@@ -92,7 +92,7 @@ const authOptions: NextAuthOptions = {
     strategy: "jwt",
   },
   pages: {
-    // The signIn line has been completely removed.
+    signIn: "/",
     error: "/auth/error", 
   },
   callbacks: {
