@@ -178,7 +178,7 @@ function SignupPageClient() {
                   </div>
                   <div>
                     <label htmlFor="password" className="block text-xs font-medium text-zinc-400 mb-2 uppercase tracking-wider">Mot de passe</label>
-                    <div className=".relative">
+                    <div className="relative">
                       <input id="password" type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required placeholder="8+ caractères" className="w-full px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 focus:bg-zinc-900/70 transition-all pr-12 text-sm" />
                       <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-500 hover:text-zinc-300 transition-colors">{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button>
                     </div>
