@@ -1,23 +1,22 @@
-// src/app/signup/page.tsx (FINAL, UNIFIED, AND CORRECTED)
-
 "use client";
 export const dynamic = "force-dynamic";
 
-import React, { FormEvent, useState, useEffect, useRef } from "react";
+import React, { Suspense, FormEvent, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { NextPage } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { signIn, useSession } from "next-auth/react";
+import { signIn } from "next-auth/react";
 import NartexLogo from "@/components/nartex-logo";
 
-// --- Icon Components ---
+// --- Icon Components (Matching Login Page) ---
 const EyeIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg> );
 const EyeOffIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg> );
 const GoogleIcon: React.FC<{ width?: number; height?: number; className?: string }> = ({ width = 18, height = 18, className = "" }) => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width={width} height={height} className={className}><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" /><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" /><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" /><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" /></svg> );
 const MicrosoftIcon: React.FC<{ width?: number; height?: number; className?: string }> = ({ width = 18, height = 18, className = "" }) => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 23 23" width={width} height={height} className={className}><path d="M11 0H0v11h11V0z" fill="#f25022" /><path d="M23 0H12v11h11V0z" fill="#7fba00" /><path d="M11 12H0v11h11V12z" fill="#00a4ef" /><path d="M23 12H12v11h11V12z" fill="#ffb900" /></svg> );
 const LoadingSpinner: React.FC<{ className?: string }> = ({ className = "h-5 w-5 text-white" }) => ( <svg className={`animate-spin ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg> );
 
+// --- Shared ParticleField Component from Login Page ---
 const ParticleField: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -51,29 +50,13 @@ const ParticleField: React.FC = () => {
       cancelAnimationFrame(animationFrameId);
     };
   }, []);
+
   return <canvas ref={canvasRef} className="fixed inset-0 -z-10" />;
 };
 
-const SignupPage: NextPage = () => {
+// --- The Signup Form Component ---
+function SignupForm() {
   const router = useRouter();
-  const { status } = useSession();
-
-  // Session guard logic
-  useEffect(() => {
-    if (status === "authenticated") {
-      router.push("/dashboard");
-    }
-  }, [status, router]);
-
-  // Handle loading and authenticated states
-  if (status === "loading") {
-    return <div className="h-screen flex items-center justify-center bg-zinc-950"><LoadingSpinner className="h-8 w-8 text-emerald-500" /></div>;
-  }
-  if (status === "authenticated") {
-    return null;
-  }
-
-  // Form state and handlers are now part of the main component
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -85,36 +68,55 @@ const SignupPage: NextPage = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (password !== confirmPassword) { setError("Les mots de passe ne correspondent pas."); return; }
-    if (password.length < 8) { setError("Le mot de passe doit comporter au moins 8 caractères."); return; }
+
+    if (password !== confirmPassword) {
+      setError("Les mots de passe ne correspondent pas.");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Le mot de passe doit comporter au moins 8 caractères.");
+      return;
+    }
+
     setLoading(true);
+
     try {
       const res = await fetch("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, password_confirm: confirmPassword }),
       });
+
       const body = await res.json();
-      if (!res.ok || !body.success) { setError(body.error || "Impossible de créer le compte. Veuillez réessayer."); }
-      else { router.push("/?emailVerificationSent=true"); }
+
+      if (!res.ok || !body.success) {
+        setError(body.error || "Impossible de créer le compte. Veuillez réessayer.");
+      } else {
+        // Redirect to the login page which will show the "check your email" banner
+        router.push("/?emailVerificationSent=true");
+      }
     } catch (err) {
       console.error("Signup fetch error:", err);
       setError("Une erreur s'est produite lors de la communication avec le serveur.");
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
   
-  // This function is now in the correct scope and will be found by the compiler
   const handleSSOSignUp = (provider: "google" | "azure-ad") => {
     setLoading(true);
     setError(null);
+    // next-auth handles user creation automatically on first SSO sign-in.
     signIn(provider, { callbackUrl: "/dashboard" });
   };
 
   return (
     <div className="h-screen flex flex-col text-gray-100 font-sans antialiased relative">
       <ParticleField />
+      
       <div className="absolute top-0 left-0 w-96 h-96 bg-emerald-900/30 rounded-full blur-3xl opacity-20 -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-green-900/30 rounded-full blur-3xl opacity-20 translate-x-1/2 translate-y-1/2 pointer-events-none"></div>
+
       <header className="relative z-10 py-5 px-8">
         <div className="container mx-auto flex items-center justify-between">
           <Link href="/" className="relative group">
@@ -127,6 +129,7 @@ const SignupPage: NextPage = () => {
           </div>
         </div>
       </header>
+      
       <main className="flex-1 flex items-center justify-center py-8 px-6 relative z-10 overflow-y-auto">
         <div className="flex w-full max-w-6xl gap-24 items-center">
           <div className="hidden lg:flex lg:flex-col lg:w-1/2 py-12">
@@ -197,6 +200,13 @@ const SignupPage: NextPage = () => {
       `}</style>
     </div>
   );
-};
+}
 
-export default SignupPage;
+// --- Main Page Export ---
+const PremiumSignupPage: NextPage = () => (
+  <Suspense fallback={ <div className="h-screen flex items-center justify-center bg-zinc-900"><LoadingSpinner className="h-8 w-8 text-emerald-500" /></div> }>
+    <SignupForm />
+  </Suspense>
+);
+
+export default PremiumSignupPage;
