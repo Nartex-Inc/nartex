@@ -102,8 +102,9 @@ function SignupPageClient() {
       setError("Une erreur s'est produite lors de la communication avec le serveur.");
     } finally { setLoading(false); }
   };
-  
-  const handleSSOSignUp = (provider: "google" | "azure-ad") => {
+
+  // Use this clean handler on BOTH pages
+  const handleSSO = (provider: "google" | "azure-ad") => {
     setLoading(true);
     setError(null);
     signIn(provider, { callbackUrl: "/dashboard" });
