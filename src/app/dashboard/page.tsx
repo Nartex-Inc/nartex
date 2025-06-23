@@ -1,58 +1,156 @@
+// src/app/dashboard/page.tsx
 "use client";
 
 import { useSession } from "next-auth/react";
-// --- FIX: Removed the .tsx extensions ---
-import { PipelineCard } from "@/components/dashboard/pipeline-card";
-import { NewProductRequestsTable } from "@/components/dashboard/new-product-requests-table";
+import {
+  PipelineCard
+} from "@/components/dashboard/pipeline-card";
+import {
+  NewProductRequestsTable
+} from "@/components/dashboard/new-product-requests-table";
+import {
+  WelcomeBanner
+} from "@/components/dashboard/welcome-banner";
+import {
+  RecentActivity
+} from "@/components/dashboard/recent-activity";
+import {
+  StatCard
+} from "@/components/dashboard/stat-card";
 import {
   mockProjectsData,
   mockNewProductRequestsData,
   getProjectCountsByStage,
-} from "@/lib/data";
-import { ProductLifecycleStage } from "@/lib/types";
+  mockRecentActivity,
+} from "@/lib/data"; // Assuming you have this mock data
+import {
+  ProductLifecycleStage
+} from "@/lib/types";
+import {
+  Check,
+  Zap,
+  Clock
+} from 'lucide-react';
 
 export default function DashboardPage() {
-  const { data: session } = useSession();
+  const {
+    data: session
+  } = useSession();
   const projects = mockProjectsData;
   const projectCountsByStage = getProjectCountsByStage(projects);
 
   if (!session) {
-    return <div className="p-8">Loading...</div>;
+    return <div className = "p-8" > Loading... </div>;
   }
-  
+
+  const userName = session.user.name || session.user.email?.split('@')[0] || "User";
+
   return (
-    <div className="w-full space-y-8 p-4 sm:p-6 lg:p-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">
-          Tableau de bord R&D
-        </h1>
-        <p className="text-muted-foreground">
-          Vue d'ensemble du pipeline de développement et des nouvelles demandes.
-        </p>
-      </div>
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold tracking-tight">
-            Pipeline de Lancement de Produit
-          </h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {Object.values(ProductLifecycleStage)
-            .filter(stage => stage !== ProductLifecycleStage.ARCHIVE)
-            .map(stage => (
-              <PipelineCard
-                key={stage}
-                stage={stage}
-                count={projectCountsByStage[stage] || 0}
-                projects={projects.filter(p => p.stage === stage).map(p => p.name)}
-              />
-            ))
-          }
-        </div>
-      </section>
-      <section>
-        <NewProductRequestsTable requests={mockNewProductRequestsData} />
-      </section>
-    </div>
-  );
-}
+    // Increased padding for more breathing room
+    < div className = "flex-1 space-y-8 p-6 md:p-10" >
+    <
+    WelcomeBanner userName = {
+      userName
+    }
+    activeProjectsCount = {
+      5
+    }
+    overdueTasksCount = {
+      2
+    }
+    pendingApprovalsCount = {
+      3
+    }
+    />
+
+    {
+      /* --- NEW: Stripe-inspired Stat Card Grid --- */
+    } <
+    div className = "grid gap-6 md:grid-cols-2 lg:grid-cols-3" >
+    <
+    StatCard title = "Projets Complétés"
+    value = "12"
+    label = "ce trimestre"
+    description = {
+      < span > < strong className = "text-emerald-500" > +20 % </strong> par rapport au dernier</span>
+      }
+      icon = {
+        < Check className = "h-8 w-8 text-emerald-500" / >
+      }
+      /> <
+      StatCard title = "Efficacité du Pipeline"
+      value = "92%"
+      label = "taux de réussite"
+      description = "Basé sur les projets passant de l'idéation au lancement."
+      icon = {
+        < Zap className = "h-8 w-8 text-blue-500" / >
+      }
+      /> <
+      StatCard title = "Temps de Cycle Moyen"
+      value = "28 jours"
+      label = "par projet"
+      description = {
+        < span > < strong className = "text-red-500" > -5 % </strong> plus lent que l'objectif</span>
+        }
+        icon = {
+          < Clock className = "h-8 w-8 text-amber-500" / >
+        }
+        /> <
+        /div>
+
+        <
+        div className = "grid grid-cols-1 gap-8 lg:grid-cols-3" >
+        {
+          /* --- Left Column: Pipeline & Product Requests --- */
+        } <
+        div className = "lg:col-span-2 space-y-8" >
+        <
+        section >
+        <
+        h2 className = "text-2xl font-semibold tracking-tight text-foreground mb-4" >
+        Pipeline de Lancement de Produit <
+        /h2> <
+        div className = "grid grid-cols-1 gap-6 sm:grid-cols-2" > {
+          Object.values(ProductLifecycleStage)
+          .filter(stage => stage !== ProductLifecycleStage.ARCHIVE)
+          .map(stage => ( <
+            PipelineCard key = {
+              stage
+            }
+            stage = {
+              stage
+            }
+            count = {
+              projectCountsByStage[stage] || 0
+            }
+            projects = {
+              projects.filter(p => p.stage === stage)
+            }
+            />
+          ))
+        } <
+        /div> <
+        /section> <
+        section >
+        <
+        NewProductRequestsTable requests = {
+          mockNewProductRequestsData
+        }
+        /> <
+        /section> <
+        /div>
+
+        {
+          /* --- Right Column: Recent Activity --- */
+        } <
+        aside className = "lg:col-span-1" >
+        <
+        RecentActivity activities = {
+          mockRecentActivity
+        }
+        /> <
+        /aside> <
+        /div> <
+        /div>
+    );
+  }
