@@ -63,6 +63,9 @@ model Account {
   id_token           String? @db.Text
   session_state      String?
 
+  // THIS IS THE NEWLY ADDED FIELD
+  ext_expires_in     Int?
+
   // ─── Relations ────────────────────────────────────────────────────────────
   user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
