@@ -133,8 +133,8 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
       {/* Sidebar Header with Logo */}
       <div className="flex h-16 shrink-0 items-center border-b px-4">
         <Link href="/dashboard" className={cn("flex items-center gap-2 font-semibold text-lg", !isOpen && "w-full justify-center")}>
-          <Image src="/nartex-logo.svg" alt="Nartex Logo" width={32} height={32} className="dark:invert" />
-          <span className={cn("transition-opacity", isOpen ? "opacity-100" : "opacity-0 w-0")}>nartex</span>
+          <Image src="https://commandites.sintoexpert.com/static/media/sinto-logo.07666849b84f5f505c45.png" alt="Sinto Logo" width={32} height={32} className="dark:invert" />
+          <span className={cn("transition-opacity", isOpen ? "opacity-100" : "opacity-0 w-0")}>Sinto</span>
         </Link>
       </div>
 
