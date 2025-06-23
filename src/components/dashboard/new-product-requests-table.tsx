@@ -1,74 +1,103 @@
 // src/components/dashboard/new-product-requests-table.tsx
-
 "use client";
 
 import Link from "next/link";
-import { NewProductRequest, NewProductRequestStatus } from "@/lib/types";
-import { cn } from "@/lib/utils"; // Import cn utility
+import {
+  NewProductRequest,
+  NewProductRequestStatus
+} from "@/lib/types";
+import {
+  cn
+} from "@/lib/utils";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"; // Import shadcn Table components
+import {
+  Badge
+} from "@/components/ui/badge"; // Import shadcn Badge
 
-// Refined color logic for bolder, more accessible colors
-const getStatusRowClass = (status: NewProductRequestStatus) => {
+// Updated status badge variants for better visual distinction
+const getStatusBadgeVariant = (status: NewProductRequestStatus): "default" | "destructive" | "outline" | "secondary" => {
   switch (status) {
     case NewProductRequestStatus.ACCEPTE:
-      // Bolder green that works in both light and dark mode
-      return "bg-green-500/10 dark:bg-green-500/20 text-green-800 dark:text-green-300";
+      return "default"; // Assumes your default is green/primary
     case NewProductRequestStatus.REFUSE:
-      // Bolder red
-      return "bg-red-500/10 dark:bg-red-500/20 text-red-800 dark:text-red-300";
+      return "destructive";
+    case NewProductRequestStatus.EN_ATTENTE:
+      return "secondary";
     default:
-      return "bg-background hover:bg-muted/50";
+      return "outline";
   }
 };
 
-export function NewProductRequestsTable({ requests }: { requests: NewProductRequest[] }) {
-  if (!requests || requests.length === 0) {
-    return (
-      <div className="rounded-lg border bg-card p-5 text-card-foreground shadow-sm">
-        <h2 className="text-xl font-semibold">Demandes de Nouveaux Produits</h2>
-        <p className="mt-2 text-muted-foreground">Aucune demande.</p>
-      </div>
-    );
-  }
 
+export function NewProductRequestsTable({
+  requests
+}: {
+  requests: NewProductRequest[]
+}) {
   return (
-    <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
-      <div className="p-5 flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Demandes de Nouveaux Produits</h2>
-        <Link href="/dashboard/product-requests" className="text-sm font-medium text-primary hover:underline">
-          Voir tout →
-        </Link>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50">
-            <tr className="border-b">
-              <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">NOM DU PROJET</th>
-              <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">DEMANDEUR</th>
-              <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">DATE SOUMISSION</th>
-              <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">STATUT</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {requests.slice(0, 5).map((req) => (
-              <tr key={req.id} className={cn("transition-colors", getStatusRowClass(req.status))}>
-                <td className="p-4 align-middle font-medium text-foreground">{req.projectName}</td>
-                <td className="p-4 align-middle text-muted-foreground">{req.initiator}</td>
-                <td className="p-4 align-middle text-muted-foreground">{new Date(req.submissionDate).toLocaleDateString('fr-CA')}</td>
-                <td className="p-4 align-middle">
-                  <span className={cn(
-                    "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                    req.status === NewProductRequestStatus.ACCEPTE && "bg-green-500/20 text-green-900 dark:text-green-200",
-                    req.status === NewProductRequestStatus.REFUSE && "bg-red-500/20 text-red-900 dark:text-red-200",
-                    req.status === NewProductRequestStatus.EN_ATTENTE && "bg-amber-500/20 text-amber-900 dark:text-amber-200"
-                  )}>
-                    {req.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    // Cleaner card container
+    < div className = "rounded-xl border bg-card text-card-foreground shadow-sm" >
+    <
+    div className = "p-5 flex items-center justify-between" >
+    <
+    h2 className = "text-xl font-semibold tracking-tight" > Demandes de Nouveaux Produits < /h2> <
+    Link href = "/dashboard/product-requests"
+    className = "text-sm font-medium text-primary hover:underline" >
+    Voir tout→
+    <
+    /Link> <
+    /div> <
+    div className = "border-t" >
+    <
+    Table >
+    <
+    TableHeader >
+    <
+    TableRow >
+    <
+    TableHead className = "w-[40%]" > NOM DU PROJET < /TableHead> <
+    TableHead > DEMANDEUR < /TableHead> <
+    TableHead > DATE SOUMISSION < /TableHead> <
+    TableHead className = "text-right" > STATUT < /TableHead> <
+    /TableRow> <
+    /TableHeader> <
+    TableBody > {
+      requests.slice(0, 5).map((req) => ( <
+        TableRow key = {
+          req.id
+        }
+        className = "hover:bg-muted/50" >
+        <
+        TableCell className = "font-medium" > {
+          req.projectName
+        } < /TableCell> <
+        TableCell className = "text-muted-foreground" > {
+          req.initiator
+        } < /TableCell> <
+        TableCell className = "text-muted-foreground" > {
+          new Date(req.submissionDate).toLocaleDateString('fr-CA')
+        } < /TableCell> <
+        TableCell className = "text-right" >
+        <
+        Badge variant = {
+          getStatusBadgeVariant(req.status)
+        } > {
+          req.status
+        } < /Badge> <
+        /TableCell> <
+        /TableRow>
+      ))
+    } <
+    /TableBody> <
+    /Table> <
+    /div> <
+    /div>
   );
 }
