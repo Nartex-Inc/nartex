@@ -1,14 +1,15 @@
 // src/app/layout.tsx
+
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google"; // <-- NEW: Import Poppins
+import { Poppins } from "next/font/google";
 import "./globals.css";
 import SessionProviderWrapper from "./SessionProviderWrapper";
+import { ThemeProvider } from "@/components/theme-provider"; // <-- IMPORT your existing provider
 
-// --- NEW: Configure the Poppins font ---
 const poppins = Poppins({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"], // Include various weights
-  variable: "--font-poppins", // Set a CSS variable
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-poppins",
 });
 
 export const metadata: Metadata = {
@@ -23,15 +24,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    // Add the new font variable to the html tag
     <html lang="fr" suppressHydrationWarning className={`${poppins.variable} h-full`}>
-      <body
-        // Set the new font as the default sans-serif font
-        className="h-full bg-zinc-900 font-sans antialiased overflow-hidden"
-      >
-        <SessionProviderWrapper>
+      <body className="h-full bg-background font-sans antialiased overflow-hidden">
+        {/*
+          THIS IS THE FIX.
+          Wrap your SessionProvider and children with your existing ThemeProvider.
+          This "activates" the theme for the entire application.
+        */}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <SessionProviderWrapper>
             {children}
-        </SessionProviderWrapper>
+          </SessionProviderWrapper>
+        </ThemeProvider>
       </body>
     </html>
   );
