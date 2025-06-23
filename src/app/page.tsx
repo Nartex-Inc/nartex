@@ -7,7 +7,7 @@ import type { NextPage } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
-import NartexLogo from "@/components/nartex-logo"; // 1. IMPORT THE LOGO COMPONENT
+import NartexLogo from "@/components/nartex-logo";
 
 // --- Icon Components ---
 const EyeIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => ( <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg> );
@@ -45,30 +45,25 @@ const ParticleField: React.FC = () => {
       particles.push({
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        // --- FIX: Increased velocity by 1.5x ---
-        vx: (Math.random() - 0.5) * 0.3, // Was 0.2
-        vy: (Math.random() - 0.5) * 0.3, // Was 0.2
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
         radius: Math.random() * 1.5 + 0.5,
         opacity: Math.random() * 0.5 + 0.2,
       });
     }
 
-    // --- NEW: Color definitions for interpolation ---
-    const color1 = { r: 110, g: 231, b: 183 }; // Original "success green" (emerald-300)
-    const color2 = { r: 16, g: 185, b: 129 }; // Vibrant "emerald" (emerald-500)
-    const lineColor = { r: 52, g: 211, b: 153 }; // Line color (emerald-400)
+    const color1 = { r: 110, g: 231, b: 183 };
+    const color2 = { r: 16, g: 185, b: 129 };
+    const lineColor = { r: 52, g: 211, b: 153 };
 
     const animate = () => {
-      // --- NEW: Time-based factor for color looping (a slow sine wave) ---
-      const timeFactor = (Math.sin(Date.now() / 4000) + 1) / 2; // Oscillates between 0 and 1 every ~8 seconds
+      const timeFactor = (Math.sin(Date.now() / 4000) + 1) / 2;
 
-      // Interpolate RGB values
       const r = color1.r + (color2.r - color1.r) * timeFactor;
       const g = color1.g + (color2.g - color1.g) * timeFactor;
       const b = color1.b + (color2.b - color1.b) * timeFactor;
       const currentParticleColor = `rgb(${r}, ${g}, ${b})`;
 
-      // Fading background trail
       ctx.fillStyle = "rgba(24, 24, 27, 0.1)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -81,8 +76,7 @@ const ParticleField: React.FC = () => {
         
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        // --- FIX: Use the new dynamic color ---
-        ctx.fillStyle = `${currentParticleColor.slice(0,-1)}, ${p.opacity})`; // e.g. "rgb(r,g,b, opacity)"
+        ctx.fillStyle = `${currentParticleColor.slice(0,-1)}, ${p.opacity})`;
         ctx.fill();
 
         for (let j = i + 1; j < particles.length; j++) {
@@ -94,7 +88,6 @@ const ParticleField: React.FC = () => {
           if (distance < connectionDistance) {
             ctx.beginPath();
             const opacity = 1 - distance / connectionDistance;
-            // Lines can keep their original color or also be dynamic
             ctx.strokeStyle = `rgba(${lineColor.r}, ${lineColor.g}, ${lineColor.b}, ${opacity * 0.2})`;
             ctx.lineWidth = 0.5;
             ctx.moveTo(p.x, p.y);
@@ -238,7 +231,7 @@ function LoginForm() {
         </div>
       </main>
       <footer className="relative z-10 py-5 px-8 text-center text-xs text-zinc-500 font-mono tracking-widest">
-        © {new Date().getFullYear()} NARTEX
+        © {new Date().getFullYear()} Nartex
       </footer>
       <style jsx>{`
         @keyframes fade-in-down { from { opacity: 0; transform: translate(-50%, -1.5rem); } to { opacity: 1; transform: translate(-50%, 0); } }
