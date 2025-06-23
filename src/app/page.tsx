@@ -58,7 +58,6 @@ const ParticleField: React.FC = () => {
 
     const animate = () => {
       const timeFactor = (Math.sin(Date.now() / 4000) + 1) / 2;
-
       const r = color1.r + (color2.r - color1.r) * timeFactor;
       const g = color1.g + (color2.g - color1.g) * timeFactor;
       const b = color1.b + (color2.b - color1.b) * timeFactor;
@@ -87,7 +86,7 @@ const ParticleField: React.FC = () => {
 
           if (distance < connectionDistance) {
             ctx.beginPath();
-            const opacity = 1 - distance / connectionDistance;
+            const opacity = 1 - (distance / connectionDistance);
             ctx.strokeStyle = `rgba(${lineColor.r}, ${lineColor.g}, ${lineColor.b}, ${opacity * 0.2})`;
             ctx.lineWidth = 0.5;
             ctx.moveTo(p.x, p.y);
@@ -230,9 +229,17 @@ function LoginForm() {
           </div>
         </div>
       </main>
-      <footer className="relative z-10 py-5 px-8 text-center text-xs text-zinc-500 font-mono tracking-widest">
-        © {new Date().getFullYear()} Nartex
+      {/* --- THIS IS THE UPDATED SECTION --- */}
+      <footer className="relative z-10 py-5 px-8 text-center text-xs text-zinc-500">
+        <div className="flex justify-center items-center gap-4 font-mono tracking-widest">
+          <span>© {new Date().getFullYear()} NARTEX</span>
+          <span className="text-zinc-600">|</span>
+          <Link href="/privacy" className="hover:text-zinc-300 transition-colors">
+            Confidentialité
+          </Link>
+        </div>
       </footer>
+      {/* --- END OF UPDATED SECTION --- */}
       <style jsx>{`
         @keyframes fade-in-down { from { opacity: 0; transform: translate(-50%, -1.5rem); } to { opacity: 1; transform: translate(-50%, 0); } }
         .animate-fade-in-down { animation: fade-in-down 0.5s ease-out forwards; }
