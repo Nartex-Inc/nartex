@@ -11,7 +11,7 @@ import {
   mockProjectsData,
   mockNewProductRequestsData,
   getProjectCountsByStage,
-  mockRecentActivityData, // <-- FIX #1: Corrected the import name
+  mockRecentActivityData,
 } from "@/lib/data";
 import { ProductLifecycleStage } from "@/lib/types";
 import { Check, Zap, Clock } from "lucide-react";
@@ -28,7 +28,6 @@ export default function DashboardPage() {
   const userName = session.user.name || session.user.email?.split('@')[0] || "User";
 
   return (
-    // Increased padding for more breathing room
     <div className="flex-1 space-y-8 p-6 md:p-10">
       <WelcomeBanner
         userName={userName}
@@ -37,16 +36,16 @@ export default function DashboardPage() {
         pendingApprovalsCount={3}
       />
 
-      {/* --- NEW: Stripe-inspired Stat Card Grid --- */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {/* FIX: Added missing linkText and linkUrl props to all StatCards */}
         <StatCard
           title="Projets Complétés"
           value="12"
           label="ce trimestre"
-          description={
-            <span><strong className="text-emerald-500">+20%</strong> par rapport au dernier</span>
-          }
+          description={<span><strong className="text-emerald-500">+20%</strong> par rapport au dernier</span>}
           icon={<Check className="h-8 w-8 text-emerald-500" />}
+          linkText="Voir les projets"
+          linkUrl="/dashboard/projects?status=completed"
         />
         <StatCard
           title="Efficacité du Pipeline"
@@ -54,20 +53,21 @@ export default function DashboardPage() {
           label="taux de réussite"
           description="Basé sur les projets passant de l'idéation au lancement."
           icon={<Zap className="h-8 w-8 text-blue-500" />}
+          linkText="Analyser le pipeline"
+          linkUrl="/dashboard/rd/pipeline"
         />
         <StatCard
           title="Temps de Cycle Moyen"
           value="28 jours"
           label="par projet"
-          description={
-            <span><strong className="text-red-500">-5%</strong> plus lent que l'objectif</span>
-          }
+          description={<span><strong className="text-red-500">-5%</strong> plus lent que l'objectif</span>}
           icon={<Clock className="h-8 w-8 text-amber-500" />}
+          linkText="Voir les métriques"
+          linkUrl="/dashboard/analytics/cycle-time"
         />
       </div>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        {/* --- Left Column: Pipeline & Product Requests --- */}
         <div className="lg:col-span-2 space-y-8">
           <section>
             <h2 className="text-2xl font-semibold tracking-tight text-foreground mb-4">
@@ -91,9 +91,7 @@ export default function DashboardPage() {
           </section>
         </div>
 
-        {/* --- Right Column: Recent Activity --- */}
         <aside className="lg:col-span-1">
-          {/* FIX #2: Use the corrected variable name here */}
           <RecentActivity activities={mockRecentActivityData} />
         </aside>
       </div>
