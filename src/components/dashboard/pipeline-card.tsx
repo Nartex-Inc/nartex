@@ -1,41 +1,79 @@
+// src/components/dashboard/pipeline-card.tsx
 "use client";
 
 import Link from 'next/link';
+import {
+  Project
+} from '@/lib/types'; // Assuming Project type is available
 
-export const PipelineCard: React.FC<{
+export const PipelineCard: React.FC < {
   stage: string;
   count: number;
-  projects: string[];
-}> = ({ stage, count, projects }) => {
-  const progressBarWidth = count > 0 ? `${(count * 25 + 20)}%` : '0%'; // Simple scaling
-
+  projects: Project[]; // Use the Project type for better data handling
+} > = ({
+  stage,
+  count,
+  projects
+}) => {
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-colors duration-200 flex flex-col">
-      <div className="flex justify-between items-center mb-2">
-        <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider truncate" title={stage}>
-          {stage}
-        </h3>
-        <span className={`text-lg font-bold ${count > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
-          {count}
-        </span>
-      </div>
-      <div className="h-1.5 w-full bg-gray-200 dark:bg-gray-700 rounded-full mb-3">
-        <div className={`h-1.5 rounded-full transition-all duration-500 ${count > 0 ? 'bg-green-600' : 'bg-gray-200 dark:bg-gray-700'}`} style={{ width: progressBarWidth }}/>
-      </div>
-      <div className="space-y-1.5 text-sm">
-        {projects.length > 0 ? (
-          projects.slice(0, 3).map((project, idx) => (
-            <Link key={idx} href={`/dashboard/projects/${encodeURIComponent(project)}`} className="block text-gray-700 dark:text-gray-300 hover:text-black dark:hover:text-white truncate p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700/70 transition-colors" title={project}>
-              {project}
-            </Link>
-          ))
-        ) : (
-          <p className="text-sm text-gray-500 dark:text-gray-500 italic">Aucun projet</p>
-        )}
-        {projects.length > 3 && (
-          <p className="text-xs text-gray-500 dark:text-gray-500 italic mt-1">et {projects.length - 3} autres...</p>
-        )}
-      </div>
-    </div>
+    // Stripe-inspired card: softer shadow, more padding, refined border
+    < div className = "flex flex-col rounded-xl border bg-card text-card-foreground shadow-sm hover:shadow-md transition-shadow duration-300" >
+    <
+    div className = "p-5" >
+    <
+    div className = "flex items-center justify-between mb-4" >
+    <
+    h3 className = "text-sm font-semibold text-muted-foreground uppercase tracking-wider" > {
+      stage
+    } <
+    /h3> <
+    span className = "text-2xl font-bold text-foreground" > {
+      count
+    } <
+    /span> <
+    /div> <
+    div className = "h-1 w-full bg-muted rounded-full overflow-hidden" >
+    <
+    div className = {
+      `h-1 rounded-full bg-primary transition-all duration-500`
+    }
+    style = {
+      {
+        width: count > 0 ? `100%` : '0%'
+      }
+    }
+    /> <
+    /div> <
+    /div>
+
+    {
+      /* Projects list with a separator */
+    } <
+    div className = "flex-1 space-y-2 p-5 pt-3 border-t" > {
+      projects.length > 0 ? (
+        projects.slice(0, 3).map((project) => ( <
+          Link key = {
+            project.id
+          }
+          href = {
+            `/dashboard/projects/${project.id}`
+          }
+          className = "group block truncate" >
+          <
+          p className = "text-sm font-medium text-foreground group-hover:text-primary transition-colors" > {
+            project.name
+          } <
+          /p> <
+          p className = "text-xs text-muted-foreground" > Demandeur: {
+            project.initiator
+          } < /p> <
+          /Link>
+        ))
+      ) : ( <
+        p className = "text-sm text-muted-foreground italic py-4 text-center" > Aucun projet < /p>
+      )
+    } <
+    /div> <
+    /div>
   );
 };
