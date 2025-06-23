@@ -18,34 +18,99 @@ const LoadingSpinner: React.FC<{ className?: string }> = ({ className = "h-5 w-5
 
 const ParticleField: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
   useEffect(() => {
-    const canvas = canvasRef.current; if (!canvas) return;
-    const ctx = canvas.getContext('2d'); if (!ctx) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    
     let animationFrameId: number;
-    const resizeCanvas = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+
+    const resizeCanvas = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
     resizeCanvas();
-    interface Particle { x: number; y: number; vx: number; vy: number; radius: number; opacity: number; }
-    const particles: Particle[] = []; const particleCount = 60; const connectionDistance = 180;
-    for (let i = 0; i < particleCount; i++) { particles.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2, radius: Math.random() * 1.5 + 0.5, opacity: Math.random() * 0.5 + 0.2, }); }
+
+    interface Particle {
+      x: number; y: number; vx: number; vy: number; radius: number; opacity: number;
+    }
+    
+    const particles: Particle[] = [];
+    const particleCount = 60;
+    const connectionDistance = 180;
+
+    for (let i = 0; i < particleCount; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        // --- FIX: Increased velocity by 1.5x ---
+        vx: (Math.random() - 0.5) * 0.3, // Was 0.2
+        vy: (Math.random() - 0.5) * 0.3, // Was 0.2
+        radius: Math.random() * 1.5 + 0.5,
+        opacity: Math.random() * 0.5 + 0.2,
+      });
+    }
+
+    // --- NEW: Color definitions for interpolation ---
+    const color1 = { r: 110, g: 231, b: 183 }; // Original "success green" (emerald-300)
+    const color2 = { r: 16, g: 185, b: 129 }; // Vibrant "emerald" (emerald-500)
+    const lineColor = { r: 52, g: 211, b: 153 }; // Line color (emerald-400)
+
     const animate = () => {
-      ctx.fillStyle = 'rgba(24, 24, 27, 0.1)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // --- NEW: Time-based factor for color looping (a slow sine wave) ---
+      const timeFactor = (Math.sin(Date.now() / 4000) + 1) / 2; // Oscillates between 0 and 1 every ~8 seconds
+
+      // Interpolate RGB values
+      const r = color1.r + (color2.r - color1.r) * timeFactor;
+      const g = color1.g + (color2.g - color1.g) * timeFactor;
+      const b = color1.b + (color2.b - color1.b) * timeFactor;
+      const currentParticleColor = `rgb(${r}, ${g}, ${b})`;
+
+      // Fading background trail
+      ctx.fillStyle = "rgba(24, 24, 27, 0.1)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
       particles.forEach((p, i) => {
-        p.x += p.vx; p.y += p.vy;
-        if (p.x < 0 || p.x > canvas.width) p.vx *= -1; if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fillStyle = `rgba(110, 231, 183, ${p.opacity})`; ctx.fill();
+        p.x += p.vx;
+        p.y += p.vy;
+
+        if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+        if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+        
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        // --- FIX: Use the new dynamic color ---
+        ctx.fillStyle = `${currentParticleColor.slice(0,-1)}, ${p.opacity})`; // e.g. "rgb(r,g,b, opacity)"
+        ctx.fill();
+
         for (let j = i + 1; j < particles.length; j++) {
-          const p2 = particles[j]; const dx = p.x - p2.x; const dy = p.y - p2.y; const distance = Math.sqrt(dx * dx + dy * dy);
+          const p2 = particles[j];
+          const dx = p.x - p2.x;
+          const dy = p.y - p2.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
           if (distance < connectionDistance) {
-            ctx.beginPath(); const opacity = 1 - (distance / connectionDistance); ctx.strokeStyle = `rgba(52, 211, 153, ${opacity * 0.2})`; ctx.lineWidth = 0.5; ctx.moveTo(p.x, p.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+            ctx.beginPath();
+            const opacity = 1 - distance / connectionDistance;
+            // Lines can keep their original color or also be dynamic
+            ctx.strokeStyle = `rgba(${lineColor.r}, ${lineColor.g}, ${lineColor.b}, ${opacity * 0.2})`;
+            ctx.lineWidth = 0.5;
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
           }
         }
       });
       animationFrameId = requestAnimationFrame(animate);
     };
+
     animate();
-    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener("resize", resizeCanvas);
+
     return () => {
-      window.removeEventListener('resize', resizeCanvas);
+      window.removeEventListener("resize", resizeCanvas);
       cancelAnimationFrame(animationFrameId);
     };
   }, []);
