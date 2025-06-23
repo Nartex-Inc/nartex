@@ -8,17 +8,19 @@ import { WelcomeBanner } from "@/components/dashboard/welcome-banner";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { StatCard } from "@/components/dashboard/stat-card";
 import {
-  mockProjectsData,
+  mockProjectsData, // This is now an array of 'Project'
   mockNewProductRequestsData,
   getProjectCountsByStage,
   mockRecentActivityData,
 } from "@/lib/data";
-import { ProductLifecycleStage } from "@/lib/types";
+import { ProductLifecycleStage, Project } from "@/lib/types"; // Import Project type
 import { Check, Zap, Clock } from "lucide-react";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
-  const projects = mockProjectsData;
+  
+  // Explicitly type projects to ensure type safety
+  const projects: Project[] = mockProjectsData;
   const projectCountsByStage = getProjectCountsByStage(projects);
 
   if (!session) {
@@ -37,7 +39,6 @@ export default function DashboardPage() {
       />
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* FIX: Added missing linkText and linkUrl props to all StatCards */}
         <StatCard
           title="Projets Complétés"
           value="12"
@@ -81,6 +82,7 @@ export default function DashboardPage() {
                     key={stage}
                     stage={stage}
                     count={projectCountsByStage[stage] || 0}
+                    // This line is now type-safe because mockProjectsData is an array of Project
                     projects={projects.filter((p) => p.stage === stage)}
                   />
                 ))}
