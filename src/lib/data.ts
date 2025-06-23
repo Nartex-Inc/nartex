@@ -1,4 +1,16 @@
-import { ProductLifecycleStage, TaskStatus, NewProductRequestStatus, ProjectSummary, UserTask, ApprovalRequest, RecentActivityItem, NewProductRequest } from './types';
+// src/lib/data.ts
+
+// --- FIX: Import the new 'Project' type alongside the others ---
+import {
+  ProductLifecycleStage,
+  TaskStatus,
+  NewProductRequestStatus,
+  Project, // Use the new, stricter Project type
+  UserTask,
+  ApprovalRequest,
+  RecentActivityItem,
+  NewProductRequest
+} from './types';
 
 // --- AWS-inspired color palette ---
 export const colors = {
@@ -14,14 +26,17 @@ export const colors = {
 };
 
 // --- Mock Data ---
-export const mockProjectsData: ProjectSummary[] = [
+
+// --- FIX: The type of this array is now Project[] instead of ProjectSummary[] ---
+// This ensures every object matches the 'Project' interface, including the required 'initiator'.
+export const mockProjectsData: Project[] = [
     { id: "proj1", name: "QuadraShield MP Series", stage: ProductLifecycleStage.PROTOTYPAGE, initiator: "Jean Martin" },
     { id: "proj2", name: "EcoLube Bio+ Additif Carburant", stage: ProductLifecycleStage.EVALUATION_COUT_POTENTIEL, initiator: "Sophie Dubois" },
     { id: "proj3", name: "SintoMax Gear Oil X (Nouvelle Formule)", stage: ProductLifecycleStage.MISE_EN_MARCHE, initiator: "Chef de Produit" },
     { id: "proj4", name: "ProClean Dégraissant Industriel Bio", stage: ProductLifecycleStage.DEMANDE_IDEATION, initiator: "Ventes Nord" },
     { id: "proj5", name: "XtremeTemp Graisse G2 Haute Performance", stage: ProductLifecycleStage.PLANIFICATION_PRODUIT_FINI, initiator: "R&D Central" },
     { id: "proj6", name: "LubriCool SX Huile de Coupe Synthétique", stage: ProductLifecycleStage.COMITE_EVALUATION, initiator: "Marketing Global" },
-    { id: "proj7", name: "AeroGlide Lubrifiant Sec PTFE", stage: ProductLifecycleStage.VIE_DU_PRODUIT, initiator: "R&D Central" },
+    { id'd: "proj7", name: "AeroGlide Lubrifiant Sec PTFE", stage: ProductLifecycleStage.VIE_DU_PRODUIT, initiator: "R&D Central" },
 ];
 
 export const mockUserTasksData: UserTask[] = [
@@ -54,13 +69,17 @@ export const mockNewProductRequestsData: NewProductRequest[] = [
 ];
 
 // --- Helper Functions ---
-export const getProjectCountsByStage = (projects: ProjectSummary[]): Record<ProductLifecycleStage, number> => {
+// --- FIX: The function now accepts the stricter 'Project[]' type ---
+export const getProjectCountsByStage = (projects: Project[]): Record<ProductLifecycleStage, number> => {
   const counts = {} as Record<ProductLifecycleStage, number>;
   for (const stage of Object.values(ProductLifecycleStage)) {
     counts[stage] = 0;
   }
   projects.forEach(p => {
-    counts[p.stage] = (counts[p.stage] || 0) + 1;
+    // This check is now safer because initiator is guaranteed to exist
+    if (p.stage) { 
+        counts[p.stage] = (counts[p.stage] || 0) + 1;
+    }
   });
   return counts;
 };
