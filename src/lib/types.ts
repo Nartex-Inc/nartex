@@ -1,3 +1,5 @@
+// src/lib/types.ts
+
 import React from 'react';
 
 // --- Enums ---
@@ -29,6 +31,21 @@ export enum NewProductRequestStatus {
 }
 
 // --- Type Interfaces ---
+
+// --- NEWLY ADDED PROJECT INTERFACE ---
+// This is the detailed Project type that pipeline-card.tsx will use.
+export interface Project {
+  id: string;
+  name: string;
+  stage: ProductLifecycleStage;
+  initiator: string; // The person or department who requested it
+  // You can add more fields here as your project grows, for example:
+  // description?: string;
+  // creationDate?: string;
+}
+// --- END OF NEWLY ADDED SECTION ---
+
+
 export interface ProjectSummary {
   id: string;
   name: string;
