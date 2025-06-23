@@ -29,12 +29,10 @@ const authOptions: NextAuthOptions = {
       },
     }),
 
-    // --- UPDATED AZURE AD PROVIDER CONFIGURATION ---
     AzureADProvider({
       clientId: process.env.AZURE_AD_CLIENT_ID!,
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
       tenantId: process.env.AZURE_AD_TENANT_ID!,
-      // Explicitly define authorization object to ensure v2.0 endpoint usage
       authorization: {
         params: {
           scope: "openid profile email User.Read",
@@ -42,28 +40,19 @@ const authOptions: NextAuthOptions = {
       },
       allowDangerousEmailAccountLinking: true,
       profile(profile: AzureADProfile) {
-        // This log is critical for debugging. Check your server logs (e.g., AWS CloudWatch)
-        // for this output on both a successful signup and a failed login to compare.
         console.log("Azure AD Profile Received on callback:", JSON.stringify(profile, null, 2));
-
-        // The 'sub' claim is the correct, immutable, unique ID for the user.
-        // It's used to link the external account to the user in your database.
-
-        // Safely handle the 'picture' claim, which is not always provided by Azure.
-        // Setting it to null prevents errors. It can be fetched later via Graph API if needed.
         return {
-          id: profile.sub, // This becomes the `providerAccountId` in the database.
+          id: profile.sub,
           name: profile.name,
           email: profile.email,
-          image: null, // Set to null to be safe.
-          emailVerified: new Date(), // Azure AD federated accounts are considered verified.
+          image: null,
+          emailVerified: new Date(),
           firstName: profile.given_name,
           lastName: profile.family_name,
-          role: undefined, // Role should be managed by your app, not from the provider profile.
+          role: undefined,
         };
       },
     }),
-    // --- END OF UPDATED SECTION ---
       
     CredentialsProvider({
       name: "Email + Password",
@@ -113,22 +102,27 @@ const authOptions: NextAuthOptions = {
     error: "/auth/error",
   },
   callbacks: {
-    // NEW SIGN-IN CALLBACK
+    // --- THIS IS THE CORRECTED CALLBACK ---
     async signIn({ user, account }) {
-      // Allow sign-in if email is already verified
-      if (user.emailVerified) return true;
-      
-      // Bypass email verification for Azure AD users
-      if (account?.provider === "azure-ad") return true;
-      
-      // Block sign-in for other unverified accounts
+      // Allow sign-in if the account is from an OAuth provider (Google, Azure, etc.)
+      // They are considered trusted and pre-verified.
+      if (account?.provider === "google" || account?.provider === "azure-ad") {
+        return true;
+      }
+
+      // For "credentials" (email/password) sign-in, only allow if email is verified in our DB.
+      if (user.emailVerified) {
+        return true;
+      }
+
+      // Otherwise, block the sign-in. This will redirect to the error page.
       return false;
     },
+    // --- END OF CORRECTION ---
 
     async jwt({ token, user, account }) {
-      // Set JWT token properties from user object
       if (user) {
-        token.sub = user.id; // Use sub as stable user identifier
+        token.sub = user.id;
         const fullUser = user as NextAuthUser & {
           role?: string | null;
           firstName?: string | null;
@@ -143,10 +137,9 @@ const authOptions: NextAuthOptions = {
         if (fullUser.email) token.email = fullUser.email;
       }
 
-      // Fetch additional user data if needed
       if (token.sub && (token.role === undefined || token.firstName === undefined)) {
         const dbUser = await prisma.user.findUnique({
-          where: { id: token.sub }, // Changed to use token.sub
+          where: { id: token.sub },
           select: { 
             role: true, 
             firstName: true, 
@@ -172,17 +165,14 @@ const authOptions: NextAuthOptions = {
       return token;
     },
 
-    // UPDATED SESSION CALLBACK
     async session({ session, token }) {
       if (token && session.user) {
-        // Use token.sub as the stable user ID
         session.user.id = token.sub as string;
         session.user.role = token.role as string | undefined | null;
         session.user.firstName = token.firstName as string | undefined | null;
         session.user.lastName = token.lastName as string | undefined | null;
         session.user.emailVerified = token.emailVerified as Date | undefined | null;
         
-        // Set optional properties
         if (token.name) session.user.name = token.name as string;
         if (token.email) session.user.email = token.email as string;
         if (token.picture) session.user.image = token.picture as string;
@@ -196,7 +186,6 @@ const authOptions: NextAuthOptions = {
         return baseUrl + "/dashboard";
     },
   },
-  // Add logging for easier debugging
   logger: {
     error(code, metadata) {
       console.error("NextAuth Error:", code, metadata);
