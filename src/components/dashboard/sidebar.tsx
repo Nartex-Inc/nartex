@@ -134,13 +134,13 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
           <Image 
             src="https://commandites.sintoexpert.com/static/media/sinto-logo.07666849b84f5f505c45.png" 
             alt="Sinto Logo" 
-            // 1. Logo size adjusted
-            width={48}
-            height={48}
-            // 2. `dark:invert` is removed as requested
+            // 1. Increased size for better presence.
+            width={56} 
+            height={56}
+            // 2. Set quality to 100 to ensure a sharp, high-resolution image.
+            quality={100}
             className="shrink-0" 
           />
-          {/* 3. Text is now visible and animates correctly */}
           <span className={cn(
             "text-foreground origin-left transition-all duration-200", 
             isOpen ? "opacity-100 scale-100" : "opacity-0 scale-0 w-0"
