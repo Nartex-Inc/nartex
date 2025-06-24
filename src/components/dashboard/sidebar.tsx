@@ -128,22 +128,19 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
     >
       <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-br from-background to-muted/20 -z-10" />
 
-      {/* --- CORRECTED Sidebar Header with Logo --- */}
+      {/* --- FINAL CORRECTED Sidebar Header --- */}
       <div className={cn("flex h-16 shrink-0 items-center border-b px-4", !isOpen && "justify-center")}>
-        <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-lg">
+        <Link href="/dashboard" className="flex items-center gap-3 font-semibold text-lg">
           <Image 
             src="https://commandites.sintoexpert.com/static/media/sinto-logo.07666849b84f5f505c45.png" 
             alt="Sinto Logo" 
-            width={128} 
-            height={128}
-            className="shrink-0" // This `dark:invert` class is the key change to make the logo visible.
+            // 1. Reduced the size for a cleaner look
+            width={40} 
+            height={40}
+            // 2. Added dark:invert back to make it visible
+            className="shrink-0 dark:invert"
           />
-          <span className={cn(
-            "origin-left transition-all duration-200", 
-            isOpen ? "opacity-100 scale-100" : "opacity-0 scale-0 w-0"
-          )}>
-            Sinto
-          </span>
+          {/* 3. The redundant "Sinto" text is now completely removed */}
         </Link>
       </div>
 
