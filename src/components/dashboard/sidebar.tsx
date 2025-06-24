@@ -128,17 +128,18 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
     >
       <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-br from-background to-muted/20 -z-10" />
 
-      {/* --- FINAL CORRECTED Sidebar Header --- */}
+      {/* --- FINAL, SVG-POWERED Sidebar Header --- */}
       <div className={cn("flex h-16 shrink-0 items-center border-b px-4", !isOpen && "justify-center")}>
         <Link href="/dashboard" className="flex items-center gap-3 font-semibold text-lg">
           <Image 
-            src="https://commandites.sintoexpert.com/static/media/sinto-logo.07666849b84f5f505c45.png" 
+            // 1. Point to the local SVG file in your `/public` folder.
+            src="/sinto-logo.svg" 
             alt="Sinto Logo" 
-            // 1. Increased size for better presence.
+            // 2. Set the desired display size.
             width={56} 
             height={56}
-            // 2. Set quality to 100 to ensure a sharp, high-resolution image.
-            quality={100}
+            // 3. No `quality` or `invert` props are needed for an SVG.
+            //    It will render perfectly sharp with its own colors.
             className="shrink-0" 
           />
           <span className={cn(
