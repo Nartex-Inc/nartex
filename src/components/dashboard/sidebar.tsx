@@ -134,9 +134,9 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
           <Image 
             src="https://commandites.sintoexpert.com/static/media/sinto-logo.07666849b84f5f505c45.png" 
             alt="Sinto Logo" 
-            width={32} 
-            height={32}
-            className="shrink-0 dark:invert" // This `dark:invert` class is the key change to make the logo visible.
+            width={128} 
+            height={128}
+            className="shrink-0" // This `dark:invert` class is the key change to make the logo visible.
           />
           <span className={cn(
             "origin-left transition-all duration-200", 
