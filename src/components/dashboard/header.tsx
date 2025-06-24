@@ -1,3 +1,4 @@
+// src/components/dashboard/header.tsx (FINAL AND CORRECTED)
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -29,10 +30,11 @@ export function Header({ onToggleMobileSidebar, notificationCount }: HeaderProps
   }, []);
 
   return (
+    // The header is now a simple, full-width component.
     <header className="sticky top-0 z-30 w-full border-b bg-background/95 backdrop-blur-sm">
       <div className="flex h-16 items-center px-4 sm:px-6">
         
-        {/* Hamburger Menu for Mobile */}
+        {/* Hamburger Menu (mobile only) */}
         <Button 
           variant="ghost" 
           size="icon" 
@@ -43,18 +45,17 @@ export function Header({ onToggleMobileSidebar, notificationCount }: HeaderProps
           <Menu className="h-6 w-6" />
         </Button>
 
-        {/* --- CORRECTED Nartex Logo --- */}
-        {/* The `hidden` and `sm:flex` classes have been removed, so the logo is always visible. */}
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <Image
-            src="/nartex-logo.svg"
-            alt="Nartex Logo"
-            width={74}
-            height={19}
-            priority
-            className="dark:invert"
-          />
-        </Link>
+        {/* Nartex Logo */}
+        <div className="flex items-center">
+            <Image
+              src="/nartex-logo.svg"
+              alt="Nartex Logo"
+              width={80}
+              height={20}
+              priority
+              className="dark:invert"
+            />
+        </div>
 
         {/* Right side utilities */}
         <div className="ml-auto flex items-center space-x-2 sm:space-x-4">
