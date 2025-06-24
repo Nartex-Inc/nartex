@@ -5,9 +5,36 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  
+  // --- CORRECTED & UPGRADED IMAGES CONFIGURATION ---
   images: {
-    // UPDATED: Added 'placehold.co' to support the new logo's fallback URL.
-    domains: ['api.placeholder.com', 'localhost', 'placehold.co'],
+    // We are using the modern `remotePatterns` instead of the deprecated `domains`.
+    // This is more secure and flexible.
+    remotePatterns: [
+      // The new pattern for the Sinto logo
+      {
+        protocol: 'https',
+        hostname: 'commandites.sintoexpert.com',
+      },
+      // Preserving your existing domains
+      {
+        protocol: 'https',
+        hostname: 'api.placeholder.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'placehold.co',
+      },
+      {
+        protocol: 'http', // localhost is typically http
+        hostname: 'localhost',
+      },
+      // Adding the Vercel avatar domain from your sidebar component
+      {
+        protocol: 'https',
+        hostname: 'avatar.vercel.sh',
+      },
+    ],
   },
   
   // This is essential for containerized Next.js apps
