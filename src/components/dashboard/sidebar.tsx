@@ -129,7 +129,6 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
       <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-br from-background to-muted/20 -z-10" />
 
       {/* --- CORRECTED Sidebar Header with Logo --- */}
-      {/* The main container div now centers its content when the sidebar is closed */}
       <div className={cn("flex h-16 shrink-0 items-center border-b px-4", !isOpen && "justify-center")}>
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-lg">
           <Image 
@@ -137,9 +136,8 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
             alt="Sinto Logo" 
             width={32} 
             height={32}
-            className="shrink-0" // Prevents the image from shrinking
+            className="shrink-0 dark:invert" // This `dark:invert` class is the key change to make the logo visible.
           />
-          {/* The text now smoothly fades and scales to zero when sidebar is closed */}
           <span className={cn(
             "origin-left transition-all duration-200", 
             isOpen ? "opacity-100 scale-100" : "opacity-0 scale-0 w-0"
