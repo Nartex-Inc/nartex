@@ -120,17 +120,20 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
   return (
     <aside
       className={cn(
-        "flex-col transition-all duration-300 ease-in-out relative bg-card border-r",
+        "flex-col transition-all duration-300 ease-in-out bg-card border-r",
+
+        // --- THIS IS THE FINAL, CORRECT LOGIC ---
+        // MOBILE-FIRST: By default, it's a hidden overlay.
+        "fixed inset-y-0 left-0 z-50 w-64 -translate-x-full",
         
-        // --- THE FINAL CLASSNAME FIX ---
-        // Base state (mobile): A fixed overlay, hidden off-screen by default.
-        "fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full lg:relative lg:translate-x-0",
+        // DESKTOP OVERRIDES: On large screens (`lg:`), undo the mobile styles and
+        // make it a visible, relative part of the flex layout.
+        "lg:relative lg:translate-x-0 lg:flex",
         
-        // Mobile state: When `isMobileOpen` is true, slide it into view.
+        // ACTIVE MOBILE STATE: If `isMobileOpen` is true, slide it into view.
         isMobileOpen && "translate-x-0",
         
-        // Desktop state: Adjust width based on `isOpen`.
-        // The `lg:` prefix ensures these only apply on large screens.
+        // DESKTOP SIZING: This only affects the desktop view due to the `lg:` prefix.
         isOpen ? "lg:w-64" : "lg:w-20"
       )}
     >
