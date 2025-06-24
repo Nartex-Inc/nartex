@@ -109,24 +109,29 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
         isOpen ? "lg:w-64" : "lg:w-20"
       )}
     >
+      {/* This is the main header container */}
       <div className="flex h-16 shrink-0 items-center border-b px-4">
         <div className={cn("w-full flex items-center", isExpanded ? "justify-between" : "justify-center")}>
-          <Link href="/dashboard" className="flex items-center gap-3 font-semibold text-lg">
+          
+          {/* --- THIS IS THE FINAL FIX --- */}
+          <Link href="/dashboard" className="flex items-center justify-center gap-3 font-semibold text-lg w-full">
             <Image 
               src="/sinto-logo.svg" 
               alt="Sinto Logo" 
-              width={32} // Adjusted for better alignment with text
-              height={32} 
+              // 1. Logo size increased to 48x48
+              width={48} 
+              height={48}
               className="shrink-0"
             />
-            {/* --- THIS IS THE FINAL FIX --- */}
             <span className={cn(
+              // 2. Text color is now guaranteed to be visible
               "text-slate-900 dark:text-slate-50 origin-left transition-opacity duration-200",
               isExpanded ? "opacity-100" : "opacity-0"
             )}>
               Sinto
             </span>
           </Link>
+
           <Button 
             variant="ghost" 
             size="icon" 
@@ -187,11 +192,6 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
           </div>
         )}
       </div>
-
-      {/* This toggle button is now only for the collapsed state on desktop */}
-      <Button variant="outline" size="icon" onClick={toggleSidebar} className={cn("absolute top-16 -right-5 h-10 w-10 rounded-full border bg-background hover:bg-muted shadow-md", isOpen ? "hidden" : "hidden lg:flex")}>
-        <ChevronLeft className="h-5 w-5 rotate-180" />
-      </Button>
     </aside>
   );
 }
