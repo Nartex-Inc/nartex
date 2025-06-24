@@ -1,3 +1,4 @@
+// src/components/dashboard/sidebar.tsx (FINAL AND CORRECTED)
 "use client";
 
 import React from "react";
@@ -19,7 +20,6 @@ interface NavItem {
   icon: React.ElementType;
 }
 
-// Updated props for the Sidebar to handle both views
 interface SidebarProps {
   isOpen: boolean;
   isMobileOpen: boolean;
@@ -27,7 +27,6 @@ interface SidebarProps {
   closeMobileSidebar: () => void;
 }
 
-// NavLink now closes mobile sidebar when a link is clicked
 const NavLink = ({ item, isSidebarOpen, closeMobileSidebar, isMobile }: { item: NavItem; isSidebarOpen: boolean; closeMobileSidebar: () => void; isMobile: boolean }) => {
   const pathname = usePathname();
   const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
@@ -89,30 +88,15 @@ const NavGroup = ({ title, children, isSidebarOpen }: { title: string; children:
 export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSidebar }: SidebarProps) {
   const { data: session } = useSession();
   const handleLogout = () => signOut({ callbackUrl: "/" });
-
   const user = session?.user;
   const userDisplayName = user?.name || user?.email?.split('@')[0] || "User";
   const userImage = user?.image;
 
   const navItems = {
-    general: [
-      { href: "/dashboard", title: "Tableau de Bord", icon: LayoutDashboard },
-      { href: "/dashboard/tasks", title: "Mes tâches", icon: ListChecks },
-      { href: "/dashboard/projects", title: "Mes projets", icon: Briefcase }
-    ],
-    admin: [
-      { href: "/dashboard/admin/onboarding", title: "Onboarding", icon: UserPlus },
-      { href: "/dashboard/admin/returns", title: "Gestion des retours", icon: RefreshCcw },
-      { href: "/dashboard/admin/collections", title: "Recouvrement", icon: Receipt }
-    ],
-    research: [
-      { href: "/dashboard/rd/requests", title: "Demandes de produits", icon: FlaskConical },
-      { href: "/dashboard/rd/pipeline", title: "Pipeline de produits", icon: Network }
-    ],
-    support: [
-      { href: "/dashboard/support/new", title: "Nouveau billet", icon: PlusCircle },
-      { href: "/dashboard/support/tickets", title: "Gestion des billets", icon: Ticket }
-    ]
+    general: [ { href: "/dashboard", title: "Tableau de Bord", icon: LayoutDashboard }, { href: "/dashboard/tasks", title: "Mes tâches", icon: ListChecks }, { href: "/dashboard/projects", title: "Mes projets", icon: Briefcase } ],
+    admin: [ { href: "/dashboard/admin/onboarding", title: "Onboarding", icon: UserPlus }, { href: "/dashboard/admin/returns", title: "Gestion des retours", icon: RefreshCcw }, { href: "/dashboard/admin/collections", title: "Recouvrement", icon: Receipt } ],
+    research: [ { href: "/dashboard/rd/requests", title: "Demandes de produits", icon: FlaskConical }, { href: "/dashboard/rd/pipeline", title: "Pipeline de produits", icon: Network } ],
+    support: [ { href: "/dashboard/support/new", title: "Nouveau billet", icon: PlusCircle }, { href: "/dashboard/support/tickets", title: "Gestion des billets", icon: Ticket } ]
   };
   
   const isExpanded = isOpen || isMobileOpen;
@@ -121,34 +105,26 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
     <aside
       className={cn(
         "flex-col transition-all duration-300 ease-in-out bg-card border-r",
-
-        // --- THIS IS THE FINAL, CORRECT LOGIC ---
-        // MOBILE-FIRST: By default, it's a hidden overlay.
-        "fixed inset-y-0 left-0 z-50 w-64 -translate-x-full",
-        
-        // DESKTOP OVERRIDES: On large screens (`lg:`), undo the mobile styles and
-        // make it a visible, relative part of the flex layout.
-        "lg:relative lg:translate-x-0 lg:flex",
-        
-        // ACTIVE MOBILE STATE: If `isMobileOpen` is true, slide it into view.
+        "fixed inset-y-0 left-0 z-50 w-64 -translate-x-full lg:relative lg:translate-x-0 lg:flex",
         isMobileOpen && "translate-x-0",
-        
-        // DESKTOP SIZING: This only affects the desktop view due to the `lg:` prefix.
         isOpen ? "lg:w-64" : "lg:w-20"
       )}
     >
-      <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-br from-background to-muted/20 -z-10" />
-
-      <div className={cn("flex h-16 shrink-0 items-center border-b px-4", !isOpen && "lg:justify-center")}>
-        <Link href="/dashboard" className="flex items-center gap-3 font-semibold text-lg">
-          <Image src="/sinto-logo.svg" alt="Sinto Logo" width={56} height={56} className="shrink-0"/>
-          <span className={cn(
-            "text-foreground origin-left transition-all duration-200", 
-            isExpanded ? "opacity-100 scale-100" : "opacity-0 scale-0 w-0"
-          )}>
-            Sinto
-          </span>
-        </Link>
+      <div className="flex h-16 shrink-0 items-center border-b px-4">
+        <div className={cn("w-full flex", isExpanded ? "justify-between" : "justify-center")}>
+          <Link href="/dashboard" className={cn("flex items-center gap-3 font-semibold text-lg", !isExpanded && "w-full justify-center")}>
+            <Image src="/sinto-logo.svg" alt="Sinto Logo" width={32} height={32} className="shrink-0" />
+            <span className={cn(
+              "text-foreground origin-left transition-opacity duration-200", 
+              isExpanded ? "opacity-100" : "opacity-0"
+            )}>
+              Sinto
+            </span>
+          </Link>
+          <Button variant="ghost" size="icon" onClick={toggleSidebar} className={cn("hidden", isOpen && "lg:flex")}>
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto py-4">
@@ -201,8 +177,8 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
         )}
       </div>
 
-      <Button variant="outline" size="icon" onClick={toggleSidebar} className="hidden lg:flex absolute top-16 -right-5 h-10 w-10 rounded-full border bg-background hover:bg-muted shadow-md">
-        <ChevronLeft className={cn("h-5 w-5 transition-transform duration-300", !isOpen && "rotate-180")} />
+      <Button variant="outline" size="icon" onClick={toggleSidebar} className={cn("absolute top-16 -right-5 h-10 w-10 rounded-full border bg-background hover:bg-muted shadow-md", isOpen ? "hidden" : "hidden lg:flex")}>
+        <ChevronLeft className="h-5 w-5 rotate-180" />
       </Button>
     </aside>
   );
