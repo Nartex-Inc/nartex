@@ -1,11 +1,10 @@
 // src/app/dashboard/layout.tsx (FINAL AND CORRECTED)
-
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Header } from "@/components/dashboard/header";
+import { Header } from "@/components/dashboard/header"; 
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Loader2 } from "lucide-react";
 
@@ -21,16 +20,12 @@ export default function DashboardLayout({
     },
   });
 
-  // State 1: For the DESKTOP sidebar (expanded vs collapsed)
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  
-  // State 2: For the MOBILE sidebar (visible vs hidden overlay)
+  const [isDesktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  const toggleDesktopSidebar = () => setIsSidebarOpen(prev => !prev);
+  const toggleDesktopSidebar = () => setDesktopSidebarOpen(prev => !prev);
   const toggleMobileSidebar = () => setMobileSidebarOpen(prev => !prev);
 
-  // Lock body scroll when the mobile sidebar is open
   useEffect(() => {
     if (isMobileSidebarOpen) {
       document.body.style.overflow = 'hidden';
@@ -50,32 +45,34 @@ export default function DashboardLayout({
     );
   }
 
-  // Once authenticated, render the layout
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-muted/40">
-      
-      {/* Backdrop for mobile sidebar overlay */}
-      {isMobileSidebarOpen && (
-        <div 
-          onClick={toggleMobileSidebar}
-          className="lg:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Sidebar now receives props for both states */}
-      <Sidebar
-        isOpen={isSidebarOpen}
-        isMobileOpen={isMobileSidebarOpen}
-        toggleSidebar={toggleDesktopSidebar}
-        closeMobileSidebar={toggleMobileSidebar}
+    // The root container is now a COLUMN, forcing the header to the top.
+    <div className="flex h-screen flex-col bg-muted/40">
+      <Header 
+        onToggleMobileSidebar={toggleMobileSidebar} 
+        notificationCount={5} // Example
       />
-
-      <div className="flex flex-col flex-1 w-full overflow-hidden">
-        <Header 
-          onToggleMobileSidebar={toggleMobileSidebar} 
-          notificationCount={5} // Example
+      
+      {/* This new container holds the content BELOW the header in a ROW. */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Mobile backdrop is placed here */}
+        {isMobileSidebarOpen && (
+          <div 
+            onClick={toggleMobileSidebar}
+            className="lg:hidden fixed inset-0 z-40 bg-black/50"
+            aria-hidden="true"
+          />
+        )}
+        
+        {/* Sidebar now lives inside this flex row */}
+        <Sidebar
+          isOpen={isDesktopSidebarOpen}
+          isMobileOpen={isMobileSidebarOpen}
+          toggleSidebar={toggleDesktopSidebar}
+          closeMobileSidebar={toggleMobileSidebar}
         />
+        
+        {/* Main content area is the sibling to the sidebar */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           {children}
         </main>
