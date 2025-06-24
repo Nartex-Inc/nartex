@@ -1,12 +1,13 @@
+// src/app/dashboard/layout.tsx (FINAL AND CORRECTED)
+
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { Header } from "@/components/dashboard/header"; 
+import { Header } from "@/components/dashboard/header";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 export default function DashboardLayout({
   children,
@@ -16,34 +17,31 @@ export default function DashboardLayout({
   const { status } = useSession({
     required: true,
     onUnauthenticated() {
-      redirect("/"); // This is more robust than the useEffect method
+      redirect("/");
     },
   });
 
-  // STATE 1: For the DESKTOP sidebar (expanded vs collapsed)
-  const [isDesktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+  // State 1: For the DESKTOP sidebar (expanded vs collapsed)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
-  // STATE 2: For the MOBILE sidebar (visible vs hidden overlay)
+  // State 2: For the MOBILE sidebar (visible vs hidden overlay)
   const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  const toggleDesktopSidebar = () => setDesktopSidebarOpen(prev => !prev);
+  const toggleDesktopSidebar = () => setIsSidebarOpen(prev => !prev);
   const toggleMobileSidebar = () => setMobileSidebarOpen(prev => !prev);
 
-  // Best Practice: Lock body scroll when the mobile sidebar is open
+  // Lock body scroll when the mobile sidebar is open
   useEffect(() => {
     if (isMobileSidebarOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'auto';
     }
-    // Cleanup function to restore scroll if the component unmounts
     return () => {
       document.body.style.overflow = 'auto';
     };
   }, [isMobileSidebarOpen]);
 
-
-  // Show a full-screen loader while the session is being verified
   if (status === "loading") {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
@@ -52,32 +50,31 @@ export default function DashboardLayout({
     );
   }
 
-  // Once authenticated, render the main layout
+  // Once authenticated, render the layout
   return (
     <div className="flex h-screen w-full overflow-hidden bg-muted/40">
       
-      {/* --- ADDED ---: Backdrop for mobile sidebar overlay */}
+      {/* Backdrop for mobile sidebar overlay */}
       {isMobileSidebarOpen && (
         <div 
-          onClick={toggleMobileSidebar} // Close sidebar on backdrop click
+          onClick={toggleMobileSidebar}
           className="lg:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
           aria-hidden="true"
         />
       )}
 
-      {/* Sidebar now receives props for both mobile and desktop states */}
+      {/* Sidebar now receives props for both states */}
       <Sidebar
-        isOpen={isDesktopSidebarOpen}
+        isOpen={isSidebarOpen}
         isMobileOpen={isMobileSidebarOpen}
-        toggleSidebar={toggleDesktopSidebar} // For desktop collapse button
-        closeMobileSidebar={toggleMobileSidebar} // For mobile links to close the menu
+        toggleSidebar={toggleDesktopSidebar}
+        closeMobileSidebar={toggleMobileSidebar}
       />
 
       <div className="flex flex-col flex-1 w-full overflow-hidden">
-        {/* Header now receives a function to toggle the MOBILE sidebar */}
         <Header 
           onToggleMobileSidebar={toggleMobileSidebar} 
-          notificationCount={5} // Example count
+          notificationCount={5} // Example
         />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           {children}
