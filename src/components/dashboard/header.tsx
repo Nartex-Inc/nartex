@@ -3,18 +3,17 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Bell } from 'lucide-react';
-import { UserNav } from '@/components/dashboard/user-nav'; // Standardized path alias
-import { ModeToggle } from '@/components/theme-toggle';   // Standardized path alias
+import { Bell, Menu } from 'lucide-react'; // Import Menu icon
+import { UserNav } from '@/components/dashboard/user-nav';
+import { ModeToggle } from '@/components/theme-toggle';
+import { Button } from '@/components/ui/button'; // Import Button
 
-// FIX: Correctly define the props the component receives from layout.tsx
 interface HeaderProps {
-  onToggleSidebar: () => void; // This was missing
+  onToggleMobileSidebar: () => void;
   notificationCount: number;
 }
 
-// FIX: Correctly destructure the props from the function argument
-export function Header({ onToggleSidebar, notificationCount }: HeaderProps) {
+export function Header({ onToggleMobileSidebar, notificationCount }: HeaderProps) {
   const [currentDate, setCurrentDate] = useState("");
   const [currentTime, setCurrentTime] = useState("");
 
@@ -30,14 +29,26 @@ export function Header({ onToggleSidebar, notificationCount }: HeaderProps) {
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur-sm">
-      <div className="flex h-16 items-center px-6">
-        {/* Nartex Logo */}
-        <Link href="/dashboard" className="flex items-center gap-2">
+    <header className="sticky top-0 z-30 w-full border-b bg-background/95 backdrop-blur-sm">
+      <div className="flex h-16 items-center px-4 sm:px-6">
+        
+        {/* --- Hamburger Menu for Mobile --- */}
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="lg:hidden mr-2" 
+          onClick={onToggleMobileSidebar}
+          aria-label="Toggle sidebar"
+        >
+          <Menu className="h-6 w-6" />
+        </Button>
+
+        {/* Nartex Logo (Hidden on smaller screens for more space) */}
+        <Link href="/dashboard" className="hidden sm:flex items-center gap-2">
           <Image
             src="/nartex-logo.svg"
             alt="Nartex Logo"
-            width={74} // 33% smaller
+            width={74}
             height={19}
             priority
             className="dark:invert"
@@ -45,14 +56,14 @@ export function Header({ onToggleSidebar, notificationCount }: HeaderProps) {
         </Link>
 
         {/* Right side utilities */}
-        <div className="ml-auto flex items-center space-x-4">
+        <div className="ml-auto flex items-center space-x-2 sm:space-x-4">
           <div className="hidden md:flex items-center text-sm text-muted-foreground">
             <span>{currentDate}</span>
             <span className="mx-2 text-muted-foreground/50">|</span>
             <span className="font-mono tracking-tighter text-foreground">{currentTime}</span>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1 sm:space-x-2">
             <ModeToggle />
             <Link
               href="/dashboard/notifications"
