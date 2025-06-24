@@ -109,38 +109,27 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
         isOpen ? "lg:w-64" : "lg:w-20"
       )}
     >
-      {/* This is the main header container */}
-      <div className="flex h-16 shrink-0 items-center border-b px-4">
-        <div className={cn("w-full flex items-center", isExpanded ? "justify-between" : "justify-center")}>
-          
-          {/* --- THIS IS THE FINAL FIX --- */}
-          <Link href="/dashboard" className="flex items-center justify-center gap-3 font-semibold text-lg w-full">
-            <Image 
-              src="/sinto-logo.svg" 
-              alt="Sinto Logo" 
-              // 1. Logo size increased to 48x48
-              width={48} 
-              height={48}
-              className="shrink-0"
-            />
-            <span className={cn(
-              // 2. Text color is now guaranteed to be visible
-              "text-slate-900 dark:text-slate-50 origin-left transition-opacity duration-200",
-              isExpanded ? "opacity-100" : "opacity-0"
-            )}>
-              Sinto
-            </span>
-          </Link>
+      <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-br from-background to-muted/20 -z-10" />
 
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={toggleSidebar} 
-            className={cn("hidden", isExpanded && "lg:flex")}
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-        </div>
+      {/* --- THIS IS THE FINAL, CORRECTED HEADER --- */}
+      <div className={cn("flex h-16 shrink-0 items-center border-b px-4", !isOpen && "lg:justify-center")}>
+        <Link href="/dashboard" className="flex items-center gap-3 font-semibold text-lg">
+          <Image 
+            src="/sinto-logo.svg" 
+            alt="Sinto Logo" 
+            width={32}
+            height={32}
+            className="shrink-0"
+          />
+          <span className={cn(
+            "text-slate-900 dark:text-slate-50 origin-left transition-opacity duration-200",
+            // Text is only visible when expanded.
+            isExpanded ? "opacity-100" : "opacity-0"
+          )}>
+            Sinto
+          </span>
+        </Link>
+        {/* The internal collapse button is removed as per your design */}
       </div>
 
       <div className="flex-1 overflow-y-auto py-4">
@@ -192,6 +181,17 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
           </div>
         )}
       </div>
+
+      {/* --- THE FLOATING BUTTON IS BACK AND CORRECTED --- */}
+      {/* This button is only visible on desktop (`hidden lg:flex`) */}
+      <Button 
+        variant="outline" 
+        size="icon" 
+        onClick={toggleSidebar} 
+        className="hidden lg:flex absolute top-16 -right-5 h-10 w-10 rounded-full border bg-background hover:bg-muted shadow-md"
+      >
+        <ChevronLeft className={cn("h-5 w-5 transition-transform duration-300", !isOpen && "rotate-180")} />
+      </Button>
     </aside>
   );
 }
