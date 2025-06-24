@@ -1,5 +1,3 @@
-// src/components/dashboard/sidebar.tsx (FINAL AND CORRECTED)
-
 "use client";
 
 import React from "react";
@@ -117,20 +115,23 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
     ]
   };
   
-  // Determine if the sidebar should be rendered in its expanded text mode
   const isExpanded = isOpen || isMobileOpen;
 
   return (
     <aside
       className={cn(
-        "flex-col transition-transform duration-300 ease-in-out relative bg-card border-r",
-        // This handles the desktop view
-        "hidden lg:flex",
-        isOpen ? "w-64" : "w-20",
-        // This handles the mobile overlay view
-        isMobileOpen 
-          ? "fixed inset-y-0 left-0 z-50 flex w-64 translate-x-0" 
-          : "fixed -translate-x-full"
+        "flex-col transition-all duration-300 ease-in-out relative bg-card border-r",
+        
+        // --- THE FINAL CLASSNAME FIX ---
+        // Base state (mobile): A fixed overlay, hidden off-screen by default.
+        "fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full lg:relative lg:translate-x-0",
+        
+        // Mobile state: When `isMobileOpen` is true, slide it into view.
+        isMobileOpen && "translate-x-0",
+        
+        // Desktop state: Adjust width based on `isOpen`.
+        // The `lg:` prefix ensures these only apply on large screens.
+        isOpen ? "lg:w-64" : "lg:w-20"
       )}
     >
       <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-br from-background to-muted/20 -z-10" />
@@ -153,13 +154,13 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
             {navItems.general.map(item => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} closeMobileSidebar={closeMobileSidebar} isMobile={isMobileOpen} />)}
           </NavGroup>
           <NavGroup title="Administration" isSidebarOpen={isExpanded}>
-            {navItems.admin.map(item => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} closeMobileSidebar={closeMobileSidebar} isMobile={isMobileOpen} />)}
+            {navItems.admin.map(item => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} isMobile={isMobileOpen} closeMobileSidebar={closeMobileSidebar} />)}
           </NavGroup>
           <NavGroup title="R&D" isSidebarOpen={isExpanded}>
-            {navItems.research.map(item => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} closeMobileSidebar={closeMobileSidebar} isMobile={isMobileOpen} />)}
+            {navItems.research.map(item => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} isMobile={isMobileOpen} closeMobileSidebar={closeMobileSidebar} />)}
           </NavGroup>
           <NavGroup title="Support" isSidebarOpen={isExpanded}>
-            {navItems.support.map(item => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} closeMobileSidebar={closeMobileSidebar} isMobile={isMobileOpen} />)}
+            {navItems.support.map(item => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} isMobile={isMobileOpen} closeMobileSidebar={closeMobileSidebar} />)}
           </NavGroup>
         </div>
       </div>
