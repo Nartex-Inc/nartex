@@ -3,10 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Bell, Menu } from 'lucide-react'; // Import Menu icon
+import { Bell, Menu } from 'lucide-react';
 import { UserNav } from '@/components/dashboard/user-nav';
 import { ModeToggle } from '@/components/theme-toggle';
-import { Button } from '@/components/ui/button'; // Import Button
+import { Button } from '@/components/ui/button';
 
 interface HeaderProps {
   onToggleMobileSidebar: () => void;
@@ -32,7 +32,7 @@ export function Header({ onToggleMobileSidebar, notificationCount }: HeaderProps
     <header className="sticky top-0 z-30 w-full border-b bg-background/95 backdrop-blur-sm">
       <div className="flex h-16 items-center px-4 sm:px-6">
         
-        {/* --- Hamburger Menu for Mobile --- */}
+        {/* Hamburger Menu for Mobile */}
         <Button 
           variant="ghost" 
           size="icon" 
@@ -43,8 +43,9 @@ export function Header({ onToggleMobileSidebar, notificationCount }: HeaderProps
           <Menu className="h-6 w-6" />
         </Button>
 
-        {/* Nartex Logo (Hidden on smaller screens for more space) */}
-        <Link href="/dashboard" className="hidden sm:flex items-center gap-2">
+        {/* --- CORRECTED Nartex Logo --- */}
+        {/* The `hidden` and `sm:flex` classes have been removed, so the logo is always visible. */}
+        <Link href="/dashboard" className="flex items-center gap-2">
           <Image
             src="/nartex-logo.svg"
             alt="Nartex Logo"
