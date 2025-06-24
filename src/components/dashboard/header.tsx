@@ -2,12 +2,12 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
 import { Bell, Menu } from 'lucide-react';
 import { UserNav } from '@/components/dashboard/user-nav';
 import { ModeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 interface HeaderProps {
   onToggleMobileSidebar: () => void;
@@ -30,31 +30,30 @@ export function Header({ onToggleMobileSidebar, notificationCount }: HeaderProps
   }, []);
 
   return (
-    // The header is now a simple, full-width component.
-    <header className="sticky top-0 z-30 w-full border-b bg-background/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-30 w-full border-b bg-card">
       <div className="flex h-16 items-center px-4 sm:px-6">
         
-        {/* Hamburger Menu (mobile only) */}
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="lg:hidden mr-2" 
-          onClick={onToggleMobileSidebar}
-          aria-label="Toggle sidebar"
-        >
-          <Menu className="h-6 w-6" />
-        </Button>
+        <div className="flex items-center gap-4">
+          {/* Hamburger Menu (mobile only) */}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="lg:hidden" 
+            onClick={onToggleMobileSidebar}
+            aria-label="Toggle sidebar"
+          >
+            <Menu className="h-6 w-6" />
+          </Button>
 
-        {/* Nartex Logo */}
-        <div className="flex items-center">
-            <Image
-              src="/nartex-logo.svg"
-              alt="Nartex Logo"
-              width={80}
-              height={20}
-              priority
-              className="dark:invert"
-            />
+          {/* Nartex Logo */}
+          <Image
+            src="/nartex-logo.svg"
+            alt="Nartex Logo"
+            width={80}
+            height={20}
+            priority
+            className="dark:invert"
+          />
         </div>
 
         {/* Right side utilities */}
