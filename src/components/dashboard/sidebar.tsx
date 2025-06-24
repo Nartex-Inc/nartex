@@ -1,4 +1,4 @@
-// src/components/dashboard/sidebar.tsx (UPDATED)
+// src/components/dashboard/sidebar.tsx (FINAL AND CORRECTED)
 
 "use client";
 
@@ -21,7 +21,7 @@ interface NavItem {
   icon: React.ElementType;
 }
 
-// Updated props for the Sidebar
+// Updated props for the Sidebar to handle both views
 interface SidebarProps {
   isOpen: boolean;
   isMobileOpen: boolean;
@@ -29,12 +29,18 @@ interface SidebarProps {
   closeMobileSidebar: () => void;
 }
 
-// NavLink now closes mobile sidebar on click
-const NavLink = ({ item, isSidebarOpen, closeMobileSidebar }: { item: NavItem; isSidebarOpen: boolean; closeMobileSidebar: () => void; }) => {
+// NavLink now closes mobile sidebar when a link is clicked
+const NavLink = ({ item, isSidebarOpen, closeMobileSidebar, isMobile }: { item: NavItem; isSidebarOpen: boolean; closeMobileSidebar: () => void; isMobile: boolean }) => {
   const pathname = usePathname();
   const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+  
+  const handleLinkClick = () => {
+    if (isMobile) {
+      closeMobileSidebar();
+    }
+  };
 
-  if (!isSidebarOpen) {
+  if (!isSidebarOpen && !isMobile) {
     return (
       <TooltipProvider>
         <Tooltip delayDuration={0}>
@@ -59,7 +65,7 @@ const NavLink = ({ item, isSidebarOpen, closeMobileSidebar }: { item: NavItem; i
   return (
     <Link
       href={item.href}
-      onClick={closeMobileSidebar} // Close sidebar when a link is clicked on mobile
+      onClick={handleLinkClick}
       className={cn(
         "flex items-center gap-4 rounded-md px-4 py-2.5 text-muted-foreground transition-all hover:text-foreground hover:bg-muted",
         isActive && "bg-primary/10 text-primary font-semibold"
@@ -90,50 +96,51 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
   const userDisplayName = user?.name || user?.email?.split('@')[0] || "User";
   const userImage = user?.image;
 
-  const generalNav: NavItem[] = [
-    { href: "/dashboard", title: "Tableau de Bord", icon: LayoutDashboard },
-    { href: "/dashboard/tasks", title: "Mes tâches", icon: ListChecks },
-    { href: "/dashboard/projects", title: "Mes projets", icon: Briefcase }
-  ];
-  const adminNav: NavItem[] = [
-    { href: "/dashboard/admin/onboarding", title: "Onboarding", icon: UserPlus },
-    { href: "/dashboard/admin/returns", title: "Gestion des retours", icon: RefreshCcw },
-    { href: "/dashboard/admin/collections", title: "Recouvrement", icon: Receipt }
-  ];
-  const researchNav: NavItem[] = [
-    { href: "/dashboard/rd/requests", title: "Demandes de produits", icon: FlaskConical },
-    { href: "/dashboard/rd/pipeline", title: "Pipeline de produits", icon: Network }
-  ];
-  const supportNav: NavItem[] = [
-    { href: "/dashboard/support/new", title: "Nouveau billet", icon: PlusCircle },
-    { href: "/dashboard/support/tickets", title: "Gestion des billets", icon: Ticket }
-  ];
-
-  // Use the mobile-specific prop for the NavLink
-  const navLinkProps = { isSidebarOpen: isOpen, closeMobileSidebar };
+  const navItems = {
+    general: [
+      { href: "/dashboard", title: "Tableau de Bord", icon: LayoutDashboard },
+      { href: "/dashboard/tasks", title: "Mes tâches", icon: ListChecks },
+      { href: "/dashboard/projects", title: "Mes projets", icon: Briefcase }
+    ],
+    admin: [
+      { href: "/dashboard/admin/onboarding", title: "Onboarding", icon: UserPlus },
+      { href: "/dashboard/admin/returns", title: "Gestion des retours", icon: RefreshCcw },
+      { href: "/dashboard/admin/collections", title: "Recouvrement", icon: Receipt }
+    ],
+    research: [
+      { href: "/dashboard/rd/requests", title: "Demandes de produits", icon: FlaskConical },
+      { href: "/dashboard/rd/pipeline", title: "Pipeline de produits", icon: Network }
+    ],
+    support: [
+      { href: "/dashboard/support/new", title: "Nouveau billet", icon: PlusCircle },
+      { href: "/dashboard/support/tickets", title: "Gestion des billets", icon: Ticket }
+    ]
+  };
+  
+  // Determine if the sidebar should be rendered in its expanded text mode
+  const isExpanded = isOpen || isMobileOpen;
 
   return (
     <aside
       className={cn(
         "flex-col transition-transform duration-300 ease-in-out relative bg-card border-r",
-        // Base state: Hidden on mobile, flexible on desktop
-        "hidden lg:flex", 
-        // Desktop states
-        "lg:transition-all",
-        isOpen ? "lg:w-64" : "lg:w-20",
-        // Mobile state: A fixed overlay that slides in
-        isMobileOpen ? "fixed inset-y-0 left-0 z-50 flex w-64 translate-x-0" : "fixed -translate-x-full"
+        // This handles the desktop view
+        "hidden lg:flex",
+        isOpen ? "w-64" : "w-20",
+        // This handles the mobile overlay view
+        isMobileOpen 
+          ? "fixed inset-y-0 left-0 z-50 flex w-64 translate-x-0" 
+          : "fixed -translate-x-full"
       )}
     >
       <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-br from-background to-muted/20 -z-10" />
 
       <div className={cn("flex h-16 shrink-0 items-center border-b px-4", !isOpen && "lg:justify-center")}>
         <Link href="/dashboard" className="flex items-center gap-3 font-semibold text-lg">
-          <Image src="/sinto-logo.svg" alt="Sinto Logo" width={56} height={56} className="shrink-0" />
+          <Image src="/sinto-logo.svg" alt="Sinto Logo" width={56} height={56} className="shrink-0"/>
           <span className={cn(
             "text-foreground origin-left transition-all duration-200", 
-            // On desktop, it depends on `isOpen`. On mobile, it's always open.
-            isOpen || isMobileOpen ? "opacity-100 scale-100" : "opacity-0 scale-0 w-0"
+            isExpanded ? "opacity-100 scale-100" : "opacity-0 scale-0 w-0"
           )}>
             Sinto
           </span>
@@ -142,39 +149,23 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
 
       <div className="flex-1 overflow-y-auto py-4">
         <div className="flex flex-col gap-6 px-2">
-          {/* Always show expanded nav items on mobile */}
-          <NavGroup title="Général" isSidebarOpen={isOpen || isMobileOpen}>
-            {generalNav.map(item => <NavLink key={item.href} item={item} {...navLinkProps} />)}
+          <NavGroup title="Général" isSidebarOpen={isExpanded}>
+            {navItems.general.map(item => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} closeMobileSidebar={closeMobileSidebar} isMobile={isMobileOpen} />)}
           </NavGroup>
-          <NavGroup title="Administration" isSidebarOpen={isOpen || isMobileOpen}>
-            {adminNav.map(item => <NavLink key={item.href} item={item} {...navLinkProps} />)}
+          <NavGroup title="Administration" isSidebarOpen={isExpanded}>
+            {navItems.admin.map(item => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} closeMobileSidebar={closeMobileSidebar} isMobile={isMobileOpen} />)}
           </NavGroup>
-          <NavGroup title="R&D" isSidebarOpen={isOpen || isMobileOpen}>
-            {researchNav.map(item => <NavLink key={item.href} item={item} {...navLinkProps} />)}
+          <NavGroup title="R&D" isSidebarOpen={isExpanded}>
+            {navItems.research.map(item => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} closeMobileSidebar={closeMobileSidebar} isMobile={isMobileOpen} />)}
           </NavGroup>
-          <NavGroup title="Support" isSidebarOpen={isOpen || isMobileOpen}>
-            {supportNav.map(item => <NavLink key={item.href} item={item} {...navLinkProps} />)}
+          <NavGroup title="Support" isSidebarOpen={isExpanded}>
+            {navItems.support.map(item => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} closeMobileSidebar={closeMobileSidebar} isMobile={isMobileOpen} />)}
           </NavGroup>
         </div>
       </div>
 
       <div className="mt-auto shrink-0 border-t p-2">
-        {/* On mobile, always show the expanded user info */}
-        {isOpen || isMobileOpen ? (
-          <div className="flex h-12 w-full items-center justify-start gap-3 rounded-lg p-2 text-sm font-medium">
-            <Image src={userImage || `https://avatar.vercel.sh/${user?.email}.svg`} alt={userDisplayName} width={36} height={36} className="rounded-full"/>
-            <div className="flex-1 truncate">
-              <p className="font-semibold truncate">{userDisplayName}</p>
-              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-            </div>
-            <TooltipProvider>
-              <Tooltip delayDuration={0}>
-                  <TooltipTrigger asChild><Button variant="ghost" size="icon" className="shrink-0" onClick={handleLogout}><LogOut className="h-4 w-4"/></Button></TooltipTrigger>
-                  <TooltipContent side="top">Déconnexion</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        ) : (
+        {!isExpanded ? (
           <TooltipProvider>
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
@@ -189,10 +180,23 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+        ) : (
+          <div className="flex h-12 w-full items-center justify-start gap-3 rounded-lg p-2 text-sm font-medium">
+            <Image src={userImage || `https://avatar.vercel.sh/${user?.email}.svg`} alt={userDisplayName} width={36} height={36} className="rounded-full"/>
+            <div className="flex-1 truncate">
+              <p className="font-semibold truncate">{userDisplayName}</p>
+              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+            </div>
+            <TooltipProvider>
+              <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild><Button variant="ghost" size="icon" className="shrink-0" onClick={handleLogout}><LogOut className="h-4 w-4"/></Button></TooltipTrigger>
+                  <TooltipContent side="top">Déconnexion</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         )}
       </div>
 
-      {/* Floating Toggle Button - only for desktop */}
       <Button variant="outline" size="icon" onClick={toggleSidebar} className="hidden lg:flex absolute top-16 -right-5 h-10 w-10 rounded-full border bg-background hover:bg-muted shadow-md">
         <ChevronLeft className={cn("h-5 w-5 transition-transform duration-300", !isOpen && "rotate-180")} />
       </Button>
