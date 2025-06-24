@@ -130,17 +130,24 @@ export function Sidebar({ isOpen, toggleSidebar }: SidebarProps) {
 
       {/* --- FINAL CORRECTED Sidebar Header --- */}
       <div className={cn("flex h-16 shrink-0 items-center border-b px-4", !isOpen && "justify-center")}>
-        <Link href="/dashboard" className="flex items-center gap-3 font-semibold text-lg">
-          <Image 
-            src="https://commandites.sintoexpert.com/static/media/sinto-logo.07666849b84f5f505c45.png" 
-            alt="Sinto Logo" 
-            // 1. Reduced the size for a cleaner look
-            width={40} 
-            height={40}
-            // 2. Added dark:invert back to make it visible
-            className="shrink-0 dark:invert"
-          />
-          {/* 3. The redundant "Sinto" text is now completely removed */}
+        <Link href="/dashboard" className="flex items-center gap-3 font-semibold">
+          {isOpen ? (
+            // STATE 1: Sidebar is OPEN
+            // Show the Sinto logo, do not invert it, and make it larger.
+            <Image 
+              src="https://commandites.sintoexpert.com/static/media/sinto-logo.07666849b84f5f505c45.png" 
+              alt="Sinto Logo" 
+              width={60}  // 1.5x bigger than 40
+              height={60} 
+              className="shrink-0" // No dark:invert
+            />
+          ) : (
+            // STATE 2: Sidebar is COLLAPSED
+            // Show only the "Sinto" text, styled like an icon.
+            <span className="text-sm font-bold uppercase tracking-wider">
+              Sinto
+            </span>
+          )}
         </Link>
       </div>
 
