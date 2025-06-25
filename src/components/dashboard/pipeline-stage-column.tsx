@@ -5,38 +5,43 @@ import { ProjectCard } from './project-card';
 interface PipelineStageColumnProps {
   stage: string;
   projects: Project[];
-  color: string; // For visual distinction
+  color: string;
 }
 
 export const PipelineStageColumn: React.FC<PipelineStageColumnProps> = ({ stage, projects, color }) => {
   return (
-    // flex-shrink-0 is crucial to prevent columns from squishing on smaller screens
-    <div className="flex flex-col w-80 flex-shrink-0">
+    // CHANGE 1: We've made the column a flex container and given it a fixed height.
+    // 'h-96' (or h-[400px], etc.) is the key. All columns will now be this tall.
+    // flex-shrink-0 is still crucial.
+    <div className="flex flex-col w-80 h-96 flex-shrink-0 bg-muted/50 rounded-lg">
       
-      {/* Column Header */}
-      <div className="flex items-center justify-between p-3 border-b">
+      {/* Column Header (No changes here, but it's now part of the flex layout) */}
+      <div className="flex items-center justify-between p-3 border-b border-border">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{stage}</h3>
         </div>
-        <span className="text-sm font-medium bg-muted text-muted-foreground rounded-full px-2 py-0.5">
+        <span className="text-sm font-medium bg-background text-muted-foreground rounded-full px-2 py-0.5">
           {projects.length}
         </span>
       </div>
 
-      {/* Projects List (Scrollable Area) */}
-      <div className="flex-1 space-y-3 p-3 bg-muted/50 rounded-b-lg overflow-y-auto h-full">
+      {/* CHANGE 2: This is now the flexible, scrollable content area.
+          - `flex-1`: This makes the div grow to fill ALL available vertical space.
+          - `overflow-y-auto`: This adds a scrollbar ONLY if the projects list is too long.
+      */}
+      <div className="flex-1 space-y-3 p-3 overflow-y-auto">
         {projects.length > 0 ? (
           projects.map((project) => (
             <ProjectCard key={project.id} project={project} />
           ))
         ) : (
-          <div className="flex items-center justify-center h-24 text-sm text-muted-foreground italic">
+          // CHANGE 3: The empty state now lives inside the flexible container, so it will be centered nicely.
+          <div className="flex items-center justify-center h-full text-sm text-muted-foreground italic">
             Aucun projet
           </div>
         )}
       </div>
-
     </div>
   );
 };
