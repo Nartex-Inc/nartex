@@ -113,23 +113,22 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
 
       {/* --- THIS IS THE FINAL, CORRECTED HEADER --- */}
       <div className={cn("flex h-16 shrink-0 items-center border-b px-4", !isOpen && "lg:justify-center")}>
-        <Link href="/dashboard" className="flex items-center gap-3 font-semibold text-lg">
-          <Image 
-            src="/sinto-logo.svg" 
-            alt="Sinto Logo" 
-            width={32}
-            height={32}
-            className="shrink-0"
-          />
-          <span className={cn(
-            "text-slate-900 dark:text-slate-50 origin-left transition-opacity duration-200",
-            // Text is only visible when expanded.
-            isExpanded ? "opacity-100" : "opacity-0"
-          )}>
-            Sinto
-          </span>
-        </Link>
-        {/* The internal collapse button is removed as per your design */}
+          <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-lg">
+            <Image 
+              src="/sinto-logo.svg" 
+              alt="Sinto Logo" 
+              width={32}
+              height={32}
+              className="shrink-0"
+            />
+            {/* The text is now correctly hidden when collapsed on desktop */}
+            <span className={cn(
+              "text-slate-900 dark:text-slate-50 origin-left transition-opacity duration-200",
+              isExpanded ? "opacity-100" : "opacity-0"
+            )}>
+              Sinto
+            </span>
+          </Link>
       </div>
 
       <div className="flex-1 overflow-y-auto py-4">
@@ -182,13 +181,12 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
         )}
       </div>
 
-      {/* --- THE FLOATING BUTTON IS BACK AND CORRECTED --- */}
-      {/* This button is only visible on desktop (`hidden lg:flex`) */}
+      {/* THE FLOATING BUTTON IS BACK, ALWAYS VISIBLE ON DESKTOP, AND ROTATES */}
       <Button 
         variant="outline" 
         size="icon" 
         onClick={toggleSidebar} 
-        className="hidden lg:flex absolute top-16 -right-5 h-10 w-10 rounded-full border bg-background hover:bg-muted shadow-md"
+        className="hidden lg:flex absolute top-4 -right-5 h-10 w-10 rounded-full border bg-background hover:bg-muted shadow-md"
       >
         <ChevronLeft className={cn("h-5 w-5 transition-transform duration-300", !isOpen && "rotate-180")} />
       </Button>
