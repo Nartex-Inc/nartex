@@ -3,21 +3,20 @@
 
 import { useSession } from "next-auth/react";
 import { WelcomeBanner } from "@/components/dashboard/welcome-banner";
-import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { StatCard } from "@/components/dashboard/stat-card";
-import { NewProductRequestsTable } from "@/components/dashboard/new-product-requests-table";
 // 1. IMPORT the new Kanban view and its data type
 import { PipelineKanbanView, KanbanStage } from "@/components/dashboard/pipeline-kanban-view";
 
+// 2. REMOVED NewProductRequestsTable and RecentActivity imports.
+
 import {
   mockProjectsData,
-  mockNewProductRequestsData,
-  mockRecentActivityData,
+  // REMOVED mockNewProductRequestsData and mockRecentActivityData
 } from "@/lib/data";
 import { ProductLifecycleStage, Project } from "@/lib/types";
 import { Check, Zap, Clock } from "lucide-react";
 
-// 2. DEFINE the configuration for our pipeline stages, including colors.
+// The configuration for our pipeline stages remains the same.
 const STAGE_CONFIG = [
     { id: ProductLifecycleStage.DEMANDE_IDEATION, name: 'Demande / Idéation', color: '#3b82f6' },
     { id: ProductLifecycleStage.EVALUATION_COUT_POTENTIEL, name: 'Évaluation Coût/Potentiel', color: '#8b5cf6' },
@@ -33,7 +32,7 @@ export default function DashboardPage() {
   
   const projects: Project[] = mockProjectsData;
 
-  // 3. PREPARE data for the Kanban view
+  // Prepare data for the Kanban view
   const pipelineDataForKanban: KanbanStage[] = STAGE_CONFIG.map(config => ({
     ...config,
     projects: projects.filter(p => p.stage === config.id),
@@ -55,7 +54,7 @@ export default function DashboardPage() {
       />
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* --- STAT CARDS WITH DUMMY PROPS FILLED IN --- */}
+        {/* Stat cards remain unchanged */}
         <StatCard
           title="Projets Complétés"
           value="12"
@@ -85,21 +84,15 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-8">
-          
-          {/* 4. REPLACE the old grid with the new, single component */}
-          <PipelineKanbanView stages={pipelineDataForKanban} />
-
-          <section>
-            <NewProductRequestsTable requests={mockNewProductRequestsData} />
-          </section>
-        </div>
-
-        <aside className="lg:col-span-1">
-          <RecentActivity activities={mockRecentActivityData} />
-        </aside>
+      {/* 
+        3. KEY CHANGE: The two-column grid has been completely removed.
+        We now render the PipelineKanbanView directly. Because it's a block-level
+        element, it will automatically take up the full available width of its parent container.
+      */}
+      <div>
+        <PipelineKanbanView stages={pipelineDataForKanban} />
       </div>
+
     </div>
   );
 }
