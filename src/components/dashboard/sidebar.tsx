@@ -124,8 +124,8 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
             <Image 
               src="/sinto-logo.svg" 
               alt="Sinto Logo" 
-              width={36} // A balanced size
-              height={36}
+              width={58} // A balanced size
+              height={58}
               className="shrink-0"
             />
             {/* The text is now fully hidden when not expanded */}
