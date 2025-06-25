@@ -20,13 +20,13 @@ import { Check, Zap, Clock } from "lucide-react";
 // 2. DEFINE the configuration for our pipeline stages, including colors.
 // This gives us full control over order, naming, and appearance.
 const STAGE_CONFIG = [
-    { id: ProductLifecycleStage.DEMAND_IDEATION, name: 'Demande / Idéation', color: '#3b82f6' },
-    { id: ProductLifecycleStage.EVALUATION, name: 'Évaluation Coût/Potentiel', color: '#8b5cf6' },
-    { id: ProductLifecycleStage.PROTOTYPING, name: 'Prototypage', color: '#ec4899' },
-    { id: ProductLifecycleStage.DEVELOPMENT, name: 'Mise en Fonction / Développement', color: '#f97316' },
-    { id: ProductLifecycleStage.PLANNING, name: 'Planification Produit Fini', color: '#10b981' },
-    { id: ProductLifecycleStage.MARKET_LAUNCH, name: 'Mise en Marché', color: '#6366f1' },
-    { id: ProductLifecycleStage.PRODUCT_LIFE, name: 'Vie du Produit', color: '#64748b' },
+    { id: ProductLifecycleStage.DEMANDE_IDEATION, name: 'Demande / Idéation', color: '#3b82f6' },
+    { id: ProductLifecycleStage.EVALUATION_COUT_POTENTIEL, name: 'Évaluation Coût/Potentiel', color: '#8b5cf6' },
+    { id: ProductLifecycleStage.PROTOTYPAGE, name: 'Prototypage', color: '#ec4899' },
+    { id: ProductLifecycleStage.MISE_EN_FONCTION_DEVELOPPEMENT, name: 'Mise en Fonction / Développement', color: '#f97316' },
+    { id: ProductLifecycleStage.PLANIFICATION_PRODUIT_FINI, name: 'Planification Produit Fini', color: '#10b981' },
+    { id: ProductLifecycleStage.MISE_EN_MARCHE, name: 'Mise en Marché', color: '#6366f1' },
+    { id: ProductLifecycleStage.VIE_DU_PRODUIT, name: 'Vie du Produit', color: '#64748b' },
 ];
 
 export default function DashboardPage() {
