@@ -112,19 +112,26 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
       <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-br from-background to-muted/20 -z-10" />
 
       {/* --- THIS IS THE FINAL, CORRECTED HEADER --- */}
-      <div className={cn("flex h-16 shrink-0 items-center border-b px-4", !isOpen && "lg:justify-center")}>
-          <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-lg">
+      <div className="flex h-16 shrink-0 items-center border-b px-4">
+          <Link 
+            href="/dashboard" 
+            className={cn(
+                "flex items-center gap-2 font-semibold w-full",
+                // THIS IS THE KEY: Center the content when collapsed on desktop
+                !isExpanded && "justify-center"
+            )}
+          >
             <Image 
               src="/sinto-logo.svg" 
               alt="Sinto Logo" 
-              width={32}
-              height={32}
+              width={36} // A balanced size
+              height={36}
               className="shrink-0"
             />
-            {/* The text is now correctly hidden when collapsed on desktop */}
+            {/* The text is now fully hidden when not expanded */}
             <span className={cn(
-              "text-slate-900 dark:text-slate-50 origin-left transition-opacity duration-200",
-              isExpanded ? "opacity-100" : "opacity-0"
+              "text-slate-900 dark:text-slate-50",
+              isExpanded ? "block" : "hidden"
             )}>
               Sinto
             </span>
@@ -181,12 +188,12 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
         )}
       </div>
 
-      {/* THE FLOATING BUTTON IS BACK, ALWAYS VISIBLE ON DESKTOP, AND ROTATES */}
+      {/* THE FLOATING BUTTON IS BACK AND CORRECTLY CONFIGURED */}
       <Button 
         variant="outline" 
         size="icon" 
         onClick={toggleSidebar} 
-        className="hidden lg:flex absolute top-4 -right-5 h-10 w-10 rounded-full border bg-background hover:bg-muted shadow-md"
+        className="hidden lg:flex absolute top-16 -right-5 h-10 w-10 rounded-full border bg-background hover:bg-muted shadow-md"
       >
         <ChevronLeft className={cn("h-5 w-5 transition-transform duration-300", !isOpen && "rotate-180")} />
       </Button>
