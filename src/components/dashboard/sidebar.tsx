@@ -108,7 +108,7 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
         "flex-col transition-all duration-300 ease-in-out bg-card border-r",
         "fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full lg:relative lg:translate-x-0",
         isMobileOpen && "translate-x-0",
-        isOpen ? "lg:w-64" : "lg:w-20"
+        isOpen ? "lg:w-72" : "lg:w-20"
       )}
     >
       <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-br from-background to-muted/20 -z-10" />
