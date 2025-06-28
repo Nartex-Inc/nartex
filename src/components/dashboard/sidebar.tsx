@@ -7,7 +7,7 @@ import { useSession, signOut } from "next-auth/react";
 import Image from 'next/image';
 import {
   LayoutDashboard, ListChecks, Briefcase, UserPlus, RefreshCcw, Receipt,
-  FlaskConical, Network, PlusCircle, Ticket, LogOut, ChevronLeft
+  FlaskConical, Network, PlusCircle, Ticket, LogOut, ChevronLeft, Megaphone // <-- 1. Icon imported
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -91,9 +91,11 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
   const userDisplayName = user?.name || user?.email?.split('@')[0] || "User";
   const userImage = user?.image;
 
+  // --- 2. New "marketing" section added to navItems ---
   const navItems = {
     general: [ { href: "/dashboard", title: "Tableau de Bord", icon: LayoutDashboard }, { href: "/dashboard/tasks", title: "Mes tâches", icon: ListChecks }, { href: "/dashboard/projects", title: "Mes projets", icon: Briefcase } ],
     admin: [ { href: "/dashboard/admin/onboarding", title: "Onboarding", icon: UserPlus }, { href: "/dashboard/admin/returns", title: "Gestion des retours", icon: RefreshCcw }, { href: "/dashboard/admin/collections", title: "Recouvrement", icon: Receipt } ],
+    marketing: [ { href: "/dashboard/marketing/sponsorships", title: "Gestion des commandites", icon: Megaphone } ],
     research: [ { href: "/dashboard/rd/requests", title: "Demandes de produits", icon: FlaskConical }, { href: "/dashboard/rd/pipeline", title: "Pipeline de produits", icon: Network } ],
     support: [ { href: "/dashboard/support/new", title: "Nouveau billet", icon: PlusCircle }, { href: "/dashboard/support/tickets", title: "Gestion des billets", icon: Ticket } ]
   };
@@ -111,24 +113,21 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
     >
       <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-br from-background to-muted/20 -z-10" />
 
-      {/* --- THIS IS THE FINAL, CORRECTED HEADER --- */}
       <div className="flex h-16 shrink-0 items-center border-b px-4">
           <Link 
             href="/dashboard" 
             className={cn(
                 "flex items-center gap-2 font-semibold w-full",
-                // THIS IS THE KEY: Center the content when collapsed on desktop
                 !isExpanded && "justify-center"
             )}
           >
             <Image 
               src="/sinto-logo.svg" 
               alt="Sinto Logo" 
-              width={58} // A balanced size
+              width={58}
               height={58}
               className="shrink-0"
             />
-            {/* The text is now fully hidden when not expanded */}
             <span className={cn(
               "text-slate-900 dark:text-slate-50",
               isExpanded ? "block" : "hidden"
@@ -146,6 +145,12 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
           <NavGroup title="Administration" isSidebarOpen={isExpanded}>
             {navItems.admin.map(item => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} isMobile={isMobileOpen} closeMobileSidebar={closeMobileSidebar} />)}
           </NavGroup>
+
+          {/* --- 3. New NavGroup rendered for Marketing --- */}
+          <NavGroup title="Marketing" isSidebarOpen={isExpanded}>
+            {navItems.marketing.map(item => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} isMobile={isMobileOpen} closeMobileSidebar={closeMobileSidebar} />)}
+          </NavGroup>
+
           <NavGroup title="R&D" isSidebarOpen={isExpanded}>
             {navItems.research.map(item => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} isMobile={isMobileOpen} closeMobileSidebar={closeMobileSidebar} />)}
           </NavGroup>
@@ -188,7 +193,6 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
         )}
       </div>
 
-      {/* THE FLOATING BUTTON IS BACK AND CORRECTLY CONFIGURED */}
       <Button 
         variant="outline" 
         size="icon" 
