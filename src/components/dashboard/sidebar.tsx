@@ -1,3 +1,4 @@
+```typescript
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -206,8 +207,8 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
 
       <div className="mt-auto shrink-0 border-t p-2">
         {!isExpanded ? (
-          <TooltipProvider>
-            <Tooltip delayDuration={0}>
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex h-12 w-full cursor-pointer items-center justify-center rounded-lg p-2 text-sm font-medium">
                   <Image src={userImage || `https://avatar.vercel.sh/${user?.email}.svg`} alt={userDisplayName} width={36} height={36} className="rounded-full" />
@@ -227,8 +228,8 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
               <p className="font-semibold truncate">{userDisplayName}</p>
               <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
             </div>
-            <TooltipProvider>
-              <Tooltip delayDuration={0}>
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
                 <TooltipTrigger asChild><Button variant="ghost" size="icon" className="shrink-0" onClick={handleLogout}><LogOut className="h-4 w-4"/></Button></TooltipTrigger>
                 <TooltipContent side="top">Déconnexion</TooltipContent>
               </Tooltip>
