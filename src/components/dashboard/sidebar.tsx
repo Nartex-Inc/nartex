@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
+// --- Interfaces (No changes needed) ---
 interface NavItem {
   href: string;
   title: string;
@@ -33,7 +34,9 @@ interface SidebarProps {
   closeMobileSidebar: () => void;
 }
 
-// NavLink component no longer needs to manage TooltipProvider
+// --- NavLink Component ---
+// FIX: Removed the individual <TooltipProvider> which was causing the build error.
+// The provider is now at the top level of the Sidebar component.
 const NavLink = ({ item, isSidebarOpen, closeMobileSidebar, isMobile }: { item: NavItem; isSidebarOpen: boolean; closeMobileSidebar: () => void; isMobile: boolean }) => {
   const pathname = usePathname();
   const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
@@ -44,7 +47,6 @@ const NavLink = ({ item, isSidebarOpen, closeMobileSidebar, isMobile }: { item: 
     }
   };
 
-  // Collapsed view with Tooltip (but no Provider)
   if (!isSidebarOpen && !isMobile) {
     return (
       <Tooltip>
@@ -64,7 +66,6 @@ const NavLink = ({ item, isSidebarOpen, closeMobileSidebar, isMobile }: { item: 
     );
   }
 
-  // Expanded view
   return (
     <Link
       href={item.href}
@@ -92,9 +93,10 @@ const NavGroup = ({ title, isSidebarOpen, children }: { title: string; children:
 
 export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSidebar }: SidebarProps) {
   const { data: session } = useSession();
-  const router = useRouter(); // Use Next.js router for better UX
+  const router = useRouter();
 
-  // Refactored nav items for DRY principle and easier maintenance
+  // FIX: Refactored navigation items into a single array of groups.
+  // This makes the code cleaner and easier to manage.
   const navItemGroups = [
     { title: "Général", items: [ { href: "/dashboard", title: "Tableau de Bord", icon: LayoutDashboard }, { href: "/dashboard/tasks", title: "Mes tâches", icon: ListChecks }, { href: "/dashboard/projects", title: "Mes projets", icon: Briefcase } ]},
     { title: "Administration", items: [ { href: "/dashboard/admin/onboarding", title: "Onboarding", icon: UserPlus }, { href: "/dashboard/admin/returns", title: "Gestion des retours", icon: RefreshCcw }, { href: "/dashboard/admin/collections", title: "Recouvrement", icon: Receipt } ]},
@@ -108,18 +110,18 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
   const userImage = user?.image;
   const isExpanded = isOpen || isMobileOpen;
 
-  // FIX: State for tenant selection, preventing hydration errors
+  // FIX: State management for tenants to prevent React hydration errors.
+  // Reading localStorage directly in useState is unsafe in Next.js.
   const [tenants, setTenants] = useState<{ id: string; name: string }[]>([]);
   const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
 
-  // FIX: Fetch tenants and get stored ID from localStorage only on the client-side
   useEffect(() => {
+    // This code now runs only on the client, which is safe.
     fetch('/api/user/tenants')
       .then((res) => res.json())
       .then((data) => {
         setTenants(data);
         const storedTenantId = localStorage.getItem('currentTenantId');
-        // Set current tenant from storage if it exists, otherwise default to the first
         if (storedTenantId && data.some((t: {id: string}) => t.id === storedTenantId)) {
           setCurrentTenantId(storedTenantId);
         } else if (data.length > 0) {
@@ -131,7 +133,7 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
       .catch((error) => console.error('Failed to fetch tenants:', error));
   }, []);
 
-  // FIX: Use router.refresh() for a better UX instead of a full page reload
+  // FIX: Use router.refresh() for a better UX than a full page reload.
   const handleTenantChange = (value: string) => {
     setCurrentTenantId(value);
     localStorage.setItem('currentTenantId', value);
@@ -148,7 +150,7 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
         isMobileOpen && "translate-x-0",
         isOpen ? "lg:w-72" : "lg:w-20"
       )}>
-      {/* FIX: Single TooltipProvider wrapping all content */}
+      {/* FIX: This is the single, top-level TooltipProvider that resolves the build error. */}
       <TooltipProvider delayDuration={0}>
         <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-br from-background to-muted/20 -z-10" />
 
@@ -176,7 +178,6 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
 
         <div className="flex-1 overflow-y-auto py-4">
           <div className="flex flex-col gap-6 px-2">
-            {/* FIX: Looping through structured nav groups for cleaner code */}
             {navItemGroups.map((group) => (
               <NavGroup key={group.title} title={group.title} isSidebarOpen={isExpanded}>
                 {group.items.map((item) => (
@@ -189,7 +190,6 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
 
         <div className="mt-auto shrink-0 border-t p-2">
           {!isExpanded ? (
-            // User profile with Tooltip (no Provider needed here anymore)
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex h-12 w-full cursor-pointer items-center justify-center rounded-lg p-2 text-sm font-medium">
