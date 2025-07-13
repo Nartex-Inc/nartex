@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import Image from 'next/image';
 import {
@@ -17,7 +17,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"; // New import for dropdown
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -33,6 +33,7 @@ interface SidebarProps {
   closeMobileSidebar: () => void;
 }
 
+// NavLink component no longer needs to manage TooltipProvider
 const NavLink = ({ item, isSidebarOpen, closeMobileSidebar, isMobile }: { item: NavItem; isSidebarOpen: boolean; closeMobileSidebar: () => void; isMobile: boolean }) => {
   const pathname = usePathname();
   const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
@@ -43,27 +44,27 @@ const NavLink = ({ item, isSidebarOpen, closeMobileSidebar, isMobile }: { item: 
     }
   };
 
+  // Collapsed view with Tooltip (but no Provider)
   if (!isSidebarOpen && !isMobile) {
     return (
-      <TooltipProvider delayDuration={0}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Link
-              href={item.href}
-              className={cn(
-                "flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground hover:bg-muted",
-                isActive && "bg-primary/10 text-primary font-semibold"
-              )}>
-              <item.icon className="h-5 w-5" />
-              <span className="sr-only">{item.title}</span>
-            </Link>
-          </TooltipTrigger>
-          <TooltipContent side="right">{item.title}</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link
+            href={item.href}
+            className={cn(
+              "flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground hover:bg-muted",
+              isActive && "bg-primary/10 text-primary font-semibold"
+            )}>
+            <item.icon className="h-5 w-5" />
+            <span className="sr-only">{item.title}</span>
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent side="right">{item.title}</TooltipContent>
+      </Tooltip>
     );
   }
 
+  // Expanded view
   return (
     <Link
       href={item.href}
@@ -91,32 +92,37 @@ const NavGroup = ({ title, isSidebarOpen, children }: { title: string; children:
 
 export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSidebar }: SidebarProps) {
   const { data: session } = useSession();
-  const handleLogout = () => signOut({ callbackUrl: "/" });
+  const router = useRouter(); // Use Next.js router for better UX
+
+  // Refactored nav items for DRY principle and easier maintenance
+  const navItemGroups = [
+    { title: "Général", items: [ { href: "/dashboard", title: "Tableau de Bord", icon: LayoutDashboard }, { href: "/dashboard/tasks", title: "Mes tâches", icon: ListChecks }, { href: "/dashboard/projects", title: "Mes projets", icon: Briefcase } ]},
+    { title: "Administration", items: [ { href: "/dashboard/admin/onboarding", title: "Onboarding", icon: UserPlus }, { href: "/dashboard/admin/returns", title: "Gestion des retours", icon: RefreshCcw }, { href: "/dashboard/admin/collections", title: "Recouvrement", icon: Receipt } ]},
+    { title: "Marketing", items: [ { href: "/dashboard/marketing/sponsorships", title: "Gestion des commandites", icon: Megaphone } ]},
+    { title: "R&D", items: [ { href: "/dashboard/rd/requests", title: "Demandes de produits", icon: FlaskConical }, { href: "/dashboard/rd/pipeline", title: "Pipeline de produits", icon: Network } ]},
+    { title: "Support", items: [ { href: "/dashboard/support/new", title: "Nouveau billet", icon: PlusCircle }, { href: "/dashboard/support/tickets", title: "Gestion des billets", icon: Ticket } ]}
+  ];
+
   const user = session?.user;
   const userDisplayName = user?.name || user?.email?.split('@')[0] || "User";
   const userImage = user?.image;
-
-  // --- 2. New "marketing" section added to navItems --- remains the same
-  const navItems = {
-    general: [ { href: "/dashboard", title: "Tableau de Bord", icon: LayoutDashboard }, { href: "/dashboard/tasks", title: "Mes tâches", icon: ListChecks }, { href: "/dashboard/projects", title: "Mes projets", icon: Briefcase } ],
-    admin: [ { href: "/dashboard/admin/onboarding", title: "Onboarding", icon: UserPlus }, { href: "/dashboard/admin/returns", title: "Gestion des retours", icon: RefreshCcw }, { href: "/dashboard/admin/collections", title: "Recouvrement", icon: Receipt } ],
-    marketing: [ { href: "/dashboard/marketing/sponsorships", title: "Gestion des commandites", icon: Megaphone } ],
-    research: [ { href: "/dashboard/rd/requests", title: "Demandes de produits", icon: FlaskConical }, { href: "/dashboard/rd/pipeline", title: "Pipeline de produits", icon: Network } ],
-    support: [ { href: "/dashboard/support/new", title: "Nouveau billet", icon: PlusCircle }, { href: "/dashboard/support/tickets", title: "Gestion des billets", icon: Ticket } ]
-  };
-  
   const isExpanded = isOpen || isMobileOpen;
 
-  // New: State for tenant selection
+  // FIX: State for tenant selection, preventing hydration errors
   const [tenants, setTenants] = useState<{ id: string; name: string }[]>([]);
-  const [currentTenantId, setCurrentTenantId] = useState(localStorage.getItem('currentTenantId') || '');
+  const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
 
+  // FIX: Fetch tenants and get stored ID from localStorage only on the client-side
   useEffect(() => {
     fetch('/api/user/tenants')
       .then((res) => res.json())
       .then((data) => {
         setTenants(data);
-        if (!currentTenantId && data.length > 0) {
+        const storedTenantId = localStorage.getItem('currentTenantId');
+        // Set current tenant from storage if it exists, otherwise default to the first
+        if (storedTenantId && data.some((t: {id: string}) => t.id === storedTenantId)) {
+          setCurrentTenantId(storedTenantId);
+        } else if (data.length > 0) {
           const firstId = data[0].id;
           setCurrentTenantId(firstId);
           localStorage.setItem('currentTenantId', firstId);
@@ -125,11 +131,14 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
       .catch((error) => console.error('Failed to fetch tenants:', error));
   }, []);
 
+  // FIX: Use router.refresh() for a better UX instead of a full page reload
   const handleTenantChange = (value: string) => {
     setCurrentTenantId(value);
     localStorage.setItem('currentTenantId', value);
-    window.location.reload(); // Reload to apply changes; in production, use a TenantContext to avoid this
+    router.refresh(); 
   };
+  
+  const handleLogout = () => signOut({ callbackUrl: "/" });
 
   return (
     <aside
@@ -139,74 +148,48 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
         isMobileOpen && "translate-x-0",
         isOpen ? "lg:w-72" : "lg:w-20"
       )}>
-      <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-br from-background to-muted/20 -z-10" />
+      {/* FIX: Single TooltipProvider wrapping all content */}
+      <TooltipProvider delayDuration={0}>
+        <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-br from-background to-muted/20 -z-10" />
 
-      <div className="flex h-16 shrink-0 items-center border-b px-4">
-        <Link 
-          href="/dashboard" 
-          className={cn(
-            "flex items-center gap-2 font-semibold w-full",
-            !isExpanded && "justify-center"
-          )}>
-          <Image 
-            src="/sinto-logo.svg" 
-            alt="Sinto Logo" 
-            width={32} 
-            height={32} 
-            className="shrink-0"
-          />
-          <span className={cn(
-            "text-primary dark:text-foreground",
-            isExpanded ? "block" : "hidden"
-          )}>
-            Sinto
-          </span>
-        </Link>
-      </div>
-
-      {/* New: Tenant selection dropdown, shown only when expanded */}
-      {isExpanded && tenants.length > 0 && (
-        <div className="px-4 py-2 border-b">
-          <Select value={currentTenantId} onValueChange={handleTenantChange}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Sélectionnez une entreprise" />
-            </SelectTrigger>
-            <SelectContent>
-              {tenants.map((tenant) => (
-                <SelectItem key={tenant.id} value={tenant.id}>
-                  {tenant.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex h-16 shrink-0 items-center border-b px-4">
+          <Link href="/dashboard" className={cn("flex items-center gap-2 font-semibold w-full", !isExpanded && "justify-center")}>
+            <Image src="/sinto-logo.svg" alt="Sinto Logo" width={32} height={32} className="shrink-0"/>
+            <span className={cn("text-primary dark:text-foreground", isExpanded ? "block" : "hidden")}>Sinto</span>
+          </Link>
         </div>
-      )}
 
-      <div className="flex-1 overflow-y-auto py-4">
-        <div className="flex flex-col gap-6 px-2">
-          <NavGroup title="Général" isSidebarOpen={isExpanded}>
-            {navItems.general.map((item) => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} closeMobileSidebar={closeMobileSidebar} isMobile={isMobileOpen} />)}
-          </NavGroup>
-          <NavGroup title="Administration" isSidebarOpen={isExpanded}>
-            {navItems.admin.map((item) => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} isMobile={isMobileOpen} closeMobileSidebar={closeMobileSidebar} />)}
-          </NavGroup>
+        {isExpanded && tenants.length > 0 && (
+          <div className="px-4 py-2 border-b">
+            <Select value={currentTenantId ?? ''} onValueChange={handleTenantChange} disabled={!currentTenantId}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Sélectionnez une entreprise" />
+              </SelectTrigger>
+              <SelectContent>
+                {tenants.map((tenant) => (
+                  <SelectItem key={tenant.id} value={tenant.id}>{tenant.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
-          <NavGroup title="Marketing" isSidebarOpen={isExpanded}>
-            {navItems.marketing.map((item) => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} isMobile={isMobileOpen} closeMobileSidebar={closeMobileSidebar} />)}
-          </NavGroup>
-
-          <NavGroup title="R&D" isSidebarOpen={isExpanded}>
-            {navItems.research.map((item) => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} isMobile={isMobileOpen} closeMobileSidebar={closeMobileSidebar} />)}
-          </NavGroup>
-          <NavGroup title="Support" isSidebarOpen={isExpanded}>
-            {navItems.support.map((item) => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} isMobile={isMobileOpen} closeMobileSidebar={closeMobileSidebar} />)}
-          </NavGroup>
+        <div className="flex-1 overflow-y-auto py-4">
+          <div className="flex flex-col gap-6 px-2">
+            {/* FIX: Looping through structured nav groups for cleaner code */}
+            {navItemGroups.map((group) => (
+              <NavGroup key={group.title} title={group.title} isSidebarOpen={isExpanded}>
+                {group.items.map((item) => (
+                  <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} closeMobileSidebar={closeMobileSidebar} isMobile={isMobileOpen} />
+                ))}
+              </NavGroup>
+            ))}
+          </div>
         </div>
-      </div>
 
-      <div className="mt-auto shrink-0 border-t p-2">
-        {!isExpanded ? (
-          <TooltipProvider delayDuration={0}>
+        <div className="mt-auto shrink-0 border-t p-2">
+          {!isExpanded ? (
+            // User profile with Tooltip (no Provider needed here anymore)
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex h-12 w-full cursor-pointer items-center justify-center rounded-lg p-2 text-sm font-medium">
@@ -219,30 +202,23 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
                 <Button variant="outline" size="sm" className="w-full mt-2" onClick={handleLogout}><LogOut className="mr-2 h-4 w-4" />Déconnexion</Button>
               </TooltipContent>
             </Tooltip>
-          </TooltipProvider>
-        ) : (
-          <div className="flex h-12 w-full items-center justify-start gap-3 rounded-lg p-2 text-sm font-medium">
-            <Image src={userImage || `https://avatar.vercel.sh/${user?.email}.svg`} alt={userDisplayName} width={36} height={36} className="rounded-full"/>
-            <div className="flex-1 truncate">
-              <p className="font-semibold truncate">{userDisplayName}</p>
-              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-            </div>
-            <TooltipProvider delayDuration={0}>
+          ) : (
+            <div className="flex h-12 w-full items-center justify-start gap-3 rounded-lg p-2 text-sm font-medium">
+              <Image src={userImage || `https://avatar.vercel.sh/${user?.email}.svg`} alt={userDisplayName} width={36} height={36} className="rounded-full"/>
+              <div className="flex-1 truncate">
+                <p className="font-semibold truncate">{userDisplayName}</p>
+                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+              </div>
               <Tooltip>
                 <TooltipTrigger asChild><Button variant="ghost" size="icon" className="shrink-0" onClick={handleLogout}><LogOut className="h-4 w-4"/></Button></TooltipTrigger>
                 <TooltipContent side="top">Déconnexion</TooltipContent>
               </Tooltip>
-            </TooltipProvider>
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
+      </TooltipProvider>
 
-      <Button 
-        variant="outline" 
-        size="icon" 
-        onClick={toggleSidebar} 
-        className="hidden lg:flex absolute top-16 -right-5 h-10 w-10 rounded-full border bg-background hover:bg-muted shadow-md"
-      >
+      <Button variant="outline" size="icon" onClick={toggleSidebar} className="hidden lg:flex absolute top-16 -right-5 h-10 w-10 rounded-full border bg-background hover:bg-muted shadow-md">
         <ChevronLeft className={cn("h-5 w-5 transition-transform duration-300", !isOpen && "rotate-180")} />
       </Button>
     </aside>
