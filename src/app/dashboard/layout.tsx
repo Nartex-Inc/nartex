@@ -1,4 +1,4 @@
-// src/app/dashboard/layout.tsx
+// src/app/dashboard/layout.tsx (FINAL AND CORRECTED)
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -13,7 +13,6 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Session management and loading state are perfect. No changes needed here.
   const { status } = useSession({
     required: true,
     onUnauthenticated() {
@@ -21,24 +20,12 @@ export default function DashboardLayout({
     },
   });
 
-  // State management for sidebars.
   const [isDesktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  // --- FUNCTION DEFINITIONS ---
-  
-  // This toggles the desktop sidebar (collapse/expand). CORRECT.
   const toggleDesktopSidebar = () => setDesktopSidebarOpen(prev => !prev);
-  
-  // This toggles the mobile sidebar (open/close overlay). CORRECT.
-  // This is used for the hamburger button in the header.
   const toggleMobileSidebar = () => setMobileSidebarOpen(prev => !prev);
 
-  // --- FIX: Create a dedicated function to ONLY close the mobile sidebar ---
-  // This is what the Sidebar component needs to close the menu when a link is clicked.
-  const closeMobileSidebar = () => setMobileSidebarOpen(false);
-
-  // This effect to prevent body scroll is a great UX touch. No changes needed.
   useEffect(() => {
     if (isMobileSidebarOpen) {
       document.body.style.overflow = 'hidden';
@@ -59,14 +46,16 @@ export default function DashboardLayout({
   }
 
   return (
+    // The root container is now a COLUMN, forcing the header to the top.
     <div className="flex h-screen flex-col bg-muted/40">
       <Header 
-        onToggleMobileSidebar={toggleMobileSidebar} // The header button correctly TOGGLES the menu.
+        onToggleMobileSidebar={toggleMobileSidebar} 
         notificationCount={5} // Example
       />
       
+      {/* This new container holds the content BELOW the header in a ROW. */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Mobile backdrop correctly uses TOGGLE to close the menu. */}
+        {/* Mobile backdrop is placed here */}
         {isMobileSidebarOpen && (
           <div 
             onClick={toggleMobileSidebar}
@@ -75,14 +64,15 @@ export default function DashboardLayout({
           />
         )}
         
+        {/* Sidebar now lives inside this flex row */}
         <Sidebar
           isOpen={isDesktopSidebarOpen}
           isMobileOpen={isMobileSidebarOpen}
           toggleSidebar={toggleDesktopSidebar}
-          // --- FIX: Pass the new, correct function here ---
-          closeMobileSidebar={closeMobileSidebar} // This now correctly passes the function that ONLY closes.
+          closeMobileSidebar={toggleMobileSidebar}
         />
         
+        {/* Main content area is the sibling to the sidebar */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           {children}
         </main>
