@@ -1,3 +1,4 @@
+// src/components/dashboard/sidebar.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -35,8 +36,8 @@ interface SidebarProps {
 }
 
 // --- NavLink Component ---
-// FIX: Removed the individual <TooltipProvider> which was causing the build error.
-// The provider is now at the top level of the Sidebar component.
+// FIX: The <TooltipProvider> which was causing the build error has been completely removed from this component.
+// It is now correctly placed in the main Sidebar component.
 const NavLink = ({ item, isSidebarOpen, closeMobileSidebar, isMobile }: { item: NavItem; isSidebarOpen: boolean; closeMobileSidebar: () => void; isMobile: boolean }) => {
   const pathname = usePathname();
   const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
@@ -95,8 +96,6 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
   const { data: session } = useSession();
   const router = useRouter();
 
-  // FIX: Refactored navigation items into a single array of groups.
-  // This makes the code cleaner and easier to manage.
   const navItemGroups = [
     { title: "Général", items: [ { href: "/dashboard", title: "Tableau de Bord", icon: LayoutDashboard }, { href: "/dashboard/tasks", title: "Mes tâches", icon: ListChecks }, { href: "/dashboard/projects", title: "Mes projets", icon: Briefcase } ]},
     { title: "Administration", items: [ { href: "/dashboard/admin/onboarding", title: "Onboarding", icon: UserPlus }, { href: "/dashboard/admin/returns", title: "Gestion des retours", icon: RefreshCcw }, { href: "/dashboard/admin/collections", title: "Recouvrement", icon: Receipt } ]},
@@ -110,13 +109,10 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
   const userImage = user?.image;
   const isExpanded = isOpen || isMobileOpen;
 
-  // FIX: State management for tenants to prevent React hydration errors.
-  // Reading localStorage directly in useState is unsafe in Next.js.
   const [tenants, setTenants] = useState<{ id: string; name: string }[]>([]);
   const [currentTenantId, setCurrentTenantId] = useState<string | null>(null);
 
   useEffect(() => {
-    // This code now runs only on the client, which is safe.
     fetch('/api/user/tenants')
       .then((res) => res.json())
       .then((data) => {
@@ -133,7 +129,6 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
       .catch((error) => console.error('Failed to fetch tenants:', error));
   }, []);
 
-  // FIX: Use router.refresh() for a better UX than a full page reload.
   const handleTenantChange = (value: string) => {
     setCurrentTenantId(value);
     localStorage.setItem('currentTenantId', value);
