@@ -1,69 +1,70 @@
-# Dockerfile
 # ================================================================
 # Stage 1: Dependencies & Build
 # ================================================================
 FROM node:18-alpine AS builder
+
+# Set working directory
 WORKDIR /app
 
-# DECLARE ALL BUILD ARGUMENTS passed from the buildspec.yml
+# Accept the Git commit hash as a build argument
 ARG GIT_COMMIT_HASH
-ARG DATABASE_URL
-ARG EMAIL_SERVER_HOST
-ARG EMAIL_SERVER_PORT
-ARG EMAIL_SERVER_USER
-ARG EMAIL_SERVER_PASSWORD
-ARG EMAIL_FROM
-ARG NEXTAUTH_URL
-ARG NEXTAUTH_SECRET
-ARG GOOGLE_CLIENT_ID
-ARG GOOGLE_CLIENT_SECRET
-ARG AZURE_AD_CLIENT_ID
-ARG AZURE_AD_CLIENT_SECRET
-ARG AZURE_AD_TENANT_ID
-
-# Make ARGs available as ENV variables for the build process
+# Expose it as an environment variable for the `next build` command to use
 ENV GIT_COMMIT_HASH=$GIT_COMMIT_HASH
-ENV DATABASE_URL=$DATABASE_URL
-ENV EMAIL_SERVER_HOST=$EMAIL_SERVER_HOST
-ENV EMAIL_SERVER_PORT=$EMAIL_SERVER_PORT
-ENV EMAIL_SERVER_USER=$EMAIL_SERVER_USER
-ENV EMAIL_SERVER_PASSWORD=$EMAIL_SERVER_PASSWORD
-ENV EMAIL_FROM=$EMAIL_FROM
-ENV NEXTAUTH_URL=$NEXTAUTH_URL
-ENV NEXTAUTH_SECRET=$NEXTAUTH_SECRET
-ENV GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
-ENV GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
-ENV AZURE_AD_CLIENT_ID=$AZURE_AD_CLIENT_ID
-ENV AZURE_AD_CLIENT_SECRET=$AZURE_AD_CLIENT_SECRET
-ENV AZURE_AD_TENANT_ID=$AZURE_AD_TENANT_ID
 
 # 1. Install dependencies
+# Using `COPY package*.json` ensures this layer is cached unless
+# package.json or package-lock.json changes.
 COPY package*.json ./
 RUN npm ci
 
 # 2. Copy the rest of the application source code
+# This includes prisma, src, public, next.config.js, etc.
 COPY . .
 
 # 3. Generate Prisma Client
+# This must happen after `npm ci` and after `prisma/schema.prisma` is copied.
 RUN npx prisma generate
 
-# 4. Build the Next.js application (it now has access to all ENV VARS)
+# 4. Build the Next.js application for production
+# This creates the optimized build output in the .next folder.
+# The .env.production file is NOT needed here. Next.js uses build-time
+# environment variables which CodeBuild already provides.
 RUN npm run build
+
 
 # ================================================================
 # Stage 2: Production Image
 # ================================================================
 FROM node:18-alpine AS runner
+
 WORKDIR /app
+
+# Set production environment variables
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Copy necessary files from the builder stage
+# 1. Copy over the standalone application output
+# This includes the server.js file and a minimal node_modules folder.
 COPY --from=builder /app/.next/standalone ./
+
+# 2. Copy over the public assets (images, fonts, etc.)
 COPY --from=builder /app/public ./public
+
+# 3. Copy over the compiled static assets (.js, .css chunks)
+# This is the crucial step for your frontend assets.
 COPY --from=builder /app/.next/static ./.next/static
+
+# 4. Copy over the Prisma schema and generated client for runtime use
 COPY --from=builder /app/prisma/schema.prisma ./prisma/schema.prisma
 COPY --from=builder /app/node_modules/.prisma/client ./node_modules/.prisma/client
 
+# 5. Copy the production environment file created in the buildspec
+# This file contains all the secrets and will be read by your app at runtime.
+COPY --from=builder /app/.env.production ./.env.production
+
+
+# Expose the port the app will run on
 EXPOSE 3000
+
+# Start the Node.js server
 CMD ["node", "server.js"]
