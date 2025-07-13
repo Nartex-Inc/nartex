@@ -45,8 +45,8 @@ const NavLink = ({ item, isSidebarOpen, closeMobileSidebar, isMobile }: { item: 
 
   if (!isSidebarOpen && !isMobile) {
     return (
-      <TooltipProvider>
-        <Tooltip delayDuration={0}>
+      <TooltipProvider delayDuration={0}>
+        <Tooltip>
           <TooltipTrigger asChild>
             <Link
               href={item.href}
