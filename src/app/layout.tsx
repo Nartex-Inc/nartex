@@ -1,47 +1,70 @@
-// src/app/layout.tsx
+// src/app/dashboard/layout.tsx
+"use client";
 
-import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
-import "./globals.css";
-import SessionProviderWrapper from "./SessionProviderWrapper";
-import { ThemeProvider } from "@/components/theme-provider"; // <-- IMPORT your existing provider
+import React, { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { redirect } from "next/navigation";
+import { Header } from "@/components/dashboard/header"; 
+import { Sidebar } from "@/components/dashboard/sidebar";
+import { Loader2 } from "lucide-react";
 
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-poppins",
-});
-
-export const metadata: Metadata = {
-  title: "Nartex | Plateforme de gestion centralisée",
-  description:
-    "Nartex est une plateforme web de type SaaS pour simplifier la gestion des processus internes à valeur non ajoutée en entreprise grâce à l'automatisation, la collecte de données et la centralisation d'applications.",
-};
-
-export default function RootLayout({
+export default function DashboardLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
+  const { status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      redirect("/");
+    },
+  });
+
+  const [isDesktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+  const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  const toggleDesktopSidebar = () => setDesktopSidebarOpen(prev => !prev);
+  const toggleMobileSidebar = () => setMobileSidebarOpen(prev => !prev);
+  const closeMobileSidebar = () => setMobileSidebarOpen(false);
+
+  useEffect(() => {
+    if (isMobileSidebarOpen) { document.body.style.overflow = 'hidden'; } 
+    else { document.body.style.overflow = 'auto'; }
+    return () => { document.body.style.overflow = 'auto'; };
+  }, [isMobileSidebarOpen]);
+
+  if (status === "loading") {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
-    <html lang="fr" suppressHydrationWarning className={`${poppins.variable} h-full`}>
-      <body className="h-full bg-background font-sans antialiased overflow-hidden">
-        {/*
-          THIS IS THE FIX.
-          Wrap your SessionProvider and children with your existing ThemeProvider.
-          This "activates" the theme for the entire application.
-        */}
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <SessionProviderWrapper>
-            {children}
-          </SessionProviderWrapper>
-        </ThemeProvider>
-      </body>
-    </html>
+    <div className="flex h-screen flex-col bg-muted/40">
+      <Header 
+        onToggleMobileSidebar={toggleMobileSidebar} 
+        notificationCount={5}
+      />
+      <div className="flex flex-1 overflow-hidden">
+        {isMobileSidebarOpen && (
+          <div 
+            onClick={toggleMobileSidebar}
+            className="lg:hidden fixed inset-0 z-40 bg-black/50"
+            aria-hidden="true"
+          />
+        )}
+        <Sidebar
+          isOpen={isDesktopSidebarOpen}
+          isMobileOpen={isMobileSidebarOpen}
+          toggleSidebar={toggleDesktopSidebar}
+          closeMobileSidebar={closeMobileSidebar}
+        />
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          {children}
+        </main>
+      </div>
+    </div>
   );
 }
