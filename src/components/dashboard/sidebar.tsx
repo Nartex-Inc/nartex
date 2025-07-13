@@ -50,10 +50,10 @@ const NavLink = ({ item, isSidebarOpen, closeMobileSidebar, isMobile }: { item: 
           <TooltipTrigger asChild>
             <Link
               href={item.href}
-              className="cn(
+              className={cn(
                 "flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground hover:bg-muted",
                 isActive && "bg-primary/10 text-primary font-semibold"
-              )">
+              )}>
               <item.icon className="h-5 w-5" />
               <span className="sr-only">{item.title}</span>
             </Link>
@@ -78,14 +78,15 @@ const NavLink = ({ item, isSidebarOpen, closeMobileSidebar, isMobile }: { item: 
   );
 };
 
-const NavGroup = ({ title, items, isSidebarOpen, isMobileOpen, closeMobileSidebar }: { title: string; children: React.ReactNode; isSidebarOpen: boolean; }) => (
+const NavGroup = ({ title, isSidebarOpen, children }: { title: string; children: React.ReactNode; isSidebarOpen: boolean; }) => (
   <div>
     {isSidebarOpen && (
       <h2 className="px-4 pt-2 pb-1 text-xs font-semibold tracking-wider text-muted-foreground/60 uppercase">{title}</h2>
     )}
     <nav className={cn("flex flex-col gap-1", !isSidebarOpen && "items-center")}>
       {children}
-    </div>
+    </nav>
+  </div>
 );
 
 export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSidebar }: SidebarProps) {
@@ -93,7 +94,7 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
   const handleLogout = () => signOut({ callbackUrl: "/" });
   const user = session?.user;
   const userDisplayName = user?.name || user?.email?.split('@')[0] || "User";
-  const userImage = user?.user.image;
+  const userImage = user?.image;
 
   // --- 2. New "marketing" section added to navItems --- remains the same
   const navItems = {
@@ -184,10 +185,10 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
       <div className="flex-1 overflow-y-auto py-4">
         <div className="flex flex-col gap-6 px-2">
           <NavGroup title="Général" isSidebarOpen={isExpanded}>
-            {navItems.general.map((item) <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} closeMobileSidebar={closeMobileSidebar} isMobile={isMobileOpen} />)}
+            {navItems.general.map((item) => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} closeMobileSidebar={closeMobileSidebar} isMobile={isMobileOpen} />)}
           </NavGroup>
           <NavGroup title="Administration" isSidebarOpen={isExpanded}>
-            {navItems.admin.map((item) <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} isMobile={isMobileOpen} closeMobileSidebar={closeMobileSidebar} />)}
+            {navItems.admin.map((item) => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} isMobile={isMobileOpen} closeMobileSidebar={closeMobileSidebar} />)}
           </NavGroup>
 
           <NavGroup title="Marketing" isSidebarOpen={isExpanded}>
