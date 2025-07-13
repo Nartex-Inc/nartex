@@ -1,7 +1,3 @@
-// ───────────────────────────────────────────────────────────────────────────────
-// Prisma / NextAuth schema - Optimized for Azure AD SSO
-// ───────────────────────────────────────────────────────────────────────────────
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -40,6 +36,7 @@ model User {
   // ─── Relations ────────────────────────────────────────────────────────────
   accounts          Account[]
   sessions          Session[]
+  tenants           UserTenant[] // Added for multi-tenancy support
 
   @@map("users")
 }
@@ -98,4 +95,67 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("verification_tokens")
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// 5. TENANT (New model for multi-tenancy)                                    //
+////////////////////////////////////////////////////////////////////////////////
+model Tenant {
+  id        String      @id @default(uuid())
+  name      String      // e.g., company name like "Nartex" or "Sinto"
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt      @map("updated_at")
+
+  // ─── Relations ────────────────────────────────────────────────────────────
+  users     UserTenant[]
+  projects  Project[]   // Example: Relation to tenant-scoped models (add similar for Task, ProductRequest, etc.)
+
+  @@map("tenants")
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// 6. USER_TENANT (Join model for many-to-many User-Tenant relation)          //
+////////////////////////////////////////////////////////////////////////////////
+model UserTenant {
+  userId    String
+  tenantId  String
+  role      String?     // Optional: e.g., "ADMIN", "MEMBER" for per-tenant permissions
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  // ─── Relations ────────────────────────────────────────────────────────────
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([userId, tenantId])
+  @@map("user_tenants")
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// 7. PROJECT (Example tenant-scoped model; adapt or add others as needed)    //
+////////////////////////////////////////////////////////////////////////////////
+model Project {
+  id        String               @id @default(uuid())
+  name      String
+  stage     ProductLifecycleStage // Assuming enum from your app (define if needed)
+  // Add other fields as per your application (e.g., description, dueDate, etc.)
+
+  tenantId  String
+  createdAt DateTime             @default(now()) @map("created_at")
+  updatedAt DateTime             @updatedAt      @map("updated_at")
+
+  // ─── Relations ────────────────────────────────────────────────────────────
+  tenant    Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("projects")
+}
+
+// Example enum for Project stage (based on your earlier code; define as needed)
+enum ProductLifecycleStage {
+  DEMANDE_IDEATION
+  EVALUATION_COUT_POTENTIEL
+  PROTOTYPAGE
+  MISE_EN_FONCTION_DEVELOPPEMENT
+  PLANIFICATION_PRODUIT_FINI
+  MISE_EN_MARCHE
+  VIE_DU_PRODUIT
 }
