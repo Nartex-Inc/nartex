@@ -1,16 +1,23 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import Image from 'next/image';
 import {
   LayoutDashboard, ListChecks, Briefcase, UserPlus, RefreshCcw, Receipt,
-  FlaskConical, Network, PlusCircle, Ticket, LogOut, ChevronLeft, Megaphone // <-- 1. Icon imported
+  FlaskConical, Network, PlusCircle, Ticket, LogOut, ChevronLeft, Megaphone
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"; // New import for dropdown
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -43,11 +50,10 @@ const NavLink = ({ item, isSidebarOpen, closeMobileSidebar, isMobile }: { item: 
           <TooltipTrigger asChild>
             <Link
               href={item.href}
-              className={cn(
+              className="cn(
                 "flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground hover:bg-muted",
                 isActive && "bg-primary/10 text-primary font-semibold"
-              )}
-            >
+              )">
               <item.icon className="h-5 w-5" />
               <span className="sr-only">{item.title}</span>
             </Link>
@@ -65,23 +71,21 @@ const NavLink = ({ item, isSidebarOpen, closeMobileSidebar, isMobile }: { item: 
       className={cn(
         "flex items-center gap-4 rounded-md px-4 py-2.5 text-muted-foreground transition-all hover:text-foreground hover:bg-muted",
         isActive && "bg-primary/10 text-primary font-semibold"
-      )}
-    >
+      )}>
       <item.icon className="h-5 w-5" />
       <span className="truncate text-sm font-medium">{item.title}</span>
     </Link>
   );
 };
 
-const NavGroup = ({ title, children, isSidebarOpen }: { title: string; children: React.ReactNode; isSidebarOpen: boolean; }) => (
+const NavGroup = ({ title, items, isSidebarOpen, isMobileOpen, closeMobileSidebar }: { title: string; children: React.ReactNode; isSidebarOpen: boolean; }) => (
   <div>
     {isSidebarOpen && (
       <h2 className="px-4 pt-2 pb-1 text-xs font-semibold tracking-wider text-muted-foreground/60 uppercase">{title}</h2>
     )}
     <nav className={cn("flex flex-col gap-1", !isSidebarOpen && "items-center")}>
       {children}
-    </nav>
-  </div>
+    </div>
 );
 
 export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSidebar }: SidebarProps) {
@@ -89,9 +93,9 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
   const handleLogout = () => signOut({ callbackUrl: "/" });
   const user = session?.user;
   const userDisplayName = user?.name || user?.email?.split('@')[0] || "User";
-  const userImage = user?.image;
+  const userImage = user?.user.image;
 
-  // --- 2. New "marketing" section added to navItems ---
+  // --- 2. New "marketing" section added to navItems --- remains the same
   const navItems = {
     general: [ { href: "/dashboard", title: "Tableau de Bord", icon: LayoutDashboard }, { href: "/dashboard/tasks", title: "Mes tâches", icon: ListChecks }, { href: "/dashboard/projects", title: "Mes projets", icon: Briefcase } ],
     admin: [ { href: "/dashboard/admin/onboarding", title: "Onboarding", icon: UserPlus }, { href: "/dashboard/admin/returns", title: "Gestion des retours", icon: RefreshCcw }, { href: "/dashboard/admin/collections", title: "Recouvrement", icon: Receipt } ],
@@ -102,6 +106,30 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
   
   const isExpanded = isOpen || isMobileOpen;
 
+  // New: State for tenant selection
+  const [tenants, setTenants] = useState<{ id: string; name: string }[]>([]);
+  const [currentTenantId, setCurrentTenantId] = useState(localStorage.getItem('currentTenantId') || '');
+
+  useEffect(() => {
+    fetch('/api/user/tenants')
+      .then((res) => res.json())
+      .then((data) => {
+        setTenants(data);
+        if (!currentTenantId && data.length > 0) {
+          const firstId = data[0].id;
+          setCurrentTenantId(firstId);
+          localStorage.setItem('currentTenantId', firstId);
+        }
+      })
+      .catch((error) => console.error('Failed to fetch tenants:', error));
+  }, []);
+
+  const handleTenantChange = (value: string) => {
+    setCurrentTenantId(value);
+    localStorage.setItem('currentTenantId', value);
+    window.location.reload(); // Reload to apply changes; in production, use a TenantContext to avoid this
+  };
+
   return (
     <aside
       className={cn(
@@ -109,53 +137,68 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
         "fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full lg:relative lg:translate-x-0",
         isMobileOpen && "translate-x-0",
         isOpen ? "lg:w-72" : "lg:w-20"
-      )}
-    >
+      )}>
       <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-br from-background to-muted/20 -z-10" />
 
       <div className="flex h-16 shrink-0 items-center border-b px-4">
-          <Link 
-            href="/dashboard" 
-            className={cn(
-                "flex items-center gap-2 font-semibold w-full",
-                !isExpanded && "justify-center"
-            )}
-          >
-            <Image 
-              src="/sinto-logo.svg" 
-              alt="Sinto Logo" 
-              width={58}
-              height={58}
-              className="shrink-0"
-            />
-            <span className={cn(
-              "text-slate-900 dark:text-slate-50",
-              isExpanded ? "block" : "hidden"
-            )}>
-              Sinto
-            </span>
-          </Link>
+        <Link 
+          href="/dashboard" 
+          className={cn(
+            "flex items-center gap-2 font-semibold w-full",
+            !isExpanded && "justify-center"
+          )}>
+          <Image 
+            src="/sinto-logo.svg" 
+            alt="Sinto Logo" 
+            width={32} 
+            height={32} 
+            className="shrink-0"
+          />
+          <span className={cn(
+            "text-primary dark:text-foreground",
+            isExpanded ? "block" : "hidden"
+          )}>
+            Sinto
+          </span>
+        </Link>
       </div>
+
+      {/* New: Tenant selection dropdown, shown only when expanded */}
+      {isExpanded && tenants.length > 0 && (
+        <div className="px-4 py-2 border-b">
+          <Select value={currentTenantId} onValueChange={handleTenantChange}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Sélectionnez une entreprise" />
+            </SelectTrigger>
+            <SelectContent>
+              {tenants.map((tenant) => (
+                <SelectItem key={tenant.id} value={tenant.id}>
+                  {tenant.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto py-4">
         <div className="flex flex-col gap-6 px-2">
           <NavGroup title="Général" isSidebarOpen={isExpanded}>
-            {navItems.general.map(item => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} closeMobileSidebar={closeMobileSidebar} isMobile={isMobileOpen} />)}
+            {navItems.general.map((item) <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} closeMobileSidebar={closeMobileSidebar} isMobile={isMobileOpen} />)}
           </NavGroup>
           <NavGroup title="Administration" isSidebarOpen={isExpanded}>
-            {navItems.admin.map(item => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} isMobile={isMobileOpen} closeMobileSidebar={closeMobileSidebar} />)}
+            {navItems.admin.map((item) <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} isMobile={isMobileOpen} closeMobileSidebar={closeMobileSidebar} />)}
           </NavGroup>
 
-          {/* --- 3. New NavGroup rendered for Marketing --- */}
           <NavGroup title="Marketing" isSidebarOpen={isExpanded}>
-            {navItems.marketing.map(item => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} isMobile={isMobileOpen} closeMobileSidebar={closeMobileSidebar} />)}
+            {navItems.marketing.map((item) => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} isMobile={isMobileOpen} closeMobileSidebar={closeMobileSidebar} />)}
           </NavGroup>
 
           <NavGroup title="R&D" isSidebarOpen={isExpanded}>
-            {navItems.research.map(item => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} isMobile={isMobileOpen} closeMobileSidebar={closeMobileSidebar} />)}
+            {navItems.research.map((item) => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} isMobile={isMobileOpen} closeMobileSidebar={closeMobileSidebar} />)}
           </NavGroup>
           <NavGroup title="Support" isSidebarOpen={isExpanded}>
-            {navItems.support.map(item => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} isMobile={isMobileOpen} closeMobileSidebar={closeMobileSidebar} />)}
+            {navItems.support.map((item) => <NavLink key={item.href} item={item} isSidebarOpen={isExpanded} isMobile={isMobileOpen} closeMobileSidebar={closeMobileSidebar} />)}
           </NavGroup>
         </div>
       </div>
@@ -170,9 +213,9 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
                 </div>
               </TooltipTrigger>
               <TooltipContent side="right" align="start">
-                  <p className="font-semibold">{userDisplayName}</p>
-                  <p className="text-xs text-muted-foreground">{user?.email}</p>
-                  <Button variant="outline" size="sm" className="w-full mt-2" onClick={handleLogout}><LogOut className="mr-2 h-4 w-4"/>Déconnexion</Button>
+                <p className="font-semibold">{userDisplayName}</p>
+                <p className="text-xs text-muted-foreground">{user?.email}</p>
+                <Button variant="outline" size="sm" className="w-full mt-2" onClick={handleLogout}><LogOut className="mr-2 h-4 w-4" />Déconnexion</Button>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -185,8 +228,8 @@ export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSideba
             </div>
             <TooltipProvider>
               <Tooltip delayDuration={0}>
-                  <TooltipTrigger asChild><Button variant="ghost" size="icon" className="shrink-0" onClick={handleLogout}><LogOut className="h-4 w-4"/></Button></TooltipTrigger>
-                  <TooltipContent side="top">Déconnexion</TooltipContent>
+                <TooltipTrigger asChild><Button variant="ghost" size="icon" className="shrink-0" onClick={handleLogout}><LogOut className="h-4 w-4"/></Button></TooltipTrigger>
+                <TooltipContent side="top">Déconnexion</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
