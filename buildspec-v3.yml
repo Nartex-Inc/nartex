@@ -25,13 +25,40 @@ phases:
     runtime-versions:
       nodejs: 18
     commands:
-      - echo "📦  INSTALL – installing Node dependencies"
+      - echo "📦  INSTALL – installing Node dependencies (for Prisma CLI, etc.)"
       - npm ci
 
   pre_build:
     commands:
-      - echo "📜  PRE_BUILD – running Prisma migrations"
-      - npx prisma migrate deploy
+      - echo "🛠  PRE_BUILD – ensure jq (for portability; may be used later)"
+      - |
+        command -v jq >/dev/null 2>&1 || \
+        (yum -y install jq || (apt-get update && apt-get install -y jq) || apk add --no-cache jq)
+
+      - echo "➕  PRE_BUILD – add missing runtime deps (dashboard/BI)"
+      - npm pkg set dependencies.recharts="^2.12.7"
+      - npm pkg set dependencies.lucide-react="^0.452.0"
+      - npm pkg set dependencies.class-variance-authority="^0.7.0"
+      - npm pkg set dependencies.clsx="^2.1.1"
+      - npm pkg set dependencies.tailwind-merge="^2.5.2"
+      - npm pkg set dependencies.tailwindcss-animate="^1.0.7"
+
+      - echo "🧱  PRE_BUILD – generate shadcn/ui components used by the dashboard"
+      - npx --yes shadcn@latest init -d
+      - npx --yes shadcn@latest add button card table tabs input select badge
+
+      - echo "🧩  PRE_BUILD – ensure cn() utility exists for shadcn components"
+      - |
+        test -f src/lib/utils.ts || cat > src/lib/utils.ts <<'TS'
+        import { type ClassValue } from "clsx";
+        import clsx from "clsx";
+        import { twMerge } from "tailwind-merge";
+        export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
+        TS
+
+      - echo "🔒  PRE_BUILD – refresh lockfile to include new deps (no install)"
+      - npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
       - echo "🔑  PRE_BUILD – logging in to Amazon ECR"
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
 
