@@ -30,80 +30,83 @@ phases:
 
   pre_build:
     commands:
-      - echo "📜 PRE_BUILD – run scripted steps under bash"
+      - echo "📜 PRE_BUILD – write script to disk (avoids YAML quoting issues)"
       - |
-        bash -lc '
-          set -euo pipefail
+        cat > ci-prebuild.sh << 'SH'
+        #!/usr/bin/env bash
+        set -euo pipefail
 
-          echo "➕ deps for dashboard"
-          npm pkg set dependencies.recharts="^2.12.7"
-          npm pkg set dependencies.lucide-react="^0.452.0"
-          npm pkg set dependencies.class-variance-authority="^0.7.0"
-          npm pkg set dependencies.clsx="^2.1.1"
-          npm pkg set dependencies.tailwind-merge="^2.5.2"
-          npm pkg set dependencies.tailwindcss-animate="^1.0.7"
+        echo "➕ deps for dashboard"
+        npm pkg set dependencies.recharts="^2.12.7"
+        npm pkg set dependencies.lucide-react="^0.452.0"
+        npm pkg set dependencies.class-variance-authority="^0.7.0"
+        npm pkg set dependencies.clsx="^2.1.1"
+        npm pkg set dependencies.tailwind-merge="^2.5.2"
+        npm pkg set dependencies.tailwindcss-animate="^1.0.7"
 
-          echo "🧱 ensure shadcn targets src/components + aliases"
-          node -e "
-            const fs=require('fs');
-            const p='components.json';
-            if (fs.existsSync(p)) {
-              const j=JSON.parse(fs.readFileSync(p,'utf8'));
-              j.path='src/components';
-              j.aliases={components:'@/components', utils:'@/lib/utils'};
-              fs.writeFileSync(p, JSON.stringify(j,null,2));
-            } else {
-              const j={
-                $schema:'https://ui.shadcn.com/schema.json',
-                style:'default', rsc:true, tsx:true,
-                tailwind:{config:'tailwind.config.ts', css:'src/app/globals.css', baseColor:'gray', cssVariables:true},
-                aliases:{components:'@/components', utils:'@/lib/utils'},
-                iconLibrary:'lucide',
-                components:[],
-                path:'src/components'
-              };
-              fs.writeFileSync(p, JSON.stringify(j,null,2));
-            }"
+        echo "🧱 ensure shadcn targets src/components + aliases"
+        node <<'NODE'
+        const fs = require('fs');
+        const p = 'components.json';
+        let j;
+        if (fs.existsSync(p)) {
+          j = JSON.parse(fs.readFileSync(p, 'utf8'));
+        } else {
+          j = {};
+        }
+        j.$schema = 'https://ui.shadcn.com/schema.json';
+        j.style = 'default';
+        j.rsc = true;
+        j.tsx = true;
+        j.tailwind = { config: 'tailwind.config.ts', css: 'src/app/globals.css', baseColor: 'gray', cssVariables: true };
+        j.aliases = { components: '@/components', utils: '@/lib/utils' };
+        j.iconLibrary = 'lucide';
+        j.components = j.components || [];
+        j.path = 'src/components';
+        fs.writeFileSync(p, JSON.stringify(j, null, 2));
+        NODE
 
-          echo "🧩 generate components only if missing"
-          mkdir -p src/lib src/components/ui
+        echo "🧩 generate components only if missing"
+        mkdir -p src/lib src/components/ui
 
-          if [ ! -f src/lib/utils.ts ]; then
-            cat > src/lib/utils.ts << "TS"
-import { type ClassValue } from "clsx";
-import clsx from "clsx";
-import { twMerge } from "tailwind-merge";
-export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
-TS
+        if [ ! -f src/lib/utils.ts ]; then
+          cat > src/lib/utils.ts << 'TS'
+        import { type ClassValue } from "clsx";
+        import clsx from "clsx";
+        import { twMerge } from "tailwind-merge";
+        export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
+        TS
+        fi
+
+        # shadcn init only once (it fails if components.json exists)
+        if [ ! -f .shadcn-initialized ]; then
+          npx --yes shadcn@latest init -d || true
+          touch .shadcn-initialized
+        fi
+
+        add_if_missing () {
+          local NAME="$1"
+          if [ ! -f "src/components/ui/${NAME}.tsx" ] && [ ! -f "src/components/ui/${NAME}.ts" ]; then
+            echo "Adding $NAME"
+            npx --yes shadcn@latest add "$NAME"
+          else
+            echo "Skipping $NAME (already exists)"
           fi
+        }
+        for c in button card table tabs input select badge; do add_if_missing "$c"; done
 
-          # init once (shadcn init fails if components.json already exists)
-          if [ ! -f .shadcn-initialized ]; then
-            npx --yes shadcn@latest init -d || true
-            touch .shadcn-initialized
-          fi
+        echo "📂 verify path"
+        ls -la src/components/ui || true
 
-          add_if_missing () {
-            NAME="$1"
-            if [ ! -f "src/components/ui/${NAME}.tsx" ] && [ ! -f "src/components/ui/${NAME}.ts" ]; then
-              echo "Adding $NAME"
-              npx --yes shadcn@latest add "$NAME"
-            else
-              echo "Skipping $NAME (already exists)"
-            fi
-          }
-          for c in button card table tabs input select badge; do add_if_missing "$c"; done
+        echo "🔒 refresh lockfile"
+        npm install --package-lock-only --ignore-scripts --no-audit --no-fund
 
-          echo "📂 verify path"
-          ls -la src/components/ui || true
-
-          echo "🔒 refresh lockfile"
-          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-
-          echo "🔑 ECR login"
-          PASS="$(aws ecr get-login-password --region "$AWS_DEFAULT_REGION")"
-          echo "$PASS" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
-        '
+        echo "🔑 ECR login"
+        PASS="$(aws ecr get-login-password --region "$AWS_DEFAULT_REGION")"
+        echo "$PASS" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+        SH
+      - chmod +x ci-prebuild.sh
+      - bash ci-prebuild.sh
 
   build:
     commands:
