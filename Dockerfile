@@ -47,6 +47,40 @@ RUN npm ci
 # 2. Copy the rest of the application source code
 COPY . .
 
+# 2. Copy the rest of the application source code
+COPY . .
+
+# --- SAFETY NET: ensure cn() helper exists ---
+RUN /bin/sh -lc 'if [ ! -f src/lib/utils.ts ]; then \
+  mkdir -p src/lib && cat > src/lib/utils.ts << "TS"; \
+import { type ClassValue } from "clsx";
+import clsx from "clsx";
+import { twMerge } from "tailwind-merge";
+export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
+TS
+fi'
+
+# --- SAFETY NET: ensure Input component exists (if shadcn generation didn’t run) ---
+RUN /bin/sh -lc 'if [ ! -f src/components/ui/input.tsx ]; then \
+  mkdir -p src/components/ui && cat > src/components/ui/input.tsx << "TSX"; \
+import * as React from "react";
+import { cn } from "@/lib/utils";
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, ...props }, ref) => (
+    <input
+      ref={ref}
+      className={cn("flex h-9 w-full rounded-md border bg-white/90 dark:bg-neutral-900 px-3 py-2 text-sm outline-none", className)}
+      {...props}
+    />
+  )
+);
+Input.displayName = "Input";
+export default Input;
+TSX
+fi'
+
+
 # 3. Generate Prisma Client
 RUN npx prisma generate
 
