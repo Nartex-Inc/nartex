@@ -129,3 +129,22 @@
    /* scrollbar-color: #4a5568 transparent; */
    scrollbar-color: hsl(var(--muted-foreground) / 0.7) transparent;
 }
+
+/* --- Nartex polish overrides (append at end of globals.css) --- */
+
+/* 1) Bigger default corner radius (overrides earlier --radius) */
+@layer base {
+  :root { --radius: 0.9rem; }
+}
+
+/* 2) Subtle card contrast in dark mode
+   - Use a fallback first, then color-mix (supported in modern browsers)
+   - Put in the utilities layer so it wins over Tailwind's bg-* utilities  */
+@layer utilities {
+  .dark .bg-card {
+    /* Fallback to the standard card color */
+    background-color: hsl(var(--card)) !important;
+    /* Softer contrast without heavy borders */
+    background-color: color-mix(in oklab, hsl(var(--background)) 90%, white 10%) !important;
+  }
+}
