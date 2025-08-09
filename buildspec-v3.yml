@@ -25,47 +25,48 @@ phases:
     runtime-versions:
       nodejs: 18
     commands:
-      - echo "📦  INSTALL – installing Node dependencies (for prisma CLI, etc.)"
+      - echo "📦 INSTALL – npm ci for workspace tooling"
       - npm ci
 
-    pre_build:
+  pre_build:
     commands:
-      - echo "📜  PRE_BUILD – running scripted steps under bash"
-      - |
-        bash -lc '
+      - echo "📜 PRE_BUILD – run scripted steps under bash"
+      - bash -lc '
           set -euo pipefail
-  
-          echo "🛠  Ensure jq available"
+
+          echo "🛠 Ensure jq"
           if ! command -v jq >/dev/null 2>&1; then
             yum -y install jq || (apt-get update && apt-get install -y jq) || apk add --no-cache jq
           fi
-  
-          echo "➕  Add missing runtime deps"
+
+          echo "➕ Add runtime deps"
           npm pkg set dependencies.recharts="^2.12.7"
           npm pkg set dependencies.lucide-react="^0.452.0"
           npm pkg set dependencies.class-variance-authority="^0.7.0"
           npm pkg set dependencies.clsx="^2.1.1"
           npm pkg set dependencies.tailwind-merge="^2.5.2"
           npm pkg set dependencies.tailwindcss-animate="^1.0.7"
-  
-          echo "🧱  Generate shadcn/ui only if missing"
+
+          echo "🧱 Ensure shadcn/ui files"
           mkdir -p src/lib src/components/ui
-  
+
+          # cn() helper
           if [ ! -f src/lib/utils.ts ]; then
-            cat > src/lib/utils.ts << "TS"
-        import { type ClassValue } from "clsx";
-        import clsx from "clsx";
-        import { twMerge } from "tailwind-merge";
-        export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
-        TS
+cat > src/lib/utils.ts << "TS"
+import { type ClassValue } from "clsx";
+import clsx from "clsx";
+import { twMerge } from "tailwind-merge";
+export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
+TS
           fi
-  
+
+          # init once
           if [ ! -f components.json ]; then
             npx --yes shadcn@latest init -d
           else
             echo "components.json present – skipping shadcn init"
           fi
-  
+
           add_if_missing () {
             NAME="$1"
             if [ ! -f "src/components/ui/${NAME}.tsx" ] && [ ! -f "src/components/ui/${NAME}.ts" ]; then
@@ -75,22 +76,45 @@ phases:
               echo "Skipping $NAME (already exists)"
             fi
           }
-  
+
           for c in button card table tabs input select badge; do add_if_missing "$c"; done
-  
-          echo "🔒  Refresh lockfile to include new deps"
+
+          # HARD SAFETY: if input still missing (network hiccup), create a minimal one
+          if [ ! -f "src/components/ui/input.tsx" ]; then
+cat > src/components/ui/input.tsx << "TSX"
+import * as React from "react";
+import { cn } from "@/lib/utils";
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, ...props }, ref) => (
+    <input
+      ref={ref}
+      className={cn("flex h-9 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none", className)}
+      {...props}
+    />
+  )
+);
+Input.displayName = "Input";
+export default Input;
+TSX
+          fi
+
+          echo "📂 Listing ui components (for debug)"
+          ls -la src/components/ui || true
+
+          echo "🔒 Refresh lockfile"
           npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-  
-          echo "🔑  ECR login"
+
+          echo "🔑 ECR login"
           PASS="$(aws ecr get-login-password --region "$AWS_DEFAULT_REGION")"
           echo "$PASS" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
         '
 
   build:
     commands:
-      - echo "🏗  BUILD – resolve commit hash"
+      - echo "🏗 BUILD – resolve commit hash"
       - COMMIT_HASH=$(git rev-parse --short HEAD)
-      - echo "💣  BUILD – building from scratch"
+      - echo "🏗 BUILD – docker image (no cache)"
       - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
       - |
         docker build \
@@ -111,13 +135,13 @@ phases:
           --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
           -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
           -t "$ECR_IMAGE_URI:latest" .
-      - echo "📤  Push images"
+      - echo "📤 Push images"
       - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
       - docker push "$ECR_IMAGE_URI:latest"
 
   post_build:
     commands:
-      - echo "🔄  Force new ECS deployment"
+      - echo "🔄 Force new ECS deployment"
       - |
         aws ecs update-service \
           --cluster nartex-cluster \
