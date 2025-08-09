@@ -1,11 +1,10 @@
-// src/components/dashboard/sidebar.tsx
 "use client";
 
-import React from "react";
+import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import Image from "next/image";
 import {
   ListChecks,
   Briefcase,
@@ -20,189 +19,340 @@ import {
   ChevronLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-interface NavItem { href: string; title: string; icon: React.ElementType; }
+type NavItem = { href: string; title: string; icon: React.ElementType };
+
 interface SidebarProps {
-  isOpen: boolean; // For desktop
-  isMobileOpen: boolean; // For mobile
-  toggleSidebar: () => void; // For desktop
-  closeMobileSidebar: () => void; // For mobile
+  isOpen: boolean; // desktop expanded/collapsed
+  isMobileOpen: boolean; // mobile drawer open
+  toggleSidebar: () => void;
+  closeMobileSidebar: () => void;
 }
 
-const NavLink = ({
+/* ------------------------- Nav structure (yours) ------------------------- */
+const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
+  {
+    title: "GÉNÉRAL",
+    items: [
+      { href: "/dashboard/tasks", title: "Mes tâches", icon: ListChecks },
+      { href: "/dashboard/projects", title: "Mes projets", icon: Briefcase },
+    ],
+  },
+  {
+    title: "ADMINISTRATION",
+    items: [
+      { href: "/dashboard/admin/onboarding", title: "Onboarding", icon: UserPlus },
+      { href: "/dashboard/admin/returns", title: "Gestion des retours", icon: RefreshCcw },
+      { href: "/dashboard/admin/collections", title: "Recouvrement", icon: Receipt },
+    ],
+  },
+  {
+    title: "R&D",
+    items: [
+      { href: "/dashboard/rd/requests", title: "Demandes de produits", icon: FlaskConical },
+      { href: "/dashboard/rd/pipeline", title: "Pipeline de produits", icon: Network },
+    ],
+  },
+  {
+    title: "SUPPORT",
+    items: [
+      { href: "/dashboard/support/new", title: "Nouveau billet", icon: PlusCircle },
+      { href: "/dashboard/support/tickets", title: "Gestion des billets", icon: Ticket },
+    ],
+  },
+];
+
+/* ------------------------------- Helpers -------------------------------- */
+function NavLink({
   item,
-  isSidebarOpen,
-  closeMobileSidebar,
+  expanded,
   isMobile,
+  closeMobile,
 }: {
   item: NavItem;
-  isSidebarOpen: boolean;
-  closeMobileSidebar: () => void;
+  expanded: boolean;
   isMobile: boolean;
-}) => {
+  closeMobile: () => void;
+}) {
   const pathname = usePathname();
-  const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
-  const handleLinkClick = () => { if (isMobile) { closeMobileSidebar(); } };
+  const active =
+    pathname === item.href ||
+    (item.href !== "/dashboard" && pathname.startsWith(item.href));
 
-  if (!isSidebarOpen && !isMobile) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Link
-            href={item.href}
-            className={cn(
-              "flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-primary md:h-8 md:w-8",
-              isActive && "bg-muted text-primary"
-            )}
-          >
-            <item.icon className="h-5 w-5" />
-            <span className="sr-only">{item.title}</span>
-          </Link>
-        </TooltipTrigger>
-        <TooltipContent side="right">{item.title}</TooltipContent>
-      </Tooltip>
-    );
-  }
-  return (
+  const linkClasses = cn(
+    "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors",
+    active
+      ? "bg-muted text-foreground"
+      : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+  );
+
+  const content = (
     <Link
       href={item.href}
-      onClick={handleLinkClick}
-      className={cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
-        isActive && "bg-muted text-primary"
-      )}
+      onClick={() => (isMobile ? closeMobile() : undefined)}
+      className={linkClasses}
+      aria-current={active ? "page" : undefined}
     >
-      <item.icon className="h-4 w-4" />
-      <span className="truncate">{item.title}</span>
+      <item.icon className="h-4 w-4 shrink-0" />
+      {expanded && <span className="truncate">{item.title}</span>}
     </Link>
   );
-};
 
-const NavGroup = ({
+  if (expanded) return content;
+
+  // Collapsed: icon-only with tooltip
+  return (
+    <Tooltip delayDuration={150}>
+      <TooltipTrigger asChild>{content}</TooltipTrigger>
+      <TooltipContent side="right" className="ml-2">
+        {item.title}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function NavGroup({
   title,
+  expanded,
   children,
-  isSidebarOpen,
 }: {
   title: string;
+  expanded: boolean;
   children: React.ReactNode;
-  isSidebarOpen: boolean;
-}) => (
-  <div className="space-y-1">
-    {isSidebarOpen && <h2 className="px-3 py-2 text-xs font-semibold tracking-wider text-muted-foreground/80">{title}</h2>}
-    <nav className={cn("flex flex-col", !isSidebarOpen && "items-center")}>{children}</nav>
-  </div>
-);
+}) {
+  return (
+    <div className="space-y-1">
+      {expanded && (
+        <h2 className="px-3 py-2 text-xs font-semibold tracking-wider text-muted-foreground/80">
+          {title}
+        </h2>
+      )}
+      <nav className={cn("flex flex-col gap-1", !expanded && "items-center")}>
+        {children}
+      </nav>
+    </div>
+  );
+}
 
-export function Sidebar({ isOpen, isMobileOpen, toggleSidebar, closeMobileSidebar }: SidebarProps) {
-  const { data: session } = useSession();
-  const handleLogout = () => signOut({ callbackUrl: "/" });
-  const user = session?.user;
-  const userDisplayName = user?.name || user?.email?.split('@')[0] || "User";
-  const userImage = user?.image;
+/* -------------------------------- Sidebar -------------------------------- */
+export function Sidebar({
+  isOpen,
+  isMobileOpen,
+  toggleSidebar,
+  closeMobileSidebar,
+}: SidebarProps) {
+  const { data } = useSession();
+  const user = data?.user;
+  const display = user?.name || user?.email?.split("@")[0] || "User";
 
-  const navItems = [
-    { title: "GÉNÉRAL", items: [{ href: "/dashboard/tasks", title: "Mes tâches", icon: ListChecks },{ href: "/dashboard/projects", title: "Mes projets", icon: Briefcase }] },
-    { title: "ADMINISTRATION", items: [{ href: "/dashboard/admin/onboarding", title: "Onboarding", icon: UserPlus },{ href: "/dashboard/admin/returns", title: "Gestion des retours", icon: RefreshCcw },{ href: "/dashboard/admin/collections", title: "Recouvrement", icon: Receipt }] },
-    { title: "R&D", items: [{ href: "/dashboard/rd/requests", title: "Demandes de produits", icon: FlaskConical },{ href: "/dashboard/rd/pipeline", title: "Pipeline de produits", icon: Network }] },
-    { title: "SUPPORT", items: [{ href: "/dashboard/support/new", title: "Nouveau billet", icon: PlusCircle },{ href: "/dashboard/support/tickets", title: "Gestion des billets", icon: Ticket }] },
-  ];
-
-  const isExpanded = isOpen || isMobileOpen;
+  const expanded = isOpen || isMobileOpen;
+  const desktopWidth = isOpen ? "lg:w-64" : "lg:w-[84px]";
 
   return (
     <TooltipProvider>
-      <aside
+      {/* Mobile drawer */}
+      <div
         className={cn(
-          "flex-col transition-all duration-300 ease-in-out bg-muted/40 dark:bg-muted/10 border-r",
-          "fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full lg:relative lg:translate-x-0",
-          isMobileOpen && "translate-x-0",
-          isOpen ? "lg:w-64" : "lg:w-20"
+          "fixed inset-y-0 left-0 z-50 w-64 -translate-x-full border-r bg-background shadow-lg transition-transform duration-300 lg:hidden",
+          isMobileOpen && "translate-x-0"
         )}
+        role="dialog"
+        aria-modal="true"
       >
-        <div className="flex h-16 shrink-0 items-center justify-between border-b px-4 lg:px-6">
-          <Link href="/dashboard" className={cn(!isExpanded && "sr-only")}>
-            {/* Keep SINTO logo; never invert in dark mode */}
+        <aside className="flex h-full flex-col">
+          <div className="flex h-16 items-center justify-between border-b px-4">
             <Image
               src="/sinto-logo.svg"
-              alt="Sinto Logo"
-              width={80}
+              alt="Sinto"
+              width={92}
               height={20}
-              className="sinto-logo filter-none invert-0 dark:invert-0"
+              className="select-none filter-none invert-0 dark:invert-0"
             />
-          </Link>
-          <Button variant="ghost" size="icon" onClick={toggleSidebar} className="hidden lg:flex">
-            <ChevronLeft className={cn("h-5 w-5 transition-transform duration-300", !isOpen && "rotate-180")} />
-          </Button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto py-4">
-          <div className="flex flex-col gap-4 px-2">
-            {navItems.map(group => (
-              <NavGroup key={group.title} title={group.title} isSidebarOpen={isExpanded}>
-                {group.items.map(item => (
-                  <NavLink
-                    key={item.href}
-                    item={item}
-                    isSidebarOpen={isExpanded}
-                    closeMobileSidebar={closeMobileSidebar}
-                    isMobile={isMobileOpen}
-                  />
-                ))}
-              </NavGroup>
-            ))}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={closeMobileSidebar}
+              aria-label="Fermer"
+            >
+              <ChevronLeft className="h-5 w-5 rotate-180" />
+            </Button>
           </div>
-        </div>
 
-        <div className="shrink-0 border-t p-2">
-          {!isExpanded ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex h-12 w-full cursor-pointer items-center justify-center rounded-lg bg-background p-2 text-sm font-medium">
-                  <Image
-                    src={userImage || `https://avatar.vercel.sh/${user?.email}.svg`}
-                    alt={userDisplayName}
-                    width={32}
-                    height={32}
-                    className="rounded-full"
-                  />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="right" align="start">
-                <p className="font-semibold">{userDisplayName}</p>
-                <p className="text-xs text-muted-foreground">{user?.email}</p>
-                <Button variant="outline" size="sm" className="w-full mt-2" onClick={handleLogout}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Déconnexion
-                </Button>
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <div className="flex h-12 w-full items-center justify-start gap-3 rounded-lg bg-background p-2 text-sm font-medium">
+          <div className="flex-1 overflow-y-auto p-3">
+            <div className="flex flex-col gap-4">
+              {NAV_GROUPS.map((group) => (
+                <NavGroup key={group.title} title={group.title} expanded>
+                  {group.items.map((item) => (
+                    <NavLink
+                      key={item.href}
+                      item={item}
+                      expanded
+                      isMobile
+                      closeMobile={closeMobileSidebar}
+                    />
+                  ))}
+                </NavGroup>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-t p-3">
+            <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-2">
               <Image
-                src={userImage || `https://avatar.vercel.sh/${user?.email}.svg`}
-                alt={userDisplayName}
+                src={
+                  user?.image || `https://avatar.vercel.sh/${user?.email}.svg`
+                }
+                alt={display}
                 width={32}
                 height={32}
                 className="rounded-full"
               />
-              <div className="flex-1 truncate">
-                <p className="font-semibold truncate">{userDisplayName}</p>
-                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{display}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {user?.email}
+                </p>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Déconnexion"
+                onClick={() => signOut({ callbackUrl: "/" })}
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {/* Desktop rail */}
+      <aside
+        aria-label="Barre latérale"
+        className={cn(
+          "relative z-30 hidden shrink-0 border-r bg-background transition-[width] duration-300 lg:block",
+          desktopWidth
+        )}
+      >
+        <div className="flex h-16 items-center justify-between border-b px-3">
+          <div className="flex items-center gap-2">
+            <Image
+              src="/sinto-logo.svg"
+              alt="Sinto"
+              width={92}
+              height={20}
+              className={cn("select-none filter-none invert-0 dark:invert-0", !expanded && "opacity-0")}
+            />
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            aria-label={isOpen ? "Réduire" : "Agrandir"}
+          >
+            <ChevronLeft
+              className={cn(
+                "h-5 w-5 transition-transform",
+                !isOpen && "rotate-180"
+              )}
+            />
+          </Button>
+        </div>
+
+        <div className="flex h-[calc(100%-4rem)] flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-3">
+            <div className="flex flex-col gap-4">
+              {NAV_GROUPS.map((group) => (
+                <NavGroup
+                  key={group.title}
+                  title={group.title}
+                  expanded={expanded}
+                >
+                  {group.items.map((item) => (
+                    <NavLink
+                      key={item.href}
+                      item={item}
+                      expanded={expanded}
+                      isMobile={false}
+                      closeMobile={() => {}}
+                    />
+                  ))}
+                </NavGroup>
+              ))}
+            </div>
+          </div>
+
+          {/* User strip */}
+          <div className="border-t p-2">
+            {expanded ? (
+              <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-2">
+                <Image
+                  src={
+                    user?.image || `https://avatar.vercel.sh/${user?.email}.svg`
+                  }
+                  alt={display}
+                  width={32}
+                  height={32}
+                  className="rounded-full"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{display}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {user?.email}
+                  </p>
+                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Déconnexion"
+                      onClick={() => signOut({ callbackUrl: "/" })}
+                    >
+                      <LogOut className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Déconnexion</TooltipContent>
+                </Tooltip>
+              </div>
+            ) : (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="shrink-0" onClick={handleLogout}>
-                    <LogOut className="h-4 w-4" />
-                  </Button>
+                  <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-muted/50">
+                    <Image
+                      src={
+                        user?.image ||
+                        `https://avatar.vercel.sh/${user?.email}.svg`
+                      }
+                      alt={display}
+                      width={28}
+                      height={28}
+                      className="rounded-full"
+                    />
+                  </div>
                 </TooltipTrigger>
-                <TooltipContent side="top">Déconnexion</TooltipContent>
+                <TooltipContent side="right" className="space-y-1">
+                  <p className="text-sm font-medium">{display}</p>
+                  {user?.email && (
+                    <p className="text-xs text-muted-foreground">
+                      {user.email}
+                    </p>
+                  )}
+                </TooltipContent>
               </Tooltip>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </aside>
     </TooltipProvider>
   );
 }
+
+export default Sidebar;
