@@ -2,7 +2,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import SessionProviderWrapper from "./SessionProviderWrapper"; // Import your existing wrapper
+import SessionProviderWrapper from "./SessionProviderWrapper";
+import { ThemeProvider } from "@/components/theme-provider"; // ⬅️ add this
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -11,12 +12,6 @@ export const metadata: Metadata = {
   description: "Your Application Description",
 };
 
-/**
- * This is the root layout for the ENTIRE application.
- * By wrapping the children in `SessionProviderWrapper`, we ensure that the
- * `useSession` hook is available on every page, including the special
- * `/not-found` page, which resolves the build error.
- */
 export default function RootLayout({
   children,
 }: {
@@ -24,10 +19,18 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
-        <SessionProviderWrapper>
-          {children}
-        </SessionProviderWrapper>
+      <body className={`${inter.className} min-h-screen bg-background text-foreground`}>
+        {/* Mount next-themes at the root so it can toggle <html>. */}
+        <ThemeProvider
+          attribute="class"           // Tailwind expects the 'dark' class
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <SessionProviderWrapper>
+            {children}
+          </SessionProviderWrapper>
+        </ThemeProvider>
       </body>
     </html>
   );
