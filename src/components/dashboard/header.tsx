@@ -1,60 +1,81 @@
-// src/components/dashboard/header.tsx
 "use client";
 
-import React from 'react';
-import Image from 'next/image';
-import { Bell, Menu } from 'lucide-react';
-import { UserNav } from '@/components/dashboard/user-nav';
-import { ModeToggle } from '@/components/theme-toggle';
-import { Button } from '@/components/ui/button';
+import * as React from "react";
+import Image from "next/image";
+import { Bell, Menu } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ModeToggle } from "@/components/theme-toggle";
+import { UserNav } from "@/components/dashboard/user-nav";
 
-// --- FIX: Correctly typed props ---
 interface HeaderProps {
   onToggleMobileSidebar: () => void;
-  notificationCount: number;
+  notificationCount?: number;
 }
 
-export function Header({ onToggleMobileSidebar, notificationCount }: HeaderProps) {
+/**
+ * Sticky, translucent app header with safe z-index.
+ * Uses the same container width as your pages to keep rhythm.
+ */
+export function Header({
+  onToggleMobileSidebar,
+  notificationCount = 0,
+}: HeaderProps) {
   return (
-    <header className="sticky top-0 z-30 w-full border-b bg-card">
-      <div className="flex h-16 items-center px-4 sm:px-6">
-        <div className="flex items-center gap-4">
-          {/* Hamburger Menu (mobile only) */}
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="lg:hidden" 
-            onClick={onToggleMobileSidebar} // This now works correctly
-            aria-label="Toggle sidebar"
-          >
-            <Menu className="h-6 w-6" />
-          </Button>
+    <header className="sticky top-0 z-40 w-full border-b bg-background/70 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-3 px-5 sm:px-8">
+        {/* Mobile hamburger */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="lg:hidden"
+          onClick={onToggleMobileSidebar}
+          aria-label="Ouvrir le menu latéral"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
 
-          {/* Logo */}
+        {/* Brand */}
+        <div className="flex items-center gap-2">
           <Image
             src="/nartex-logo.svg"
-            alt="Nartex Logo"
-            width={80}
+            alt="Nartex"
+            width={96}
             height={20}
             priority
-            className="dark:invert"
+            className="select-none"
           />
         </div>
 
-        {/* Right side utilities */}
-        <div className="ml-auto flex items-center space-x-2 sm:space-x-4">
-          <div className="flex items-center space-x-1 sm:space-x-2">
-            <ModeToggle />
-            <Button variant="ghost" size="icon" className="rounded-full relative">
+        <div className="ml-auto" />
+
+        {/* Right controls */}
+        <div className="flex items-center gap-1 sm:gap-2">
+          <ModeToggle />
+
+          {/* Notifications (dot for count) */}
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full"
+              aria-label="Notifications"
+            >
               <Bell className="h-5 w-5" />
-              {notificationCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 block h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
-              )}
             </Button>
-            <UserNav />
+            {notificationCount > 0 && (
+              <span
+                aria-hidden
+                className="absolute right-2 top-2 inline-block h-2 w-2 rounded-full bg-primary ring-2 ring-background"
+              />
+            )}
           </div>
+
+          {/* Account menu */}
+          <UserNav />
         </div>
       </div>
     </header>
   );
 }
+
+export default Header;
