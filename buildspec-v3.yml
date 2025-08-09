@@ -25,17 +25,18 @@ phases:
     runtime-versions:
       nodejs: 18
     commands:
-      - echo "📦  INSTALL – installing Node dependencies (for Prisma CLI, etc.)"
+      - echo "📦  INSTALL – installing Node dependencies (for prisma CLI, etc.)"
       - npm ci
 
   pre_build:
     commands:
-      - echo "🛠  PRE_BUILD – ensure jq (for portability; may be used later)"
+      - set -euo pipefail
+      - echo "🧰  Ensure jq available (optional)"
       - |
         command -v jq >/dev/null 2>&1 || \
         (yum -y install jq || (apt-get update && apt-get install -y jq) || apk add --no-cache jq)
 
-      - echo "➕  PRE_BUILD – add missing runtime deps (dashboard/BI)"
+      - echo "➕  Add missing runtime deps"
       - npm pkg set dependencies.recharts="^2.12.7"
       - npm pkg set dependencies.lucide-react="^0.452.0"
       - npm pkg set dependencies.class-variance-authority="^0.7.0"
@@ -43,30 +44,51 @@ phases:
       - npm pkg set dependencies.tailwind-merge="^2.5.2"
       - npm pkg set dependencies.tailwindcss-animate="^1.0.7"
 
-      - echo "🧱  PRE_BUILD – generate shadcn/ui components used by the dashboard"
-      - npx --yes shadcn@latest init -d
-      - npx --yes shadcn@latest add button card table tabs input select badge
-
-      - echo "🧩  PRE_BUILD – ensure cn() utility exists for shadcn components"
+      - echo "🧱  Generate shadcn/ui files if missing (skip init if already set)"
+      # Create src/lib if needed (for cn())
+      - mkdir -p src/lib src/components/ui
       - |
-        test -f src/lib/utils.ts || cat > src/lib/utils.ts <<'TS'
-        import { type ClassValue } from "clsx";
-        import clsx from "clsx";
-        import { twMerge } from "tailwind-merge";
-        export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
-        TS
+        if [ ! -f src/lib/utils.ts ]; then
+          cat > src/lib/utils.ts <<'TS'
+          import { type ClassValue } from "clsx";
+          import clsx from "clsx";
+          import { twMerge } from "tailwind-merge";
+          export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
+          TS
+        fi
+      # Initialize only if components.json is absent
+      - |
+        if [ ! -f components.json ]; then
+          npx --yes shadcn@latest init -d
+        else
+          echo "shadcn already initialized (components.json present) – skipping init"
+        fi
+      # Add each component only if its file doesn't exist
+      - |
+        add_if_missing () {
+          NAME="$1"
+          FILE_TSX="src/components/ui/${NAME}.tsx"
+          FILE_TS="src/components/ui/${NAME}.ts"
+          if [ ! -f "$FILE_TSX" ] && [ ! -f "$FILE_TS" ]; then
+            echo "Adding $NAME"
+            npx --yes shadcn@latest add "$NAME"
+          else
+            echo "Skipping $NAME (already exists)"
+          fi
+        }
+        for c in button card table tabs input select badge; do add_if_missing "$c"; done
 
-      - echo "🔒  PRE_BUILD – refresh lockfile to include new deps (no install)"
+      - echo "🔒  Refresh lockfile to include new deps"
       - npm install --package-lock-only --ignore-scripts --no-audit --no-fund
 
-      - echo "🔑  PRE_BUILD – logging in to Amazon ECR"
+      - echo "🔑  Login to ECR"
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
 
   build:
     commands:
-      - echo "🏗  BUILD – resolving commit hash"
+      - echo "🏗  BUILD – resolve commit hash"
       - COMMIT_HASH=$(git rev-parse --short HEAD)
-      - echo "💣  BUILD – NUKING DOCKER CACHE and building from scratch"
+      - echo "💣  BUILD – building from scratch"
       - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
       - |
         docker build \
@@ -87,13 +109,13 @@ phases:
           --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
           -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
           -t "$ECR_IMAGE_URI:latest" .
-      - echo "📤  BUILD – pushing both tags to ECR"
+      - echo "📤  Push images"
       - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
       - docker push "$ECR_IMAGE_URI:latest"
 
   post_build:
     commands:
-      - echo '🔄  POST_BUILD – forcing new deployment of ECS service'
+      - echo "🔄  Force new ECS deployment"
       - |
         aws ecs update-service \
           --cluster nartex-cluster \
