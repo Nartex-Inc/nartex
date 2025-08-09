@@ -29,63 +29,62 @@ phases:
       - npm ci
 
   pre_build:
-  commands:
-    - echo "📜  PRE_BUILD – POSIX shell (no pipefail)"
-    - set -eu
+    commands:
+      - echo "📜  PRE_BUILD – POSIX shell (no pipefail)"
+      - set -eu
 
-    - echo "🛠  Ensure jq available"
-    - |
-      if ! command -v jq >/dev/null 2>&1; then
-        yum -y install jq || (apt-get update && apt-get install -y jq) || apk add --no-cache jq
-      fi
-
-    - echo "➕  Add missing runtime deps"
-    - npm pkg set dependencies.recharts="^2.12.7"
-    - npm pkg set dependencies.lucide-react="^0.452.0"
-    - npm pkg set dependencies.class-variance-authority="^0.7.0"
-    - npm pkg set dependencies.clsx="^2.1.1"
-    - npm pkg set dependencies.tailwind-merge="^2.5.2"
-    - npm pkg set dependencies.tailwindcss-animate="^1.0.7"
-
-    - echo "🧱  Generate shadcn/ui only if missing"
-    - mkdir -p src/lib src/components/ui
-    - |
-      if [ ! -f src/lib/utils.ts ]; then
-        cat > src/lib/utils.ts <<'TS'
-        import { type ClassValue } from "clsx";
-        import clsx from "clsx";
-        import { twMerge } from "tailwind-merge";
-        export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
-        TS
-      fi
-    - |
-      if [ ! -f components.json ]; then
-        npx --yes shadcn@latest init -d
-      else
-        echo "components.json present – skipping shadcn init"
-      fi
-    - |
-      add_if_missing() {
-        NAME="$1"
-        FILE_TSX="src/components/ui/${NAME}.tsx"
-        FILE_TS="src/components/ui/${NAME}.ts"
-        if [ ! -f "$FILE_TSX" ] && [ ! -f "$FILE_TS" ]; then
-          echo "Adding $NAME"
-          npx --yes shadcn@latest add "$NAME"
-        else
-          echo "Skipping $NAME (already exists)"
+      - echo "🛠  Ensure jq available"
+      - |
+        if ! command -v jq >/dev/null 2>&1; then
+          yum -y install jq || (apt-get update && apt-get install -y jq) || apk add --no-cache jq
         fi
-      }
-      for c in button card table tabs input select badge; do add_if_missing "$c"; done
 
-    - echo "🔒  Refresh lockfile to include new deps"
-    - npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - echo "➕  Add missing runtime deps"
+      - npm pkg set dependencies.recharts="^2.12.7"
+      - npm pkg set dependencies.lucide-react="^0.452.0"
+      - npm pkg set dependencies.class-variance-authority="^0.7.0"
+      - npm pkg set dependencies.clsx="^2.1.1"
+      - npm pkg set dependencies.tailwind-merge="^2.5.2"
+      - npm pkg set dependencies.tailwindcss-animate="^1.0.7"
 
-    - echo "🔑  ECR login"
-    - |
-      PASS="$(aws ecr get-login-password --region "$AWS_DEFAULT_REGION")"
-      echo "$PASS" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+      - echo "🧱  Generate shadcn/ui only if missing"
+      - mkdir -p src/lib src/components/ui
+      - |
+        if [ ! -f src/lib/utils.ts ]; then
+          cat > src/lib/utils.ts <<'TS'
+          import { type ClassValue } from "clsx";
+          import clsx from "clsx";
+          import { twMerge } from "tailwind-merge";
+          export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
+          TS
+        fi
+      - |
+        if [ ! -f components.json ]; then
+          npx --yes shadcn@latest init -d
+        else
+          echo "components.json present – skipping shadcn init"
+        fi
+      - |
+        add_if_missing() {
+          NAME="$1"
+          FILE_TSX="src/components/ui/${NAME}.tsx"
+          FILE_TS="src/components/ui/${NAME}.ts"
+          if [ ! -f "$FILE_TSX" ] && [ ! -f "$FILE_TS" ]; then
+            echo "Adding $NAME"
+            npx --yes shadcn@latest add "$NAME"
+          else
+            echo "Skipping $NAME (already exists)"
+          fi
+        }
+        for c in button card table tabs input select badge; do add_if_missing "$c"; done
 
+      - echo "🔒  Refresh lockfile to include new deps"
+      - npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - echo "🔑  ECR login"
+      - |
+        PASS="$(aws ecr get-login-password --region "$AWS_DEFAULT_REGION")"
+        echo "$PASS" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
 
   build:
     commands:
