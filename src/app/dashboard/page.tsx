@@ -1,4 +1,3 @@
-// src/app/dashboard/page.tsx
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -23,10 +22,10 @@ import { mockProjectsData } from "@/lib/data";
 
 /* ------------------------- Design Tokens (local) ------------------------- */
 const CHART_COLORS = {
-  RGP2T: "#60a5fa", // sky-400
-  RG2T:  "#34d399", // emerald-400
-  IP1:   "#f59e0b", // amber-500
-  IP20:  "#a78bfa", // violet-400
+  RGP2T: "#60a5fa",
+  RG2T:  "#34d399",
+  IP1:   "#f59e0b",
+  IP20:  "#a78bfa",
 };
 
 /* ------------------------------- Demo Data ------------------------------- */
@@ -171,7 +170,7 @@ export default function DashboardPage() {
             </Select>
 
             <Select value={range} onValueChange={(v) => setRange(v as any)}>
-              <SelectTrigger className="w:[160px] rounded-xl sm:w-[160px]">
+              <SelectTrigger className="w-[160px] rounded-xl">
                 <SelectValue placeholder="Période" />
               </SelectTrigger>
               <SelectContent className="z-50">
@@ -248,7 +247,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="customers" className="w-full">
-              <TabsList className="mb-3 rounded-full bg-muted/60 p-1 z-10">
+              <TabsList className="z-10 mb-3 rounded-full bg-muted/60 p-1">
                 <TabsTrigger className="rounded-full px-3 py-1.5" value="customers">Top Clients</TabsTrigger>
                 <TabsTrigger className="rounded-full px-3 py-1.5" value="reps">Top Experts (Reps)</TabsTrigger>
                 <TabsTrigger className="rounded-full px-3 py-1.5" value="products">Top Produits</TabsTrigger>
@@ -356,10 +355,7 @@ function ChartCard({
       <CardHeader className="pb-2">
         <CardTitle>{title}</CardTitle>
       </CardHeader>
-      <CardContent
-        className="h-[--h] p-0 pr-2 overflow-visible"
-        style={{ ["--h" as any]: `${height}px` }}
-      >
+      <CardContent className="h-[--h] p-0 pr-2" style={{ ["--h" as any]: `${height}px` }}>
         {children}
       </CardContent>
     </Card>
