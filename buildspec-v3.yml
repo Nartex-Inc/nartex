@@ -28,10 +28,11 @@ phases:
       - echo "📦  INSTALL – installing Node dependencies (for prisma CLI, etc.)"
       - npm ci
 
-  pre_build:
+    pre_build:
     commands:
       - echo "📜  PRE_BUILD – running scripted steps under bash"
-      - bash -lc '
+      - |
+        bash -lc '
           set -euo pipefail
   
           echo "🛠  Ensure jq available"
@@ -51,12 +52,12 @@ phases:
           mkdir -p src/lib src/components/ui
   
           if [ ! -f src/lib/utils.ts ]; then
-  cat > src/lib/utils.ts << "TS"
-  import { type ClassValue } from "clsx";
-  import clsx from "clsx";
-  import { twMerge } from "tailwind-merge";
-  export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
-  TS
+            cat > src/lib/utils.ts << "TS"
+        import { type ClassValue } from "clsx";
+        import clsx from "clsx";
+        import { twMerge } from "tailwind-merge";
+        export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
+        TS
           fi
   
           if [ ! -f components.json ]; then
@@ -84,7 +85,6 @@ phases:
           PASS="$(aws ecr get-login-password --region "$AWS_DEFAULT_REGION")"
           echo "$PASS" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
         '
-
 
   build:
     commands:
