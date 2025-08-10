@@ -2,11 +2,11 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import { Bell, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/theme-toggle";
 import { UserNav } from "@/components/dashboard/user-nav";
+import NartexLogo from "@/components/nartex-logo";
 
 interface HeaderProps {
   onToggleMobileSidebar: () => void;
@@ -35,40 +35,9 @@ export function Header({
           <Menu className="h-5 w-5" />
         </Button>
 
-        {/* Brand */}
+        {/* Brand (theme-aware via currentColor) */}
         <div className="flex items-center gap-2">
-          {/* Preferred: two assets (light & dark) */}
-          <Image
-            src="/nartex-logo.svg"            // dark text/logo for LIGHT mode
-            alt="Nartex"
-            width={96}
-            height={20}
-            priority
-            className="select-none block dark:hidden"
-          />
-          <Image
-            src="/nartex-logo-white.svg"      // white logo for DARK mode
-            alt="Nartex"
-            width={96}
-            height={20}
-            priority
-            className="select-none hidden dark:block"
-          />
-
-          {/* Fallback if you don't have /nartex-logo-white.svg yet:
-             uncomment the next block and remove the two <Image> tags above.
-             This just inverts the base logo in dark mode.
-          */}
-          {/*
-          <Image
-            src="/nartex-logo.svg"
-            alt="Nartex"
-            width={96}
-            height={20}
-            priority
-            className="select-none dark:invert"
-          />
-          */}
+          <NartexLogo className="h-6 w-auto text-foreground transition-colors" />
         </div>
 
         <div className="ml-auto" />
@@ -79,12 +48,7 @@ export function Header({
 
           {/* Notifications (dot for count) */}
           <div className="relative">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full"
-              aria-label="Notifications"
-            >
+            <Button variant="ghost" size="icon" className="rounded-full" aria-label="Notifications">
               <Bell className="h-5 w-5" />
             </Button>
             {notificationCount > 0 && (
