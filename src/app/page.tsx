@@ -174,11 +174,7 @@ function LoginForm() {
             
             <h1 className="text-6xl font-light tracking-tighter mb-6 flex items-baseline flex-nowrap">
               <span className="text-white/80 whitespace-nowrap">Bienvenue sur</span>
-              <NartexLogo 
-                width={180} 
-                height={45} 
-                className="ml-4 text-emerald-400" 
-              />
+                <NartexLogo className="h-6 w-auto text-foreground" />
             </h1>
             
             <p className="text-xl text-zinc-400 mb-12 leading-relaxed max-w-lg">La plateforme de gestion centralisée qui révolutionne votre productivité et transforme vos flux de travail.</p>
