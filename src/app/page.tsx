@@ -4,7 +4,6 @@ export const dynamic = "force-dynamic";
 import React, { Suspense, FormEvent, useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import type { NextPage } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
 import NartexLogo from "@/components/nartex-logo";
@@ -63,7 +62,7 @@ const ParticleField: React.FC = () => {
       const b = color1.b + (color2.b - color1.b) * timeFactor;
       const currentParticleColor = `rgb(${r}, ${g}, ${b})`;
 
-      ctx.fillStyle = "rgba(24, 24, 27, 0.1)";
+      ctx.fillStyle = `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, ${p.opacity})`;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       particles.forEach((p, i) => {
@@ -159,7 +158,7 @@ function LoginForm() {
         <div className="container mx-auto flex items-center justify-between">
           <Link href="/" className="relative group">
             <div className="absolute -inset-2 bg-gradient-to-r from-emerald-600 to-green-600 rounded-lg blur-xl opacity-0 group-hover:opacity-20 transition-opacity duration-500"></div>
-            <Image src="/nartex-logo.svg" alt="Nartex" width={85} height={21} className="relative filter invert opacity-80 group-hover:opacity-100 transition-opacity" onError={e => (e.currentTarget.src = "https://placehold.co/85x21/ffffff/000000?text=Nartex")} />
+            <NartexLogo className="h-5 w-auto text-foreground" />
           </Link>
           <div className="hidden md:flex items-center gap-2 text-xs text-zinc-600">
             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
