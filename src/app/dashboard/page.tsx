@@ -161,30 +161,6 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
-            <Select value={tenant} onValueChange={(v) => setTenant(v as Subsidiary)}>
-              <SelectTrigger className="h-11 w-[200px] rounded-xl px-4">
-                <SelectValue placeholder="Filiale" />
-              </SelectTrigger>
-              <SelectContent className="z-50">
-                <SelectItem value="SINTO">SINTO</SelectItem>
-                <SelectItem value="PROLAB">PROLAB</SelectItem>
-                <SelectItem value="Otoprotec">Otoprotec</SelectItem>
-                <SelectItem value="Lubrilab">Lubrilab</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={range} onValueChange={(v) => setRange(v as any)}>
-              <SelectTrigger className="h-11 w-[180px] rounded-xl px-4">
-                <SelectValue placeholder="Période" />
-              </SelectTrigger>
-              <SelectContent className="z-50">
-                <SelectItem value="30d">30 derniers jours</SelectItem>
-                <SelectItem value="90d">90 jours</SelectItem>
-                <SelectItem value="ytd">Année en cours</SelectItem>
-              </SelectContent>
-            </Select>
-
             <div className="flex flex-wrap items-center gap-2">
               <Input
                 placeholder="Rechercher client / rep / produit"
