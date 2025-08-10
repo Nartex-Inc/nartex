@@ -37,7 +37,7 @@ export function Header({
 
         {/* Brand (theme-aware via currentColor) */}
         <div className="flex items-center gap-2">
-          <NartexLogo className="h-6 w-auto text-foreground transition-colors" />
+          <NartexLogo className="h-5 w-auto text-foreground select-none" />
         </div>
 
         <div className="ml-auto" />
