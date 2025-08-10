@@ -1,3 +1,4 @@
+// src/app/dashboard/page.tsx
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -140,25 +141,29 @@ export default function DashboardPage() {
 
   return (
     <section className="relative">
-      {/* background is now scoped to this section and sits *behind* content */}
+      {/* background is scoped and behind content */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 z-0
-                   [background:radial-gradient(1200px_600px_at_50%_-10%,hsl(var(--primary)/0.10),transparent_60%),
+                   [background:radial-gradient(1400px_700px_at_50%_-12%,hsl(var(--primary)/0.08),transparent_60%),
                                conic-gradient(from_180deg_at_50%_0%,hsl(var(--border))_0deg,transparent_40deg)]"
       />
 
-      <div className="relative z-10 mx-auto max-w-[1400px] px-5 pb-10 pt-8 sm:px-8">
+      <div className="relative z-10 mx-auto max-w-[1440px] px-6 pb-14 pt-10 sm:px-10">
         {/* Header / Filters */}
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Bonjour, {userName}</h1>
-            <p className="text-sm text-muted-foreground">Vue consolidée — ventes et pipeline produit</p>
+            <h1 className="text-[22px] font-semibold leading-tight tracking-tight sm:text-2xl">
+              Bonjour, {userName}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Vue consolidée — ventes et pipeline produit
+            </p>
           </div>
 
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
             <Select value={tenant} onValueChange={(v) => setTenant(v as Subsidiary)}>
-              <SelectTrigger className="w-[180px] rounded-xl">
+              <SelectTrigger className="h-11 w-[200px] rounded-xl px-4">
                 <SelectValue placeholder="Filiale" />
               </SelectTrigger>
               <SelectContent className="z-50">
@@ -170,7 +175,7 @@ export default function DashboardPage() {
             </Select>
 
             <Select value={range} onValueChange={(v) => setRange(v as any)}>
-              <SelectTrigger className="w-[160px] rounded-xl">
+              <SelectTrigger className="h-11 w-[180px] rounded-xl px-4">
                 <SelectValue placeholder="Période" />
               </SelectTrigger>
               <SelectContent className="z-50">
@@ -185,9 +190,9 @@ export default function DashboardPage() {
                 placeholder="Rechercher client / rep / produit"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-[260px] rounded-xl"
+                className="h-11 w-[280px] rounded-xl px-4"
               />
-              <Button className="rounded-xl px-3">
+              <Button className="h-11 rounded-xl px-3">
                 <ArrowUpRight className="mr-1 h-4 w-4" />
                 Exporter
               </Button>
@@ -196,7 +201,7 @@ export default function DashboardPage() {
         </div>
 
         {/* KPIs */}
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard title="Revenu" value={currency(totalRevenue)} hint={`${orders} commandes`} icon={<TrendingUp className="h-4 w-4" />} />
           <MetricCard title="Clients actifs" value={String(customers)} hint="sur la période" icon={<UsersRound className="h-4 w-4" />} />
           <MetricCard title="Ticket moyen" value={currency(avgTicket)} hint="revenu / commande" icon={<ShoppingCart className="h-4 w-4" />} />
@@ -204,10 +209,10 @@ export default function DashboardPage() {
         </div>
 
         {/* Charts */}
-        <div className="mt-6 grid gap-6 lg:grid-cols-3">
-          <ChartCard title="Évolution des ventes par produit" className="lg:col-span-2">
+        <div className="mt-8 grid gap-8 lg:grid-cols-3">
+          <ChartCard title="Évolution des ventes par produit" className="lg:col-span-2" height={360}>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={monthProduct} margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
+              <LineChart data={monthProduct} margin={{ left: 16, right: 8, top: 8, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`} />
@@ -221,15 +226,15 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Répartition par produit (période)">
+          <ChartCard title="Répartition par produit (période)" height={360}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={byProduct}
                   dataKey="revenue"
                   nameKey="name"
-                  innerRadius={64}
-                  outerRadius={96}
+                  innerRadius={72}
+                  outerRadius={110}
                   strokeWidth={1.5}
                   fillOpacity={0.95}
                 />
@@ -241,13 +246,13 @@ export default function DashboardPage() {
         </div>
 
         {/* Rankings */}
-        <Card className="mt-6 rounded-2xl border-none bg-card/60 shadow-sm ring-1 ring-border/60 backdrop-blur">
-          <CardHeader className="pb-3">
+        <Card className="mt-8 rounded-2xl border-none bg-card/70 shadow-sm ring-1 ring-border/60 backdrop-blur">
+          <CardHeader className="px-7 pb-2 pt-6">
             <CardTitle>Classements</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-2 pb-6 pt-0 sm:px-4">
             <Tabs defaultValue="customers" className="w-full">
-              <TabsList className="z-10 mb-3 rounded-full bg-muted/60 p-1">
+              <TabsList className="z-10 mb-4 rounded-full bg-muted/60 p-1">
                 <TabsTrigger className="rounded-full px-3 py-1.5" value="customers">Top Clients</TabsTrigger>
                 <TabsTrigger className="rounded-full px-3 py-1.5" value="reps">Top Experts (Reps)</TabsTrigger>
                 <TabsTrigger className="rounded-full px-3 py-1.5" value="products">Top Produits</TabsTrigger>
@@ -260,11 +265,11 @@ export default function DashboardPage() {
         </Card>
 
         {/* Collections (at risk) */}
-        <Card className="mt-6 rounded-2xl border-none bg-card/60 shadow-sm ring-1 ring-border/60 backdrop-blur">
-          <CardHeader className="pb-2">
+        <Card className="mt-8 rounded-2xl border-none bg-card/70 shadow-sm ring-1 ring-border/60 backdrop-blur">
+          <CardHeader className="px-7 pb-2 pt-6">
             <CardTitle>Recouvrement — clients à risque</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-7 pb-6 pt-0">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -293,7 +298,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* Daily revenue spark area */}
-        <ChartCard title="Ventes quotidiennes (période)" height={240} className="mt-6">
+        <ChartCard title="Ventes quotidiennes (période)" height={260} className="mt-8">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={rows.map((r) => ({ date: r.date, revenue: r.revenue }))}>
               <defs>
@@ -312,8 +317,8 @@ export default function DashboardPage() {
         </ChartCard>
 
         {/* Product Pipeline */}
-        <Card className="mt-8 rounded-2xl border-none bg-card/60 shadow-sm ring-1 ring-border/60 backdrop-blur">
-          <CardHeader className="pb-2">
+        <Card className="mt-10 rounded-2xl border-none bg-card/70 shadow-sm ring-1 ring-border/60 backdrop-blur">
+          <CardHeader className="px-7 pb-2 pt-6">
             <CardTitle>Pipeline Lancement de Produit</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -330,32 +335,33 @@ function MetricCard({
   title, value, hint, icon,
 }: { title: string; value: string; hint?: string; icon?: React.ReactNode }) {
   return (
-    <Card className="relative overflow-hidden rounded-2xl border-none bg-card/70 shadow-sm ring-1 ring-border/60 backdrop-blur">
-      <CardHeader className="pb-1">
+    <Card className="relative overflow-hidden rounded-2xl border-none bg-card/80 shadow-sm ring-1 ring-border/60 backdrop-blur">
+      <CardHeader className="px-7 pb-2 pt-6">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium text-muted-foreground">{title}</span>
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted/60 text-muted-foreground">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-muted/60 text-muted-foreground">
             {icon}
           </span>
         </div>
       </CardHeader>
-      <CardContent className="pt-0">
-        <div className="text-2xl font-semibold tracking-tight">{value}</div>
-        {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+      <CardContent className="px-7 pb-6 pt-0">
+        <div className="text-[26px] font-semibold tracking-tight sm:text-2xl">{value}</div>
+        {hint && <p className="mt-1.5 text-xs text-muted-foreground">{hint}</p>}
       </CardContent>
     </Card>
   );
 }
 
 function ChartCard({
-  title, children, height = 320, className = "",
+  title, children, height = 340, className = "",
 }: { title: string; children: React.ReactNode; height?: number; className?: string }) {
   return (
-    <Card className={`rounded-2xl border-none bg-card/70 shadow-sm ring-1 ring-border/60 backdrop-blur ${className}`}>
-      <CardHeader className="pb-2">
+    <Card className={`rounded-2xl border-none bg-card/80 shadow-sm ring-1 ring-border/60 backdrop-blur ${className}`}>
+      <CardHeader className="px-7 pb-2 pt-6">
         <CardTitle>{title}</CardTitle>
       </CardHeader>
-      <CardContent className="h-[--h] p-0 pr-2" style={{ ["--h" as any]: `${height}px` }}>
+      <CardContent className="h-[--h] overflow-visible px-1 pb-6 pt-0 sm:px-3"
+        style={{ ["--h" as any]: `${height}px` }}>
         {children}
       </CardContent>
     </Card>
@@ -366,21 +372,23 @@ function TopTable({
   title, rows, currency: asCurrency = false,
 }: { title: string; rows: { name: string; revenue: number }[]; currency?: boolean }) {
   return (
-    <Card className="rounded-2xl border-none bg-card/70 shadow-sm ring-1 ring-border/60 backdrop-blur">
-      <CardHeader className="pb-2"><CardTitle>{title}</CardTitle></CardHeader>
-      <CardContent className="grid gap-6 lg:grid-cols-2">
-        <div className="h-[260px]">
+    <Card className="rounded-2xl border-none bg-card/80 shadow-sm ring-1 ring-border/60 backdrop-blur">
+      <CardHeader className="px-7 pb-2 pt-6">
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-8 px-7 pb-6 pt-0 lg:grid-cols-2">
+        <div className="h-[280px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={rows} margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" hide />
               <YAxis tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`} />
               <Tooltip formatter={(v: number) => (asCurrency ? currency(v) : v)} />
-              <Bar dataKey="revenue" radius={[8, 8, 0, 0]} fill={CHART_COLORS.RG2T} />
+              <Bar dataKey="revenue" radius={[10, 10, 0, 0]} fill={CHART_COLORS.RG2T} />
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div>
+        <div className="-mx-2 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
