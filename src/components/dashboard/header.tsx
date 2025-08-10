@@ -1,3 +1,4 @@
+// src/components/dashboard/header.tsx
 "use client";
 
 import * as React from "react";
@@ -36,14 +37,38 @@ export function Header({
 
         {/* Brand */}
         <div className="flex items-center gap-2">
+          {/* Preferred: two assets (light & dark) */}
+          <Image
+            src="/nartex-logo.svg"            // dark text/logo for LIGHT mode
+            alt="Nartex"
+            width={96}
+            height={20}
+            priority
+            className="select-none block dark:hidden"
+          />
+          <Image
+            src="/nartex-logo-white.svg"      // white logo for DARK mode
+            alt="Nartex"
+            width={96}
+            height={20}
+            priority
+            className="select-none hidden dark:block"
+          />
+
+          {/* Fallback if you don't have /nartex-logo-white.svg yet:
+             uncomment the next block and remove the two <Image> tags above.
+             This just inverts the base logo in dark mode.
+          */}
+          {/*
           <Image
             src="/nartex-logo.svg"
             alt="Nartex"
             width={96}
             height={20}
             priority
-            className="select-none"
+            className="select-none dark:invert"
           />
+          */}
         </div>
 
         <div className="ml-auto" />
