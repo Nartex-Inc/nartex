@@ -135,7 +135,7 @@ function SignupForm() {
           <div className="hidden lg:flex lg:flex-col lg:w-1/2 py-12">
             <h1 className="text-6xl font-light tracking-tighter mb-6 flex items-baseline flex-nowrap">
                 <span className="text-white/80 whitespace-nowrap">Rejoignez</span>
-                <NartexLogo width={180} height={45} className="ml-4 text-emerald-400" />
+                <NartexLogo className="ml-4 h-[45px] w-auto text-emerald-400" />
             </h1>
             <p className="text-xl text-zinc-400 mb-12 leading-relaxed max-w-lg">La plateforme de gestion centralisée qui révolutionne votre productivité et transforme vos flux de travail.</p>
             <div className="space-y-8">
