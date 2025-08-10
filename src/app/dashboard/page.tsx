@@ -1,35 +1,39 @@
 // src/app/dashboard/page.tsx
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { useSession } from "next-auth/react";
 import {
-  LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie,
+  LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from "recharts";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ArrowUpRight, ShoppingCart, UsersRound, PackageOpen, TrendingUp } from "lucide-react";
+import { ShoppingCart, UsersRound, PackageOpen, TrendingUp } from "lucide-react";
 
 import { PipelineKanbanView, KanbanStage } from "@/components/dashboard/pipeline-kanban-view";
 import { ProductLifecycleStage, Project } from "@/lib/types";
 import { mockProjectsData } from "@/lib/data";
 
-/* ------------------------- Design Tokens (local) ------------------------- */
+/* -------------------------------------------------------------------------- */
+/*                               Visual Tokens                                */
+/* -------------------------------------------------------------------------- */
 const CHART_COLORS = {
-  RGP2T: "#60a5fa",
-  RG2T:  "#34d399",
-  IP1:   "#f59e0b",
-  IP20:  "#a78bfa",
+  RGP2T: "#635BFF", // Stripe purple-ish
+  RG2T:  "#00D4FF", // Cyan
+  IP1:   "#66E3A4", // Mint
+  IP20:  "#FFB672", // Peach
 };
 
-/* ------------------------------- Demo Data ------------------------------- */
+const SURFACE = "rounded-2xl border-none bg-[rgba(16,18,27,0.66)] shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset,0_8px_30px_rgba(0,0,0,0.35)] ring-1 ring-white/10 backdrop-blur";
+
+/* -------------------------------------------------------------------------- */
+/*                                   Data                                     */
+/* -------------------------------------------------------------------------- */
+
 type Subsidiary = "SINTO" | "PROLAB" | "Otoprotec" | "Lubrilab";
 type SaleRecord = {
   id: string; date: string; subsidiary: Subsidiary; customer: string; salesRep: string;
@@ -56,17 +60,11 @@ const DEMO_SALES: SaleRecord[] = [
   { id: "c4", date: "2025-05-27", subsidiary: "SINTO", customer: "Forestra", salesRep: "Patrick Roy", product: "IP20",  units: 55,  revenue: 10100, dso: 46 },
 ];
 
-/* --------------------------------- Utils -------------------------------- */
+/* -------------------------------------------------------------------------- */
+/*                                  Utils                                     */
+/* -------------------------------------------------------------------------- */
 const currency = (n: number) =>
   new Intl.NumberFormat("fr-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(n);
-
-const dateInRange = (d: string, days: number) => {
-  const now = new Date();
-  const start = new Date(now);
-  start.setDate(now.getDate() - days);
-  const x = new Date(d);
-  return x >= start && x <= now;
-};
 
 function aggregateBy<T extends keyof SaleRecord>(rows: SaleRecord[], key: T) {
   const map = new Map<string, number>();
@@ -87,12 +85,14 @@ function groupByMonthProduct(rows: SaleRecord[]) {
   return Object.keys(map).sort().map((m) => ({ month: m, ...map[m] }));
 }
 
-/* ---------------------------------- Page --------------------------------- */
+/* -------------------------------------------------------------------------- */
+/*                                   Page                                     */
+/* -------------------------------------------------------------------------- */
 export default function DashboardPage() {
   const { data: session } = useSession();
-  const [tenant, setTenant] = useState<Subsidiary>("SINTO");
-  const [range, setRange] = useState<"30d" | "90d" | "ytd">("30d");
-  const [search, setSearch] = useState("");
+
+  // With filters removed, we simply use the full dataset
+  const rows = DEMO_SALES;
 
   const projects: Project[] = mockProjectsData;
   const STAGES = [
@@ -106,24 +106,6 @@ export default function DashboardPage() {
   ];
   const pipelineDataForKanban: KanbanStage[] = STAGES.map((cfg) => ({ ...cfg, projects: projects.filter(p => p.stage === cfg.id) }));
 
-  // Filtered sales
-  const base = useMemo(() => DEMO_SALES.filter((r) => r.subsidiary === tenant), [tenant]);
-  const ranged = useMemo(() => {
-    if (range === "30d") return base.filter((r) => dateInRange(r.date, 30));
-    if (range === "90d") return base.filter((r) => dateInRange(r.date, 90));
-    const now = new Date(); const start = new Date(now.getFullYear(), 0, 1);
-    return base.filter((r) => new Date(r.date) >= start && new Date(r.date) <= now);
-  }, [base, range]);
-  const rows = useMemo(
-    () => ranged.filter((r) =>
-      !search ||
-      r.customer.toLowerCase().includes(search.toLowerCase()) ||
-      r.salesRep.toLowerCase().includes(search.toLowerCase()) ||
-      r.product.toLowerCase().includes(search.toLowerCase())
-    ),
-    [ranged, search]
-  );
-
   // KPIs
   const totalRevenue  = useMemo(() => rows.reduce((a, b) => a + b.revenue, 0), [rows]);
   const customers     = useMemo(() => new Set(rows.map((r) => r.customer)).size, [rows]);
@@ -135,64 +117,50 @@ export default function DashboardPage() {
   const byCustomer    = useMemo(() => aggregateBy(rows, "customer").sort((a,b)=>b.revenue-a.revenue).slice(0,8), [rows]);
   const byRep         = useMemo(() => aggregateBy(rows, "salesRep").sort((a,b)=>b.revenue-a.revenue).slice(0,8), [rows]);
   const byProduct     = useMemo(() => aggregateBy(rows, "product").sort((a,b)=>b.revenue-a.revenue), [rows]);
-  const monthProduct  = useMemo(() => groupByMonthProduct(base), [base]);
+  const monthProduct  = useMemo(() => groupByMonthProduct(rows), [rows]);
 
   const userName = session?.user?.name || session?.user?.email?.split("@")[0] || "Utilisateur";
 
   return (
     <section className="relative">
-      {/* background is scoped and behind content */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 z-0
-                   [background:radial-gradient(1400px_700px_at_50%_-12%,hsl(var(--primary)/0.08),transparent_60%),
-                               conic-gradient(from_180deg_at_50%_0%,hsl(var(--border))_0deg,transparent_40deg)]"
-      />
+      {/* Layered Stripe-like background */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 z-0">
+        <div className="absolute inset-0 bg-[radial-gradient(1200px_600px_at_50%_-10%,rgba(99,91,255,0.18),transparent_60%)]"/>
+        <div className="absolute inset-0 bg-[conic-gradient(from_180deg_at_50%_0%,rgba(255,255,255,0.08)_0deg,transparent_60deg)]"/>
+        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent,rgba(0,0,0,0.25))]"/>
+      </div>
 
-      <div className="relative z-10 mx-auto max-w-[1440px] px-6 pb-14 pt-10 sm:px-10">
-        {/* Header / Filters */}
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-[22px] font-semibold leading-tight tracking-tight sm:text-2xl">
-              Bonjour, {userName}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Vue consolidée — ventes et pipeline produit
-            </p>
+      <div className="relative z-10 mx-auto max-w-[1440px] px-6 pb-16 pt-10 sm:px-10">
+        {/* Top header (no filters) */}
+        <header className="mb-8 flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="rounded-full bg-white/5 px-2 py-1 ring-1 ring-white/10">Tableau de bord</span>
           </div>
+          <h1 className="text-[26px] font-semibold tracking-tight sm:text-3xl">
+            Bonjour, {userName}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Vue consolidée — ventes et pipeline produit
+          </p>
+        </header>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Input
-                placeholder="Rechercher client / rep / produit"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-11 w-[280px] rounded-xl px-4"
-              />
-              <Button className="h-11 rounded-xl px-3">
-                <ArrowUpRight className="mr-1 h-4 w-4" />
-                Exporter
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* KPIs */}
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        {/* KPI Cards */}
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard title="Revenu" value={currency(totalRevenue)} hint={`${orders} commandes`} icon={<TrendingUp className="h-4 w-4" />} />
           <MetricCard title="Clients actifs" value={String(customers)} hint="sur la période" icon={<UsersRound className="h-4 w-4" />} />
           <MetricCard title="Ticket moyen" value={currency(avgTicket)} hint="revenu / commande" icon={<ShoppingCart className="h-4 w-4" />} />
           <MetricCard title="DSO moyen" value={`${avgDSO} j`} hint="délai de paiement" icon={<PackageOpen className="h-4 w-4" />} />
         </div>
 
-        {/* Charts */}
+        {/* Charts Row */}
         <div className="mt-8 grid gap-8 lg:grid-cols-3">
           <ChartCard title="Évolution des ventes par produit" className="lg:col-span-2" height={360}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={monthProduct} margin={{ left: 16, right: 8, top: 8, bottom: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`} />
-                <Tooltip formatter={(v: number) => currency(v)} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                <XAxis dataKey="month" tick={{ fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
+                <YAxis tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`} tick={{ fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
+                <Tooltip formatter={(v: number) => currency(v)} contentStyle={{ background: "rgba(16,18,27,0.9)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12 }} />
                 <Legend />
                 <Line type="monotone" dataKey="RGP2T" stroke={CHART_COLORS.RGP2T} strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="RG2T"  stroke={CHART_COLORS.RG2T}  strokeWidth={2} dot={false} />
@@ -205,16 +173,12 @@ export default function DashboardPage() {
           <ChartCard title="Répartition par produit (période)" height={360}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie
-                  data={byProduct}
-                  dataKey="revenue"
-                  nameKey="name"
-                  innerRadius={72}
-                  outerRadius={110}
-                  strokeWidth={1.5}
-                  fillOpacity={0.95}
-                />
-                <Tooltip formatter={(v: number) => currency(v)} />
+                <Pie data={byProduct} dataKey="revenue" nameKey="name" innerRadius={72} outerRadius={110} strokeWidth={1.5} fillOpacity={0.95}>
+                  {byProduct.map((p) => (
+                    <Cell key={p.name} fill={CHART_COLORS[p.name as keyof typeof CHART_COLORS] ?? "#9CA3AF"} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(v: number) => currency(v)} contentStyle={{ background: "rgba(16,18,27,0.9)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12 }} />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
@@ -222,16 +186,16 @@ export default function DashboardPage() {
         </div>
 
         {/* Rankings */}
-        <Card className="mt-8 rounded-2xl border-none bg-card/70 shadow-sm ring-1 ring-border/60 backdrop-blur">
+        <Card className={`${SURFACE} mt-8`}>
           <CardHeader className="px-7 pb-2 pt-6">
             <CardTitle>Classements</CardTitle>
           </CardHeader>
           <CardContent className="px-2 pb-6 pt-0 sm:px-4">
             <Tabs defaultValue="customers" className="w-full">
-              <TabsList className="z-10 mb-4 rounded-full bg-muted/60 p-1">
-                <TabsTrigger className="rounded-full px-3 py-1.5" value="customers">Top Clients</TabsTrigger>
-                <TabsTrigger className="rounded-full px-3 py-1.5" value="reps">Top Experts (Reps)</TabsTrigger>
-                <TabsTrigger className="rounded-full px-3 py-1.5" value="products">Top Produits</TabsTrigger>
+              <TabsList className="z-10 mb-4 rounded-full bg-white/5 p-1 ring-1 ring-white/10">
+                <TabsTrigger className="rounded-full px-3 py-1.5 data-[state=active]:bg-white/10" value="customers">Top Clients</TabsTrigger>
+                <TabsTrigger className="rounded-full px-3 py-1.5 data-[state=active]:bg-white/10" value="reps">Top Experts (Reps)</TabsTrigger>
+                <TabsTrigger className="rounded-full px-3 py-1.5 data-[state=active]:bg-white/10" value="products">Top Produits</TabsTrigger>
               </TabsList>
               <TabsContent value="customers"><TopTable title="Principaux clients (revenu)" rows={byCustomer} currency /></TabsContent>
               <TabsContent value="reps"><TopTable title="Meilleurs experts (revenu)" rows={byRep} currency /></TabsContent>
@@ -241,7 +205,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* Collections (at risk) */}
-        <Card className="mt-8 rounded-2xl border-none bg-card/70 shadow-sm ring-1 ring-border/60 backdrop-blur">
+        <Card className={`${SURFACE} mt-8`}>
           <CardHeader className="px-7 pb-2 pt-6">
             <CardTitle>Recouvrement — clients à risque</CardTitle>
           </CardHeader>
@@ -261,7 +225,7 @@ export default function DashboardPage() {
                   .sort((a, b) => (b.pastDue ?? 0) - (a.pastDue ?? 0))
                   .slice(0, 6)
                   .map((r) => (
-                    <TableRow key={r.id} className="hover:bg-muted/40">
+                    <TableRow key={r.id} className="hover:bg-white/5">
                       <TableCell className="font-medium">{r.customer}</TableCell>
                       <TableCell>{r.product}</TableCell>
                       <TableCell>{currency(r.revenue)}</TableCell>
@@ -283,17 +247,17 @@ export default function DashboardPage() {
                   <stop offset="95%" stopColor={CHART_COLORS.RGP2T} stopOpacity={0.08} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`} />
-              <Tooltip formatter={(v: number) => currency(v)} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+              <XAxis dataKey="date" tick={{ fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
+              <YAxis tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`} tick={{ fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
+              <Tooltip formatter={(v: number) => currency(v)} contentStyle={{ background: "rgba(16,18,27,0.9)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12 }} />
               <Area type="monotone" dataKey="revenue" stroke={CHART_COLORS.RGP2T} strokeWidth={2} fill="url(#rev)" />
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
 
         {/* Product Pipeline */}
-        <Card className="mt-10 rounded-2xl border-none bg-card/70 shadow-sm ring-1 ring-border/60 backdrop-blur">
+        <Card className={`${SURFACE} mt-10`}>
           <CardHeader className="px-7 pb-2 pt-6">
             <CardTitle>Pipeline Lancement de Produit</CardTitle>
           </CardHeader>
@@ -307,15 +271,15 @@ export default function DashboardPage() {
 }
 
 /* --------------------------- Polished UI blocks -------------------------- */
-function MetricCard({
-  title, value, hint, icon,
-}: { title: string; value: string; hint?: string; icon?: React.ReactNode }) {
+function MetricCard({ title, value, hint, icon }: { title: string; value: string; hint?: string; icon?: React.ReactNode }) {
   return (
-    <Card className="relative overflow-hidden rounded-2xl border-none bg-card/80 shadow-sm ring-1 ring-border/60 backdrop-blur">
+    <Card className={`${SURFACE} relative overflow-hidden`}>      
+      {/* subtle glow */}
+      <div aria-hidden className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-[radial-gradient(circle,rgba(99,91,255,0.25),transparent_60%)]" />
       <CardHeader className="px-7 pb-2 pt-6">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium text-muted-foreground">{title}</span>
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-muted/60 text-muted-foreground">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-muted-foreground ring-1 ring-white/10">
             {icon}
           </span>
         </div>
@@ -328,27 +292,22 @@ function MetricCard({
   );
 }
 
-function ChartCard({
-  title, children, height = 340, className = "",
-}: { title: string; children: React.ReactNode; height?: number; className?: string }) {
+function ChartCard({ title, children, height = 340, className = "" }: { title: string; children: React.ReactNode; height?: number; className?: string }) {
   return (
-    <Card className={`rounded-2xl border-none bg-card/80 shadow-sm ring-1 ring-border/60 backdrop-blur ${className}`}>
+    <Card className={`${SURFACE} ${className}`}>
       <CardHeader className="px-7 pb-2 pt-6">
         <CardTitle>{title}</CardTitle>
       </CardHeader>
-      <CardContent className="h-[--h] overflow-visible px-1 pb-6 pt-0 sm:px-3"
-        style={{ ["--h" as any]: `${height}px` }}>
+      <CardContent className="h-[--h] overflow-visible px-1 pb-6 pt-0 sm:px-3" style={{ ["--h" as any]: `${height}px` }}>
         {children}
       </CardContent>
     </Card>
   );
 }
 
-function TopTable({
-  title, rows, currency: asCurrency = false,
-}: { title: string; rows: { name: string; revenue: number }[]; currency?: boolean }) {
+function TopTable({ title, rows, currency: asCurrency = false }: { title: string; rows: { name: string; revenue: number }[]; currency?: boolean }) {
   return (
-    <Card className="rounded-2xl border-none bg-card/80 shadow-sm ring-1 ring-border/60 backdrop-blur">
+    <Card className={`${SURFACE}`}>
       <CardHeader className="px-7 pb-2 pt-6">
         <CardTitle>{title}</CardTitle>
       </CardHeader>
@@ -356,10 +315,10 @@ function TopTable({
         <div className="h-[280px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={rows} margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
               <XAxis dataKey="name" hide />
-              <YAxis tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`} />
-              <Tooltip formatter={(v: number) => (asCurrency ? currency(v) : v)} />
+              <YAxis tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`} tick={{ fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
+              <Tooltip formatter={(v: number) => (asCurrency ? currency(v) : v)} contentStyle={{ background: "rgba(16,18,27,0.9)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12 }} />
               <Bar dataKey="revenue" radius={[10, 10, 0, 0]} fill={CHART_COLORS.RG2T} />
             </BarChart>
           </ResponsiveContainer>
@@ -375,7 +334,7 @@ function TopTable({
             </TableHeader>
             <TableBody>
               {rows.map((r, i) => (
-                <TableRow key={r.name} className="hover:bg-muted/40">
+                <TableRow key={r.name} className="hover:bg-white/5">
                   <TableCell className="w-12">#{i + 1}</TableCell>
                   <TableCell className="font-medium">{r.name}</TableCell>
                   <TableCell className="text-right">{asCurrency ? currency(r.revenue) : r.revenue}</TableCell>
