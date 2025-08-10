@@ -158,7 +158,7 @@ function LoginForm() {
         <div className="container mx-auto flex items-center justify-between">
           <Link href="/" className="relative group">
             <div className="absolute -inset-2 bg-gradient-to-r from-emerald-600 to-green-600 rounded-lg blur-xl opacity-0 group-hover:opacity-20 transition-opacity duration-500"></div>
-            <NartexLogo className="h-5 w-auto text-foreground" />
+            <NartexLogo className="relative h-5 w-auto text-foreground opacity-80 group-hover:opacity-100 transition-opacity" />
           </Link>
           <div className="hidden md:flex items-center gap-2 text-xs text-zinc-600">
             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
