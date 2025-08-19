@@ -19,8 +19,7 @@ env:
     AZURE_AD_CLIENT_ID:     nartex/prod/env:AZURE_AD_CLIENT_ID
     AZURE_AD_CLIENT_SECRET: nartex/prod/env:AZURE_AD_CLIENT_SECRET
     RDS_CREDENTIALS:        nartex/prod/rds-credentials
-    # If you still want to pass a direct connection string during build, uncomment:
-    # DATABASE_URL:           nartex/prod/env:DATABASE_URL
+    # DATABASE_URL:           nartex/prod/env:DATABASE_URL   # only if you really need it at build time
 
 phases:
   install:
@@ -29,7 +28,7 @@ phases:
     commands:
       - echo "📦 INSTALL – npm ci for workspace tooling"
       - npm ci
-      
+
   pre_build:
     commands:
       - echo "📜 PRE_BUILD – write script to disk and run it"
@@ -38,8 +37,8 @@ phases:
         #!/usr/bin/env bash
         set -euo pipefail
         set -x
-  
-        # 1) Runtime deps needed by the app
+
+        # 1) Runtime deps
         npm pkg set dependencies.recharts="^2.12.7"
         npm pkg set dependencies.lucide-react="^0.452.0"
         npm pkg set dependencies.class-variance-authority="^0.7.0"
@@ -48,27 +47,31 @@ phases:
         npm pkg set dependencies.tailwindcss-animate="^1.0.7"
         npm pkg set dependencies.pg="^8.11.3"
         npm pkg set dependencies.swr="^2.3.0"
-  
-        # 1b) Typings so TS is happy in CI
+
+        # 1b) Dev typings so TS is happy in CI
         npm pkg set devDependencies.@types/node="^18.19.0"
         npm pkg set devDependencies.@types/pg="^8.11.7"
-  
-        # 2) Ensure shadcn config exists (no-op if present)
+
+        # 2) shadcn config (idempotent)
         node <<'NODE'
         const fs = require('fs');
         const p = 'components.json';
         const j = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p,'utf8')) : {};
         j.$schema = 'https://ui.shadcn.com/schema.json';
-        j.style = 'default'; j.rsc = true; j.tsx = true;
+        j.style = 'default';
+        j.rsc = true;
+        j.tsx = true;
         j.tailwind = { config: 'tailwind.config.ts', css: 'src/app/globals.css', baseColor: 'gray', cssVariables: true };
-        j.aliases  = { components: '@/components', utils: '@/lib/utils' };
-        j.iconLibrary = 'lucide'; j.components = j.components || []; j.path = 'src/components';
+        j.aliases = { components: '@/components', utils: '@/lib/utils' };
+        j.iconLibrary = 'lucide';
+        j.components = j.components || [];
+        j.path = 'src/components';
         fs.writeFileSync(p, JSON.stringify(j, null, 2));
         NODE
-  
+
         mkdir -p src/lib src/components/ui src/components/dashboard
-  
-        # 3) Helper (cn) if missing
+
+        # 3) cn() helper if missing
         if [ ! -f src/lib/utils.ts ]; then
           cat > src/lib/utils.ts << 'TS'
         import type { ClassValue } from "clsx";
@@ -77,46 +80,70 @@ phases:
         export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
         TS
         fi
-  
-        # 4) Make Webpack/TS understand "@/*" and relax lib checks
+
+        # 4) Make TS/Webpack resolve "@/*" and **parse JSONC** tsconfig safely
         node <<'NODE'
         const fs = require('fs');
-        const p = 'tsconfig.json';
-        const j = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p,'utf8')) : { compilerOptions:{} };
+        const file = 'tsconfig.json';
+        let j = { compilerOptions: {} };
+
+        const strip = (s) =>
+          s.replace(/\/\*[\s\S]*?\*\//g, '')      // /* block comments */
+           .replace(/(^|[^:])\/\/.*$/gm, '$1');   // // line comments (not after ":")
+
+        if (fs.existsSync(file)) {
+          try { j = JSON.parse(strip(fs.readFileSync(file, 'utf8'))); }
+          catch (e) {
+            console.warn('⚠️  tsconfig.json had comments or bad JSON; rewriting minimal config. Reason:', e.message);
+          }
+        }
+
         j.compilerOptions = j.compilerOptions || {};
-        j.compilerOptions.baseUrl = '.';
+        j.compilerOptions.baseUrl = j.compilerOptions.baseUrl || '.';
         j.compilerOptions.paths = Object.assign({ '@/*': ['./src/*'] }, j.compilerOptions.paths || {});
         j.compilerOptions.skipLibCheck = true;
-        j.compilerOptions.types = Array.from(new Set([...(j.compilerOptions.types||[]), 'node']));
-        fs.writeFileSync(p, JSON.stringify(j, null, 2));
+        j.compilerOptions.types = Array.from(new Set([...(j.compilerOptions.types || []), 'node']));
+
+        fs.writeFileSync(file, JSON.stringify(j, null, 2));
         NODE
-  
-        # 5) Minimal fallbacks for missing components (so build won’t fail).
-        #    Safe to keep; real files (if added) will override these.
-        add_stub () {
-          local FILE="$1"; local CONTENT="$2";
-          if [ ! -f "$FILE" ]; then
-            echo "🧩 creating stub $FILE"
-            mkdir -p "$(dirname "$FILE")"
-            printf "%s\n" "$CONTENT" > "$FILE"
-          else
-            echo "✅ found $FILE"
-          fi
+
+        # 5) Minimal stubs so Next build doesn't break if these are missing
+        if [ ! -f src/components/nartex-logo.tsx ]; then
+          cat > src/components/nartex-logo.tsx << 'TSX'
+        import * as React from "react";
+        export default function NartexLogo({ className="" }: { className?: string }) {
+          return <span className={className} style={{ fontWeight: 600, letterSpacing: ".05em" }}>nartex</span>;
         }
-  
-        add_stub src/components/nartex-logo.tsx $'import * as React from "react";\nexport default function NartexLogo({className=""}:{className?:string}){return (<span className={className} style={{fontWeight:600,letterSpacing:\'.05em\'}}>nartex</span>);}'
-  
-        add_stub src/components/dashboard/header.tsx $'import * as React from "react";\nexport default function DashboardHeader(){return (<div className="px-4 py-3 text-sm text-muted-foreground">Dashboard Header</div>);}'
-  
-        add_stub src/components/dashboard/sidebar.tsx $'import * as React from "react";\nexport default function DashboardSidebar(){return (<aside className="p-4 text-sm text-muted-foreground">Sidebar</aside>);}'
-  
-        add_stub src/components/dashboard/new-product-requests-table.tsx $'import * as React from "react";\nexport default function NewProductRequestsTable(){return (<div className="p-4 text-sm text-muted-foreground">New product requests (stub)</div>);}'
-  
-        add_stub src/components/product-requests-table.tsx $'import * as React from "react";\nexport default function ProductRequestsTable(){return (<div className="p-4 text-sm text-muted-foreground">Product requests (stub)</div>);}'
-  
+        TSX
+        fi
+
+        if [ ! -f src/components/dashboard/header.tsx ]; then
+          cat > src/components/dashboard/header.tsx << 'TSX'
+        export default function DashboardHeader(){ return <div className="px-4 py-3 text-sm text-muted-foreground">Dashboard Header</div>; }
+        TSX
+        fi
+
+        if [ ! -f src/components/dashboard/sidebar.tsx ]; then
+          cat > src/components/dashboard/sidebar.tsx << 'TSX'
+        export default function DashboardSidebar(){ return <aside className="p-4 text-sm text-muted-foreground">Sidebar</aside>; }
+        TSX
+        fi
+
+        if [ ! -f src/components/dashboard/new-product-requests-table.tsx ]; then
+          cat > src/components/dashboard/new-product-requests-table.tsx << 'TSX'
+        export default function NewProductRequestsTable(){ return <div className="p-4 text-sm text-muted-foreground">New product requests (stub)</div>; }
+        TSX
+        fi
+
+        if [ ! -f src/components/product-requests-table.tsx ]; then
+          cat > src/components/product-requests-table.tsx << 'TSX'
+        export default function ProductRequestsTable(){ return <div className="p-4 text-sm text-muted-foreground">Product requests (stub)</div>; }
+        TSX
+        fi
+
         echo "📂 Components present:"; ls -la src/components || true; ls -la src/components/dashboard || true
-  
-        # 6) Lockfile refresh for Docker layer
+
+        # 6) Refresh lockfile for Docker layer cache
         npm install --package-lock-only --ignore-scripts --no-audit --no-fund
         SH
       - chmod +x ci-prebuild.sh
@@ -166,7 +193,7 @@ phases:
           --service nartex-next-service \
           --force-new-deployment \
           --region $AWS_DEFAULT_REGION
-        # Tip: for bullet-proof rollouts, update task def to the exact $COMMIT_HASH tag.
+        # Consider pinning the task def to $COMMIT_HASH for exact rollouts.
 
 artifacts:
   files:
