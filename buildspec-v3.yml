@@ -12,6 +12,7 @@ env:
     AZURE_AD_TENANT_ID: "organizations"
 
   secrets-manager:
+    DATABASE_URL:           nartex/prod/env:DATABASE_URL
     EMAIL_SERVER_PASSWORD:  nartex/prod/env:EMAIL_SERVER_PASSWORD
     NEXTAUTH_SECRET:        nartex/prod/env:NEXTAUTH_SECRET
     GOOGLE_CLIENT_ID:       nartex/prod/env:GOOGLE_CLIENT_ID
@@ -19,8 +20,7 @@ env:
     AZURE_AD_CLIENT_ID:     nartex/prod/env:AZURE_AD_CLIENT_ID
     AZURE_AD_CLIENT_SECRET: nartex/prod/env:AZURE_AD_CLIENT_SECRET
     RDS_CREDENTIALS:        nartex/prod/rds-credentials
-    # DATABASE_URL:           nartex/prod/env:DATABASE_URL   # only if you really need it at build time
-
+    
 phases:
   install:
     runtime-versions:
