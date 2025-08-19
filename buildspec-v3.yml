@@ -19,6 +19,8 @@ env:
     AZURE_AD_CLIENT_ID:     nartex/prod/env:AZURE_AD_CLIENT_ID
     AZURE_AD_CLIENT_SECRET: nartex/prod/env:AZURE_AD_CLIENT_SECRET
     RDS_CREDENTIALS:        nartex/prod/rds-credentials
+    # If you still want to pass a direct connection string during build, uncomment:
+    # DATABASE_URL:           nartex/prod/env:DATABASE_URL
 
 phases:
   install:
@@ -36,7 +38,7 @@ phases:
         #!/usr/bin/env bash
         set -euo pipefail
         set -x
-  
+
         # 1) Ensure runtime deps used by dashboard
         npm pkg set dependencies.recharts="^2.12.7"
         npm pkg set dependencies.lucide-react="^0.452.0"
@@ -45,8 +47,8 @@ phases:
         npm pkg set dependencies.tailwind-merge="^2.5.2"
         npm pkg set dependencies.tailwindcss-animate="^1.0.7"
         npm pkg set dependencies.pg="^8.11.3"       # PostgreSQL client
-        npm pkg set dependencies.swr="^2.3.0"       # <- fix: add SWR used by dashboard
-  
+        npm pkg set dependencies.swr="^2.3.0"       # SWR used by /app/dashboard
+
         # 2) Ensure shadcn writes into src/components and aliases match @/*
         node <<'NODE'
         const fs = require('fs');
@@ -63,9 +65,9 @@ phases:
         j.path = 'src/components';
         fs.writeFileSync(p, JSON.stringify(j, null, 2));
         NODE
-  
+
         mkdir -p src/lib src/components/ui
-  
+
         # 3) cn() helper
         if [ ! -f src/lib/utils.ts ]; then
           cat > src/lib/utils.ts << 'TS'
@@ -75,11 +77,11 @@ phases:
         export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
         TS
         fi
-  
-        # 4) shadcn init (won't fail build if it complains about existing config)
+
+        # 4) shadcn init (won't fail build if it complains)
         npx --yes shadcn@latest init -d || true
-  
-        # 5) Add required components if missing (do not fail on network errors)
+
+        # 5) Add components if missing (ignore errors)
         add_if_missing () {
           local NAME="$1"
           if [ ! -f "src/components/ui/${NAME}.tsx" ] && [ ! -f "src/components/ui/${NAME}.ts" ]; then
@@ -90,9 +92,8 @@ phases:
           fi
         }
         for c in button card table tabs input select badge; do add_if_missing "$c"; done
-  
-        # 6) Hard fallbacks – create minimal components if still missing
-        # Input
+
+        # 6) Minimal fallbacks (only if still missing)
         if [ ! -f src/components/ui/input.tsx ]; then
           cat > src/components/ui/input.tsx << 'TSX'
         import * as React from "react";
@@ -105,8 +106,7 @@ phases:
         ); Input.displayName="Input"; export default Input;
         TSX
         fi
-  
-        # Button
+
         if [ ! -f src/components/ui/button.tsx ]; then
           cat > src/components/ui/button.tsx << 'TSX'
         import * as React from "react";
@@ -118,8 +118,7 @@ phases:
         export default Button;
         TSX
         fi
-  
-        # Card
+
         if [ ! -f src/components/ui/card.tsx ]; then
           cat > src/components/ui/card.tsx << 'TSX'
         import * as React from "react";
@@ -132,8 +131,7 @@ phases:
         export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) { return <h3 className={cn("font-semibold", className)} {...props} />; }
         TSX
         fi
-  
-        # Table
+
         if [ ! -f src/components/ui/table.tsx ]; then
           cat > src/components/ui/table.tsx << 'TSX'
         import * as React from "react";
@@ -145,8 +143,7 @@ phases:
         export const TableCell = (p: React.TdHTMLAttributes<HTMLTableCellElement>) => <td className="py-2 px-3" {...p} />;
         TSX
         fi
-  
-        # Tabs (very small stateful shim)
+
         if [ ! -f src/components/ui/tabs.tsx ]; then
           cat > src/components/ui/tabs.tsx << 'TSX'
         import * as React from "react";
@@ -166,8 +163,7 @@ phases:
         };
         TSX
         fi
-  
-        # Select (simple shim)
+
         if [ ! -f src/components/ui/select.tsx ]; then
           cat > src/components/ui/select.tsx << 'TSX'
         import * as React from "react";
@@ -182,8 +178,7 @@ phases:
           <div onClick={onClick} data-value={value} className="cursor-pointer rounded px-2 py-1 hover:bg-muted">{children}</div>;
         TSX
         fi
-  
-        # Badge
+
         if [ ! -f src/components/ui/badge.tsx ]; then
           cat > src/components/ui/badge.tsx << 'TSX'
         import * as React from "react";
@@ -191,50 +186,50 @@ phases:
         export default Badge;
         TSX
         fi
-  
+
         echo "📂 Components present:"
         ls -la src/components/ui || true
-  
+
         # 7) Refresh lockfile (Docker will npm ci from this)
         npm install --package-lock-only --ignore-scripts --no-audit --no-fund
         SH
       - chmod +x ci-prebuild.sh
       - bash ci-prebuild.sh
-    
-    build:
-      commands:
-        - echo "🏗 BUILD – resolve commit hash"
-        - COMMIT_HASH=$(git rev-parse --short HEAD)
-        - echo "🏗 BUILD – docker image (no cache)"
-        - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
-        - |
-          docker build \
-            --no-cache \
-            --build-arg GIT_COMMIT_HASH=$COMMIT_HASH \
-            --build-arg DATABASE_URL="$DATABASE_URL" \
-            --build-arg EMAIL_SERVER_HOST="$EMAIL_SERVER_HOST" \
-            --build-arg EMAIL_SERVER_PORT="$EMAIL_SERVER_PORT" \
-            --build-arg EMAIL_SERVER_USER="$EMAIL_SERVER_USER" \
-            --build-arg EMAIL_SERVER_PASSWORD="$EMAIL_SERVER_PASSWORD" \
-            --build-arg EMAIL_FROM="$EMAIL_FROM" \
-            --build-arg NEXTAUTH_URL="$NEXTAUTH_URL" \
-            --build-arg NEXTAUTH_SECRET="$NEXTAUTH_SECRET" \
-            --build-arg GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
-            --build-arg GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
-            --build-arg AZURE_AD_CLIENT_ID="$AZURE_AD_CLIENT_ID" \
-            --build-arg AZURE_AD_CLIENT_SECRET="$AZURE_AD_CLIENT_SECRET" \
-            --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
-            -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
-            -t "$ECR_IMAGE_URI:latest" .
-  
-        - echo "🔑 Login to ECR"
-        - |
-          PASS="$(aws ecr get-login-password --region "$AWS_DEFAULT_REGION")"
-          echo "$PASS" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
-  
-        - echo "📤 Push images"
-        - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
-        - docker push "$ECR_IMAGE_URI:latest"
+
+  build:
+    commands:
+      - echo "🏗 BUILD – resolve commit hash"
+      - COMMIT_HASH=$(git rev-parse --short HEAD)
+      - echo "🏗 BUILD – docker image (no cache)"
+      - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
+      - |
+        docker build \
+          --no-cache \
+          --build-arg GIT_COMMIT_HASH=$COMMIT_HASH \
+          --build-arg DATABASE_URL="$DATABASE_URL" \
+          --build-arg EMAIL_SERVER_HOST="$EMAIL_SERVER_HOST" \
+          --build-arg EMAIL_SERVER_PORT="$EMAIL_SERVER_PORT" \
+          --build-arg EMAIL_SERVER_USER="$EMAIL_SERVER_USER" \
+          --build-arg EMAIL_SERVER_PASSWORD="$EMAIL_SERVER_PASSWORD" \
+          --build-arg EMAIL_FROM="$EMAIL_FROM" \
+          --build-arg NEXTAUTH_URL="$NEXTAUTH_URL" \
+          --build-arg NEXTAUTH_SECRET="$NEXTAUTH_SECRET" \
+          --build-arg GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
+          --build-arg GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
+          --build-arg AZURE_AD_CLIENT_ID="$AZURE_AD_CLIENT_ID" \
+          --build-arg AZURE_AD_CLIENT_SECRET="$AZURE_AD_CLIENT_SECRET" \
+          --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
+          -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
+          -t "$ECR_IMAGE_URI:latest" .
+
+      - echo "🔑 Login to ECR"
+      - |
+        PASS="$(aws ecr get-login-password --region "$AWS_DEFAULT_REGION")"
+        echo "$PASS" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
+
+      - echo "📤 Push images"
+      - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
+      - docker push "$ECR_IMAGE_URI:latest"
 
   post_build:
     commands:
@@ -245,6 +240,7 @@ phases:
           --service nartex-next-service \
           --force-new-deployment \
           --region $AWS_DEFAULT_REGION
+        # Tip: for bullet-proof rollouts, update task def to the exact $COMMIT_HASH tag.
 
 artifacts:
   files:
