@@ -11,19 +11,22 @@ function buildPool(): Pool {
   if (/^postgres(ql)?:\/\//i.test(raw)) {
     return new Pool({
       connectionString: raw,
-      ssl: { rejectUnauthorized: false }, // set true + CA bundle if you want strict TLS
+      ssl: { rejectUnauthorized: false },
     });
   }
 
   // 2) AWS Secrets Manager JSON
-  const s = JSON.parse(raw); // { username, password, engine, host, port, dbInstanceIdentifier, ... }
+  const s = JSON.parse(raw); // { username, password, host, port, dbInstanceIdentifier, ... }
   const cfg = {
     user:     s.username ?? s.user,
     password: s.password,
     host:     s.host ?? s.hostname,
     port:     Number(s.port ?? 5432),
-    // no dbname key in your secret → fall back to instance id, else 'postgres'
-    database: s.dbname ?? s.database ?? s.db ?? s.dbInstanceIdentifier ?? "postgres",
+
+    // Prefer the RDS instance identifier (nartex-db in your case),
+    // then explicit names, then last-resort 'postgres'.
+    database: s.dbInstanceIdentifier ?? s.dbname ?? s.database ?? s.db ?? "postgres",
+
     ssl: { rejectUnauthorized: false },
   };
 
