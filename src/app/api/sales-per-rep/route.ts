@@ -2,15 +2,21 @@
 import { NextResponse } from "next/server";
 import { pg } from "@/lib/db";
 
+export const dynamic = "force-dynamic"; // avoid caching while you iterate
+
+type SalesPerRepRow = {
+  salesRepName: string;
+  value: number; // will be number thanks to ::float8 cast below
+};
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const mode = (searchParams.get("mode") ?? "money") as "money" | "weight";
-  const gcieid = Number(searchParams.get("gcieid") ?? 2);
-  const custid = Number(searchParams.get("custid") ?? 0);
-  const asOfDate = searchParams.get("asOfDate") ?? new Date().toISOString().slice(0, 10);
-  const targetRep = searchParams.get("rep") ?? ""; // '' = all
+  const mode       = (searchParams.get("mode") ?? "money") as "money" | "weight";
+  const gcieid     = Number(searchParams.get("gcieid") ?? 2);
+  const custid     = Number(searchParams.get("custid") ?? 0);
+  const asOfDate   = (searchParams.get("asOfDate") ?? new Date().toISOString().slice(0, 10));
+  const targetRep  = searchParams.get("rep") ?? ""; // '' = all
 
-  // NOTE: adjust identifiers' case if your DB uses quoted CamelCase.
   const text = `
     WITH bounds AS (
       SELECT
@@ -19,17 +25,18 @@ export async function GET(req: Request) {
     )
     SELECT
       sr.name AS "salesRepName",
-      SUM(
-        CASE
-          WHEN $1::text = 'money'
-          THEN d.amount
-          ELSE d.qty * i.volume         -- replace i.volume with your "weight" basis if different
-        END
-      ) AS value
+      (
+        SUM(
+          CASE
+            WHEN $1::text = 'money' THEN d.amount
+            ELSE d.qty * i.volume
+          END
+        )
+      )::float8 AS value
     FROM invheader h
     JOIN invdetail d ON d.invnbr = h.invnbr AND d.cieid = h.cieid
-    JOIN items i      ON i.itemid = d.itemid
-    JOIN salesrep sr  ON sr.srid  = h.srid
+    JOIN items i     ON i.itemid = d.itemid
+    JOIN salesrep sr ON sr.srid  = h.srid
     WHERE h.cieid = $2
       AND ($3::int = 0 OR h.custid = $3)
       AND ($5::text = '' OR sr.name = $5)
@@ -39,9 +46,15 @@ export async function GET(req: Request) {
   `;
 
   const params = [mode, gcieid, custid, asOfDate, targetRep];
-  const { rows } = await pg.query<{ salesRepName: string; value: string | number }>(text, params);
 
-  // Coerce numeric text to numbers for recharts
-  const data = rows.map(r => ({ salesRepName: r.salesRepName, value: Number(r.value) }));
+  // 👇 Give TypeScript the row type so `r` isn’t `any`
+  const { rows } = await pg.query<SalesPerRepRow>(text, params);
+
+  // If you still prefer to be explicit:
+  const data = rows.map((r: SalesPerRepRow) => ({
+    salesRepName: r.salesRepName,
+    value: r.value,
+  }));
+
   return NextResponse.json(data);
 }
