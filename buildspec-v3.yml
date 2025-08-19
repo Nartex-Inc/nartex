@@ -44,6 +44,7 @@ phases:
         npm pkg set dependencies.clsx="^2.1.1"
         npm pkg set dependencies.tailwind-merge="^2.5.2"
         npm pkg set dependencies.tailwindcss-animate="^1.0.7"
+        npm pkg set dependencies.pg="^8.11.3"   # ← add PostgreSQL client
 
         # 2) Ensure shadcn writes into src/components and aliases match @/*
         node <<'NODE'
