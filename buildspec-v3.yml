@@ -49,11 +49,11 @@ phases:
         npm pkg set dependencies.pg="^8.11.3"
         npm pkg set dependencies.swr="^2.3.0"
   
-        # 1b) **ADDED** – typings for server libs
+        # 1b) Typings for server libs
         npm pkg set devDependencies.@types/node="^18.19.0"
         npm pkg set devDependencies.@types/pg="^8.11.7"
   
-        # 2) Ensure shadcn config exists (don’t error if already present)
+        # 2) Ensure shadcn config exists (safe if already present)
         node <<'NODE'
         const fs = require('fs');
         const p = 'components.json';
@@ -71,21 +71,33 @@ phases:
         NODE
   
         mkdir -p src/lib src/components/ui
-  
-        # minimal cn() helper if missing (unchanged) ...
-        # shadcn init + components (unchanged) ...
-  
         echo "📂 Components present:"; ls -la src/components/ui || true
   
-        # 3) **ADDED** – relax TS lib checking so pg/node types don’t choke the build
+        # 3) JSONC-tolerant tsconfig update (handles comments & trailing commas)
         node <<'NODE'
         const fs = require('fs');
-        const p = 'tsconfig.json';
-        const j = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p,'utf8')) : { compilerOptions:{} };
-        j.compilerOptions = j.compilerOptions || {};
-        j.compilerOptions.skipLibCheck = true;
-        j.compilerOptions.types = Array.from(new Set([...(j.compilerOptions.types||[]), 'node']));
-        fs.writeFileSync(p, JSON.stringify(j, null, 2));
+        const path = 'tsconfig.json';
+        let cfg = { compilerOptions: {} };
+        if (fs.existsSync(path)) {
+          try {
+            const text = fs.readFileSync(path,'utf8');
+            // strip /* */ comments, // comments, and trailing commas
+            const cleaned = text
+              .replace(/\/\*[\s\S]*?\*\//g, '')
+              .replace(/\/\/.*$/gm, '')
+              .replace(/,\s*([}\]])/g, '$1');
+            cfg = JSON.parse(cleaned);
+          } catch (e) {
+            console.log('tsconfig.json parse failed, recreating minimal config');
+            cfg = { compilerOptions: {} };
+          }
+        }
+        cfg.compilerOptions = cfg.compilerOptions || {};
+        cfg.compilerOptions.skipLibCheck = true;
+        const types = new Set([...(cfg.compilerOptions.types || []), 'node']);
+        cfg.compilerOptions.types = Array.from(types);
+        fs.writeFileSync(path, JSON.stringify(cfg, null, 2));
+        console.log('tsconfig.json updated');
         NODE
   
         # 4) Refresh lockfile so Docker's npm ci installs exactly these deps
