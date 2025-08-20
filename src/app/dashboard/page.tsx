@@ -3,7 +3,38 @@
 import useSWR from "swr";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
 
-const fetcher = (u: string) => fetch(u).then(r => r.json());
+const fetcher = async (url: string) => {
+  // optional timeout (10s)
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), 10_000);
+
+  const res = await fetch(url, {
+    cache: "no-store",
+    headers: { Accept: "application/json" },
+    signal: c.signal,
+  }).finally(() => clearTimeout(t));
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status} ${res.statusText}${body ? ` – ${body.slice(0, 300)}` : ""}`);
+  }
+
+  const ct = res.headers.get("content-type") || "";
+  if (!ct.includes("application/json")) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Expected JSON, got: ${ct || "none"}${body ? ` – ${body.slice(0, 300)}` : ""}`);
+  }
+
+  // Guard against invalid JSON
+  const clone = res.clone();
+  try {
+    return await res.json();
+  } catch (e: any) {
+    const body = await clone.text().catch(() => "");
+    throw new Error(`Failed to parse JSON: ${e?.message || e}${body ? ` – ${body.slice(0, 300)}` : ""}`);
+  }
+};
+
 const COLORS = ["#635BFF","#00D4FF","#66E3A4","#FFB672","#9CA3AF","#F59E0B","#10B981","#8B5CF6"];
 const currency = (n: number) => new Intl.NumberFormat("fr-CA",{style:"currency",currency:"CAD",maximumFractionDigits:0}).format(n);
 
