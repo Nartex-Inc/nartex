@@ -1,6 +1,6 @@
 // src/app/api/auth/[...nextauth]/route.ts
 import "server-only";
-import NextAuth from "next-auth";
+import NextAuth from "next-auth/next";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import AzureADProvider from "next-auth/providers/azure-ad";
