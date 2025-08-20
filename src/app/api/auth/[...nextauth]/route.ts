@@ -1,6 +1,4 @@
-# Ensure NextAuth route is v4-compatible & untyped (App Router)
-mkdir -p src/app/api/auth/[...nextauth]
-cat > src/app/api/auth/[...nextauth]/route.ts << 'TS'
+// src/app/api/auth/[...nextauth]/route.ts
 import "server-only";
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -10,7 +8,7 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
-// NOTE: deliberately untyped to avoid CI type mismatches with next-auth v4
+// deliberately untyped to avoid next-auth v4/v5 type mismatches in CI
 const authOptions: any = {
   adapter: PrismaAdapter(prisma),
   providers: [
@@ -87,14 +85,11 @@ const authOptions: any = {
   session: { strategy: "jwt" },
   pages: { signIn: "/", error: "/auth/error" },
   callbacks: {
-    // allow OAuth; require verified email for credentials
     async signIn({ user, account }) {
       if (account?.provider === "google" || account?.provider === "azure-ad") return true;
       return !!(user as any)?.emailVerified;
     },
-
-    async jwt({ token, user, account }) {
-      // copy fresh user props on first sign-in
+    async jwt({ token, user }) {
       if (user) {
         const u: any = user;
         token.sub = u.id;
@@ -106,8 +101,6 @@ const authOptions: any = {
         if (u.image) token.picture = u.image;
         if (u.email) token.email = u.email;
       }
-
-      // hydrate missing fields from DB on subsequent requests
       if (token.sub && (token.role === undefined || token.firstName === undefined)) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.sub as string },
@@ -125,7 +118,6 @@ const authOptions: any = {
       }
       return token;
     },
-
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = token.sub as string;
@@ -139,22 +131,18 @@ const authOptions: any = {
       }
       return session;
     },
-
     async redirect({ url, baseUrl }) {
       if (url.startsWith("/")) return `${baseUrl}${url}`;
       if (new URL(url).origin === baseUrl) return url;
       return baseUrl + "/dashboard";
     },
   },
-
   logger: {
     error(code, metadata) { console.error("NextAuth Error:", code, metadata); },
     warn(code) { console.warn("NextAuth Warning:", code); },
   },
-
   debug: process.env.NODE_ENV === "development",
 };
 
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
-TS
