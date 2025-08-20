@@ -27,16 +27,15 @@ const sqlLower = `
 `;
 
 const sqlCamel = `
-  SET LOCAL search_path TO public;
   WITH bounds AS (
     SELECT make_date(EXTRACT(YEAR FROM $4::date)::int, 1, 1) AS start_curr, $4::date AS as_of
   )
-  SELECT sr.name AS "salesRepName",
-         (SUM(CASE WHEN $1::text='money' THEN d.amount ELSE d.qty * i.volume END))::float8 AS value
-  FROM "InvHeader" h
-  JOIN "InvDetail" d ON d."InvNbr" = h."InvNbr" AND d."CieId" = h."CieId"
-  JOIN "Items"     i ON i."ItemId" = d."ItemId"
-  JOIN "Salesrep" sr ON sr."SrId"   = h."SrId"
+  SELECT sr."Name" AS "salesRepName",
+         (SUM(CASE WHEN $1::text='money' THEN d."Amount" ELSE d."Qty" * i."Volume" END))::float8 AS value
+  FROM public."InvHeader" h
+  JOIN public."InvDetail" d ON d."InvNbr" = h."InvNbr" AND d."CieId" = h."CieId"
+  JOIN public."Items"     i ON i."ItemId" = d."ItemId"
+  JOIN public."Salesrep" sr ON sr."SrId"   = h."SrId"
   WHERE h."CieId" = $2
     AND ($3::int=0 OR h."CustId"=$3)
     AND ($5::text='' OR sr."Name"=$5)
@@ -53,25 +52,29 @@ export async function GET(req: Request) {
   const asOfDate  = searchParams.get("asOfDate") ?? new Date().toISOString().slice(0,10);
   const targetRep = searchParams.get("rep") ?? "";
 
-  const params = [mode, gcieid, custid, asOfDate, targetRep] as const;
+  // IMPORTANT: mutable array, NOT `as const`
+  const params: (string | number)[] = [mode, gcieid, custid, asOfDate, targetRep];
 
   try {
-    // try lower-case
+    // try lower-case first
     const { rows } = await pg.query<Row>(sqlLower, params);
     return NextResponse.json(
       rows.map(r => ({ salesRepName: r.salesRepName, value: Number(r.value) || 0 })),
       { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
     );
   } catch (eLower: any) {
-    // retry CamelCase
     try {
+      // fallback to quoted CamelCase tables/columns
       const { rows } = await pg.query<Row>(sqlCamel, params);
       return NextResponse.json(
         rows.map(r => ({ salesRepName: r.salesRepName, value: Number(r.value) || 0 })),
         { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }
       );
     } catch (eCamel: any) {
-      console.error("sales-per-rep failed", { eLower: String(eLower?.message || eLower), eCamel: String(eCamel?.message || eCamel) });
+      console.error("sales-per-rep failed", {
+        lower: String(eLower?.message || eLower),
+        camel: String(eCamel?.message || eCamel),
+      });
       return NextResponse.json(
         { error: "Query failed", lower: String(eLower?.message || eLower), camel: String(eCamel?.message || eCamel) },
         { status: 500 }
