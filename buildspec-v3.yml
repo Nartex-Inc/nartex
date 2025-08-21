@@ -2,6 +2,7 @@ version: 0.2
 
 env:
   variables:
+    AWS_DEFAULT_REGION: "ca-central-1"
     AWS_ACCOUNT_ID: "586359898361"
     IMAGE_REPO_NAME: "nartex-next"
     NEXTAUTH_URL: "https://app.nartex.ca"
