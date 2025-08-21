@@ -4,7 +4,7 @@
 FROM node:18-bullseye AS builder
 WORKDIR /app
 
-# Build args (so Next can read env at build time if needed)
+# Build args (Next may read some at build time)
 ARG GIT_COMMIT_HASH
 ARG DATABASE_URL
 ARG EMAIL_SERVER_HOST
@@ -36,14 +36,14 @@ ENV GIT_COMMIT_HASH=$GIT_COMMIT_HASH \
     AZURE_AD_TENANT_ID=$AZURE_AD_TENANT_ID \
     NEXT_TELEMETRY_DISABLED=1
 
-# 1) deps
+# 1) Install deps
 COPY package*.json ./
 RUN npm ci
 
-# 2) source
+# 2) Copy source
 COPY . .
 
-# Safety nets to avoid missing files breaking CI
+# Safety nets (keep your helpers present)
 RUN /bin/sh -eu -c '\
   if [ ! -f src/lib/utils.ts ]; then \
     mkdir -p src/lib; \
@@ -76,7 +76,7 @@ RUN /bin/sh -eu -c '\
 # 3) Prisma client
 RUN npx prisma generate
 
-# 4) Build Next (produces .next/standalone with server.js)
+# 4) Build Next.js (standalone output with server.js)
 RUN npm run build
 
 
@@ -91,20 +91,22 @@ ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     NEXT_TELEMETRY_DISABLED=1
 
-# System CA store + openssl
+# OpenSSL + system CA store + curl (needed to fetch trust bundle)
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates openssl curl \
  && rm -rf /var/lib/apt/lists/*
 
 # ---- RDS CA BUNDLE (TRUST) -------------------------------------
-# Option A: Amazon's combined CA bundle (includes 2019 + 2024 roots)
-ADD https://s3.amazonaws.com/rds-downloads/rds-combined-ca-bundle.pem \
-    /etc/ssl/certs/rds-combined-ca-bundle.pem
-# Option B (kept as backup): Global trust store
-ADD https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
-    /etc/ssl/certs/rds-global-bundle.pem
+# Prefer the *regional* bundle for ca-central-1; fall back to the
+# combined/global one if the regional fetch fails. Verify we got certs.
+RUN set -eux; \
+  dest="/etc/ssl/certs/rds-combined-ca-bundle.pem"; \
+  curl -fsSL "https://truststore.pki.rds.amazonaws.com/ca-central-1/ca-bundle.pem" -o "$dest" \
+  || curl -fsSL "https://s3.amazonaws.com/rds-downloads/rds-combined-ca-bundle.pem" -o "$dest"; \
+  chmod 0644 "$dest"; \
+  grep -q "BEGIN CERTIFICATE" "$dest"
 
-# Tell Node to trust this bundle for all outbound TLS (pg, fetch, etc.)
+# Make Node use our bundle for all outbound TLS (pg, fetch, etc.)
 ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/rds-combined-ca-bundle.pem
 
 # 1) Next standalone server output
