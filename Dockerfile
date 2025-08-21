@@ -90,28 +90,31 @@ ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     NEXT_TELEMETRY_DISABLED=1
 
-# OpenSSL + curl
+# Tools + system CA
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates openssl curl \
+ && apt-get install -y --no-install-recommends ca-certificates curl openssl \
  && rm -rf /var/lib/apt/lists/*
 
-# --- MUST fetch the regional bundle; build fails if not present ---
+# ---- Install the current RDS trust bundle (prefer regional, fallback to global) ----
+# We write it to /etc/ssl/certs/rds-ca.pem and ALSO symlink to the legacy combined name
+# so existing PGSSLROOTCERT=/etc/ssl/certs/rds-combined-ca-bundle.pem keeps working.
 RUN set -eux; \
   dest="/etc/ssl/certs/rds-ca.pem"; \
-  curl -fSL "https://truststore.pki.rds.amazonaws.com/ca-central-1/ca-bundle.pem" -o "$dest"; \
+  curl -fsSL "https://truststore.pki.rds.amazonaws.com/ca-central-1/ca-bundle.pem" -o "$dest" \
+  || curl -fsSL "https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem" -o "$dest"; \
   chmod 0644 "$dest"; \
   grep -q "BEGIN CERTIFICATE" "$dest"; \
-  (grep -i "ca-central-1 Root" "$dest" || grep -i "ca-central-1 Root CA" "$dest")
+  ln -sf "$dest" /etc/ssl/certs/rds-combined-ca-bundle.pem
 
-# Make pg/Node use it
-ENV PGSSLROOTCERT=/etc/ssl/certs/rds-ca.pem \
-    PGSSLMODE=verify-full \
-    NODE_EXTRA_CA_CERTS=/etc/ssl/certs/rds-ca.pem
+# Make Node trust the bundle globally (pg, fetch, etc.)
+ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/rds-ca.pem
 
-# Your existing copies
+# --- Next.js app files ---
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
+
+# Prisma (defensive)
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma/client ./node_modules/.prisma/client
 COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
