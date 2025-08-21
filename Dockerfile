@@ -90,36 +90,32 @@ ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     NEXT_TELEMETRY_DISABLED=1
 
-# Tools + system CA store
+# OpenSSL + curl
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates openssl curl \
  && rm -rf /var/lib/apt/lists/*
 
-# ---- RDS trust bundle (no remote ADD; use curl with fallback) ----
-# Prefer regional bundle for ca-central-1; fallback to the older combined bundle.
+# --- MUST fetch the regional bundle; build fails if not present ---
 RUN set -eux; \
-  dest="/etc/ssl/certs/rds-combined-ca-bundle.pem"; \
-  curl -fsSL "https://truststore.pki.rds.amazonaws.com/ca-central-1/ca-bundle.pem" -o "$dest" \
-  || curl -fsSL "https://s3.amazonaws.com/rds-downloads/rds-combined-ca-bundle.pem" -o "$dest"; \
+  dest="/etc/ssl/certs/rds-ca.pem"; \
+  curl -fSL "https://truststore.pki.rds.amazonaws.com/ca-central-1/ca-bundle.pem" -o "$dest"; \
   chmod 0644 "$dest"; \
-  grep -q "BEGIN CERTIFICATE" "$dest"
+  grep -q "BEGIN CERTIFICATE" "$dest"; \
+  (grep -i "ca-central-1 Root" "$dest" || grep -i "ca-central-1 Root CA" "$dest")
 
-# Make Node/pg use this bundle for TLS
-ENV PGSSLMODE=verify-full \
-    PGSSLROOTCERT=/etc/ssl/certs/rds-combined-ca-bundle.pem \
-    NODE_EXTRA_CA_CERTS=/etc/ssl/certs/rds-combined-ca-bundle.pem
+# Make pg/Node use it
+ENV PGSSLROOTCERT=/etc/ssl/certs/rds-ca.pem \
+    PGSSLMODE=verify-full \
+    NODE_EXTRA_CA_CERTS=/etc/ssl/certs/rds-ca.pem
 
-# 1) Next standalone server output
+# Your existing copies
 COPY --from=builder /app/.next/standalone ./
-
-# 2) Static assets & public
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-
-# 3) Prisma schema & engines (defensive)
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma/client ./node_modules/.prisma/client
 COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
 EXPOSE 3000
 CMD ["node", "server.js"]
+
