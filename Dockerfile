@@ -4,7 +4,7 @@
 FROM node:18-bullseye AS builder
 WORKDIR /app
 
-# Build args (passed by your buildspec)
+# Build args (so Next can read env at build time if needed)
 ARG GIT_COMMIT_HASH
 ARG DATABASE_URL
 ARG EMAIL_SERVER_HOST
@@ -20,21 +20,20 @@ ARG AZURE_AD_CLIENT_ID
 ARG AZURE_AD_CLIENT_SECRET
 ARG AZURE_AD_TENANT_ID
 
-# Make them visible to Next at build time where needed
-ENV GIT_COMMIT_HASH=${GIT_COMMIT_HASH} \
-    DATABASE_URL=${DATABASE_URL} \
-    EMAIL_SERVER_HOST=${EMAIL_SERVER_HOST} \
-    EMAIL_SERVER_PORT=${EMAIL_SERVER_PORT} \
-    EMAIL_SERVER_USER=${EMAIL_SERVER_USER} \
-    EMAIL_SERVER_PASSWORD=${EMAIL_SERVER_PASSWORD} \
-    EMAIL_FROM=${EMAIL_FROM} \
-    NEXTAUTH_URL=${NEXTAUTH_URL} \
-    NEXTAUTH_SECRET=${NEXTAUTH_SECRET} \
-    GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID} \
-    GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET} \
-    AZURE_AD_CLIENT_ID=${AZURE_AD_CLIENT_ID} \
-    AZURE_AD_CLIENT_SECRET=${AZURE_AD_CLIENT_SECRET} \
-    AZURE_AD_TENANT_ID=${AZURE_AD_TENANT_ID} \
+ENV GIT_COMMIT_HASH=$GIT_COMMIT_HASH \
+    DATABASE_URL=$DATABASE_URL \
+    EMAIL_SERVER_HOST=$EMAIL_SERVER_HOST \
+    EMAIL_SERVER_PORT=$EMAIL_SERVER_PORT \
+    EMAIL_SERVER_USER=$EMAIL_SERVER_USER \
+    EMAIL_SERVER_PASSWORD=$EMAIL_SERVER_PASSWORD \
+    EMAIL_FROM=$EMAIL_FROM \
+    NEXTAUTH_URL=$NEXTAUTH_URL \
+    NEXTAUTH_SECRET=$NEXTAUTH_SECRET \
+    GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID \
+    GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET \
+    AZURE_AD_CLIENT_ID=$AZURE_AD_CLIENT_ID \
+    AZURE_AD_CLIENT_SECRET=$AZURE_AD_CLIENT_SECRET \
+    AZURE_AD_TENANT_ID=$AZURE_AD_TENANT_ID \
     NEXT_TELEMETRY_DISABLED=1
 
 # 1) deps
@@ -44,7 +43,7 @@ RUN npm ci
 # 2) source
 COPY . .
 
-# Safety nets in CI
+# Safety nets to avoid missing files breaking CI
 RUN /bin/sh -eu -c '\
   if [ ! -f src/lib/utils.ts ]; then \
     mkdir -p src/lib; \
@@ -77,7 +76,7 @@ RUN /bin/sh -eu -c '\
 # 3) Prisma client
 RUN npx prisma generate
 
-# 4) Build Next
+# 4) Build Next (produces .next/standalone with server.js)
 RUN npm run build
 
 
@@ -92,23 +91,26 @@ ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     NEXT_TELEMETRY_DISABLED=1
 
-# System TLS & OpenSSL for Prisma
+# System CA store + openssl
 RUN apt-get update \
- && apt-get install -y --no-install-recommends openssl ca-certificates \
+ && apt-get install -y --no-install-recommends ca-certificates openssl curl \
  && rm -rf /var/lib/apt/lists/*
 
-# ---- RDS CA bundle (so Postgres TLS can be verified) ----
-# The combined bundle contains all active RDS CAs across regions.
+# ---- RDS CA BUNDLE (TRUST) -------------------------------------
+# Option A: Amazon's combined CA bundle (includes 2019 + 2024 roots)
 ADD https://s3.amazonaws.com/rds-downloads/rds-combined-ca-bundle.pem \
     /etc/ssl/certs/rds-combined-ca-bundle.pem
+# Option B (kept as backup): Global trust store
+ADD https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
+    /etc/ssl/certs/rds-global-bundle.pem
 
-# Tell the app where the CA is (your lib/db.ts reads this var)
-ENV PGSSLROOTCERT_PATH=/etc/ssl/certs/rds-combined-ca-bundle.pem
+# Tell Node to trust this bundle for all outbound TLS (pg, fetch, etc.)
+ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/rds-combined-ca-bundle.pem
 
-# 1) Standalone server produced by Next
+# 1) Next standalone server output
 COPY --from=builder /app/.next/standalone ./
 
-# 2) Static assets
+# 2) Static assets & public
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
