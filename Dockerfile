@@ -4,7 +4,7 @@
 FROM node:18-bullseye AS builder
 WORKDIR /app
 
-# Build args (Next may read some at build time)
+# Build args (so Next can read env at build time if needed)
 ARG GIT_COMMIT_HASH
 ARG DATABASE_URL
 ARG EMAIL_SERVER_HOST
@@ -36,14 +36,14 @@ ENV GIT_COMMIT_HASH=$GIT_COMMIT_HASH \
     AZURE_AD_TENANT_ID=$AZURE_AD_TENANT_ID \
     NEXT_TELEMETRY_DISABLED=1
 
-# 1) Install deps
+# 1) deps
 COPY package*.json ./
 RUN npm ci
 
-# 2) Copy source
+# 2) source
 COPY . .
 
-# Safety nets (keep your helpers present)
+# Safety nets
 RUN /bin/sh -eu -c '\
   if [ ! -f src/lib/utils.ts ]; then \
     mkdir -p src/lib; \
@@ -76,7 +76,7 @@ RUN /bin/sh -eu -c '\
 # 3) Prisma client
 RUN npx prisma generate
 
-# 4) Build Next.js (standalone output with server.js)
+# 4) Build Next (produces .next/standalone with server.js)
 RUN npm run build
 
 
@@ -91,23 +91,26 @@ ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     NEXT_TELEMETRY_DISABLED=1
 
-# OpenSSL + system CA store + curl (needed to fetch trust bundle)
+# System tools + CA store
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates openssl curl \
  && rm -rf /var/lib/apt/lists/*
 
-# ---- RDS CA BUNDLE (TRUST) -------------------------------------
-# Prefer the *regional* bundle for ca-central-1; fall back to the
-# combined/global one if the regional fetch fails. Verify we got certs.
-RUN set -eux; \
-  dest="/etc/ssl/certs/rds-combined-ca-bundle.pem"; \
-  curl -fsSL "https://truststore.pki.rds.amazonaws.com/ca-central-1/ca-bundle.pem" -o "$dest" \
-  || curl -fsSL "https://s3.amazonaws.com/rds-downloads/rds-combined-ca-bundle.pem" -o "$dest"; \
-  chmod 0644 "$dest"; \
-  grep -q "BEGIN CERTIFICATE" "$dest"
+# 🔐 Bake the **regional** RDS trust bundle (2024+)
+# This contains the "Amazon RDS ca-central-1 Root CA RSA2048 G1" your DB presents.
+ADD https://truststore.pki.rds.amazonaws.com/ca-central-1/ca-bundle.pem \
+    /etc/ssl/certs/rds-ca-central-1-bundle.pem
 
-# Make Node use our bundle for all outbound TLS (pg, fetch, etc.)
-ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/rds-combined-ca-bundle.pem
+# (Optional fallback) global trust store – kept but unused by default
+ADD https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
+    /etc/ssl/certs/rds-global-bundle.pem
+
+RUN chmod 0644 /etc/ssl/certs/rds-ca-central-1-bundle.pem /etc/ssl/certs/rds-global-bundle.pem
+
+# Tell Node TLS and pg where to find the RDS root
+ENV PGSSLMODE=verify-full \
+    PGSSLROOTCERT=/etc/ssl/certs/rds-ca-central-1-bundle.pem \
+    NODE_EXTRA_CA_CERTS=/etc/ssl/certs/rds-ca-central-1-bundle.pem
 
 # 1) Next standalone server output
 COPY --from=builder /app/.next/standalone ./
