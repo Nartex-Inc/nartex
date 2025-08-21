@@ -4,7 +4,7 @@
 FROM node:18-bullseye AS builder
 WORKDIR /app
 
-# ---- Build args that your buildspec passes (kept so Next can read at build) ---
+# Build args (passed by your buildspec)
 ARG GIT_COMMIT_HASH
 ARG DATABASE_URL
 ARG EMAIL_SERVER_HOST
@@ -20,21 +20,21 @@ ARG AZURE_AD_CLIENT_ID
 ARG AZURE_AD_CLIENT_SECRET
 ARG AZURE_AD_TENANT_ID
 
-# Provide them to the build (Next uses process.env at build time for some pages)
-ENV GIT_COMMIT_HASH=$GIT_COMMIT_HASH \
-    DATABASE_URL=$DATABASE_URL \
-    EMAIL_SERVER_HOST=$EMAIL_SERVER_HOST \
-    EMAIL_SERVER_PORT=$EMAIL_SERVER_PORT \
-    EMAIL_SERVER_USER=$EMAIL_SERVER_USER \
-    EMAIL_SERVER_PASSWORD=$EMAIL_SERVER_PASSWORD \
-    EMAIL_FROM=$EMAIL_FROM \
-    NEXTAUTH_URL=$NEXTAUTH_URL \
-    NEXTAUTH_SECRET=$NEXTAUTH_SECRET \
-    GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID \
-    GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET \
-    AZURE_AD_CLIENT_ID=$AZURE_AD_CLIENT_ID \
-    AZURE_AD_CLIENT_SECRET=$AZURE_AD_CLIENT_SECRET \
-    AZURE_AD_TENANT_ID=$AZURE_AD_TENANT_ID \
+# Make them visible to Next at build time where needed
+ENV GIT_COMMIT_HASH=${GIT_COMMIT_HASH} \
+    DATABASE_URL=${DATABASE_URL} \
+    EMAIL_SERVER_HOST=${EMAIL_SERVER_HOST} \
+    EMAIL_SERVER_PORT=${EMAIL_SERVER_PORT} \
+    EMAIL_SERVER_USER=${EMAIL_SERVER_USER} \
+    EMAIL_SERVER_PASSWORD=${EMAIL_SERVER_PASSWORD} \
+    EMAIL_FROM=${EMAIL_FROM} \
+    NEXTAUTH_URL=${NEXTAUTH_URL} \
+    NEXTAUTH_SECRET=${NEXTAUTH_SECRET} \
+    GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID} \
+    GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET} \
+    AZURE_AD_CLIENT_ID=${AZURE_AD_CLIENT_ID} \
+    AZURE_AD_CLIENT_SECRET=${AZURE_AD_CLIENT_SECRET} \
+    AZURE_AD_TENANT_ID=${AZURE_AD_TENANT_ID} \
     NEXT_TELEMETRY_DISABLED=1
 
 # 1) deps
@@ -44,7 +44,7 @@ RUN npm ci
 # 2) source
 COPY . .
 
-# Safety nets to avoid missing files breaking CI
+# Safety nets in CI
 RUN /bin/sh -eu -c '\
   if [ ! -f src/lib/utils.ts ]; then \
     mkdir -p src/lib; \
@@ -74,10 +74,10 @@ RUN /bin/sh -eu -c '\
   fi \
 '
 
-# 3) Prisma client (uses DATABASE_URL at build only to resolve schema; ok)
+# 3) Prisma client
 RUN npx prisma generate
 
-# 4) Build Next (produces .next/standalone with server.js)
+# 4) Build Next
 RUN npm run build
 
 
@@ -92,19 +92,27 @@ ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     NEXT_TELEMETRY_DISABLED=1
 
-# Prisma engines need OpenSSL; also keep CA bundle for outbound TLS
+# System TLS & OpenSSL for Prisma
 RUN apt-get update \
  && apt-get install -y --no-install-recommends openssl ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
-# 1) Standalone server and node_modules (from Next)
+# ---- RDS CA bundle (so Postgres TLS can be verified) ----
+# The combined bundle contains all active RDS CAs across regions.
+ADD https://s3.amazonaws.com/rds-downloads/rds-combined-ca-bundle.pem \
+    /etc/ssl/certs/rds-combined-ca-bundle.pem
+
+# Tell the app where the CA is (your lib/db.ts reads this var)
+ENV PGSSLROOTCERT_PATH=/etc/ssl/certs/rds-combined-ca-bundle.pem
+
+# 1) Standalone server produced by Next
 COPY --from=builder /app/.next/standalone ./
 
-# 2) Static assets and public folder (Next expects these alongside server.js)
+# 2) Static assets
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
-# 3) Prisma schema & engines (defensive: some setups require these at root)
+# 3) Prisma schema & engines (defensive)
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma/client ./node_modules/.prisma/client
 COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
