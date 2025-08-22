@@ -29,7 +29,7 @@ val AS (
       WHEN h."InvDate" BETWEEN (SELECT start_curr FROM b) AND (SELECT as_of FROM b) THEN
         CASE WHEN $1::text = 'money'
              THEN COALESCE(d."Amount", 0)
-             ELSE COALESCE(d."Qty", 0) * COALESCE(i."Volume", 0)
+             ELSE COALESCE(d."Qty", 0) * COALESCE(i."volume", 0)
         END
       ELSE 0
     END), 0)::float8 AS curr_val,
@@ -39,7 +39,7 @@ val AS (
       WHEN h."InvDate" BETWEEN (SELECT start_prev FROM b) AND (SELECT as_of_prev FROM b) THEN
         CASE WHEN $1::text = 'money'
              THEN COALESCE(d."Amount", 0)
-             ELSE COALESCE(d."Qty", 0) * COALESCE(i."Volume", 0)
+             ELSE COALESCE(d."Qty", 0) * COALESCE(i."volume", 0)
         END
       ELSE 0
     END), 0)::float8 AS prev_val
