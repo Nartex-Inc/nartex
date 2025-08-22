@@ -46,14 +46,14 @@ val AS (
 
   FROM public."Salesrep"  sr
   LEFT JOIN public."InvHeader"  h
-         ON h."SrId"  = sr."SrId"
-        AND h."CieId" = $2
-        AND ($3::int = 0 OR h."CustId" = $3)
+         ON h."srid"  = sr."SRId"
+        AND h."cieid" = $2
+        AND ($3::int = 0 OR h."custid" = $3)
   LEFT JOIN public."InvDetail"  d
-         ON d."InvNbr" = h."InvNbr"
-        AND d."CieId"  = h."CieId"
+         ON d."invnbr" = h."invnbr"
+        AND d."cieid"  = h."cieid"
   LEFT JOIN public."Items"      i
-         ON i."ItemId" = d."ItemId"
+         ON i."ItemId" = d."Itemid"
   GROUP BY sr."Name"
 )
 SELECT salesrep AS "salesRepName", curr_val AS value, prev_val
