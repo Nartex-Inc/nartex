@@ -1,15 +1,16 @@
 // src/lib/auth.ts
 import "server-only";
-import { NextAuthOptions } from "next-auth"; // <-- CORRECT TYPE IMPORT
+// --- FIX: Import the correct type for Auth.js v5 ---
+import type { NextAuthConfig } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import AzureADProvider from "next-auth/providers/azure-ad";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import prisma from "@/lib/prisma"; // Adjust this import if needed
+import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
-// This object is now EXPORTED from a shared file, so it can be imported anywhere.
-export const authOptions: NextAuthOptions = {
+// Use the NextAuthConfig type for v5
+export const authOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
@@ -41,7 +42,7 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) throw new Error("Adresse e-mail et mot de passe requis.");
-        const user = await prisma.user.findUnique({ where: { email: credentials.email } });
+        const user = await prisma.user.findUnique({ where: { email: credentials.email as string } });
         if (!user || !user.password) throw new Error("Aucun utilisateur trouvé ou mot de passe non configuré.");
         if (!user.emailVerified) throw new Error("Veuillez vérifier votre adresse e-mail avant de vous connecter.");
         const isPasswordCorrect = await bcrypt.compare(credentials.password, user.password);
@@ -61,7 +62,7 @@ export const authOptions: NextAuthOptions = {
       }
       if (token.id && token.role === undefined) {
         const dbUser = await prisma.user.findUnique({
-          where: { id: token.id },
+          where: { id: token.id as string },
           select: { role: true },
         });
         if (dbUser) token.role = dbUser.role;
@@ -70,7 +71,7 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id;
+        session.user.id = token.id as string;
         session.user.role = token.role;
       }
       return session;
@@ -81,4 +82,4 @@ export const authOptions: NextAuthOptions = {
       return baseUrl + "/dashboard";
     },
   },
-};
+} satisfies NextAuthConfig; // Using "satisfies" provides type safety without changing the object's type
