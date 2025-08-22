@@ -240,7 +240,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-12 gap-6">
-        <ChartContainer title="Répartition par expert" className="col-span-12 lg:col-span-5 xl:col-span-4">
+        <ChartContainer title="Répartition par Expert" className="col-span-12 lg:col-span-5 xl:col-span-4">
           <ResponsiveContainer width="100%" height={350}>
             <PieChart>
               <defs>{GRADIENT_COLORS.map((g, i) => <linearGradient key={`g-${i}`} id={`g-${i}`}><stop offset="0%" stopColor={g.start}/><stop offset="100%" stopColor={g.end}/></linearGradient>)}</defs>
