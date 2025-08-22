@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState, useEffect, useRef } from "react";
-import { useSession } from "next-auth/react"; // Import useSession
+import { useSession } from "next-auth/react";
 import { Inter } from 'next/font/google';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area
 } from "recharts";
 
-// ... (Keep all your components like AnimatedNumber, CustomTooltip, etc. exactly the same)
+// ... (The rest of the file is identical to the one you already have, including AnimatedNumber, helpers, etc.)
+
 // ===================================================================================
 // Police de caractères (utilisant next/font pour la performance)
 // ===================================================================================
@@ -107,7 +108,6 @@ const CustomLegend = (props: any) => {
 
 // Main Dashboard Component
 const DashboardContent = () => {
-  // All the existing state and logic is moved here
   const defaultDateRange = {
     start: new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString().slice(0, 10),
     end: new Date().toISOString().slice(0, 10),
