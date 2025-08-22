@@ -1,6 +1,8 @@
 // src/app/api/dashboard-data/route.ts
-import { NextResponse } from "next-server";
-import { auth } from "@/auth"; // <-- Import the new `auth` function
+// --- FIX #1: Correct import from 'next/server' ---
+import { NextResponse } from "next/server";
+// --- FIX #2: This import will now work because auth.ts is in the correct location ---
+import { auth } from "@/auth";
 import { pg } from "@/lib/db";
 
 const SQL_QUERY = `
@@ -16,7 +18,6 @@ WHERE h."cieid" = $1 AND h."InvDate" BETWEEN $2 AND $3 AND d."Amount" > 0;
 `;
 
 export async function GET(req: Request) {
-  // --- FIX: Use the new `auth()` function to get the session ---
   const session = await auth();
 
   if (!session || session.user?.role !== "ventes-exec") {
