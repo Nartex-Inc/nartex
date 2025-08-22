@@ -75,7 +75,26 @@ export default function DashboardPage() {
   const hasActiveFilters = filters.salesReps.length > 0 || filters.itemCodes.length > 0 || filters.customers.length > 0;
 
   const totalSales = useMemo(() => filteredData.reduce((sum, d) => sum + d.salesValue, 0), [filteredData]);
-  const salesByRep = useMemo(() => aggregateData(filteredData, 'salesRepName'), [filteredData]);
+  
+  // --- MODIFICATION START: "Top 7 + Others" logic for Sales Reps ---
+  const salesByRep = useMemo(() => {
+    const allReps = aggregateData(filteredData, 'salesRepName');
+
+    if (allReps.length <= 7) {
+      return allReps; // If 7 or fewer reps, show them all
+    }
+
+    const top7 = allReps.slice(0, 7);
+    const others = allReps.slice(7);
+    const othersValue = others.reduce((sum, rep) => sum + rep.value, 0);
+
+    return [
+      ...top7,
+      { name: 'Others', value: othersValue },
+    ];
+  }, [filteredData]);
+  // --- MODIFICATION END ---
+  
   const salesByItem = useMemo(() => aggregateData(filteredData, 'itemCode', 10), [filteredData]);
   const salesByCustomer = useMemo(() => aggregateData(filteredData, 'customerName', 10), [filteredData]);
   const salesByMonth = useMemo(() => {
@@ -92,12 +111,10 @@ export default function DashboardPage() {
 
   return (
     <div className="bg-[#1f2937] text-white min-h-screen">
-      {/* Sidebar Placeholder */}
       <div className="fixed left-0 top-0 w-64 h-full bg-[#111827] p-6 hidden lg:block">
         <h2 className="text-xl font-bold">Nartex</h2>
         <nav className="mt-8 space-y-4">
           <a href="#" className="block p-2 bg-gray-700 rounded">Dashboard</a>
-          {/* Other links */}
         </nav>
       </div>
 
@@ -111,7 +128,6 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Main Grid Layout */}
         <div className="grid grid-cols-12 gap-6">
           <div className="col-span-12 p-6 bg-gray-800 rounded-xl">
             <h3 className="text-lg text-gray-400">Total Sales (Filtered)</h3>
@@ -123,13 +139,21 @@ export default function DashboardPage() {
               <PieChart>
                 <Pie data={salesByRep} dataKey="value" nameKey="name" innerRadius={70} outerRadius={110} paddingAngle={3}>
                   {salesByRep.map((entry, index) => (
+                    // --- MODIFICATION START: Disable clicking on "Others" slice ---
                     <Cell
                       key={`cell-${index}`}
-                      fill={COLORS[index % COLORS.length]}
-                      onClick={(e) => handleSelect('salesReps', entry.name, e.shiftKey)}
-                      className="cursor-pointer transition-opacity"
-                      style={{ opacity: filters.salesReps.length === 0 || filters.salesReps.includes(entry.name) ? 1 : 0.3 }}
+                      fill={entry.name === 'Others' ? '#6b7280' : COLORS[index % COLORS.length]} // Gray color for Others
+                      onClick={(e) => {
+                        if (entry.name !== 'Others') {
+                          handleSelect('salesReps', entry.name, e.shiftKey);
+                        }
+                      }}
+                      className={entry.name === 'Others' ? '' : 'cursor-pointer transition-opacity'}
+                      style={{
+                        opacity: filters.salesReps.length === 0 || filters.salesReps.includes(entry.name) ? 1 : 0.3,
+                      }}
                     />
+                    // --- MODIFICATION END ---
                   ))}
                 </Pie>
                 <Tooltip formatter={(value: number) => currency(value)} contentStyle={{ backgroundColor: '#2d3748', border: 'none' }} />
@@ -138,6 +162,7 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </ChartContainer>
 
+          {/* ... The rest of the charts remain exactly the same ... */}
           <ChartContainer title="Sales by Month" className="col-span-12 md:col-span-6 xl:col-span-8">
             <ResponsiveContainer width="100%" height={350}>
               <AreaChart data={salesByMonth}>
@@ -199,7 +224,6 @@ export default function DashboardPage() {
 // ===================================================================================
 // Helper Components & Functions
 // ===================================================================================
-// UPDATED ChartContainer: Uses flexbox to prevent content overlap
 function ChartContainer({ title, children, className }: { title: string, children: React.ReactNode, className?: string }) {
   return (
     <div className={`bg-gray-800 rounded-xl p-4 flex flex-col ${className}`}>
