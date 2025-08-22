@@ -4,46 +4,76 @@ import { pg } from "@/lib/db";
 
 type Row = { salesRepName: string; value: number };
 
-// This single, corrected query uses the exact, case-sensitive table and column
-// names as verified from the database schema. Note the mixed casing (e.g., "SRId" vs "srid").
-const SQL_QUERY = `
-WITH b AS (
+// NOTE ON PARAMETERS: Since the query is complex and uses internal CTEs for parameters,
+// we are injecting the variables directly using template literals (${...})
+// instead of relying on the pg client's numbered parameter binding ($1, $2, etc.).
+
+const SQL_QUERY = (mode: string, gcieid: number, custid: number, asOf: string, targetSalesRepName: string) => `
+-- ===================================================================================
+-- Parameter CTE (Injected from Node.js variables)
+-- ===================================================================================
+WITH params AS (
   SELECT
-    $4::date AS as_of,
-    CASE $5::text
-      WHEN 'mtd' THEN date_trunc('month', $4::date)::date
-      WHEN 'qtd' THEN date_trunc('quarter', $4::date)::date
-      ELSE make_date(EXTRACT(YEAR FROM $4::date)::int, 1, 1)
-    END AS start_curr,
-    ($4::date - interval '1 year')::date AS as_of_prev,
-    CASE $5::text
-      WHEN 'mtd' THEN (date_trunc('month', $4::date) - interval '1 year')::date
-      WHEN 'qtd' THEN (date_trunc('quarter', $4::date) - interval '1 year')::date
-      ELSE make_date(EXTRACT(YEAR FROM $4::date)::int - 1, 1, 1)
-    END AS start_prev
+    '${mode}'::text    AS mode,
+    ${gcieid}::int     AS gcieid,
+    ${custid}::int     AS custid,
+    '${asOf}'::date    AS "asOfDate",
+    '${targetSalesRepName}'::text AS targetSalesRepName
 ),
-val AS (
+-- ===================================================================================
+-- Date Range Calculations
+-- ===================================================================================
+dates AS (
   SELECT
-    sr."Name" AS salesrep,
-    COALESCE(SUM(CASE WHEN h."InvDate" BETWEEN (SELECT start_curr FROM b) AND (SELECT as_of FROM b)
-                 THEN (CASE WHEN $1::text='money' THEN d."Amount" ELSE d."Qty" * i."volume" END)
-                 ELSE 0 END),0)::float8 AS curr_val,
-    COALESCE(SUM(CASE WHEN h."InvDate" BETWEEN (SELECT start_prev FROM b) AND (SELECT as_of_prev FROM b)
-                 THEN (CASE WHEN $1::text='money' THEN d."Amount" ELSE d."Qty" * i."volume" END)
-                 ELSE 0 END),0)::float8 AS prev_val
-  FROM public."Salesrep"  sr
-  LEFT JOIN public."InvHeader"  h
-         ON h."srid"  = sr."SRId"
-        AND h."cieid" = $2
-        AND ($3::int = 0 OR h."custid" = $3)
-  LEFT JOIN public."InvDetail"  d
-         ON d."invnbr" = h."invnbr" AND d."cieid" = h."cieid"
-  LEFT JOIN public."Items"      i
-         ON i."Itemid" = d."Itemid"
-  GROUP BY sr."Name"
+    p."asOfDate"                                                     AS as_of_date,
+    date_trunc('year', p."asOfDate")::date                           AS start_curr,
+    (date_trunc('year', p."asOfDate") - interval '1 year')::date      AS start_prev,
+    (p."asOfDate" - interval '1 year')::date                         AS end_prev
+  FROM params p
+),
+-- ===================================================================================
+-- Main Data Aggregation (Aggregating to Customer/SalesRep level)
+-- ===================================================================================
+SalesData AS (
+  SELECT
+    sr."Name" AS "salesRepName",
+    h."InvDate",
+    SUM(CASE WHEN (SELECT mode FROM params) = 'money' THEN d."Amount" ELSE d."Qty" * i."volume" END) AS salesValue
+  FROM public."InvHeader" h
+  CROSS JOIN params
+  CROSS JOIN dates
+  JOIN public."Salesrep" sr ON h."srid" = sr."SRId"
+  JOIN public."Customers" c ON h."custid" = c."CustId"
+  JOIN public."InvDetail" d ON h."invnbr" = d."invnbr" AND h."cieid" = d."cieid"
+  JOIN public."Items" i ON d."Itemid" = i."ItemId"
+  WHERE
+    h."cieid" = (SELECT gcieid FROM params)
+    AND ((SELECT custid FROM params) = 0 OR h."custid" = (SELECT custid FROM params))
+    AND ((SELECT targetSalesRepName FROM params) = '' OR sr."Name" = (SELECT targetSalesRepName FROM params))
+    AND h."InvDate" BETWEEN (SELECT start_prev FROM dates) AND (SELECT as_of_date FROM dates)
+  GROUP BY
+    sr."Name",
+    h."InvDate"
+),
+-- ===================================================================================
+-- Final Output Aggregation (Aggregating to SalesRep level only)
+-- ===================================================================================
+FinalData AS (
+  SELECT
+    "salesRepName",
+    -- Current YTD Value
+    SUM(CASE WHEN "InvDate" BETWEEN (SELECT start_curr FROM dates) AND (SELECT as_of_date FROM dates) THEN salesValue ELSE 0 END)::float8 AS curr_val,
+    -- Previous YTD Value
+    SUM(CASE WHEN "InvDate" BETWEEN (SELECT start_prev FROM dates) AND (SELECT end_prev FROM dates) THEN salesValue ELSE 0 END)::float8 AS prev_val
+  FROM SalesData
+  CROSS JOIN dates
+  GROUP BY "salesRepName"
 )
-SELECT salesrep AS "salesRepName", curr_val AS value, prev_val
-FROM val
+SELECT 
+    "salesRepName", 
+    curr_val AS value, 
+    prev_val
+FROM FinalData
 ORDER BY value DESC NULLS LAST;
 `;
 
@@ -54,21 +84,25 @@ export async function GET(req: Request) {
   const custid = Number(searchParams.get("custid") ?? 0);
   const asOf   = searchParams.get("asOfDate") ?? new Date().toISOString().slice(0,10);
   const range  = (searchParams.get("range") ?? "ytd") as "ytd"|"qtd"|"mtd";
-
-  const params: (string|number)[] = [mode, gcieid, custid, asOf, range];
+  // targetSalesRepName is not currently exposed in the frontend but included for flexibility
+  const targetSalesRepName = searchParams.get("salesRep") ?? ""; 
 
   try {
-    const { rows } = await pg.query(SQL_QUERY, params);
+    // Call the dynamic SQL query function
+    const sql = SQL_QUERY(mode, gcieid, custid, asOf, targetSalesRepName);
+    
+    // Note: We pass an empty array of parameters since they are injected via template literal
+    const { rows } = await pg.query(sql, []); 
+    
     return NextResponse.json(buildPayload(rows, asOf, range));
+    
   } catch (error: any) {
-    // Log the error for server-side debugging
     console.error("Database query failed in /api/sales-distribution:", error);
 
-    // Return a structured and helpful error response
     return NextResponse.json(
       {
         error: "An error occurred while fetching sales distribution data.",
-        details: error.message, // Provide the actual PG error message for easier debugging
+        details: error.message,
       },
       { status: 500 }
     );
@@ -79,10 +113,14 @@ function buildPayload(rows:any[], asOf:string, range:"ytd"|"qtd"|"mtd") {
   const current: Row[]  = rows.map(r => ({ salesRepName: r.salesRepName, value: Number(r.value || 0) }));
   const previous: Row[] = rows.map(r => ({ salesRepName: r.salesRepName, value: Number(r.prev_val || 0) }));
   const d = new Date(asOf), y = d.getUTCFullYear();
-  const m = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getUTCMont_h()];
+  const m = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getUTCMonth()];
+  
+  // NOTE: The SQL now strictly computes YTD comparison based on asOf date,
+  // but we keep the range logic here for display labels if the client requested MTD/QTD views.
   const meta =
     range === "mtd" ? { asOf, range, labelNow:`MTD ${m} ${y}`, labelPrev:`MTD ${m} ${y-1}` } :
     range === "qtd" ? { asOf, range, labelNow:`Q${Math.floor(d.getUTCMonth()/3)+1} ${y}`, labelPrev:`Q${Math.floor(d.getUTCMonth()/3)+1} ${y-1}` } :
                       { asOf, range, labelNow:`YTD ${y}`, labelPrev:`YTD ${y-1}` };
+                      
   return { current, previous, meta };
 }
