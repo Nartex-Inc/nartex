@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo, useState, useEffect, useRef } from "react";
+import { useSession } from "next-auth/react"; // Import useSession
 import { Inter } from 'next/font/google';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area
 } from "recharts";
 
+// ... (Keep all your components like AnimatedNumber, CustomTooltip, etc. exactly the same)
 // ===================================================================================
 // Police de caractères (utilisant next/font pour la performance)
 // ===================================================================================
@@ -38,8 +40,6 @@ const compactCurrency = (n: number) => new Intl.NumberFormat("fr-CA", { notation
 const AnimatedNumber = ({ value, format, duration = 500 }: { value: number; format: (n: number) => string; duration?: number }) => {
   const [displayValue, setDisplayValue] = useState(0);
   const previousValueRef = useRef(0);
-  // --- BUILD ERROR FIXED HERE ---
-  // useRef must be called with an initial value inside the parentheses.
   const animationFrameRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
@@ -104,10 +104,10 @@ const CustomLegend = (props: any) => {
   );
 };
 
-// ===================================================================================
-// Composant principal du tableau de bord
-// ===================================================================================
-export default function DashboardPage() {
+
+// Main Dashboard Component
+const DashboardContent = () => {
+  // All the existing state and logic is moved here
   const defaultDateRange = {
     start: new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString().slice(0, 10),
     end: new Date().toISOString().slice(0, 10),
@@ -129,7 +129,10 @@ export default function DashboardPage() {
       setError(null);
       try {
         const response = await fetch(`/api/dashboard-data?startDate=${activeDateRange.start}&endDate=${activeDateRange.end}`);
-        if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
+        if (!response.ok) {
+           const errorData = await response.json();
+           throw new Error(errorData.error || `Erreur HTTP: ${response.status}`);
+        }
         const data = await response.json();
         setMasterData(data);
       } catch (err) { setError(err as Error); } finally { setIsLoading(false); }
@@ -174,7 +177,6 @@ export default function DashboardPage() {
   
   const allSalesReps = useMemo(() => masterData ? Array.from(new Set(masterData.map(d => d.salesRepName))).sort() : [], [masterData]);
   
-  // --- NOUVELLES MÉTRIQUES CALCULÉES ICI ---
   const totalSales = useMemo(() => filteredData.reduce((sum, d) => sum + d.salesValue, 0), [filteredData]);
   const transactionCount = useMemo(() => filteredData.length, [filteredData]);
   const averageTransactionValue = useMemo(() => (transactionCount > 0 ? totalSales / transactionCount : 0), [totalSales, transactionCount]);
@@ -202,7 +204,7 @@ export default function DashboardPage() {
   if (isLoading) return <LoadingState />;
 
   return (
-    <main className={`bg-black text-white p-4 sm:p-6 md:p-8 space-y-8 ${inter.className}`}>
+    <div className="space-y-8">
       <div className="border-b border-gray-900 pb-8">
         <div className="flex flex-wrap items-center justify-between gap-6">
             <h1 className="text-4xl md:text-5xl font-bold tracking-tighter">Tableau de bord<span className="text-blue-500">.</span></h1>
@@ -232,7 +234,6 @@ export default function DashboardPage() {
         <p className="text-5xl md:text-7xl font-bold tracking-tighter">
           <AnimatedNumber value={totalSales} format={currency} />
         </p>
-        {/* --- NOUVELLES MÉTRIQUES INTÉGRÉES ICI --- */}
         <div className="flex flex-wrap items-center gap-x-8 gap-y-2 mt-4 text-sm text-gray-400">
             <p><span className="font-semibold text-white">{transactionCount.toLocaleString('fr-CA')}</span> transactions</p>
             <p><span className="font-semibold text-white">{currency(averageTransactionValue)}</span> par transaction (moyenne)</p>
@@ -240,7 +241,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-12 gap-6">
-        <ChartContainer title="Répartition par Expert" className="col-span-12 lg:col-span-5 xl:col-span-4">
+        <ChartContainer title="Répartition par expert" className="col-span-12 lg:col-span-5 xl:col-span-4">
           <ResponsiveContainer width="100%" height={350}>
             <PieChart>
               <defs>{GRADIENT_COLORS.map((g, i) => <linearGradient key={`g-${i}`} id={`g-${i}`}><stop offset="0%" stopColor={g.start}/><stop offset="100%" stopColor={g.end}/></linearGradient>)}</defs>
@@ -305,11 +306,38 @@ export default function DashboardPage() {
           </ResponsiveContainer>
         </ChartContainer>
       </div>
+    </div>
+  );
+};
+
+
+// ===================================================================================
+// Page Wrapper for Authentication
+// ===================================================================================
+export default function DashboardPage() {
+  const { data: session, status } = useSession();
+
+  if (status === "loading") {
+    return <LoadingState />;
+  }
+
+  if (status === "unauthenticated" || session?.user?.role !== "ventes-exec") {
+    return <AccessDenied />;
+  }
+  
+  // Render the dashboard only if authenticated and role is correct
+  return (
+    <main className={`bg-black ${inter.className}`}>
+      <DashboardContent />
     </main>
   );
 }
 
-// ... Helper Components ...
+
+// ... (Keep all your other helper components: ChartContainer, LoadingState, ErrorState, aggregateData)
+// ===================================================================================
+// Helper Components
+// ===================================================================================
 function ChartContainer({ title, children, className }: { title: string, children: React.ReactNode, className?: string }) {
   return (
     <div className={`group relative ${className}`}>
@@ -340,6 +368,20 @@ const ErrorState = ({ message }: { message: string }) => (
     </div>
   </div>
 );
+
+// --- NEW Access Denied Component ---
+const AccessDenied = () => (
+    <div className="fixed inset-0 bg-black flex items-center justify-center p-4">
+        <div className="bg-gray-900 rounded-xl p-8 border border-gray-800 max-w-lg text-center">
+            <h3 className="text-xl font-bold mb-2 text-white">Accès restreint</h3>
+            <p className="text-sm text-gray-400">
+                Vous ne disposez pas des autorisations nécessaires pour consulter ces données. 
+                Veuillez contacter votre département TI pour de l'aide.
+            </p>
+        </div>
+    </div>
+);
+
 
 function aggregateData(data: SalesRecord[], key: keyof SalesRecord, topN?: number) {
   const aggregated = data.reduce((acc, d) => {
