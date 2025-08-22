@@ -30,13 +30,13 @@ val AS (
                  THEN (CASE WHEN $1::text='money' THEN d.amount ELSE d.qty * i.volume END)
                  ELSE 0 END),0)::numeric(18,2) AS prev_val
   FROM salesrep sr
-  LEFT JOIN invheader h
-         ON h.srid = sr.srid
+  LEFT JOIN InvHeader h
+         ON h.srid = sr.SRId
         AND h.cieid = $2
         AND ($3::int = 0 OR h.custid = $3)
-  LEFT JOIN invdetail d
+  LEFT JOIN InvDetail d
          ON d.invnbr = h.invnbr AND d.cieid = h.cieid
-  LEFT JOIN items i
+  LEFT JOIN Items i
          ON i.itemid = d.itemid
   GROUP BY sr.name
 )
@@ -72,13 +72,13 @@ val AS (
                  ELSE 0 END),0)::numeric(18,2) AS prev_val
   FROM public."Salesrep" sr
   LEFT JOIN public."InvHeader" h
-         ON h."SrId" = sr."SrId"
-        AND h."CieId" = $2
-        AND ($3::int = 0 OR h."CustId" = $3)
+         ON h."srid" = sr."SRId"
+        AND h."cieid" = $2
+        AND ($3::int = 0 OR h."custid" = $3)
   LEFT JOIN public."InvDetail" d
-         ON d."InvNbr" = h."InvNbr" AND d."CieId" = h."CieId"
+         ON d."invnbr" = h."Invnbr" AND d."cieid" = h."cieid"
   LEFT JOIN public."Items" i
-         ON i."ItemId" = d."ItemId"
+         ON i."ItemId" = d."Itemid"
   GROUP BY sr."Name"
 )
 SELECT salesrep AS "salesRepName", curr_val AS value, prev_val
