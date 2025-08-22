@@ -1,7 +1,6 @@
 // src/app/api/dashboard-data/route.ts
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth"; // <-- Import from the new shared file
+import { NextResponse } from "next-server";
+import { auth } from "@/auth"; // <-- Import the new `auth` function
 import { pg } from "@/lib/db";
 
 const SQL_QUERY = `
@@ -17,7 +16,8 @@ WHERE h."cieid" = $1 AND h."InvDate" BETWEEN $2 AND $3 AND d."Amount" > 0;
 `;
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
+  // --- FIX: Use the new `auth()` function to get the session ---
+  const session = await auth();
 
   if (!session || session.user?.role !== "ventes-exec") {
     return NextResponse.json(
