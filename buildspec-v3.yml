@@ -159,7 +159,6 @@ phases:
       - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
       - |
         docker build \
-          --no-cache \
           --build-arg GIT_COMMIT_HASH=$COMMIT_HASH \
           --build-arg DATABASE_URL="$DATABASE_URL" \
           --build-arg EMAIL_SERVER_HOST="$EMAIL_SERVER_HOST" \
