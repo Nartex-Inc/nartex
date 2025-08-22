@@ -45,12 +45,11 @@ export default function DashboardPage() {
   // State for our interactive cross-filters
   const [filters, setFilters] = useState<FilterState>({ salesReps: [], itemCodes: [], customers: [] });
 
-  // Fetch the master dataset
+  // Fetch the master dataset from the CORRECT endpoint
   const url = `/api/dashboard-data?startDate=${dateRange.start}&endDate=${dateRange.end}`;
   const { data: masterData, error, isLoading } = useSWR<SalesRecord[]>(url, fetcher);
 
   // THE CORE LOGIC: Memoized filtering
-  // This recalculates only when the master data or filters change.
   const filteredData = useMemo(() => {
     if (!masterData) return [];
     return masterData.filter(d =>
@@ -68,10 +67,8 @@ export default function DashboardPage() {
       let newValues;
 
       if (isShiftClick) {
-        // Shift-click: add/remove from selection
         newValues = isSelected ? existing.filter(v => v !== value) : [...existing, value];
       } else {
-        // Normal click: toggle or set as single filter
         newValues = isSelected && existing.length === 1 ? [] : [value];
       }
       return { ...prev, [category]: newValues };
@@ -98,21 +95,14 @@ export default function DashboardPage() {
 
   return (
     <main className="p-6 space-y-6 bg-[#1e2129]">
-      {/* Header & Filters */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">Sales Dashboard</h1>
-        {/* You can add primary date range selectors here if needed */}
       </div>
-
-      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
-        {/* KPI Card */}
         <div className="xl:col-span-4 p-4 bg-[#2a2d35] rounded-lg">
           <h3 className="text-gray-400">Total Sales (Filtered)</h3>
           <p className="text-4xl font-bold text-white">{currency(totalSales)}</p>
         </div>
-
-        {/* Sales by Rep Pie Chart */}
         <ChartContainer title="Sales by Rep">
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
@@ -131,8 +121,6 @@ export default function DashboardPage() {
             </PieChart>
           </ResponsiveContainer>
         </ChartContainer>
-
-        {/* Sales Over Time Area Chart */}
         <ChartContainer title="Sales by Month" className="lg:col-span-2 xl:col-span-3">
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={salesByMonth}>
@@ -144,8 +132,6 @@ export default function DashboardPage() {
             </AreaChart>
           </ResponsiveContainer>
         </ChartContainer>
-
-        {/* Top 10 Products Bar Chart */}
         <ChartContainer title="Top 10 Products">
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={salesByItem} layout="vertical">
@@ -164,8 +150,6 @@ export default function DashboardPage() {
             </BarChart>
           </ResponsiveContainer>
         </ChartContainer>
-        
-        {/* Top 10 Customers Bar Chart */}
         <ChartContainer title="Top 10 Customers" className="lg:col-span-2 xl:col-span-3">
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={salesByCustomer} layout="vertical">
@@ -189,9 +173,6 @@ export default function DashboardPage() {
   );
 }
 
-// ===================================================================================
-// Helper Components & Functions
-// ===================================================================================
 function ChartContainer({ title, children, className }: { title: string, children: React.ReactNode, className?: string }) {
   return (
     <div className={`p-4 bg-[#2a2d35] rounded-lg text-white ${className}`}>
