@@ -18,13 +18,13 @@ const fetcher = async (url: string) => {
   const ct = res.headers.get("content-type") || "";
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status} ${res.statusText}${body ? ` – ${body.slice(0,150)}` : ""}`);
+    throw new Error(`HTTP ${res.status} ${res.statusText}${body ? ` – ${body.slice(0,200)}` : ""}`);
   }
   if (!ct.includes("application/json")) {
     const body = await res.text().catch(() => "");
-    throw new Error(`Expected JSON, got ${ct || "none"}${body ? ` – ${body.slice(0,150)}` : ""}`);
+    throw new Error(`Expected JSON, got ${ct || "none"}${body ? ` – ${body.slice(0,200)}` : ""}`);
   }
-  return (await res.json()) as Payload;
+  return res.json();
 };
 
 // Dynamic, client-only pie to avoid SSR/hydration issues with Recharts
