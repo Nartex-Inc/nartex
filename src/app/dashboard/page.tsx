@@ -38,7 +38,9 @@ const compactCurrency = (n: number) => new Intl.NumberFormat("fr-CA", { notation
 const AnimatedNumber = ({ value, format, duration = 500 }: { value: number; format: (n: number) => string; duration?: number }) => {
   const [displayValue, setDisplayValue] = useState(0);
   const previousValueRef = useRef(0);
-  const animationFrameRef = useRef<number>();
+  // --- FIX APPLIED HERE ---
+  // useRef must have an initial value. We use `undefined` as it's not animating initially.
+  const animationFrameRef = useRef<number | undefined>();
 
   useEffect(() => {
     const startValue = previousValueRef.current;
@@ -70,6 +72,7 @@ const AnimatedNumber = ({ value, format, duration = 500 }: { value: number; form
 
   return <>{format(displayValue)}</>;
 };
+
 
 // ===================================================================================
 // Composants Recharts personnalisés
@@ -111,10 +114,7 @@ export default function DashboardPage() {
     end: new Date().toISOString().slice(0, 10),
   };
   
-  // --- NOUVELLE LOGIQUE DE FILTRES ---
-  // Filtres actifs qui déclenchent le rafraîchissement des données
   const [activeDateRange, setActiveDateRange] = useState(defaultDateRange);
-  // Filtres en attente, liés aux contrôles de l'interface utilisateur
   const [stagedDateRange, setStagedDateRange] = useState(defaultDateRange);
   const [stagedSelectedRep, setStagedSelectedRep] = useState<string>("");
 
@@ -124,7 +124,6 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   
-  // Le rafraîchissement des données ne dépend que des filtres actifs
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
@@ -139,7 +138,6 @@ export default function DashboardPage() {
     fetchData();
   }, [activeDateRange]);
 
-  // Le filtrage côté client dépend toujours des filtres granulaires
   const filteredData = useMemo(() => {
     if (!masterData) return [];
     return masterData.filter(d =>
@@ -151,7 +149,6 @@ export default function DashboardPage() {
 
   useEffect(() => { setAnimationKey(prev => prev + 1); }, [filteredData]);
   
-  // Appliquer les filtres en attente
   const applyFilters = () => {
     setActiveDateRange(stagedDateRange);
     setFilters(prev => ({ ...prev, itemCodes: [], customers: [], salesReps: stagedSelectedRep ? [stagedSelectedRep] : [] }));
@@ -178,6 +175,8 @@ export default function DashboardPage() {
   
   const allSalesReps = useMemo(() => masterData ? Array.from(new Set(masterData.map(d => d.salesRepName))).sort() : [], [masterData]);
   const totalSales = useMemo(() => filteredData.reduce((sum, d) => sum + d.salesValue, 0), [filteredData]);
+  const transactionCount = useMemo(() => filteredData.length, [filteredData]);
+  const averageTransactionValue = useMemo(() => (transactionCount > 0 ? totalSales / transactionCount : 0), [totalSales, transactionCount]);
   
   const salesByRep = useMemo(() => {
     const allReps = aggregateData(filteredData, 'salesRepName');
@@ -203,7 +202,6 @@ export default function DashboardPage() {
 
   return (
     <main className={`bg-black text-white p-4 sm:p-6 md:p-8 space-y-8 ${inter.className}`}>
-      {/* En-tête et filtres */}
       <div className="border-b border-gray-900 pb-8">
         <div className="flex flex-wrap items-center justify-between gap-6">
             <h1 className="text-4xl md:text-5xl font-bold tracking-tighter">Tableau de bord<span className="text-blue-500">.</span></h1>
@@ -233,6 +231,11 @@ export default function DashboardPage() {
         <p className="text-5xl md:text-7xl font-bold tracking-tighter">
           <AnimatedNumber value={totalSales} format={currency} />
         </p>
+        {/* --- NOUVELLES MÉTRIQUES AJOUTÉES ICI --- */}
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-2 mt-4 text-sm text-gray-400">
+            <p><span className="font-semibold text-white">{transactionCount.toLocaleString('fr-CA')}</span> transactions</p>
+            <p><span className="font-semibold text-white">{currency(averageTransactionValue)}</span> par transaction (moyenne)</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-12 gap-6">
