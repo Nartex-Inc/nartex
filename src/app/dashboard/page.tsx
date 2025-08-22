@@ -38,9 +38,9 @@ const compactCurrency = (n: number) => new Intl.NumberFormat("fr-CA", { notation
 const AnimatedNumber = ({ value, format, duration = 500 }: { value: number; format: (n: number) => string; duration?: number }) => {
   const [displayValue, setDisplayValue] = useState(0);
   const previousValueRef = useRef(0);
-  // --- FIX APPLIED HERE ---
-  // useRef must have an initial value. We use `undefined` as it's not animating initially.
-  const animationFrameRef = useRef<number | undefined>();
+  // --- BUILD ERROR FIXED HERE ---
+  // useRef must be called with an initial value inside the parentheses.
+  const animationFrameRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     const startValue = previousValueRef.current;
@@ -72,7 +72,6 @@ const AnimatedNumber = ({ value, format, duration = 500 }: { value: number; form
 
   return <>{format(displayValue)}</>;
 };
-
 
 // ===================================================================================
 // Composants Recharts personnalisés
@@ -174,6 +173,8 @@ export default function DashboardPage() {
   const hasActiveFilters = filters.salesReps.length > 0 || filters.itemCodes.length > 0 || filters.customers.length > 0 || JSON.stringify(activeDateRange) !== JSON.stringify(defaultDateRange);
   
   const allSalesReps = useMemo(() => masterData ? Array.from(new Set(masterData.map(d => d.salesRepName))).sort() : [], [masterData]);
+  
+  // --- NOUVELLES MÉTRIQUES CALCULÉES ICI ---
   const totalSales = useMemo(() => filteredData.reduce((sum, d) => sum + d.salesValue, 0), [filteredData]);
   const transactionCount = useMemo(() => filteredData.length, [filteredData]);
   const averageTransactionValue = useMemo(() => (transactionCount > 0 ? totalSales / transactionCount : 0), [totalSales, transactionCount]);
@@ -231,7 +232,7 @@ export default function DashboardPage() {
         <p className="text-5xl md:text-7xl font-bold tracking-tighter">
           <AnimatedNumber value={totalSales} format={currency} />
         </p>
-        {/* --- NOUVELLES MÉTRIQUES AJOUTÉES ICI --- */}
+        {/* --- NOUVELLES MÉTRIQUES INTÉGRÉES ICI --- */}
         <div className="flex flex-wrap items-center gap-x-8 gap-y-2 mt-4 text-sm text-gray-400">
             <p><span className="font-semibold text-white">{transactionCount.toLocaleString('fr-CA')}</span> transactions</p>
             <p><span className="font-semibold text-white">{currency(averageTransactionValue)}</span> par transaction (moyenne)</p>
