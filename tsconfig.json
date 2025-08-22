@@ -25,7 +25,7 @@
   },
   "include": [
     "next-env.d.ts",
-    "next-auth.d.ts", // <-- THIS IS THE FIX. Add this line.
+    "next-auth.d.ts", 
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts"
