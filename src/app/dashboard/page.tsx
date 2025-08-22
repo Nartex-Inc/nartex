@@ -1,134 +1,216 @@
-// src/app/dashboard/page.tsx
 "use client";
 
 import { useMemo, useState } from "react";
 import useSWR from "swr";
-import dynamic from "next/dynamic";
+import {
+  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area
+} from "recharts";
 
-type Row = { salesRepName: string; value: number };
-type Payload = {
-  current: Row[];
-  previous: Row[];
-  meta: { asOf: string; range: "ytd" | "qtd" | "mtd"; labelNow: string; labelPrev: string };
+// ===================================================================================
+// Data Types
+// ===================================================================================
+type SalesRecord = {
+  salesRepName: string;
+  customerName: string;
+  itemCode: string;
+  invoiceDate: string;
+  salesValue: number;
 };
 
-// Robust fetcher: no JSON -> throw a clear error (prevents “Unexpected token <”)
-const fetcher = async (url: string) => {
-  const res = await fetch(url, { cache: "no-store" });
-  const ct = res.headers.get("content-type") || "";
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status} ${res.statusText}${body ? ` – ${body.slice(0,200)}` : ""}`);
-  }
-  if (!ct.includes("application/json")) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`Expected JSON, got ${ct || "none"}${body ? ` – ${body.slice(0,200)}` : ""}`);
-  }
-  return res.json();
+type FilterState = {
+  salesReps: string[];
+  itemCodes: string[];
+  customers: string[];
 };
 
-// Dynamic, client-only pie to avoid SSR/hydration issues with Recharts
-const PieBundle = dynamic(
-  () =>
-    import("recharts").then((m) => {
-      const COLORS = [
-        "#635BFF", "#00D4FF", "#66E3A4", "#FFB672", "#9CA3AF",
-        "#F59E0B", "#10B981", "#8B5CF6", "#E11D48", "#22D3EE", "#84CC16",
-      ];
-      const currency = (n: number) =>
-        new Intl.NumberFormat("fr-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(n);
+// ===================================================================================
+// Chart Components & Helpers
+// ===================================================================================
+const COLORS = ["#635BFF", "#00D4FF", "#66E3A4", "#FFB672", "#F59E0B", "#10B981", "#8B5CF6", "#E11D48"];
+const currency = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+const compactCurrency = (n: number) => new Intl.NumberFormat("en-US", { notation: 'compact', compactDisplay: 'short', maximumFractionDigits: 2 }).format(n);
 
-      // Return a component that renders the pie using the imported module
-      return function PieBundle({ title, rows }: { title: string; rows: Row[] }) {
-        const total = (rows ?? []).reduce((a, b) => a + (b?.value ?? 0), 0);
-        return (
-          <div className="rounded-2xl border bg-[rgba(16,18,27,0.66)] p-4 ring-1 ring-white/10 backdrop-blur">
-            <div className="mb-2 flex items-baseline justify-between">
-              <h2 className="text-lg font-medium">{title}</h2>
-              <span className="text-sm text-muted-foreground">
-                Total: {currency(total)}
-              </span>
-            </div>
-            <div className="h-[420px]">
-              <m.ResponsiveContainer width="100%" height="100%">
-                <m.PieChart>
-                  <m.Pie
-                    data={rows ?? []}
-                    dataKey="value"
-                    nameKey="salesRepName"
-                    innerRadius={80}
-                    outerRadius={120}
-                    strokeWidth={1.5}
-                  >
-                    {(rows ?? []).map((_, i) => (
-                      <m.Cell key={i} fill={COLORS[i % COLORS.length]} />
-                    ))}
-                  </m.Pie>
-                  <m.Tooltip formatter={(v: number) => currency(v)} />
-                  <m.Legend />
-                </m.PieChart>
-              </m.ResponsiveContainer>
-            </div>
-          </div>
-        );
-      };
-    }),
-  { ssr: false }
-);
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
+// ===================================================================================
+// Main Dashboard Component
+// ===================================================================================
 export default function DashboardPage() {
-  const [asOf, setAsOf] = useState<string>(new Date().toISOString().slice(0, 10));
-  const [range, setRange] = useState<"ytd" | "qtd" | "mtd">("ytd");
-
-  const url = useMemo(
-    () => `/api/sales-distribution?range=${range}&asOfDate=${asOf}&mode=money&gcieid=2`,
-    [range, asOf]
-  );
-  const { data, error, isLoading } = useSWR<Payload>(url, fetcher, {
-    revalidateOnFocus: false,
-    errorRetryCount: 1,
+  // State for the primary date range of the entire dashboard
+  const [dateRange, setDateRange] = useState({
+    start: new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString().slice(0, 10),
+    end: new Date().toISOString().slice(0, 10),
   });
 
+  // State for our interactive cross-filters
+  const [filters, setFilters] = useState<FilterState>({ salesReps: [], itemCodes: [], customers: [] });
+
+  // Fetch the master dataset
+  const url = `/api/dashboard-data?startDate=${dateRange.start}&endDate=${dateRange.end}`;
+  const { data: masterData, error, isLoading } = useSWR<SalesRecord[]>(url, fetcher);
+
+  // THE CORE LOGIC: Memoized filtering
+  // This recalculates only when the master data or filters change.
+  const filteredData = useMemo(() => {
+    if (!masterData) return [];
+    return masterData.filter(d =>
+      (filters.salesReps.length === 0 || filters.salesReps.includes(d.salesRepName)) &&
+      (filters.itemCodes.length === 0 || filters.itemCodes.includes(d.itemCode)) &&
+      (filters.customers.length === 0 || filters.customers.includes(d.customerName))
+    );
+  }, [masterData, filters]);
+
+  // Handle filter selections from any chart
+  const handleSelect = (category: keyof FilterState, value: string, isShiftClick: boolean) => {
+    setFilters(prev => {
+      const existing = prev[category];
+      const isSelected = existing.includes(value);
+      let newValues;
+
+      if (isShiftClick) {
+        // Shift-click: add/remove from selection
+        newValues = isSelected ? existing.filter(v => v !== value) : [...existing, value];
+      } else {
+        // Normal click: toggle or set as single filter
+        newValues = isSelected && existing.length === 1 ? [] : [value];
+      }
+      return { ...prev, [category]: newValues };
+    });
+  };
+
+  // Memoized data aggregations for each chart
+  const totalSales = useMemo(() => filteredData.reduce((sum, d) => sum + d.salesValue, 0), [filteredData]);
+  const salesByRep = useMemo(() => aggregateData(filteredData, 'salesRepName'), [filteredData]);
+  const salesByItem = useMemo(() => aggregateData(filteredData, 'itemCode', 10), [filteredData]);
+  const salesByCustomer = useMemo(() => aggregateData(filteredData, 'customerName', 10), [filteredData]);
+  const salesByMonth = useMemo(() => {
+    const monthly = filteredData.reduce((acc, d) => {
+      const month = d.invoiceDate.slice(0, 7); // YYYY-MM
+      acc[month] = (acc[month] || 0) + d.salesValue;
+      return acc;
+    }, {} as Record<string, number>);
+    return Object.entries(monthly).map(([name, value]) => ({ name, value })).sort((a,b) => a.name.localeCompare(b.name));
+  }, [filteredData]);
+
+
+  if (error) return <div className="p-6 text-red-400">Failed to load data: {error.message}</div>;
+  if (isLoading) return <div className="p-6">Loading Dashboard...</div>;
+
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10">
-      <div className="mb-6 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold">Ventes – Répartition par représentant</h1>
-        <div className="ml-auto flex items-center gap-2">
-          <select
-            value={range}
-            onChange={(e) => setRange(e.target.value as any)}
-            className="rounded-md border bg-transparent px-2 py-1 text-sm"
-            title="Fenêtre"
-          >
-            <option value="ytd">YTD</option>
-            <option value="qtd">QTD</option>
-            <option value="mtd">MTD</option>
-          </select>
-          <input
-            type="date"
-            value={asOf}
-            onChange={(e) => setAsOf(e.target.value)}
-            className="rounded-md border bg-transparent px-2 py-1 text-sm"
-            title="Date de référence"
-          />
-        </div>
+    <main className="p-6 space-y-6 bg-[#1e2129]">
+      {/* Header & Filters */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-white">Sales Dashboard</h1>
+        {/* You can add primary date range selectors here if needed */}
       </div>
 
-      {error && (
-        <p className="rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-red-300">
-          Erreur : {String(error.message || error)}
-        </p>
-      )}
-      {(isLoading || !data) && !error && (
-        <p className="text-muted-foreground">Chargement…</p>
-      )}
-
-      {data && (
-        <div className="grid gap-6 md:grid-cols-2">
-          <PieBundle title={data.meta.labelNow} rows={data.current ?? []} />
-          <PieBundle title={data.meta.labelPrev} rows={data.previous ?? []} />
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
+        {/* KPI Card */}
+        <div className="xl:col-span-4 p-4 bg-[#2a2d35] rounded-lg">
+          <h3 className="text-gray-400">Total Sales (Filtered)</h3>
+          <p className="text-4xl font-bold text-white">{currency(totalSales)}</p>
         </div>
-      )}
+
+        {/* Sales by Rep Pie Chart */}
+        <ChartContainer title="Sales by Rep">
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie data={salesByRep} dataKey="value" nameKey="name" innerRadius={60} outerRadius={80} paddingAngle={2}>
+                {salesByRep.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={COLORS[index % COLORS.length]}
+                    onClick={(e) => handleSelect('salesReps', entry.name, e.shiftKey)}
+                    style={{ cursor: 'pointer', opacity: filters.salesReps.length === 0 || filters.salesReps.includes(entry.name) ? 1 : 0.3 }}
+                  />
+                ))}
+              </Pie>
+              <Tooltip formatter={(value: number) => currency(value)} />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartContainer>
+
+        {/* Sales Over Time Area Chart */}
+        <ChartContainer title="Sales by Month" className="lg:col-span-2 xl:col-span-3">
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={salesByMonth}>
+              <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2}/>
+              <XAxis dataKey="name" />
+              <YAxis tickFormatter={compactCurrency} />
+              <Tooltip formatter={(value: number) => currency(value)} />
+              <Area type="monotone" dataKey="value" stroke={COLORS[1]} fill={COLORS[1]} fillOpacity={0.6} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </ChartContainer>
+
+        {/* Top 10 Products Bar Chart */}
+        <ChartContainer title="Top 10 Products">
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={salesByItem} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2}/>
+              <XAxis type="number" tickFormatter={compactCurrency}/>
+              <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 12 }}/>
+              <Tooltip formatter={(value: number) => currency(value)} />
+              <Bar dataKey="value" fill={COLORS[2]}>
+                  {salesByItem.map((entry, index) => (
+                      <Cell key={`cell-${index}`}
+                            onClick={(e) => handleSelect('itemCodes', entry.name, e.shiftKey)}
+                            style={{ cursor: 'pointer', opacity: filters.itemCodes.length === 0 || filters.itemCodes.includes(entry.name) ? 1 : 0.3 }}
+                      />
+                  ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartContainer>
+        
+        {/* Top 10 Customers Bar Chart */}
+        <ChartContainer title="Top 10 Customers" className="lg:col-span-2 xl:col-span-3">
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={salesByCustomer} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2}/>
+              <XAxis type="number" tickFormatter={compactCurrency}/>
+              <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 12 }}/>
+              <Tooltip formatter={(value: number) => currency(value)} />
+              <Bar dataKey="value" fill={COLORS[3]}>
+                  {salesByCustomer.map((entry, index) => (
+                      <Cell key={`cell-${index}`}
+                            onClick={(e) => handleSelect('customers', entry.name, e.shiftKey)}
+                            style={{ cursor: 'pointer', opacity: filters.customers.length === 0 || filters.customers.includes(entry.name) ? 1 : 0.3 }}
+                      />
+                  ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartContainer>
+      </div>
     </main>
   );
+}
+
+// ===================================================================================
+// Helper Components & Functions
+// ===================================================================================
+function ChartContainer({ title, children, className }: { title: string, children: React.ReactNode, className?: string }) {
+  return (
+    <div className={`p-4 bg-[#2a2d35] rounded-lg text-white ${className}`}>
+      <h3 className="font-semibold mb-4">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function aggregateData(data: SalesRecord[], key: keyof SalesRecord, topN?: number) {
+  const aggregated = data.reduce((acc, d) => {
+    const groupKey = d[key] as string;
+    acc[groupKey] = (acc[groupKey] || 0) + d.salesValue;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const sorted = Object.entries(aggregated)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+  
+  return topN ? sorted.slice(0, topN) : sorted;
 }
