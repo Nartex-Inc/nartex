@@ -4,40 +4,39 @@ import { JWT as DefaultJWT } from "next-auth/jwt";
 
 declare module "next-auth" {
   /**
-   * Returned by `useSession`, `getSession` and received as a prop on the `SessionProvider` React Context
+   * Extends the built-in session to include your custom properties.
    */
-  interface Session extends DefaultSession {
+  interface Session {
     user: {
       id: string;
-      role: string | null | undefined; // <<< ADDED ROLE
+      role: string | null | undefined;
       firstName?: string | null;
       lastName?: string | null;
       emailVerified?: Date | null;
-    } & DefaultSession["user"]; // name, email, image come from DefaultSession
+    } & DefaultSession["user"]; // Inherits name, email, image from the default session
   }
 
   /**
-   * The shape of the user object returned in the OAuth providers' `profile` callback,
-   * or the `user` object passed to the `jwt` callback from the `authorize` function or adapter.
+   * Extends the built-in user model.
    */
   interface User extends DefaultUser {
-    id: string; // DefaultUser already has id, but good to be explicit if extending
-    role: string | null | undefined; // <<< ADDED ROLE
+    id: string;
+    role: string | null | undefined;
     firstName?: string | null;
     lastName?: string | null;
-    emailVerified?: Date | null; // For passing from authorize/profile
-    // name, email, image are part of DefaultUser
+    emailVerified?: Date | null;
   }
 }
 
 declare module "next-auth/jwt" {
-  /** Returned by the `jwt` callback and `getToken`, when using JWT sessions */
+  /**
+   * Extends the JWT token to include your custom properties.
+   */
   interface JWT extends DefaultJWT {
-    id: string; // DefaultJWT might not have id, so good to add
-    role: string | null | undefined; // <<< ADDED ROLE
+    id: string;
+    role: string | null | undefined;
     firstName?: string | null;
     lastName?: string | null;
-    emailVerified?: Date | null; // Persist in JWT
-    // name, email, picture are already part of DefaultJWT
+    emailVerified?: Date | null;
   }
 }
