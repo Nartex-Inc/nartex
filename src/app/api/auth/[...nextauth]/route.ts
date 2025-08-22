@@ -5,26 +5,24 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import AzureADProvider from "next-auth/providers/azure-ad";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import prisma from "@/lib/prisma";
+import prisma from "@/lib/prisma"; // Adjust this import to your prisma client path
 import bcrypt from "bcryptjs";
+import { AuthOptions } from "next-auth";
 
-// deliberately untyped to avoid next-auth v4/v5 type mismatches in CI
-const authOptions: any = {
+export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       allowDangerousEmailAccountLinking: true,
-      profile(profile: any) {
+      profile(profile) {
         return {
           id: profile.sub,
           name: profile.name,
           email: profile.email,
           image: profile.picture,
-          emailVerified: profile.email_verified ? new Date() : null,
-          firstName: profile.given_name,
-          lastName: profile.family_name,
+          // The role will be populated from the DB in the jwt callback
           role: undefined,
         };
       },
@@ -33,17 +31,13 @@ const authOptions: any = {
       clientId: process.env.AZURE_AD_CLIENT_ID!,
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
       tenantId: process.env.AZURE_AD_TENANT_ID!,
-      authorization: { params: { scope: "openid profile email User.Read" } },
       allowDangerousEmailAccountLinking: true,
-      profile(profile: any) {
+      profile(profile) {
         return {
           id: profile.sub,
           name: profile.name,
           email: profile.email,
           image: null,
-          emailVerified: new Date(),
-          firstName: profile.given_name,
-          lastName: profile.family_name,
           role: undefined,
         };
       },
@@ -59,25 +53,23 @@ const authOptions: any = {
           throw new Error("Adresse e-mail et mot de passe requis.");
         }
         const user = await prisma.user.findUnique({ where: { email: credentials.email } });
-        if (!user) throw new Error("Aucun utilisateur trouvé avec cet e-mail.");
-        if (!user.password) {
-          throw new Error("Ce compte nécessite une connexion via un fournisseur externe (ex: Google, Microsoft).");
+        if (!user || !user.password) {
+          throw new Error("Aucun utilisateur trouvé ou mot de passe non configuré.");
         }
         if (!user.emailVerified) {
           throw new Error("Veuillez vérifier votre adresse e-mail avant de vous connecter.");
         }
-        const ok = await bcrypt.compare(credentials.password, user.password);
-        if (!ok) throw new Error("Mot de passe incorrect.");
+        const isPasswordCorrect = await bcrypt.compare(credentials.password, user.password);
+        if (!isPasswordCorrect) throw new Error("Mot de passe incorrect.");
+        
+        // Return all necessary fields, including the role
         return {
           id: user.id,
-          name: user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email,
+          name: user.name,
           email: user.email,
           image: user.image,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          emailVerified: user.emailVerified,
-          role: user.role,
-        } as any;
+          role: user.role, // <-- Important: role is passed to the jwt callback
+        };
       },
     }),
   ],
@@ -85,49 +77,33 @@ const authOptions: any = {
   session: { strategy: "jwt" },
   pages: { signIn: "/", error: "/auth/error" },
   callbacks: {
-    async signIn({ user, account }) {
-      if (account?.provider === "google" || account?.provider === "azure-ad") return true;
-      return !!(user as any)?.emailVerified;
-    },
+    // This callback ensures the role is always in the JWT token
     async jwt({ token, user }) {
+      // On initial sign-in, the 'user' object is available.
       if (user) {
-        const u: any = user;
-        token.sub = u.id;
-        token.role = u.role;
-        token.firstName = u.firstName;
-        token.lastName = u.lastName;
-        token.emailVerified = u.emailVerified;
-        if (u.name) token.name = u.name;
-        if (u.image) token.picture = u.image;
-        if (u.email) token.email = u.email;
+        token.id = user.id;
+        token.role = user.role;
       }
-      if (token.sub && (token.role === undefined || token.firstName === undefined)) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.sub as string },
-          select: { role: true, firstName: true, lastName: true, emailVerified: true, name: true, image: true, email: true },
-        });
-        if (dbUser) {
-          token.role = dbUser.role;
-          token.firstName = dbUser.firstName;
-          token.lastName = dbUser.lastName;
-          token.emailVerified = dbUser.emailVerified;
-          token.name = dbUser.name || token.name;
-          token.picture = dbUser.image || token.picture;
-          token.email = dbUser.email || token.email;
-        }
+      
+      // On subsequent requests, if the role is missing from the token,
+      // refetch it from the database. This is a failsafe for new social logins.
+      if (token.id && token.role === undefined) {
+          const dbUser = await prisma.user.findUnique({
+              where: { id: token.id },
+              select: { role: true },
+          });
+          if (dbUser) {
+              token.role = dbUser.role;
+          }
       }
+      
       return token;
     },
+    // This callback makes the role available on the client-side session object
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.sub as string;
-        (session.user as any).role = token.role as any;
-        (session.user as any).firstName = token.firstName as any;
-        (session.user as any).lastName = token.lastName as any;
-        (session.user as any).emailVerified = token.emailVerified as any;
-        if (token.name) session.user.name = token.name as string;
-        if (token.email) session.user.email = token.email as string;
-        if (token.picture) session.user.image = token.picture as string;
+        session.user.id = token.id;
+        session.user.role = token.role;
       }
       return session;
     },
@@ -137,11 +113,6 @@ const authOptions: any = {
       return baseUrl + "/dashboard";
     },
   },
-  logger: {
-    error(code, metadata) { console.error("NextAuth Error:", code, metadata); },
-    warn(code) { console.warn("NextAuth Warning:", code); },
-  },
-  debug: process.env.NODE_ENV === "development",
 };
 
 const handler = NextAuth(authOptions);
