@@ -9,7 +9,10 @@ import prisma from "@/lib/prisma"; // Adjust this import to your prisma client p
 import bcrypt from "bcryptjs";
 import { AuthOptions } from "next-auth";
 
-export const authOptions: AuthOptions = {
+// --- BUILD ERROR FIXED HERE ---
+// The 'export' keyword has been removed from this line.
+// authOptions should be a local constant, not an export from a route file.
+const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
@@ -62,13 +65,12 @@ export const authOptions: AuthOptions = {
         const isPasswordCorrect = await bcrypt.compare(credentials.password, user.password);
         if (!isPasswordCorrect) throw new Error("Mot de passe incorrect.");
         
-        // Return all necessary fields, including the role
         return {
           id: user.id,
           name: user.name,
           email: user.email,
           image: user.image,
-          role: user.role, // <-- Important: role is passed to the jwt callback
+          role: user.role,
         };
       },
     }),
@@ -77,16 +79,12 @@ export const authOptions: AuthOptions = {
   session: { strategy: "jwt" },
   pages: { signIn: "/", error: "/auth/error" },
   callbacks: {
-    // This callback ensures the role is always in the JWT token
     async jwt({ token, user }) {
-      // On initial sign-in, the 'user' object is available.
       if (user) {
         token.id = user.id;
         token.role = user.role;
       }
       
-      // On subsequent requests, if the role is missing from the token,
-      // refetch it from the database. This is a failsafe for new social logins.
       if (token.id && token.role === undefined) {
           const dbUser = await prisma.user.findUnique({
               where: { id: token.id },
@@ -99,7 +97,6 @@ export const authOptions: AuthOptions = {
       
       return token;
     },
-    // This callback makes the role available on the client-side session object
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id;
@@ -116,4 +113,6 @@ export const authOptions: AuthOptions = {
 };
 
 const handler = NextAuth(authOptions);
+
+// The only exports are the required GET and POST handlers for the App Router.
 export { handler as GET, handler as POST };
