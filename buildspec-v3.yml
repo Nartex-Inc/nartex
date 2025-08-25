@@ -27,7 +27,7 @@ phases:
     runtime-versions:
       nodejs: 18
     commands:
-      - echo "📦 INSTALL – npm ci for workspace tooling"
+      - echo "📦 INSTALL – Cleaning cache and installing fresh dependencies"
       - npm cache clean --force
       - npm ci
 
@@ -39,6 +39,12 @@ phases:
         #!/usr/bin/env bash
         set -euo pipefail
         set -x
+
+        # --- THIS IS THE NEW FIX ---
+        # Forcefully remove the old, incorrect auth file to prevent build conflicts.
+        # The correct file is located at /src/auth.ts
+        echo "Removing legacy auth file at src/lib/auth.ts to prevent build conflicts..."
+        rm -f src/lib/auth.ts
 
         # 1) Runtime deps
         npm pkg set dependencies.recharts="^2.12.7"
@@ -83,8 +89,6 @@ phases:
         export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
         TS
         fi
-
-        # SECTION 4 REMOVED - THIS WAS THE CAUSE OF THE PROBLEM
 
         # 5) Minimal stubs so Next build doesn't break if these are missing
         if [ ! -f src/components/nartex-logo.tsx ]; then
