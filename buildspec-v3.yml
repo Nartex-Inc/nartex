@@ -83,31 +83,7 @@ phases:
         TS
         fi
 
-        # 4) Make TS/Webpack resolve "@/*" and **parse JSONC** tsconfig safely
-        node <<'NODE'
-        const fs = require('fs');
-        const file = 'tsconfig.json';
-        let j = { compilerOptions: {} };
-
-        const strip = (s) =>
-          s.replace(/\/\*[\s\S]*?\*\//g, '')      // /* block comments */
-           .replace(/(^|[^:])\/\/.*$/gm, '$1');   // // line comments (not after ":")
-
-        if (fs.existsSync(file)) {
-          try { j = JSON.parse(strip(fs.readFileSync(file, 'utf8'))); }
-          catch (e) {
-            console.warn('⚠️  tsconfig.json had comments or bad JSON; rewriting minimal config. Reason:', e.message);
-          }
-        }
-
-        j.compilerOptions = j.compilerOptions || {};
-        j.compilerOptions.baseUrl = j.compilerOptions.baseUrl || '.';
-        j.compilerOptions.paths = Object.assign({ '@/*': ['./src/*'] }, j.compilerOptions.paths || {});
-        j.compilerOptions.skipLibCheck = true;
-        j.compilerOptions.types = Array.from(new Set([...(j.compilerOptions.types || []), 'node']));
-
-        fs.writeFileSync(file, JSON.stringify(j, null, 2));
-        NODE
+        # SECTION 4 REMOVED - THIS WAS THE CAUSE OF THE PROBLEM
 
         # 5) Minimal stubs so Next build doesn't break if these are missing
         if [ ! -f src/components/nartex-logo.tsx ]; then
