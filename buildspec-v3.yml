@@ -28,6 +28,7 @@ phases:
       nodejs: 18
     commands:
       - echo "📦 INSTALL – npm ci for workspace tooling"
+      - npm cache clean --force
       - npm ci
 
   pre_build:
