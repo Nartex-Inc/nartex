@@ -1,3 +1,5 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -108,7 +110,8 @@ model Tenant {
 
   // ─── Relations ────────────────────────────────────────────────────────────
   users     UserTenant[]
-  projects  Project[]   // Example: Relation to tenant-scoped models (add similar for Task, ProductRequest, etc.)
+  projects  Project[]   // Example: Relation to tenant-scoped models
+  sharePointNodes SharePointNode[] // ADDED: Relation to the SharePoint structure nodes
 
   @@map("tenants")
 }
@@ -158,4 +161,30 @@ enum ProductLifecycleStage {
   PLANIFICATION_PRODUIT_FINI
   MISE_EN_MARCHE
   VIE_DU_PRODUIT
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// 8. SHAREPOINT NODE (NEW MODEL FOR THE EDITABLE STRUCTURE)                  //
+////////////////////////////////////////////////////////////////////////////////
+model SharePointNode {
+  id           String    @id @default(cuid())
+  name         String
+  type         String?   // e.g., 'site', 'library', 'folder'
+  icon         String?   // Emoji or icon identifier
+  restricted   Boolean   @default(false)
+  highSecurity Boolean   @default(false)
+
+  // ─── Hierarchy (Self-referencing relation to build the tree) ──────────────
+  parentId     String?
+  parent       SharePointNode?  @relation("NodeChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children     SharePointNode[] @relation("NodeChildren")
+
+  // ─── Data Fields ──────────────────────────────────────────────────────────
+  permissions  Json?     // Stores complex permissions: { edit: string[], read: string[] } or "inherit"
+
+  // ─── Multi-tenancy Relation ───────────────────────────────────────────────
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("sharepoint_nodes")
 }
