@@ -2,13 +2,16 @@
 
 import NextAuth from "next-auth";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { User } from "@prisma/client";
+
+// --- THIS IS THE ONLY CHANGE ---
+// Changed from "@/lib/prisma" to a direct relative path to fix the build error.
+import prisma from "./lib/prisma";
 
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import AzureADProvider from "next-auth/providers/azure-ad";
-import { User } from "@prisma/client";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
