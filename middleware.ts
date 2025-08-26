@@ -1,17 +1,10 @@
-// middleware.ts (in project root)
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+// middleware.ts
+import NextAuth from 'next-auth';
+import { authConfig } from './auth.config'; // Import the safe config
 
-export function middleware(request: NextRequest) {
-  // Log all API requests to help debug
-  if (request.nextUrl.pathname.startsWith("/api/")) {
-    console.log(`Middleware: ${request.method} ${request.nextUrl.pathname}`);
-  }
-  
-  return NextResponse.next();
-}
+export default NextAuth(authConfig).auth;
 
-// Run middleware on API routes
 export const config = {
-  matcher: ["/api/:path*"],
+  // https://nextjs.org/docs/app/building-your-application/routing/middleware#matcher
+  matcher: ['/((?!api|_next/static|_next/image|.*\\.png$).*)'],
 };
