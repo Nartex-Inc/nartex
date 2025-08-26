@@ -1,2 +1,6 @@
 // src/app/api/auth/[...nextauth]/route.ts
-export { GET, POST } from "../../../../auth"; // Use direct relative path
+
+// The auth file is now at the root. We go up 5 levels to reach it.
+import { handlers } from "../../../../../auth";
+
+export const { GET, POST } = handlers;
