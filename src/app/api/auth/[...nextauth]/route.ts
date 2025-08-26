@@ -1,2 +1,2 @@
-import { handlers } from "../../../../auth";
-export const { GET, POST } = handlers;
+// src/app/api/auth/[...nextauth]/route.ts
+export { GET, POST } from "../../../../auth"; // Use direct relative path
