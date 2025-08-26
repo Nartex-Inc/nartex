@@ -128,7 +128,7 @@ const SharePointStructurePage = () => {
         </div>
         {isExpanded && hasChildren && (
           <div className="ml-2 pl-4 border-l">
-            {node.children.map(child => renderNode(child, depth + 1))}
+            {node.children?.map(child => renderNode(child, depth + 1))}
           </div>
         )}
       </div>
