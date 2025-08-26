@@ -133,49 +133,45 @@ phases:
       - chmod +x ci-prebuild.sh
       - bash ci-prebuild.sh
 
-  build:
-    commands:
-      - echo "🚀 BUILD – Applying database migrations"
-      - npx prisma migrate deploy
-      - echo "⚙️ BUILD – Generating Prisma Client"
-      - npx prisma generate
-      - echo "🏗 BUILD – resolve commit hash"
-      - COMMIT_HASH=$(git rev-parse --short HEAD)
-      - echo "🏗 BUILD – docker image (no cache)"
-      - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
-      - |
-        docker build \
-          --build-arg GIT_COMMIT_HASH=$COMMIT_HASH \
-          --build-arg DATABASE_URL="$DATABASE_URL" \
-          --build-arg EMAIL_SERVER_HOST="$EMAIL_SERVER_HOST" \
-          --build-arg EMAIL_SERVER_PORT="$EMAIL_SERVER_PORT" \
-          --build-arg EMAIL_SERVER_USER="$EMAIL_SERVER_USER" \
-          --build-arg EMAIL_SERVER_PASSWORD="$EMAIL_SERVER_PASSWORD" \
-          --build-arg EMAIL_FROM="$EMAIL_FROM" \
-          --build-arg NEXTAUTH_URL="$NEXTAUTH_URL" \
-          --build-arg AUTH_URL="$NEXTAUTH_URL" \
-          --build-arg NEXTAUTH_SECRET="$NEXTAUTH_SECRET" \
-          --build-arg AUTH_TRUST_HOST="true" \
-          --build-arg GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
-          --build-arg GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
-          --build-arg AZURE_AD_CLIENT_ID="$AZURE_AD_CLIENT_ID" \
-          --build-arg AZURE_AD_CLIENT_SECRET="$AZURE_AD_CLIENT_SECRET" \
-          --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
-          -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
-          -t "$ECR_IMAGE_URI:latest" .
-      - echo "🔑 Login to ECR"
-      - |
-        PASS="$(aws ecr get-login-password --region "$AWS_DEFAULT_REGION")"
-        echo "$PASS" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
-      - echo "📤 Push images"
-      - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
-      - docker push "$ECR_IMAGE_URI:latest"
-      # --- THIS IS THE CRITICAL FIX ---
-      - echo "📦 Creating image definitions file..."
-      - |
-        printf '[{"name":"%s","imageUri":"%s"}]' "$CONTAINER_NAME" "$ECR_IMAGE_URI:$COMMIT_HASH" > imagedefinitions.json
-      - echo "imagedefinitions.json created:"
-      - cat imagedefinitions.json
+    build:
+      commands:
+        - echo "🚀 BUILD – Applying database migrations"
+        - npx prisma migrate deploy
+        - echo "⚙️ BUILD – Generating Prisma Client"
+        - npx prisma generate
+        - echo "🏗 BUILD – resolve commit hash"
+        - COMMIT_HASH=$(git rev-parse --short HEAD)
+        - echo "🏗 BUILD – docker image (no cache)"
+        - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
+        - |
+          docker build \
+            --build-arg GIT_COMMIT_HASH=$COMMIT_HASH \
+            --build-arg DATABASE_URL="$DATABASE_URL" \
+            --build-arg EMAIL_SERVER_HOST="$EMAIL_SERVER_HOST" \
+            --build-arg EMAIL_SERVER_PORT="$EMAIL_SERVER_PORT" \
+            --build-arg EMAIL_SERVER_USER="$EMAIL_SERVER_USER" \
+            --build-arg EMAIL_SERVER_PASSWORD="$EMAIL_SERVER_PASSWORD" \
+            --build-arg EMAIL_FROM="$EMAIL_FROM" \
+            --build-arg NEXTAUTH_URL="$NEXTAUTH_URL" \
+            --build-arg AUTH_URL="$NEXTAUTH_URL" \
+            --build-arg NEXTAUTH_SECRET="$NEXTAUTH_SECRET" \
+            --build-arg AUTH_TRUST_HOST="true" \
+            --build-arg GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
+            --build-arg GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
+            --build-arg AZURE_AD_CLIENT_ID="$AZURE_AD_CLIENT_ID" \
+            --build-arg AZURE_AD_CLIENT_SECRET="$AZURE_AD_CLIENT_SECRET" \
+            --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
+            -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
+            -t "$ECR_IMAGE_URI:latest" .
+  
+        - echo "🔑 Login to ECR"
+        - |
+          PASS="$(aws ecr get-login-password --region "$AWS_DEFAULT_REGION")"
+          echo "$PASS" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
+  
+        - echo "📤 Push images"
+        - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
+        - docker push "$ECR_IMAGE_URI:latest"
 
   # --- THIS SECTION IS NOW CHANGED ---
   post_build:
