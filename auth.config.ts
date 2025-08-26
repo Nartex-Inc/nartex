@@ -7,20 +7,18 @@ import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { User } from '@prisma/client';
 
-// We remove the ': NextAuthConfig' type annotation and let TypeScript infer it.
-// This is the correct pattern for NextAuth v5.
 export const authConfig = {
   pages: { signIn: "/", error: "/auth/error" },
   providers: [
     Google({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       allowDangerousEmailAccountLinking: true,
     }),
     AzureAD({
-      clientId: process.env.AZURE_AD_CLIENT_ID,
-      clientSecret: process.env.AZURE_AD_CLIENT_SECRET,
-      tenantId: process.env.AZURE_AD_TENANT_ID,
+      clientId: process.env.AZURE_AD_CLIENT_ID!,
+      clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
+      tenantId: process.env.AZURE_AD_TENANT_ID!,
       allowDangerousEmailAccountLinking: true,
     }),
     Credentials({
@@ -34,9 +32,8 @@ export const authConfig = {
     }),
   ],
   callbacks: {
-    // Using an empty authorized callback is a common pattern to just check for a session
     authorized({ auth }: { auth: any }) {
-        return !!auth?.user;
+      return !!auth?.user;
     },
     jwt({ token, user }: { token: any, user: any }) {
       if (user) {
