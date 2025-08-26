@@ -5,8 +5,9 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { User } from "@prisma/client";
 
-// Use the alias path, which will now work correctly.
-import prisma from "@/lib/prisma";
+// --- THIS IS THE FIX ---
+// Changed from "@/lib/prisma" to a direct relative path.
+import prisma from "./lib/prisma";
 
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
