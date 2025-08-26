@@ -1,11 +1,18 @@
 // src/app/api/sharepoint/[id]/route.ts
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'; // Import NextRequest
 import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
 
+// Define the correct type for the context parameter
+interface RouteContext {
+  params: {
+    id: string;
+  };
+}
+
 // PATCH handler to rename a folder
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: RouteContext) { // Use the correct types
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
@@ -16,24 +23,30 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ error: 'Name is required' }, { status: 400 });
   }
 
-  const updatedNode = await prisma.sharePointNode.update({
-    where: { id: params.id },
-    data: { name },
-  });
-
-  return NextResponse.json(updatedNode);
+  try {
+    const updatedNode = await prisma.sharePointNode.update({
+      where: { id: params.id },
+      data: { name },
+    });
+    return NextResponse.json(updatedNode);
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to update node' }, { status: 500 });
+  }
 }
 
 // DELETE handler to delete a folder
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: RouteContext) { // Use the correct types
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
 
-  await prisma.sharePointNode.delete({
-    where: { id: params.id },
-  });
-
-  return NextResponse.json({ message: 'Node deleted successfully' }, { status: 200 });
+  try {
+    await prisma.sharePointNode.delete({
+      where: { id: params.id },
+    });
+    return NextResponse.json({ message: 'Node deleted successfully' }, { status: 200 });
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to delete node' }, { status: 500 });
+  }
 }
