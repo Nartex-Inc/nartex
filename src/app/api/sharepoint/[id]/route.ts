@@ -7,9 +7,11 @@ import { auth } from '@/auth';
 // PATCH handler to rename a folder
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } } // This is the corrected inline type
+  context: { params: { id: string } } // THIS IS THE CORRECT, EXPLICIT TYPE
 ) {
+  const { id } = context.params; // Destructure inside the function body
   const session = await auth();
+
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
@@ -21,7 +23,7 @@ export async function PATCH(
 
   try {
     const updatedNode = await prisma.sharePointNode.update({
-      where: { id: params.id },
+      where: { id: id },
       data: { name },
     });
     return NextResponse.json(updatedNode);
@@ -33,16 +35,18 @@ export async function PATCH(
 // DELETE handler to delete a folder
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } } // This is the corrected inline type
+  context: { params: { id: string } } // THIS IS THE CORRECT, EXPLICIT TYPE
 ) {
+  const { id } = context.params; // Destructure inside the function body
   const session = await auth();
+
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
 
   try {
     await prisma.sharePointNode.delete({
-      where: { id: params.id },
+      where: { id: id },
     });
     return NextResponse.json({ message: 'Node deleted successfully' }, { status: 200 });
   } catch (error) {
