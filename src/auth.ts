@@ -5,8 +5,8 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { User } from "@prisma/client";
 
-// --- THIS IS THE ONLY CHANGE ---
-// Changed from "@/lib/prisma" to a direct relative path to fix the build error.
+// --- THIS IS THE FIX ---
+// Changed from "@/lib/prisma" to a direct relative path.
 import prisma from "./lib/prisma";
 
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -49,7 +49,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           throw new Error("Aucun utilisateur trouvé ou mot de passe non configuré.");
         }
         if (!user.emailVerified) {
-          throw new Error("Veuillez vérifier votre adresse e-mail avant de vous connecter.");
+          throw new Error("Veuillez vérifier votre adresse e--mail avant de vous connecter.");
         }
 
         const isPasswordCorrect = await bcrypt.compare(
