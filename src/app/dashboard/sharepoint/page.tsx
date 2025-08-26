@@ -94,7 +94,7 @@ const SharePointStructurePage = () => {
     }
   };
 
-  const renderNode = (node: SharePointNode, depth = 0): JSX.Element => {
+  const renderNode = (node: SharePointNode, depth = 0) => {
     const isExpanded = expandedNodes.has(node.id);
     const hasChildren = node.children && node.children.length > 0;
 
