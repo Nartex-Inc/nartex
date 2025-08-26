@@ -111,7 +111,7 @@ model Tenant {
   // ─── Relations ────────────────────────────────────────────────────────────
   users     UserTenant[]
   projects  Project[]   // Example: Relation to tenant-scoped models
-  sharePointNodes SharePointNode[] // ADDED: Relation to the SharePoint structure nodes
+  sharePointNodes SharePointNode[]
 
   @@map("tenants")
 }
