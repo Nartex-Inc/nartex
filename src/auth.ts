@@ -1,13 +1,12 @@
-// auth.ts
+// src/auth.ts
 
 import NextAuth from "next-auth";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { User } from "@prisma/client";
 
-// --- THIS IS THE FIX ---
-// Using a direct relative path to the prisma client singleton.
-import prisma from "./lib/prisma";
+// Use the alias path, which will now work correctly.
+import prisma from "@/lib/prisma";
 
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
