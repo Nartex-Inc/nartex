@@ -164,19 +164,15 @@ phases:
           --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
           -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
           -t "$ECR_IMAGE_URI:latest" .
+
       - echo "🔑 Login to ECR"
       - |
         PASS="$(aws ecr get-login-password --region "$AWS_DEFAULT_REGION")"
         echo "$PASS" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
+
       - echo "📤 Push images"
       - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
       - docker push "$ECR_IMAGE_URI:latest"
-      # --- THIS IS THE CRITICAL FIX ---
-      - echo "📦 Creating image definitions file..."
-      - |
-        printf '[{"name":"%s","imageUri":"%s"}]' "$CONTAINER_NAME" "$ECR_IMAGE_URI:$COMMIT_HASH" > imagedefinitions.json
-      - echo "imagedefinitions.json created:"
-      - cat imagedefinitions.json
 
   # --- THIS SECTION IS NOW CHANGED ---
   post_build:
