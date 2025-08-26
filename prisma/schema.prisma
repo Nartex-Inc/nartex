@@ -169,22 +169,23 @@ enum ProductLifecycleStage {
 model SharePointNode {
   id           String    @id @default(cuid())
   name         String
-  type         String?   // e.g., 'site', 'library', 'folder'
+  type         String?   // 'site', 'library', 'folder'
   icon         String?   // Emoji or icon identifier
   restricted   Boolean   @default(false)
   highSecurity Boolean   @default(false)
+  permissions  Json?     // Stores { edit: string[], read: string[] } or "inherit"
 
-  // ─── Hierarchy (Self-referencing relation to build the tree) ──────────────
+  // --- Self-referencing relation for tree structure ---
   parentId     String?
   parent       SharePointNode?  @relation("NodeChildren", fields: [parentId], references: [id], onDelete: Cascade)
   children     SharePointNode[] @relation("NodeChildren")
 
-  // ─── Data Fields ──────────────────────────────────────────────────────────
-  permissions  Json?     // Stores complex permissions: { edit: string[], read: string[] } or "inherit"
-
-  // ─── Multi-tenancy Relation ───────────────────────────────────────────────
+  // --- Multi-tenancy Relation ---
   tenantId  String
   tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("sharepoint_nodes")
 }
