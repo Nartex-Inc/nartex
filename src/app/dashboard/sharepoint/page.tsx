@@ -1,6 +1,7 @@
 // src/app/dashboard/sharepoint/page.tsx
 'use client';
 
+import React from 'react';
 import React, { useState, useEffect } from 'react';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, Building2, Plus, Trash2, Pencil, Check } from 'lucide-react';
 
