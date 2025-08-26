@@ -1,18 +1,14 @@
 // src/app/api/sharepoint/[id]/route.ts
 
-import { NextRequest, NextResponse } from 'next/server'; // Import NextRequest
+import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
 
-// Define the correct type for the context parameter
-interface RouteContext {
-  params: {
-    id: string;
-  };
-}
-
 // PATCH handler to rename a folder
-export async function PATCH(req: NextRequest, { params }: RouteContext) { // Use the correct types
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { id: string } } // This is the corrected inline type
+) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
@@ -35,7 +31,10 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) { // Use
 }
 
 // DELETE handler to delete a folder
-export async function DELETE(req: NextRequest, { params }: RouteContext) { // Use the correct types
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } } // This is the corrected inline type
+) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
