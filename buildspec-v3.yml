@@ -40,9 +40,7 @@ phases:
         set -euo pipefail
         set -x
 
-        # --- THIS IS THE NEW FIX ---
         # Forcefully remove the old, incorrect auth file to prevent build conflicts.
-        # The correct file is located at /src/auth.ts
         echo "Removing legacy auth file at src/lib/auth.ts to prevent build conflicts..."
         rm -f src/lib/auth.ts
 
@@ -132,37 +130,42 @@ phases:
       - chmod +x ci-prebuild.sh
       - bash ci-prebuild.sh
 
-    build:
-      commands:
-        # This updates your live database schema
-        - echo "🚀 BUILD – Applying database migrations"
-        - npx prisma migrate deploy
-  
-        # This is a safety net to ensure TypeScript types are fresh
-        - echo "⚙️ BUILD – Generating Prisma Client"
-        - npx prisma generate
-        
-        # The rest of your build process follows
-        - echo "🏗 BUILD – resolve commit hash"
-        - COMMIT_HASH=$(git rev-parse --short HEAD)
-        - echo "🏗 BUILD – docker image (no cache)"
-        - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
-        - |
-          docker build \
-            --build-arg GIT_COMMIT_HASH=$COMMIT_HASH \
-            --build-arg DATABASE_URL="$DATABASE_URL" \
-            # ... (rest of your build args)
-            -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
-            -t "$ECR_IMAGE_URI:latest" .
-  
-        - echo "🔑 Login to ECR"
-        - |
-          PASS="$(aws ecr get-login-password --region "$AWS_DEFAULT_REGION")"
-          echo "$PASS" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
-  
-        - echo "📤 Push images"
-        - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
-        - docker push "$ECR_IMAGE_URI:latest"
+  # THIS 'build' SECTION IS NOW AT THE CORRECT INDENTATION LEVEL
+  build:
+    commands:
+      - echo "🚀 BUILD – Applying database migrations"
+      - npx prisma migrate deploy
+      - echo "⚙️ BUILD – Generating Prisma Client"
+      - npx prisma generate
+      - echo "🏗 BUILD – resolve commit hash"
+      - COMMIT_HASH=$(git rev-parse --short HEAD)
+      - echo "🏗 BUILD – docker image (no cache)"
+      - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
+      - |
+        docker build \
+          --build-arg GIT_COMMIT_HASH=$COMMIT_HASH \
+          --build-arg DATABASE_URL="$DATABASE_URL" \
+          --build-arg EMAIL_SERVER_HOST="$EMAIL_SERVER_HOST" \
+          --build-arg EMAIL_SERVER_PORT="$EMAIL_SERVER_PORT" \
+          --build-arg EMAIL_SERVER_USER="$EMAIL_SERVER_USER" \
+          --build-arg EMAIL_SERVER_PASSWORD="$EMAIL_SERVER_PASSWORD" \
+          --build-arg EMAIL_FROM="$EMAIL_FROM" \
+          --build-arg NEXTAUTH_URL="$NEXTAUTH_URL" \
+          --build-arg NEXTAUTH_SECRET="$NEXTAUTH_SECRET" \
+          --build-arg GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
+          --build-arg GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
+          --build-arg AZURE_AD_CLIENT_ID="$AZURE_AD_CLIENT_ID" \
+          --build-arg AZURE_AD_CLIENT_SECRET="$AZURE_AD_CLIENT_SECRET" \
+          --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
+          -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
+          -t "$ECR_IMAGE_URI:latest" .
+      - echo "🔑 Login to ECR"
+      - |
+        PASS="$(aws ecr get-login-password --region "$AWS_DEFAULT_REGION")"
+        echo "$PASS" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
+      - echo "📤 Push images"
+      - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
+      - docker push "$ECR_IMAGE_URI:latest"
 
   post_build:
     commands:
@@ -177,4 +180,4 @@ phases:
 
 artifacts:
   files:
-    - imagedefinitions.json
+    - imagedefinitions.json```
