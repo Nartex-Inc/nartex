@@ -2,9 +2,20 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ChevronRight, ChevronDown, Folder, FolderOpen, Building2, Plus, Trash2, Pencil, Check } from 'lucide-react';
+import { ChevronRight, Folder, FolderOpen, Lock, Shield, Edit, Star, Building2, Plus, Trash2, Pencil, Check, X } from 'lucide-react';
 
-type SharePointNode = { id: string; name: string; parentId: string | null; children?: SharePointNode[]; type?: string; icon?: string; };
+// Define a type for our data nodes
+type SharePointNode = {
+  id: string;
+  name: string;
+  parentId: string | null;
+  children?: SharePointNode[];
+  // Add other properties from your schema as needed
+  type?: string;
+  icon?: string;
+  restricted?: boolean;
+  highSecurity?: boolean;
+};
 
 const SharePointStructurePage = () => {
   const [nodes, setNodes] = useState<SharePointNode[]>([]);
@@ -15,6 +26,7 @@ const SharePointStructurePage = () => {
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
 
+  // --- NEW: Function to fetch data from our API ---
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -22,22 +34,35 @@ const SharePointStructurePage = () => {
       if (!response.ok) throw new Error('Failed to fetch');
       const data: SharePointNode[] = await response.json();
       setNodes(data);
-    } catch (error) { console.error("Error fetching data:", error); }
-    finally { setIsLoading(false); }
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  // --- NEW: Fetch data on component mount ---
+  useEffect(() => {
+    fetchData();
+  }, []);
 
+  // --- NEW: Effect to build the tree structure whenever the flat list of nodes changes ---
   useEffect(() => {
     if (nodes.length > 0) {
       const buildTree = (items: SharePointNode[], parentId: string | null = null): SharePointNode[] => {
-        return items.filter(item => item.parentId === parentId).map(item => ({ ...item, children: buildTree(items, item.id) }));
+        return items
+          .filter(item => item.parentId === parentId)
+          .map(item => ({
+            ...item,
+            children: buildTree(items, item.id),
+          }));
       };
+      // Assuming the root node is the one with a null parentId
       const rootNode = nodes.find(n => !n.parentId);
       if (rootNode) {
         const tree = { ...rootNode, children: buildTree(nodes, rootNode.id) };
         setStructure(tree);
-        if (expandedNodes.size === 0) setExpandedNodes(new Set([rootNode.id]));
+        setExpandedNodes(new Set([rootNode.id]));
       }
     }
   }, [nodes]);
@@ -45,39 +70,49 @@ const SharePointStructurePage = () => {
   const toggleNode = (nodeId: string) => {
     setExpandedNodes(prev => {
       const newSet = new Set(prev);
-      newSet.has(nodeId) ? newSet.delete(nodeId) : newSet.add(nodeId);
+      if (newSet.has(nodeId)) {
+        newSet.delete(nodeId);
+      } else {
+        newSet.add(nodeId);
+      }
       return newSet;
     });
   };
   
+  // --- UPDATED: Handler to rename a node ---
   const handleEditName = async (nodeId: string, newName: string) => {
-    setEditingNodeId(null);
-    if (!newName || newName === nodes.find(n => n.id === nodeId)?.name) return;
+    if (!newName) return;
     try {
-      const response = await fetch(`/api/sharepoint`, { // --- UPDATED URL
+      const response = await fetch(`/api/sharepoint/${nodeId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: nodeId, name: newName }), // --- UPDATED BODY
+        body: JSON.stringify({ name: newName }),
       });
       if (!response.ok) throw new Error('Failed to rename');
-      await fetchData();
-    } catch (error) { console.error("Error renaming node:", error); }
-  };
-
-  const handleDelete = async (nodeId: string) => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer ce dossier et tous ses sous-dossiers?')) {
-      try {
-        const response = await fetch(`/api/sharepoint`, { // --- UPDATED URL
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: nodeId }), // --- UPDATED BODY
-        });
-        if (!response.ok) throw new Error('Failed to delete');
-        await fetchData();
-      } catch (error) { console.error("Error deleting node:", error); }
+      await fetchData(); // Refetch all data to ensure consistency
+    } catch (error) {
+      console.error("Error renaming node:", error);
+    } finally {
+      setEditingNodeId(null);
     }
   };
 
+  // --- UPDATED: Handler to delete a node ---
+  const handleDelete = async (nodeId: string) => {
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer ce dossier et tous ses sous-dossiers?')) {
+      try {
+        const response = await fetch(`/api/sharepoint/${nodeId}`, {
+          method: 'DELETE',
+        });
+        if (!response.ok) throw new Error('Failed to delete');
+        await fetchData(); // Refetch all data
+      } catch (error) {
+        console.error("Error deleting node:", error);
+      }
+    }
+  };
+
+  // --- UPDATED: Handler to add a new folder ---
   const handleAddFolder = async (parentId: string) => {
     const folderName = window.prompt('Nom du nouveau dossier:');
     if (folderName) {
@@ -88,64 +123,105 @@ const SharePointStructurePage = () => {
           body: JSON.stringify({ name: folderName, parentId }),
         });
         if (!response.ok) throw new Error('Failed to add folder');
-        setExpandedNodes(prev => new Set(prev).add(parentId));
-        await fetchData();
-      } catch (error) { console.error("Error adding folder:", error); }
+        setExpandedNodes(prev => new Set(prev).add(parentId)); // Keep parent expanded
+        await fetchData(); // Refetch all data
+      } catch (error) {
+        console.error("Error adding folder:", error);
+      }
     }
   };
 
-  const renderNode = (node: SharePointNode, depth = 0) => {
+  const renderNode = (node: SharePointNode, depth = 0): JSX.Element => {
     const isExpanded = expandedNodes.has(node.id);
     const hasChildren = node.children && node.children.length > 0;
+    const isSelected = selectedNodeId === node.id;
+    const isEditing = editingNodeId === node.id;
 
     return (
-      <div key={node.id}>
-        <div className={`flex items-center gap-2 p-2 rounded-md cursor-pointer group hover:bg-gray-100 ${selectedNodeId === node.id ? 'bg-blue-50' : ''}`}
-             style={{ paddingLeft: `${depth * 24 + 8}px` }}
-             onClick={() => setSelectedNodeId(node.id)}>
-          <div className="w-6 text-gray-400" onClick={(e) => { e.stopPropagation(); hasChildren && toggleNode(node.id); }}>
-            {hasChildren && (isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />)}
-          </div>
-          {node.type === 'site' ? <Building2 size={16} className="text-purple-600" /> :
-           node.type === 'library' ? <span className="text-lg">{node.icon || '📁'}</span> :
-           (isExpanded ? <FolderOpen size={16} className="text-blue-500" /> : <Folder size={16} className="text-gray-500" />)}
+      <div key={node.id} className="select-none">
+        <div
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all duration-200 group ${isSelected ? 'bg-blue-100' : 'hover:bg-gray-100'}`}
+          style={{ paddingLeft: `${depth * 24 + 12}px` }}
+          onClick={() => setSelectedNodeId(node.id)}
+        >
+          {hasChildren && (
+            <span onClick={(e) => { e.stopPropagation(); toggleNode(node.id); }} className="p-1">
+              {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+            </span>
+          )}
           
-          {editingNodeId === node.id ?
-            (<input type="text" defaultValue={node.name} autoFocus onBlur={(e) => handleEditName(node.id, e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleEditName(node.id, e.currentTarget.value)}
-                    onClick={(e) => e.stopPropagation()} className="p-1 text-sm border rounded-md" />) :
-            (<span className="text-sm" onDoubleClick={(e) => { e.stopPropagation(); if (editMode) setEditingNodeId(node.id); }}>{node.name}</span>)}
-
-          <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+          {!hasChildren && <span className="w-6"></span>}
+          
+          {node.type === 'site' && <Building2 className="w-5 h-5 text-purple-500" />}
+          {node.type === 'library' && <span className="text-xl">{node.icon || '📁'}</span>}
+          {!node.type && (isExpanded ? <FolderOpen className="w-4 h-4 text-blue-500" /> : <Folder className="w-4 h-4 text-gray-500" />)}
+          
+          {isEditing ? (
+            <input
+              type="text"
+              defaultValue={node.name}
+              className="px-2 py-1 border rounded text-sm flex-1"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleEditName(node.id, e.currentTarget.value);
+                if (e.key === 'Escape') setEditingNodeId(null);
+              }}
+              onBlur={(e) => handleEditName(node.id, e.currentTarget.value)}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <span onDoubleClick={(e) => { e.stopPropagation(); if (editMode) setEditingNodeId(node.id); }}>
+              {node.name}
+            </span>
+          )}
+          
+          <div className="ml-auto flex gap-2 items-center">
             {editMode && (
-              <div className="flex items-center gap-1">
-                <button onClick={(e) => { e.stopPropagation(); setEditingNodeId(node.id); }} className="p-1 rounded-md hover:bg-gray-200" title="Renommer"><Pencil size={14} /></button>
-                <button onClick={(e) => { e.stopPropagation(); handleAddFolder(node.id); }} className="p-1 rounded-md hover:bg-gray-200" title="Ajouter"><Plus size={14} /></button>
-                {node.parentId && <button onClick={(e) => { e.stopPropagation(); handleDelete(node.id); }} className="p-1 rounded-md hover:bg-gray-200" title="Supprimer"><Trash2 size={14} /></button>}
+              <div className="hidden group-hover:flex gap-1">
+                <button onClick={(e) => { e.stopPropagation(); setEditingNodeId(node.id); }} className="p-1 hover:bg-blue-100 rounded" title="Renommer">
+                  <Pencil className="w-3 h-3 text-blue-600" />
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); handleAddFolder(node.id); }} className="p-1 hover:bg-green-100 rounded" title="Ajouter un sous-dossier">
+                  <Plus className="w-3 h-3 text-green-600" />
+                </button>
+                {node.parentId && ( // Prevent deleting the root node
+                  <button onClick={(e) => { e.stopPropagation(); handleDelete(node.id); }} className="p-1 hover:bg-red-100 rounded" title="Supprimer">
+                    <Trash2 className="w-3 h-3 text-red-600" />
+                  </button>
+                )}
               </div>
             )}
           </div>
         </div>
+        
         {isExpanded && hasChildren && (
-          <div className="ml-2 pl-4 border-l">
-            {node.children?.map(child => renderNode(child, depth + 1))}
+          <div className="ml-2 border-l border-gray-200">
+            {node.children.map(child => renderNode(child, depth + 1))}
           </div>
         )}
       </div>
     );
   };
 
+  if (isLoading) return <div>Chargement de la structure...</div>;
+
   return (
-    <div className="p-8">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-xl font-bold">Structure SharePoint</h1>
-        <button onClick={() => setEditMode(!editMode)} className={`px-3 py-1.5 text-sm rounded-md flex items-center gap-2 ${editMode ? 'bg-green-600 text-white' : 'bg-gray-200'}`}>
-          {editMode ? <Check size={16} /> : <Pencil size={16} />}
-          {editMode ? "Mode Édition" : "Activer Édition"}
-        </button>
-      </div>
-      <div className="bg-white p-4 rounded-lg shadow-sm border">
-        {isLoading ? <p>Chargement...</p> : (structure ? renderNode(structure) : <p>Aucune structure.</p>)}
+    <div className="min-h-screen bg-gray-50 p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-gray-800">Structure SharePoint</h1>
+          <button
+            onClick={() => setEditMode(!editMode)}
+            className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 ${editMode ? 'bg-green-500 text-white' : 'bg-gray-200'}`}
+          >
+            {editMode ? <Check className="w-4 h-4" /> : <Pencil className="w-4 h-4" />}
+            {editMode ? "Mode Édition Actif" : "Activer l'Édition"}
+          </button>
+        </div>
+        
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4">
+          {structure ? renderNode(structure) : <p>Aucune structure trouvée. Créez un dossier racine pour commencer.</p>}
+        </div>
       </div>
     </div>
   );
