@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import { User } from "@prisma/client";
 
 // --- THIS IS THE FIX ---
-// Changed from "@/lib/prisma" to a direct relative path.
+// Using a direct relative path to the prisma client singleton.
 import prisma from "./lib/prisma";
 
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -49,7 +49,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           throw new Error("Aucun utilisateur trouvé ou mot de passe non configuré.");
         }
         if (!user.emailVerified) {
-          throw new Error("Veuillez vérifier votre adresse e--mail avant de vous connecter.");
+          throw new Error("Veuillez vérifier votre adresse e-mail avant de vous connecter.");
         }
 
         const isPasswordCorrect = await bcrypt.compare(
