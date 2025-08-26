@@ -22,6 +22,12 @@ export const authConfig = {
       allowDangerousEmailAccountLinking: true,
     }),
     Credentials({
+      // --- THIS IS THE FIX ---
+      // The 'credentials' property needs to be defined here.
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
         const user = await prisma.user.findUnique({ where: { email: credentials.email as string } });
