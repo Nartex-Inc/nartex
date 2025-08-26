@@ -171,16 +171,17 @@ phases:
         - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
         - docker push "$ECR_IMAGE_URI:latest"
 
+        # --- THIS IS THE CRITICAL FIX ---
+        # This command creates the artifact that tells the Deploy stage which new image to use.
+        - echo "📦 Creating image definitions file..."
+        - |
+          printf '[{"name":"%s","imageUri":"%s"}]' "$CONTAINER_NAME" "$ECR_IMAGE_URI:$COMMIT_HASH" > imagedefinitions.json
+        - echo "imagedefinitions.json created:"
+        - cat imagedefinitions.json
+
   post_build:
     commands:
-      - echo "🔄 Force new ECS deployment"
-      - |
-        aws ecs update-service \
-          --cluster nartex-cluster \
-          --service nartex-next-service \
-          --force-new-deployment \
-          --region $AWS_DEFAULT_REGION
-        # Consider pinning the task def to $COMMIT_HASH for exact rollouts.
+      - echo "✅ Build complete. ECS deployment will now be handled by the CodePipeline Deploy stage."
 
 artifacts:
   files:
