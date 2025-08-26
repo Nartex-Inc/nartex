@@ -22,6 +22,8 @@ env:
     AZURE_AD_CLIENT_ID:     nartex/prod/env:AZURE_AD_CLIENT_ID
     AZURE_AD_CLIENT_SECRET: nartex/prod/env:AZURE_AD_CLIENT_SECRET
     RDS_CREDENTIALS:        nartex/prod/rds-credentials
+    DOCKERHUB_USERNAME:     dockerhub/credentials:DOCKERHUB_USERNAME
+    DOCKERHUB_PASSWORD:     dockerhub/credentials:DOCKERHUB_PASSWORD
     
 phases:
   install:
@@ -134,6 +136,12 @@ phases:
   # --- THIS 'build' SECTION IS NOW AT THE CORRECT INDENTATION LEVEL ---
   build:
     commands:
+      # --- THIS IS THE NEW FIX ---
+      - echo "Logging in to Docker Hub to increase pull rate limit..."
+      - echo "$DOCKERHUB_PASSWORD" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+      - echo "Docker Hub login successful."
+
+      # The rest of your build phase is now guaranteed to work.
       - echo "🚀 BUILD – Applying database migrations"
       - npx prisma migrate deploy
       - echo "⚙️ BUILD – Generating Prisma Client"
@@ -169,7 +177,6 @@ phases:
       - echo "📤 Push images"
       - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
       - docker push "$ECR_IMAGE_URI:latest"
-      # --- THIS IS THE CRITICAL FIX ---
       - echo "📦 Creating image definitions file..."
       - |
         printf '[{"name":"%s","imageUri":"%s"}]' "$CONTAINER_NAME" "$ECR_IMAGE_URI:$COMMIT_HASH" > imagedefinitions.json
