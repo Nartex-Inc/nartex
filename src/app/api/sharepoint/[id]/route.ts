@@ -25,11 +25,9 @@ async function requireTenant() {
 
 /* ============================================
    GET /api/sharepoint/:id
+   NOTE: second parameter MUST NOT be typed in Next 15
    ============================================ */
-export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: Request, { params }: any) {
   const mech = await requireTenant();
   if ("error" in mech) return mech.error;
 
@@ -48,10 +46,7 @@ export async function GET(
    PATCH /api/sharepoint/:id
    Body: { name: string }
    ============================================ */
-export async function PATCH(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: Request, { params }: any) {
   const mech = await requireTenant();
   if ("error" in mech) return mech.error;
 
@@ -66,9 +61,7 @@ export async function PATCH(
   }
 
   const name = (body?.name ?? "").toString().trim();
-  if (!name) {
-    return NextResponse.json({ error: "Name is required" }, { status: 400 });
-  }
+  if (!name) return NextResponse.json({ error: "Name is required" }, { status: 400 });
 
   // Ensure node belongs to this tenant
   const exists = await prisma.sharePointNode.findFirst({
@@ -89,10 +82,7 @@ export async function PATCH(
    DELETE /api/sharepoint/:id
    Recursively delete node and descendants
    ============================================ */
-export async function DELETE(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_req: Request, { params }: any) {
   const mech = await requireTenant();
   if ("error" in mech) return mech.error;
 
@@ -105,8 +95,7 @@ export async function DELETE(
     select: { id: true, parentId: true },
   });
 
-  // Confirm the root to delete actually exists for this tenant
-  if (!all.some((n) => n.id === id)) {
+  if (!all.some(n => n.id === id)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
