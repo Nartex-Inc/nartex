@@ -8,22 +8,15 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import AzureADProvider from "next-auth/providers/azure-ad";
 import bcrypt from "bcryptjs";
-
-// Minimal shape we need from the DB user (avoid importing a non-existent type)
-type DbUser = {
-  id: string;
-  role?: string | null;
-  firstName?: string | null;
-  lastName?: string | null;
-};
+// If you'd rather not depend on generated types, you can omit this import.
+// import type { User } from "@prisma/client";
 
 export const authOptions: NextAuthOptions = {
   // Pages from your config
   pages: authConfig.pages,
 
-  // Core
+  // v4: no "trustHost"; just ensure NEXTAUTH_URL is set
   secret: process.env.NEXTAUTH_SECRET,
-  trustHost: true,
 
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
@@ -37,7 +30,7 @@ export const authOptions: NextAuthOptions = {
     AzureADProvider({
       clientId: process.env.AZURE_AD_CLIENT_ID!,
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
-      tenantId: process.env.AZURE_AD_TENANT_ID!,
+      tenantId: process.env.AZURE_AD_TENANT_ID!, // "organizations" is fine
       allowDangerousEmailAccountLinking: true,
     }),
     CredentialsProvider({
@@ -60,11 +53,17 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        const u = user as DbUser;
+        // inline shape to avoid coupling to generated Prisma types
+        const u = user as {
+          id: string;
+          role?: string | null;
+          firstName?: string | null;
+          lastName?: string | null;
+        };
         token.id = u.id;
-        (token as any).role = u.role ?? null;
-        (token as any).firstName = u.firstName ?? null;
-        (token as any).lastName = u.lastName ?? null;
+        token.role = u.role ?? null;
+        token.firstName = u.firstName ?? null;
+        token.lastName = u.lastName ?? null;
       }
       return token;
     },
