@@ -1,4 +1,4 @@
-// NextAuth route handler for the App Router (NextAuth v4 style)
+// src/app/api/auth/[...nextauth]/route.ts
 import NextAuth from "next-auth";
 import { authOptions } from "@/auth";
 
