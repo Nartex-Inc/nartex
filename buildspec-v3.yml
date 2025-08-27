@@ -46,6 +46,9 @@ phases:
             }
           }
           if (changed) fs.writeFileSync(p, JSON.stringify(j, null, 2));
+          else console.log('No @eslint/eslinrc found');
+        } else {
+          console.log('package.json not found; skipping patch');
         }
         NODE
       - rm -f package-lock.json
@@ -65,7 +68,7 @@ phases:
         # Remove legacy auth file that could clash with NextAuth
         rm -f src/lib/auth.ts || true
 
-        # Ensure runtime deps (idempotent, safe if already present)
+        # Ensure runtime deps (idempotent; safe if already present)
         npm pkg set dependencies.recharts="^2.12.7"
         npm pkg set dependencies.lucide-react="^0.452.0"
         npm pkg set dependencies.class-variance-authority="^0.7.0"
@@ -86,8 +89,8 @@ phases:
         if [ ! -f src/lib/prisma.ts ]; then
           cat > src/lib/prisma.ts <<'TS'
         import { PrismaClient } from "@prisma/client";
-        const globalForPrisma = global as unknown as { prisma?: PrismaClient };
-        export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+        const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+        export const prisma = globalForPrisma.prisma ?? new PrismaClient({ log: process.env.NODE_ENV === "development" ? ["query","warn","error"] : ["error"] });
         if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
         export default prisma;
         TS
@@ -131,7 +134,7 @@ phases:
         npm install --package-lock-only --ignore-scripts --no-audit --no-fund
         SH
       - chmod +x ci-prebuild.sh
-      - bash ci-prebuild.sh
+      - ./ci-prebuild.sh
       - echo "📂 Components present:" && ls -la src/components || true && ls -la src/components/dashboard || true
       - COMMIT_HASH=$(git rev-parse --short HEAD) && echo "Commit: $COMMIT_HASH"
 
@@ -141,8 +144,8 @@ phases:
       - npx prisma migrate deploy
       - npx prisma generate
       - echo "🏗 BUILD – Docker image"
-      - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
       - |
+        ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"; \
         docker build \
           --build-arg GIT_COMMIT_HASH="$(git rev-parse --short HEAD)" \
           --build-arg DATABASE_URL="$DATABASE_URL" \
@@ -160,16 +163,15 @@ phases:
           --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
           -t "$ECR_IMAGE_URI:$(git rev-parse --short HEAD)" \
           -t "$ECR_IMAGE_URI:latest" .
-
       - echo "🔑 Login to ECR"
       - |
         aws ecr get-login-password --region "$AWS_DEFAULT_REGION" \
         | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
-
       - echo "📤 Push images"
-      - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
-      - docker push "$ECR_IMAGE_URI:$(git rev-parse --short HEAD)"
-      - docker push "$ECR_IMAGE_URI:latest"
+      - |
+        ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"; \
+        docker push "$ECR_IMAGE_URI:$(git rev-parse --short HEAD)"; \
+        docker push "$ECR_IMAGE_URI:latest"
 
   post_build:
     commands:
