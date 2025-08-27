@@ -1,3 +1,4 @@
+// src/auth.ts
 import type { NextAuthOptions } from "next-auth";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "./lib/prisma";
@@ -10,20 +11,27 @@ import bcrypt from "bcryptjs";
 import type { User } from "@prisma/client";
 
 export const authOptions: NextAuthOptions = {
+  // Pages from your config
   pages: authConfig.pages,
+
+  // Core
+  secret: process.env.NEXTAUTH_SECRET,   // ✅ make explicit
+  trustHost: true,                       // ✅ required behind CloudFront/ALB
+
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
+
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      allowDangerousEmailAccountLinking: true,
+      allowDangerousEmailAccountLinking: true, // consider removing if not needed
     }),
     AzureADProvider({
       clientId: process.env.AZURE_AD_CLIENT_ID!,
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
-      tenantId: process.env.AZURE_AD_TENANT_ID!,
-      allowDangerousEmailAccountLinking: true,
+      tenantId: process.env.AZURE_AD_TENANT_ID!, // "organizations" is fine
+      allowDangerousEmailAccountLinking: true,   // consider removing if not needed
     }),
     CredentialsProvider({
       credentials: {
@@ -39,8 +47,8 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
+
   callbacks: {
-    // keep your existing logic
     async jwt({ token, user }) {
       if (user) {
         token.id = (user as User).id;
@@ -53,11 +61,14 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = token.id as string;
-        (session.user as any).role = token.role as string | null | undefined;
-        (session.user as any).firstName = token.firstName ?? null;
-        (session.user as any).lastName = token.lastName ?? null;
+        (session.user as any).role = (token as any).role ?? null;
+        (session.user as any).firstName = (token as any).firstName ?? null;
+        (session.user as any).lastName = (token as any).lastName ?? null;
       }
       return session;
     },
   },
+
+  // Optional to debug SSO during rollout:
+  // debug: process.env.NODE_ENV !== "production",
 };
