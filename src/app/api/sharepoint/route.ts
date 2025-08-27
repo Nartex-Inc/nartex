@@ -4,7 +4,10 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 
-// GET: return all nodes for the tenant
+/**
+ * GET /api/sharepoint
+ * Returns all SharePoint nodes for the authenticated user's tenant.
+ */
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -13,6 +16,7 @@ export async function GET() {
 
   const userTenant = await prisma.userTenant.findFirst({
     where: { userId: (session.user as any).id },
+    select: { tenantId: true },
   });
   if (!userTenant) {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
@@ -26,7 +30,11 @@ export async function GET() {
   return NextResponse.json(nodes);
 }
 
-// POST: create a node (folder by default)
+/**
+ * POST /api/sharepoint
+ * Body: { name: string; parentId?: string | null; type?: string; icon?: string }
+ * Creates a new node (folder by default) under the authenticated user's tenant.
+ */
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -35,6 +43,7 @@ export async function POST(req: Request) {
 
   const userTenant = await prisma.userTenant.findFirst({
     where: { userId: (session.user as any).id },
+    select: { tenantId: true },
   });
   if (!userTenant) {
     return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
@@ -55,7 +64,7 @@ export async function POST(req: Request) {
   const newNode = await prisma.sharePointNode.create({
     data: {
       name: name.trim(),
-      parentId: parentId ?? null, // root allowed
+      parentId: parentId ?? null, // null allowed = root
       tenantId: userTenant.tenantId,
       type,
       icon,
