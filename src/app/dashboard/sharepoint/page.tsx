@@ -3,19 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   ChevronRight,
-  ChevronDown,       // ✅ added
+  ChevronDown,
   Folder,
   FolderOpen,
-  Lock,
-  Shield,
-  Edit,
-  Star,
   Building2,
   Plus,
   Trash2,
   Pencil,
   Check,
-  X,
 } from 'lucide-react';
 
 type SharePointNode = {
@@ -57,7 +52,9 @@ const SharePointStructurePage = () => {
   useEffect(() => {
     if (nodes.length > 0) {
       const buildTree = (items: SharePointNode[], parentId: string | null = null): SharePointNode[] =>
-        items.filter(i => i.parentId === parentId).map(i => ({ ...i, children: buildTree(items, i.id) }));
+        items
+          .filter(i => i.parentId === parentId)
+          .map(i => ({ ...i, children: buildTree(items, i.id) }));
 
       const rootNode = nodes.find(n => !n.parentId);
       if (rootNode) {
@@ -210,7 +207,7 @@ const SharePointStructurePage = () => {
             className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 ${editMode ? 'bg-green-500 text-white' : 'bg-gray-200'}`}
           >
             {editMode ? <Check className="w-4 h-4" /> : <Pencil className="w-4 h-4" />}
-            {editMode ? "Mode Édition Actif" : "Activer l'Édition"}
+            {editMode ? 'Mode Édition Actif' : "Activer l'Édition"}
           </button>
         </div>
 
