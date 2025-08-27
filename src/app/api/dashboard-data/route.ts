@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-// ✅ use the v4 server helper entrypoint
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
 import { pg } from "@/lib/db";
