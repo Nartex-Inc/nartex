@@ -30,7 +30,7 @@ phases:
     commands:
       - echo "📦 INSTALL – Cleaning cache and installing fresh dependencies"
       - npm cache clean --force
-      - npm ci
+      - npm install --legacy-peer-deps
 
   pre_build:
     commands:
