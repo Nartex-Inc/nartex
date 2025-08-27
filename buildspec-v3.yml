@@ -5,9 +5,8 @@ env:
     AWS_DEFAULT_REGION: "ca-central-1"
     AWS_ACCOUNT_ID: "586359898361"
     IMAGE_REPO_NAME: "nartex-next"
-    # --- THIS IS NEW AND REQUIRED ---
-    # The name of the container in your ECS Task Definition. 'nextjs' is a common default.
-    CONTAINER_NAME: "nextjs" 
+    # Must match the "name" field in your Task Definition container.
+    CONTAINER_NAME: "nextjs"
     NEXTAUTH_URL: "https://app.nartex.ca"
     EMAIL_SERVER_HOST: "smtp.gmail.com"
     EMAIL_SERVER_PORT: "587"
@@ -24,30 +23,28 @@ env:
     AZURE_AD_CLIENT_ID:     nartex/prod/env:AZURE_AD_CLIENT_ID
     AZURE_AD_CLIENT_SECRET: nartex/prod/env:AZURE_AD_CLIENT_SECRET
     RDS_CREDENTIALS:        nartex/prod/rds-credentials
-    
+
 phases:
   install:
     runtime-versions:
       nodejs: 18
     commands:
-      - echo "📦 INSTALL – Cleaning cache and installing fresh dependencies"
+      - echo "📦 INSTALL – clean cache and install deps"
       - npm cache clean --force
       - npm ci
 
   pre_build:
     commands:
-      - echo "📜 PRE_BUILD – write script to disk and run it"
+      - echo "📜 PRE_BUILD – preparing workspace"
       - |
         cat > ci-prebuild.sh << 'SH'
-        #!/usr/bin/env bash
         set -euo pipefail
         set -x
 
-        # Forcefully remove the old, incorrect auth file to prevent build conflicts.
-        echo "Removing legacy auth file at src/lib/auth.ts to prevent build conflicts..."
-        rm -f src/lib/auth.ts
+        # Remove legacy file if present to avoid conflicts
+        rm -f src/lib/auth.ts || true
 
-        # 1) Runtime deps
+        # Ensure runtime & dev deps (idempotent)
         npm pkg set dependencies.recharts="^2.12.7"
         npm pkg set dependencies.lucide-react="^0.452.0"
         npm pkg set dependencies.class-variance-authority="^0.7.0"
@@ -57,31 +54,25 @@ phases:
         npm pkg set dependencies.pg="^8.11.3"
         npm pkg set dependencies.swr="^2.3.0"
         npm pkg set dependencies.@next-auth/prisma-adapter="^1.0.7"
-
-        # 1b) Dev typings so TS is happy in CI
         npm pkg set devDependencies.@types/node="^18.19.0"
         npm pkg set devDependencies.@types/pg="^8.11.7"
 
-        # 2) shadcn config (idempotent)
+        # shadcn config (safe if already exists)
         node <<'NODE'
         const fs = require('fs');
         const p = 'components.json';
         const j = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p,'utf8')) : {};
         j.$schema = 'https://ui.shadcn.com/schema.json';
-        j.style = 'default';
-        j.rsc = true;
-        j.tsx = true;
+        j.style = 'default'; j.rsc = true; j.tsx = true;
         j.tailwind = { config: 'tailwind.config.ts', css: 'src/app/globals.css', baseColor: 'gray', cssVariables: true };
         j.aliases = { components: '@/components', utils: '@/lib/utils' };
-        j.iconLibrary = 'lucide';
-        j.components = j.components || [];
-        j.path = 'src/components';
+        j.iconLibrary = 'lucide'; j.components = j.components || []; j.path = 'src/components';
         fs.writeFileSync(p, JSON.stringify(j, null, 2));
         NODE
 
         mkdir -p src/lib src/components/ui src/components/dashboard
 
-        # 3) cn() helper if missing
+        # cn() helper if missing
         if [ ! -f src/lib/utils.ts ]; then
           cat > src/lib/utils.ts << 'TS'
         import type { ClassValue } from "clsx";
@@ -91,94 +82,87 @@ phases:
         TS
         fi
 
-        # 5) Minimal stubs so Next build doesn't break if these are missing
-        if [ ! -f src/components/nartex-logo.tsx ]; then
-          cat > src/components/nartex-logo.tsx << 'TSX'
-        import * as React from "react";
+        # Minimal stubs if components are absent
+        [ -f src/components/nartex-logo.tsx ] || cat > src/components/nartex-logo.tsx << 'TSX'
         export default function NartexLogo({ className="" }: { className?: string }) {
           return <span className={className} style={{ fontWeight: 600, letterSpacing: ".05em" }}>nartex</span>;
         }
         TSX
-        fi
 
-        if [ ! -f src/components/dashboard/header.tsx ]; then
-          cat > src/components/dashboard/header.tsx << 'TSX'
+        [ -f src/components/dashboard/header.tsx ] || cat > src/components/dashboard/header.tsx << 'TSX'
         export default function DashboardHeader(){ return <div className="px-4 py-3 text-sm text-muted-foreground">Dashboard Header</div>; }
         TSX
-        fi
 
-        if [ ! -f src/components/dashboard/sidebar.tsx ]; then
-          cat > src/components/dashboard/sidebar.tsx << 'TSX'
+        [ -f src/components/dashboard/sidebar.tsx ] || cat > src/components/dashboard/sidebar.tsx << 'TSX'
         export default function DashboardSidebar(){ return <aside className="p-4 text-sm text-muted-foreground">Sidebar</aside>; }
         TSX
-        fi
 
-        if [ ! -f src/components/dashboard/new-product-requests-table.tsx ]; then
-          cat > src/components/dashboard/new-product-requests-table.tsx << 'TSX'
+        [ -f src/components/dashboard/new-product-requests-table.tsx ] || cat > src/components/dashboard/new-product-requests-table.tsx << 'TSX'
         export default function NewProductRequestsTable(){ return <div className="p-4 text-sm text-muted-foreground">New product requests (stub)</div>; }
         TSX
-        fi
 
-        if [ ! -f src/components/product-requests-table.tsx ]; then
-          cat > src/components/product-requests-table.tsx << 'TSX'
+        [ -f src/components/product-requests-table.tsx ] || cat > src/components/product-requests-table.tsx << 'TSX'
         export default function ProductRequestsTable(){ return <div className="p-4 text-sm text-muted-foreground">Product requests (stub)</div>; }
         TSX
-        fi
 
-        echo "📂 Components present:"; ls -la src/components || true; ls -la src/components/dashboard || true
-
-        # 6) Refresh lockfile for Docker layer cache
+        # Refresh lockfile for better Docker cache hits
         npm install --package-lock-only --ignore-scripts --no-audit --no-fund
         SH
       - chmod +x ci-prebuild.sh
       - bash ci-prebuild.sh
 
-    build:
-      commands:
-        - echo "🚀 BUILD – Applying database migrations"
-        - npx prisma migrate deploy
-        - echo "⚙️ BUILD – Generating Prisma Client"
-        - npx prisma generate
-        - echo "🏗 BUILD – resolve commit hash"
-        - COMMIT_HASH=$(git rev-parse --short HEAD)
-        - echo "🏗 BUILD – docker image (no cache)"
-        - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
-        - |
-          docker build \
-            --build-arg GIT_COMMIT_HASH=$COMMIT_HASH \
-            --build-arg DATABASE_URL="$DATABASE_URL" \
-            --build-arg EMAIL_SERVER_HOST="$EMAIL_SERVER_HOST" \
-            --build-arg EMAIL_SERVER_PORT="$EMAIL_SERVER_PORT" \
-            --build-arg EMAIL_SERVER_USER="$EMAIL_SERVER_USER" \
-            --build-arg EMAIL_SERVER_PASSWORD="$EMAIL_SERVER_PASSWORD" \
-            --build-arg EMAIL_FROM="$EMAIL_FROM" \
-            --build-arg NEXTAUTH_URL="$NEXTAUTH_URL" \
-            --build-arg AUTH_URL="$NEXTAUTH_URL" \
-            --build-arg NEXTAUTH_SECRET="$NEXTAUTH_SECRET" \
-            --build-arg AUTH_TRUST_HOST="true" \
-            --build-arg GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
-            --build-arg GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
-            --build-arg AZURE_AD_CLIENT_ID="$AZURE_AD_CLIENT_ID" \
-            --build-arg AZURE_AD_CLIENT_SECRET="$AZURE_AD_CLIENT_SECRET" \
-            --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
-            -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
-            -t "$ECR_IMAGE_URI:latest" .
-  
-        - echo "🔑 Login to ECR"
-        - |
-          PASS="$(aws ecr get-login-password --region "$AWS_DEFAULT_REGION")"
-          echo "$PASS" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
-  
-        - echo "📤 Push images"
-        - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
-        - docker push "$ECR_IMAGE_URI:latest"
+  build:
+    commands:
+      - echo "🚀 BUILD – apply prisma migrations"
+      - npx prisma migrate deploy
+      - echo "⚙️ BUILD – generate prisma client"
+      - npx prisma generate
+      - echo "🏗 BUILD – resolve commit hash"
+      - COMMIT_HASH=$(git rev-parse --short HEAD)
+      - echo "COMMIT_HASH=$COMMIT_HASH"
+      - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
+      - echo "🏗 BUILD – docker image"
+      - |
+        docker build \
+          --build-arg GIT_COMMIT_HASH=$COMMIT_HASH \
+          --build-arg DATABASE_URL="$DATABASE_URL" \
+          --build-arg EMAIL_SERVER_HOST="$EMAIL_SERVER_HOST" \
+          --build-arg EMAIL_SERVER_PORT="$EMAIL_SERVER_PORT" \
+          --build-arg EMAIL_SERVER_USER="$EMAIL_SERVER_USER" \
+          --build-arg EMAIL_SERVER_PASSWORD="$EMAIL_SERVER_PASSWORD" \
+          --build-arg EMAIL_FROM="$EMAIL_FROM" \
+          --build-arg NEXTAUTH_URL="$NEXTAUTH_URL" \
+          --build-arg NEXTAUTH_SECRET="$NEXTAUTH_SECRET" \
+          --build-arg GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
+          --build-arg GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
+          --build-arg AZURE_AD_CLIENT_ID="$AZURE_AD_CLIENT_ID" \
+          --build-arg AZURE_AD_CLIENT_SECRET="$AZURE_AD_CLIENT_SECRET" \
+          --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
+          -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
+          -t "$ECR_IMAGE_URI:latest" .
 
-  # --- THIS SECTION IS NOW CHANGED ---
+      - echo "🔑 Login to ECR"
+      - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
+
+      - echo "📤 Push images"
+      - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
+      - docker push "$ECR_IMAGE_URI:latest"
+
   post_build:
     commands:
-      - echo "✅ Build complete. ECS deployment will now be handled by the CodePipeline Deploy stage."
+      - echo "🧾 POST_BUILD – write imagedefinitions.json for ECS deploy stage"
+      - |
+        cat > imagedefinitions.json << JSON
+        [
+          {
+            "name": "${CONTAINER_NAME}",
+            "imageUri": "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME}:${COMMIT_HASH}"
+          }
+        ]
+        JSON
+      - cat imagedefinitions.json
+      - echo "✅ Build complete. Handing off to CodePipeline ECS Deploy."
 
 artifacts:
   files:
-    # This tells CodeBuild to pass the created file to the next stage.
     - imagedefinitions.json
