@@ -1,23 +1,18 @@
-// src/app/api/sharepoint/[id]/route.ts
 import { NextResponse, type NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
-import { getServerSession } from "next-auth";     // ✅ use next-auth
-import { authOptions } from "@/auth";              // ✅ your shared options
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/auth";
 
-// Helper: resolve current user's tenant or return an error response
+// helper
 async function getTenantId() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+  if (!session?.user?.id) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const userTenant = await prisma.userTenant.findFirst({
     where: { userId: (session.user as any).id },
     select: { tenantId: true },
   });
-  if (!userTenant) {
-    return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
-  }
+  if (!userTenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
 
   return userTenant.tenantId as string | NextResponse;
 }
