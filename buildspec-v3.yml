@@ -5,8 +5,16 @@ env:
     AWS_DEFAULT_REGION: "ca-central-1"
     AWS_ACCOUNT_ID: "586359898361"
     IMAGE_REPO_NAME: "nartex-next"
-    # Must match the "name" field in your Task Definition container.
+    # Must match the container "name" field in your ECS Task Definition
     CONTAINER_NAME: "nextjs"
+
+    # ECS service to roll
+    CLUSTER_NAME: "nartex-cluster"
+    SERVICE_NAME: "nartex-next-service"
+    # Set to "false" if you ONLY want CodePipeline’s ECS Deploy stage to handle rollout
+    TRIGGER_ECS_DEPLOY: "true"
+
+    # App env
     NEXTAUTH_URL: "https://app.nartex.ca"
     EMAIL_SERVER_HOST: "smtp.gmail.com"
     EMAIL_SERVER_PORT: "587"
@@ -41,10 +49,8 @@ phases:
         set -euo pipefail
         set -x
 
-        # Remove legacy file if present to avoid conflicts
         rm -f src/lib/auth.ts || true
 
-        # Ensure runtime & dev deps (idempotent)
         npm pkg set dependencies.recharts="^2.12.7"
         npm pkg set dependencies.lucide-react="^0.452.0"
         npm pkg set dependencies.class-variance-authority="^0.7.0"
@@ -57,7 +63,6 @@ phases:
         npm pkg set devDependencies.@types/node="^18.19.0"
         npm pkg set devDependencies.@types/pg="^8.11.7"
 
-        # shadcn config (safe if already exists)
         node <<'NODE'
         const fs = require('fs');
         const p = 'components.json';
@@ -72,7 +77,6 @@ phases:
 
         mkdir -p src/lib src/components/ui src/components/dashboard
 
-        # cn() helper if missing
         if [ ! -f src/lib/utils.ts ]; then
           cat > src/lib/utils.ts << 'TS'
         import type { ClassValue } from "clsx";
@@ -82,7 +86,6 @@ phases:
         TS
         fi
 
-        # Minimal stubs if components are absent
         [ -f src/components/nartex-logo.tsx ] || cat > src/components/nartex-logo.tsx << 'TSX'
         export default function NartexLogo({ className="" }: { className?: string }) {
           return <span className={className} style={{ fontWeight: 600, letterSpacing: ".05em" }}>nartex</span>;
@@ -105,7 +108,6 @@ phases:
         export default function ProductRequestsTable(){ return <div className="p-4 text-sm text-muted-foreground">Product requests (stub)</div>; }
         TSX
 
-        # Refresh lockfile for better Docker cache hits
         npm install --package-lock-only --ignore-scripts --no-audit --no-fund
         SH
       - chmod +x ci-prebuild.sh
@@ -150,7 +152,7 @@ phases:
 
   post_build:
     commands:
-      - echo "🧾 POST_BUILD – write imagedefinitions.json for ECS deploy stage"
+      - echo "🧾 POST_BUILD – write imagedefinitions.json"
       - |
         cat > imagedefinitions.json << JSON
         [
@@ -161,7 +163,18 @@ phases:
         ]
         JSON
       - cat imagedefinitions.json
-      - echo "✅ Build complete. Handing off to CodePipeline ECS Deploy."
+
+      - |
+        if [ "$TRIGGER_ECS_DEPLOY" = "true" ]; then
+          echo "🚀 Forcing new ECS deployment for ${CLUSTER_NAME}/${SERVICE_NAME}"
+          aws ecs update-service \
+            --cluster "$CLUSTER_NAME" \
+            --service "$SERVICE_NAME" \
+            --force-new-deployment
+          echo "✅ ECS service update requested"
+        else
+          echo "ℹ️ TRIGGER_ECS_DEPLOY=false – skipping direct ECS rollout (use CodePipeline Deploy stage)."
+        fi
 
 artifacts:
   files:
