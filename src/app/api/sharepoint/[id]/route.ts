@@ -1,7 +1,11 @@
 // src/app/api/sharepoint/[id]/route.ts
 import { NextResponse, type NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
-import { auth } from '@/auth';
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/auth";
+
+// in a route or server component:
+const session = await getServerSession(authOptions);
 
 // Small helper to read the tenant of the current user
 async function getTenantId() {
