@@ -5,9 +5,8 @@ env:
     AWS_DEFAULT_REGION: "ca-central-1"
     AWS_ACCOUNT_ID: "586359898361"
     IMAGE_REPO_NAME: "nartex-next"
-    # --- THIS IS NEW AND REQUIRED ---
-    # The name of the container in your ECS Task Definition. 'nextjs' is a common default.
-    CONTAINER_NAME: "nextjs" 
+    # Name of the container in your ECS Task Definition
+    CONTAINER_NAME: "nextjs"
     NEXTAUTH_URL: "https://app.nartex.ca"
     EMAIL_SERVER_HOST: "smtp.gmail.com"
     EMAIL_SERVER_PORT: "587"
@@ -24,7 +23,7 @@ env:
     AZURE_AD_CLIENT_ID:     nartex/prod/env:AZURE_AD_CLIENT_ID
     AZURE_AD_CLIENT_SECRET: nartex/prod/env:AZURE_AD_CLIENT_SECRET
     RDS_CREDENTIALS:        nartex/prod/rds-credentials
-    
+
 phases:
   install:
     runtime-versions:
@@ -133,52 +132,64 @@ phases:
       - chmod +x ci-prebuild.sh
       - bash ci-prebuild.sh
 
-    build:
-      commands:
-        - echo "🚀 BUILD – Applying database migrations"
-        - npx prisma migrate deploy
-        - echo "⚙️ BUILD – Generating Prisma Client"
-        - npx prisma generate
-        - echo "🏗 BUILD – resolve commit hash"
-        - COMMIT_HASH=$(git rev-parse --short HEAD)
-        - echo "🏗 BUILD – docker image (no cache)"
-        - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
-        - |
-          docker build \
-            --build-arg GIT_COMMIT_HASH=$COMMIT_HASH \
-            --build-arg DATABASE_URL="$DATABASE_URL" \
-            --build-arg EMAIL_SERVER_HOST="$EMAIL_SERVER_HOST" \
-            --build-arg EMAIL_SERVER_PORT="$EMAIL_SERVER_PORT" \
-            --build-arg EMAIL_SERVER_USER="$EMAIL_SERVER_USER" \
-            --build-arg EMAIL_SERVER_PASSWORD="$EMAIL_SERVER_PASSWORD" \
-            --build-arg EMAIL_FROM="$EMAIL_FROM" \
-            --build-arg NEXTAUTH_URL="$NEXTAUTH_URL" \
-            --build-arg AUTH_URL="$NEXTAUTH_URL" \
-            --build-arg NEXTAUTH_SECRET="$NEXTAUTH_SECRET" \
-            --build-arg AUTH_TRUST_HOST="true" \
-            --build-arg GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
-            --build-arg GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
-            --build-arg AZURE_AD_CLIENT_ID="$AZURE_AD_CLIENT_ID" \
-            --build-arg AZURE_AD_CLIENT_SECRET="$AZURE_AD_CLIENT_SECRET" \
-            --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
-            -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
-            -t "$ECR_IMAGE_URI:latest" .
-  
-        - echo "🔑 Login to ECR"
-        - |
-          PASS="$(aws ecr get-login-password --region "$AWS_DEFAULT_REGION")"
-          echo "$PASS" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
-  
-        - echo "📤 Push images"
-        - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
-        - docker push "$ECR_IMAGE_URI:latest"
+  build:
+    commands:
+      - echo "🚀 BUILD – Applying database migrations"
+      - npx prisma migrate deploy
+      - echo "⚙️ BUILD – Generating Prisma Client"
+      - npx prisma generate
+      - echo "🏗 BUILD – resolve commit hash"
+      - COMMIT_HASH=$(git rev-parse --short HEAD)
+      - echo "🏗 BUILD – docker image"
+      - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
+      - |
+        docker build \
+          --build-arg GIT_COMMIT_HASH=$COMMIT_HASH \
+          --build-arg DATABASE_URL="$DATABASE_URL" \
+          --build-arg EMAIL_SERVER_HOST="$EMAIL_SERVER_HOST" \
+          --build-arg EMAIL_SERVER_PORT="$EMAIL_SERVER_PORT" \
+          --build-arg EMAIL_SERVER_USER="$EMAIL_SERVER_USER" \
+          --build-arg EMAIL_SERVER_PASSWORD="$EMAIL_SERVER_PASSWORD" \
+          --build-arg EMAIL_FROM="$EMAIL_FROM" \
+          --build-arg NEXTAUTH_URL="$NEXTAUTH_URL" \
+          --build-arg AUTH_URL="$NEXTAUTH_URL" \
+          --build-arg NEXTAUTH_SECRET="$NEXTAUTH_SECRET" \
+          --build-arg AUTH_TRUST_HOST="true" \
+          --build-arg GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
+          --build-arg GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
+          --build-arg AZURE_AD_CLIENT_ID="$AZURE_AD_CLIENT_ID" \
+          --build-arg AZURE_AD_CLIENT_SECRET="$AZURE_AD_CLIENT_SECRET" \
+          --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
+          -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
+          -t "$ECR_IMAGE_URI:latest" .
 
-  # --- THIS SECTION IS NOW CHANGED ---
+      - echo "🔑 Login to ECR"
+      - |
+        PASS="$(aws ecr get-login-password --region "$AWS_DEFAULT_REGION")"
+        echo "$PASS" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+
+      - echo "📤 Push images"
+      - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
+      - docker push "$ECR_IMAGE_URI:latest"
+
   post_build:
     commands:
-      - echo "✅ Build complete. ECS deployment will now be handled by the CodePipeline Deploy stage."
+      - echo "✅ BUILD – Creating imagedefinitions.json for ECS deployment"
+      - COMMIT_HASH=$(git rev-parse --short HEAD)
+      - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
+      - |
+        cat > imagedefinitions.json <<EOF
+        [
+          {
+            "name": "$CONTAINER_NAME",
+            "imageUri": "$ECR_IMAGE_URI:$COMMIT_HASH"
+          }
+        ]
+        EOF
+      - echo "📋 Contents of imagedefinitions.json:"
+      - cat imagedefinitions.json
+      - echo "✅ Build complete. ECS deployment will be handled by the CodePipeline Deploy stage."
 
 artifacts:
   files:
-    # This tells CodeBuild to pass the created file to the next stage.
     - imagedefinitions.json
