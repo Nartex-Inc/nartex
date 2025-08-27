@@ -1,10 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
-// ✅ use the v4 server helper entrypoint
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
 
-// helper to get tenantId of current user
 async function getTenantId() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
