@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
+import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { pg } from "@/lib/db";
 
@@ -17,7 +17,6 @@ WHERE h."cieid" = $1 AND h."InvDate" BETWEEN $2 AND $3 AND d."Amount" > 0;
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
-
   if (!session || (session.user as any)?.role !== "ventes-exec") {
     return NextResponse.json(
       { error: "Vous ne disposez pas des autorisations nécessaires pour consulter ces données. Veuillez contacter votre département TI pour de l'aide." },
@@ -34,7 +33,7 @@ export async function GET(req: Request) {
 
   if (isNaN(new Date(startDate).getTime()) || isNaN(new Date(endDate).getTime())) {
     return NextResponse.json({ error: "Format de date invalide fourni." }, { status: 400 });
-  }
+    }
 
   try {
     const params = [gcieid, startDate, endDate];
