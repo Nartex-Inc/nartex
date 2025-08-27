@@ -12,6 +12,7 @@ env:
     EMAIL_SERVER_USER: "n.labranche@nartex.ca"
     EMAIL_FROM: "Nartex <noreply@nartex.ca>"
     AZURE_AD_TENANT_ID: "organizations"
+
   secrets-manager:
     DATABASE_URL:           nartex/prod/env:DATABASE_URL
     EMAIL_SERVER_PASSWORD:  nartex/prod/env:EMAIL_SERVER_PASSWORD
@@ -25,10 +26,10 @@ env:
 phases:
   install:
     runtime-versions:
-      nodejs: 22   # keep host up to date; we’re not installing modules here
+      nodejs: 22
     commands:
       - echo "📦 INSTALL – no host npm install; Docker handles dependencies."
-      # Patch the bad ESLint package name if present (both deps & devDeps)
+      # Remove the bad package name if it exists so the refreshed lock is clean
       - |
         node -e "const fs=require('fs');const p='package.json';
         if(fs.existsSync(p)){
@@ -41,19 +42,20 @@ phases:
           }
           fs.writeFileSync(p, JSON.stringify(j,null,2));
         } else { console.log('package.json not found; skipping patch'); }"
+
   pre_build:
     commands:
-      - echo "📜 PRE_BUILD – write helper script and refresh lockfile only"
+      - echo "📜 PRE_BUILD – create helper script and refresh lockfile only"
       - |
         cat > ci-prebuild.sh << 'SH'
         #!/usr/bin/env bash
         set -euo pipefail
         set -x
 
-        # Ensure we don't have the legacy auth file that collides with NextAuth
+        # Remove legacy auth file that conflicts with NextAuth
         rm -f src/lib/auth.ts || true
 
-        # Ensure basic UI/runtime deps (idempotent)
+        # Ensure expected runtime deps (idempotent)
         npm pkg set dependencies.recharts="^2.12.7"
         npm pkg set dependencies.lucide-react="^0.452.0"
         npm pkg set dependencies.class-variance-authority="^0.7.0"
@@ -64,12 +66,11 @@ phases:
         npm pkg set dependencies.swr="^2.3.0"
         npm pkg set dependencies.@next-auth/prisma-adapter="^1.0.7"
 
-        # Types for CI tooling if needed
+        # Types so TS is happy in CI
         npm pkg set devDependencies.@types/node="^18.19.0"
         npm pkg set devDependencies.@types/pg="^8.11.7"
 
-        # Guarantee lucide ChevronDown import is available (we’ll fix source below)
-        # and ensure a minimal prisma helper exists if missing.
+        # Ensure prisma helper exists
         mkdir -p src/lib
         if [ ! -f src/lib/prisma.ts ]; then
           cat > src/lib/prisma.ts <<'TS'
@@ -81,19 +82,17 @@ phases:
         TS
         fi
 
-        # Refresh lockfile only, so Docker uses a clean, corrected lock
+        # Refresh lockfile only; Docker will perform the real install via npm ci
         npm install --package-lock-only --ignore-scripts --no-audit --no-fund
         SH
       - chmod +x ci-prebuild.sh
       - bash ci-prebuild.sh
-
-      # Resolve a short commit hash for tagging
       - COMMIT_HASH=$(git rev-parse --short HEAD)
-      - echo "Commit hash: $COMMIT_HASH"
+      - echo "Commit: $COMMIT_HASH"
 
   build:
     commands:
-      - echo "🏗 BUILD – docker image (dependencies installed inside Docker build)"
+      - echo "🏗 BUILD – docker image (deps installed inside Docker)"
       - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
       - |
         docker build \
@@ -116,8 +115,8 @@ phases:
 
       - echo "🔑 Login to ECR"
       - |
-        PASS="$(aws ecr get-login-password --region "$AWS_DEFAULT_REGION")"
-        echo "$PASS" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+        aws ecr get-login-password --region "$AWS_DEFAULT_REGION" \
+        | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
 
       - echo "📤 Push images"
       - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
@@ -125,7 +124,7 @@ phases:
 
   post_build:
     commands:
-      - echo "✅ BUILD – Creating imagedefinitions.json for ECS deployment"
+      - echo "✅ Create imagedefinitions.json"
       - COMMIT_HASH=$(git rev-parse --short HEAD)
       - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
       - |
@@ -134,7 +133,6 @@ phases:
           { "name": "$CONTAINER_NAME", "imageUri": "$ECR_IMAGE_URI:$COMMIT_HASH" }
         ]
         EOF
-      - echo "📋 Contents of imagedefinitions.json:"
       - cat imagedefinitions.json
 
 artifacts:
