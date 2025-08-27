@@ -4,12 +4,9 @@ import prisma from '@/lib/prisma';
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 
-// in a route or server component:
-const session = await getServerSession(authOptions);
-
 // GET: return all nodes for the tenant
 export async function GET() {
-  const session = await auth();
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
   const userTenant = await prisma.userTenant.findFirst({ where: { userId: session.user.id } });
