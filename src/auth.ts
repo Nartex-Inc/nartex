@@ -8,15 +8,22 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import AzureADProvider from "next-auth/providers/azure-ad";
 import bcrypt from "bcryptjs";
-import type { User } from "@prisma/client";
+
+// Minimal shape we need from the DB user (avoid importing a non-existent type)
+type DbUser = {
+  id: string;
+  role?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+};
 
 export const authOptions: NextAuthOptions = {
   // Pages from your config
   pages: authConfig.pages,
 
   // Core
-  secret: process.env.NEXTAUTH_SECRET,   // ✅ make explicit
-  trustHost: true,                       // ✅ required behind CloudFront/ALB
+  secret: process.env.NEXTAUTH_SECRET,
+  trustHost: true,
 
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
@@ -25,13 +32,13 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      allowDangerousEmailAccountLinking: true, // consider removing if not needed
+      allowDangerousEmailAccountLinking: true,
     }),
     AzureADProvider({
       clientId: process.env.AZURE_AD_CLIENT_ID!,
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
-      tenantId: process.env.AZURE_AD_TENANT_ID!, // "organizations" is fine
-      allowDangerousEmailAccountLinking: true,   // consider removing if not needed
+      tenantId: process.env.AZURE_AD_TENANT_ID!,
+      allowDangerousEmailAccountLinking: true,
     }),
     CredentialsProvider({
       credentials: {
@@ -40,7 +47,9 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
-        const user = await prisma.user.findUnique({ where: { email: credentials.email } });
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+        });
         if (!user || !user.password) return null;
         const ok = await bcrypt.compare(credentials.password, user.password);
         return ok ? user : null;
@@ -51,10 +60,11 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = (user as User).id;
-        token.role = (user as User).role;
-        token.firstName = (user as User).firstName ?? null;
-        token.lastName = (user as User).lastName ?? null;
+        const u = user as DbUser;
+        token.id = u.id;
+        (token as any).role = u.role ?? null;
+        (token as any).firstName = u.firstName ?? null;
+        (token as any).lastName = u.lastName ?? null;
       }
       return token;
     },
@@ -68,7 +78,4 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-
-  // Optional to debug SSO during rollout:
-  // debug: process.env.NODE_ENV !== "production",
 };
