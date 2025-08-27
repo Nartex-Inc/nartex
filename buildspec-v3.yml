@@ -12,6 +12,7 @@ env:
     EMAIL_SERVER_USER: "n.labranche@nartex.ca"
     EMAIL_FROM: "Nartex <noreply@nartex.ca>"
     AZURE_AD_TENANT_ID: "organizations"
+
   secrets-manager:
     DATABASE_URL:           nartex/prod/env:DATABASE_URL
     EMAIL_SERVER_PASSWORD:  nartex/prod/env:EMAIL_SERVER_PASSWORD
@@ -27,31 +28,157 @@ phases:
     runtime-versions:
       nodejs: 18
     commands:
-      - echo "📦 INSTALL – patch ESLint typo and regenerate lockfile (host)"
-      - node -e "const fs=require('fs');const p='package.json';if(fs.existsSync(p)){const j=JSON.parse(fs.readFileSync(p,'utf8'));let changed=false;for(const k of ['dependencies','devDependencies']){if(j[k]&&j[k]['@eslint/eslinrc']){delete j[k]['@eslint/eslinrc'];changed=true;console.log('Removed @eslint/eslinrc from',k);}}if(changed)fs.writeFileSync(p,JSON.stringify(j,null,2));else console.log('No @eslint/eslinrc found');}else{console.log('package.json not found');}"
+      - echo "📦 INSTALL – clean cache"
+      - npm cache clean --force
+      - echo "🛠 Patch bad ESLint package if present and regenerate lockfile"
+      - |
+        node <<'NODE'
+        const fs = require('fs');
+        const p = 'package.json';
+        if (fs.existsSync(p)) {
+          const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+          let changed = false;
+          for (const k of ['dependencies','devDependencies']) {
+            if (j[k] && j[k]['@eslint/eslinrc']) {
+              delete j[k]['@eslint/eslinrc'];
+              changed = true;
+              console.log('Removed @eslint/eslinrc from', k);
+            }
+          }
+          if (changed) fs.writeFileSync(p, JSON.stringify(j, null, 2));
+        }
+        NODE
       - rm -f package-lock.json
       - npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - echo "📥 INSTALL – npm ci on host"
+      - npm ci --no-audit --no-fund
+
   pre_build:
     commands:
-      - echo "📜 PRE_BUILD – small repo hygiene (idempotent)"
-      - rm -f src/lib/auth.ts || true
-      - node -e "const fs=require('fs');const dir='src/lib';const f=dir+'/prisma.ts';if(!fs.existsSync(dir))fs.mkdirSync(dir,{recursive:true});if(!fs.existsSync(f)){fs.writeFileSync(f,'import { PrismaClient } from \"@prisma/client\";\\nconst globalForPrisma = global as unknown as { prisma?: PrismaClient };\\nexport const prisma = globalForPrisma.prisma ?? new PrismaClient();\\nif (process.env.NODE_ENV !== \"production\") globalForPrisma.prisma = prisma;\\nexport default prisma;\\n');console.log('Wrote',f);}else{console.log('Found',f);} }"
+      - echo "📜 PRE_BUILD – prepare repo and ensure required stubs"
+      - |
+        cat > ci-prebuild.sh << 'SH'
+        #!/usr/bin/env bash
+        set -euo pipefail
+        set -x
+
+        # Remove legacy auth file that could clash with NextAuth
+        rm -f src/lib/auth.ts || true
+
+        # Ensure runtime deps (idempotent, safe if already present)
+        npm pkg set dependencies.recharts="^2.12.7"
+        npm pkg set dependencies.lucide-react="^0.452.0"
+        npm pkg set dependencies.class-variance-authority="^0.7.0"
+        npm pkg set dependencies.clsx="^2.1.1"
+        npm pkg set dependencies.tailwind-merge="^2.5.2"
+        npm pkg set dependencies.tailwindcss-animate="^1.0.7"
+        npm pkg set dependencies.pg="^8.11.3"
+        npm pkg set dependencies.swr="^2.3.0"
+        npm pkg set dependencies.@next-auth/prisma-adapter="^1.0.7"
+
+        # Dev typings
+        npm pkg set devDependencies.@types/node="^18.19.0"
+        npm pkg set devDependencies.@types/pg="^8.11.7"
+
+        mkdir -p src/lib src/components/ui src/components/dashboard
+
+        # Ensure prisma helper exists
+        if [ ! -f src/lib/prisma.ts ]; then
+          cat > src/lib/prisma.ts <<'TS'
+        import { PrismaClient } from "@prisma/client";
+        const globalForPrisma = global as unknown as { prisma?: PrismaClient };
+        export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+        if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+        export default prisma;
+        TS
+        fi
+
+        # Minimal stubs (only if missing)
+        if [ ! -f src/components/nartex-logo.tsx ]; then
+          cat > src/components/nartex-logo.tsx << 'TSX'
+        import * as React from "react";
+        export default function NartexLogo({ className="" }: { className?: string }) {
+          return <span className={className} style={{ fontWeight: 600, letterSpacing: ".05em" }}>nartex</span>;
+        }
+        TSX
+        fi
+
+        if [ ! -f src/components/dashboard/header.tsx ]; then
+          cat > src/components/dashboard/header.tsx << 'TSX'
+        export default function DashboardHeader(){ return <div className="px-4 py-3 text-sm text-muted-foreground">Dashboard Header</div>; }
+        TSX
+        fi
+
+        if [ ! -f src/components/dashboard/sidebar.tsx ]; then
+          cat > src/components/dashboard/sidebar.tsx << 'TSX'
+        export default function DashboardSidebar(){ return <aside className="p-4 text-sm text-muted-foreground">Sidebar</aside>; }
+        TSX
+        fi
+
+        if [ ! -f src/components/dashboard/new-product-requests-table.tsx ]; then
+          cat > src/components/dashboard/new-product-requests-table.tsx << 'TSX'
+        export default function NewProductRequestsTable(){ return <div className="p-4 text-sm text-muted-foreground">New product requests (stub)</div>; }
+        TSX
+        fi
+
+        if [ ! -f src/components/product-requests-table.tsx ]; then
+          cat > src/components/product-requests-table.tsx << 'TSX'
+        export default function ProductRequestsTable(){ return <div className="p-4 text-sm text-muted-foreground">Product requests (stub)</div>; }
+        TSX
+        fi
+
+        # Refresh lockfile for any pkg changes above without executing scripts
+        npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+        SH
+      - chmod +x ci-prebuild.sh
+      - bash ci-prebuild.sh
+      - echo "📂 Components present:" && ls -la src/components || true && ls -la src/components/dashboard || true
       - COMMIT_HASH=$(git rev-parse --short HEAD) && echo "Commit: $COMMIT_HASH"
+
   build:
     commands:
-      - echo "🚀 BUILD – run prisma on host (optional; consider doing this as a job in ECS)"
+      - echo "🚀 BUILD – Prisma migrate & generate (host)"
       - npx prisma migrate deploy
       - npx prisma generate
-      - echo "🏗 BUILD – Docker image (deps resolved inside Docker)"
-      - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME" && docker build --build-arg GIT_COMMIT_HASH="$(git rev-parse --short HEAD)" --build-arg DATABASE_URL="$DATABASE_URL" --build-arg EMAIL_SERVER_HOST="$EMAIL_SERVER_HOST" --build-arg EMAIL_SERVER_PORT="$EMAIL_SERVER_PORT" --build-arg EMAIL_SERVER_USER="$EMAIL_SERVER_USER" --build-arg EMAIL_SERVER_PASSWORD="$EMAIL_SERVER_PASSWORD" --build-arg EMAIL_FROM="$EMAIL_FROM" --build-arg NEXTAUTH_URL="$NEXTAUTH_URL" --build-arg NEXTAUTH_SECRET="$NEXTAUTH_SECRET" --build-arg GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" --build-arg GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" --build-arg AZURE_AD_CLIENT_ID="$AZURE_AD_CLIENT_ID" --build-arg AZURE_AD_CLIENT_SECRET="$AZURE_AD_CLIENT_SECRET" --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" -t "$ECR_IMAGE_URI:$(git rev-parse --short HEAD)" -t "$ECR_IMAGE_URI:latest" .
+      - echo "🏗 BUILD – Docker image"
+      - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
+      - |
+        docker build \
+          --build-arg GIT_COMMIT_HASH="$(git rev-parse --short HEAD)" \
+          --build-arg DATABASE_URL="$DATABASE_URL" \
+          --build-arg EMAIL_SERVER_HOST="$EMAIL_SERVER_HOST" \
+          --build-arg EMAIL_SERVER_PORT="$EMAIL_SERVER_PORT" \
+          --build-arg EMAIL_SERVER_USER="$EMAIL_SERVER_USER" \
+          --build-arg EMAIL_SERVER_PASSWORD="$EMAIL_SERVER_PASSWORD" \
+          --build-arg EMAIL_FROM="$EMAIL_FROM" \
+          --build-arg NEXTAUTH_URL="$NEXTAUTH_URL" \
+          --build-arg NEXTAUTH_SECRET="$NEXTAUTH_SECRET" \
+          --build-arg GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
+          --build-arg GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
+          --build-arg AZURE_AD_CLIENT_ID="$AZURE_AD_CLIENT_ID" \
+          --build-arg AZURE_AD_CLIENT_SECRET="$AZURE_AD_CLIENT_SECRET" \
+          --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
+          -t "$ECR_IMAGE_URI:$(git rev-parse --short HEAD)" \
+          -t "$ECR_IMAGE_URI:latest" .
+
       - echo "🔑 Login to ECR"
-      - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+      - |
+        aws ecr get-login-password --region "$AWS_DEFAULT_REGION" \
+        | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+
       - echo "📤 Push images"
-      - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME" && docker push "$ECR_IMAGE_URI:$(git rev-parse --short HEAD)" && docker push "$ECR_IMAGE_URI:latest"
+      - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
+      - docker push "$ECR_IMAGE_URI:$(git rev-parse --short HEAD)"
+      - docker push "$ECR_IMAGE_URI:latest"
+
   post_build:
     commands:
       - echo "✅ POST_BUILD – create imagedefinitions.json for ECS"
-      - COMMIT_HASH=$(git rev-parse --short HEAD) && ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME" && printf '[{"name":"%s","imageUri":"%s:%s"}]\n' "$CONTAINER_NAME" "$ECR_IMAGE_URI" "$COMMIT_HASH" > imagedefinitions.json && cat imagedefinitions.json
+      - |
+        COMMIT_HASH="$(git rev-parse --short HEAD)"; \
+        ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"; \
+        printf '[{"name":"%s","imageUri":"%s:%s"}]\n' "$CONTAINER_NAME" "$ECR_IMAGE_URI" "$COMMIT_HASH" > imagedefinitions.json
+      - cat imagedefinitions.json
 
 artifacts:
   files:
