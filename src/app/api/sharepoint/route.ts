@@ -1,7 +1,11 @@
 // src/app/api/sharepoint/route.ts
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { auth } from '@/auth';
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/auth";
+
+// in a route or server component:
+const session = await getServerSession(authOptions);
 
 // GET: return all nodes for the tenant
 export async function GET() {
