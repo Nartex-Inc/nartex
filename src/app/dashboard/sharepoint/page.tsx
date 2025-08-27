@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ChevronRight, Folder, FolderOpen, Lock, Shield, Edit, Star, Building2, Plus, Trash2, Pencil, Check, X } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder, FolderOpen, Lock, Shield, Edit, Star, Building2, Plus, Trash2, Pencil, Check, X } from 'lucide-react';
 
 // Define a type for our data nodes
 type SharePointNode = {
