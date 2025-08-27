@@ -1,7 +1,7 @@
 # ============================
 # Stage 1: Build
 # ============================
-FROM node:18-bullseye AS builder
+FROM public.ecr.aws/docker/library/node:18-bullseye AS builder
 WORKDIR /app
 
 # Build args (Next may read some at build time)
@@ -82,7 +82,7 @@ RUN npm run build
 # ============================
 # Stage 2: Runtime
 # ============================
-FROM node:18-bullseye-slim AS runner
+FROM public.ecr.aws/docker/library/node:18-bullseye-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production \
@@ -96,8 +96,6 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 # ---- Install the current RDS trust bundle (prefer regional, fallback to global) ----
-# We write it to /etc/ssl/certs/rds-ca.pem and ALSO symlink to the legacy combined name
-# so existing PGSSLROOTCERT=/etc/ssl/certs/rds-combined-ca-bundle.pem keeps working.
 RUN set -eux; \
   dest="/etc/ssl/certs/rds-ca.pem"; \
   curl -fsSL "https://truststore.pki.rds.amazonaws.com/ca-central-1/ca-bundle.pem" -o "$dest" \
@@ -121,4 +119,3 @@ COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/clie
 
 EXPOSE 3000
 CMD ["node", "server.js"]
-
