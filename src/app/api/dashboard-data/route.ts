@@ -2,7 +2,8 @@
 // --- FIX #1: Correct import from 'next/server' ---
 import { NextResponse } from "next/server";
 // --- FIX #2: This import will now work because auth.ts is in the correct location ---
-import { auth } from "@/auth";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/auth";
 import { pg } from "@/lib/db";
 
 const SQL_QUERY = `
@@ -18,7 +19,7 @@ WHERE h."cieid" = $1 AND h."InvDate" BETWEEN $2 AND $3 AND d."Amount" > 0;
 `;
 
 export async function GET(req: Request) {
-  const session = await auth();
+  const session = await getServerSession(authOptions);
 
   if (!session || session.user?.role !== "ventes-exec") {
     return NextResponse.json(
