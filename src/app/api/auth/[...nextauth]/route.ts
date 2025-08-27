@@ -2,8 +2,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
-// other imports you already had
-// import { db } from "@/lib/db"; // example
+
+// in a route or server component:
+const session = await getServerSession(authOptions);
+
 
 export async function GET(_req: NextRequest) {
   const session = await getServerSession(authOptions);
