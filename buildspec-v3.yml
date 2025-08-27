@@ -12,6 +12,7 @@ env:
     EMAIL_SERVER_USER: "n.labranche@nartex.ca"
     EMAIL_FROM: "Nartex <noreply@nartex.ca>"
     AZURE_AD_TENANT_ID: "organizations"
+
   secrets-manager:
     DATABASE_URL:           nartex/prod/env:DATABASE_URL
     EMAIL_SERVER_PASSWORD:  nartex/prod/env:EMAIL_SERVER_PASSWORD
@@ -21,48 +22,81 @@ env:
     AZURE_AD_CLIENT_ID:     nartex/prod/env:AZURE_AD_CLIENT_ID
     AZURE_AD_CLIENT_SECRET: nartex/prod/env:AZURE_AD_CLIENT_SECRET
     RDS_CREDENTIALS:        nartex/prod/rds-credentials
+    DOCKERHUB_USERNAME:     dockerhub/credentials:DOCKERHUB_USERNAME
+    DOCKERHUB_PASSWORD:     dockerhub/credentials:DOCKERHUB_PASSWORD
 
 phases:
-  install:
-    runtime-versions:
-      nodejs: 18
-    commands:
-      - echo "INSTALL clean npm cache"
-      - npm cache clean --force
-      - echo "INSTALL patch ESLint package name if present"
-      - node -e 'const fs=require("fs");if(fs.existsSync("package.json")){const j=JSON.parse(fs.readFileSync("package.json","utf8"));let c=false;for(const k of ["dependencies","devDependencies"]){if(j[k]&&j[k]["@eslint/eslinrc"]){delete j[k]["@eslint/eslinrc"];c=true;}}if(c){fs.writeFileSync("package.json",JSON.stringify(j,null,2));console.log("Removed @eslint/eslinrc");}else{console.log("No bad package");}}else{console.log("No package.json");}'
-      - rm -f package-lock.json
-      - npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-      - echo "INSTALL run npm ci"
-      - npm ci --no-audit --no-fund
-
   pre_build:
     commands:
-      - echo "PRE_BUILD ensure prisma helper and expected deps"
-      - rm -f src/lib/auth.ts || true
-      - node -e 'const fs=require("fs");const dir="src/lib";const f=`${dir}/prisma.ts`;if(!fs.existsSync(dir))fs.mkdirSync(dir,{recursive:true});if(!fs.existsSync(f)){fs.writeFileSync(f,"import { PrismaClient } from \\"@prisma/client\\";\\nconst globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };\\nexport const prisma = globalForPrisma.prisma ?? new PrismaClient({ log: process.env.NODE_ENV === \\"development\\" ? [\\"query\\",\\"warn\\",\\"error\\"] : [\\"error\\"] });\\nif (process.env.NODE_ENV !== \\"production\\") globalForPrisma.prisma = prisma;\\nexport default prisma;\\n");console.log("Wrote",f);}else{console.log("Found",f);}'
-      - npm pkg set devDependencies.@eslint/eslintrc="^3.1.0"
-      - npm pkg set dependencies.recharts="^2.12.7" dependencies.lucide-react="^0.452.0" dependencies.class-variance-authority="^0.7.0" dependencies.clsx="^2.1.1" dependencies.tailwind-merge="^2.5.2" dependencies.tailwindcss-animate="^1.0.7" dependencies.pg="^8.11.3" dependencies.swr="^2.3.0" dependencies.@next-auth/prisma-adapter="^1.0.7"
-      - npm pkg set devDependencies.@types/node="^18.19.0" devDependencies.@types/pg="^8.11.7"
-      - npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-      - COMMIT_HASH=$(git rev-parse --short HEAD) && echo "Commit $COMMIT_HASH"
+      - echo "PRE_BUILD: Preparing environment and dependencies..."
+      - |
+        cat > ci-script.sh << 'SH'
+        #!/usr/bin/env bash
+        set -euo pipefail
+        set -x
+
+        # 1. Hygiene: Clean cache and remove problematic packages/files
+        npm cache clean --force
+        node -e "const fs=require('fs');if(fs.existsSync('package.json')){const j=JSON.parse(fs.readFileSync('package.json','utf8'));let c=false;['dependencies','devDependencies'].forEach(k=>{if(j[k]&&j[k]['@eslint/eslinrc']){delete j[k]['@eslint/eslinrc'];c=true;}});if(c){fs.writeFileSync('package.json',JSON.stringify(j,null,2));console.log('Removed @eslint/eslinrc');}}"
+        rm -f package-lock.json
+        rm -f src/lib/auth.ts || true
+
+        # 2. Ensure critical files exist
+        node -e "const fs=require('fs');const d='src/lib',f=d+'/prisma.ts';if(!fs.existsSync(d))fs.mkdirSync(d,{recursive:true});if(!fs.existsSync(f))fs.writeFileSync(f,'import { PrismaClient } from \"@prisma/client\";\\nconst g=globalThis as unknown as {prisma?:PrismaClient};\\nexport const prisma=g.prisma??new PrismaClient();\\nif(process.env.NODE_ENV!==\"production\")g.prisma=prisma;\\nexport default prisma;\\n');"
+
+        # 3. Set specific package versions
+        npm pkg set devDependencies.@eslint/eslintrc="^3.1.0"
+        npm pkg set dependencies.recharts="^2.12.7" dependencies.lucide-react="^0.452.0" dependencies.class-variance-authority="^0.7.0" dependencies.clsx="^2.1.1" dependencies.tailwind-merge="^2.5.2" dependencies.tailwindcss-animate="^1.0.7" dependencies.pg="^8.11.3" dependencies.swr="^2.3.0" dependencies.@next-auth/prisma-adapter="^1.0.7"
+        npm pkg set devDependencies.@types/node="^18.19.0" devDependencies.@types/pg="^8.11.7"
+        
+        # 4. Final install
+        npm install --no-audit --no-fund
+        SH
+      - chmod +x ci-script.sh
+      - bash ci-script.sh
 
   build:
     commands:
-      - echo "BUILD prisma migrate and generate"
+      - echo "BUILD: Logging in to Docker Hub..."
+      - echo "$DOCKERHUB_PASSWORD" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+      - echo "BUILD: Applying database migrations..."
       - npx prisma migrate deploy
+      - echo "BUILD: Generating Prisma Client..."
       - npx prisma generate
-      - echo "BUILD docker image"
-      - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME" && docker build --build-arg GIT_COMMIT_HASH="$(git rev-parse --short HEAD)" --build-arg DATABASE_URL="$DATABASE_URL" --build-arg EMAIL_SERVER_HOST="$EMAIL_SERVER_HOST" --build-arg EMAIL_SERVER_PORT="$EMAIL_SERVER_PORT" --build-arg EMAIL_SERVER_USER="$EMAIL_SERVER_USER" --build-arg EMAIL_SERVER_PASSWORD="$EMAIL_SERVER_PASSWORD" --build-arg EMAIL_FROM="$EMAIL_FROM" --build-arg NEXTAUTH_URL="$NEXTAUTH_URL" --build-arg NEXTAUTH_SECRET="$NEXTAUTH_SECRET" --build-arg GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" --build-arg GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" --build-arg AZURE_AD_CLIENT_ID="$AZURE_AD_CLIENT_ID" --build-arg AZURE_AD_CLIENT_SECRET="$AZURE_AD_CLIENT_SECRET" --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" -t "$ECR_IMAGE_URI:$(git rev-parse --short HEAD)" -t "$ECR_IMAGE_URI:latest" .
-      - echo "BUILD login to ECR"
-      - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
-      - echo "BUILD push images"
-      - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME" && docker push "$ECR_IMAGE_URI:$(git rev-parse --short HEAD)" && docker push "$ECR_IMAGE_URI:latest"
+      - echo "BUILD: Building Docker image..."
+      - COMMIT_HASH=$(git rev-parse --short HEAD)
+      - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
+      - |
+        docker build \
+          --build-arg GIT_COMMIT_HASH=$COMMIT_HASH \
+          --build-arg DATABASE_URL="$DATABASE_URL" \
+          --build-arg EMAIL_SERVER_HOST="$EMAIL_SERVER_HOST" \
+          --build-arg EMAIL_SERVER_PORT="$EMAIL_SERVER_PORT" \
+          --build-arg EMAIL_SERVER_USER="$EMAIL_SERVER_USER" \
+          --build-arg EMAIL_SERVER_PASSWORD="$EMAIL_SERVER_PASSWORD" \
+          --build-arg EMAIL_FROM="$EMAIL_FROM" \
+          --build-arg NEXTAUTH_URL="$NEXTAUTH_URL" \
+          --build-arg AUTH_URL="$NEXTAUTH_URL" \
+          --build-arg NEXTAUTH_SECRET="$NEXTAUTH_SECRET" \
+          --build-arg AUTH_TRUST_HOST="true" \
+          --build-arg GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
+          --build-arg GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
+          --build-arg AZURE_AD_CLIENT_ID="$AZURE_AD_CLIENT_ID" \
+          --build-arg AZURE_AD_CLIENT_SECRET="$AZURE_AD_CLIENT_SECRET" \
+          --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
+          -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
+          -t "$ECR_IMAGE_URI:latest" .
+      - echo "BUILD: Pushing image to ECR..."
+      - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
+      - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
+      - docker push "$ECR_IMAGE_URI:latest"
+      - echo "BUILD: Creating image definitions file..."
+      - printf '[{"name":"%s","imageUri":"%s:%s"}]' "$CONTAINER_NAME" "$ECR_IMAGE_URI" "$COMMIT_HASH" > imagedefinitions.json
+      - cat imagedefinitions.json
 
   post_build:
     commands:
-      - echo "POST_BUILD write imagedefinitions.json"
-      - COMMIT_HASH=$(git rev-parse --short HEAD) && ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME" && printf '[{"name":"%s","imageUri":"%s:%s"}]\n' "$CONTAINER_NAME" "$ECR_IMAGE_URI" "$COMMIT_HASH" > imagedefinitions.json && cat imagedefinitions.json
+      - echo "POST_BUILD: Build complete. Deployment will be handled by CodePipeline."
 
 artifacts:
   files:
