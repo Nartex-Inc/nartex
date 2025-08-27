@@ -1,16 +1,28 @@
-// src/app/dashboard/sharepoint/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ChevronRight, ChevronDown, Folder, FolderOpen, Lock, Shield, Edit, Star, Building2, Plus, Trash2, Pencil, Check, X } from 'lucide-react';
+import {
+  ChevronRight,
+  ChevronDown,       // ✅ added
+  Folder,
+  FolderOpen,
+  Lock,
+  Shield,
+  Edit,
+  Star,
+  Building2,
+  Plus,
+  Trash2,
+  Pencil,
+  Check,
+  X,
+} from 'lucide-react';
 
-// Define a type for our data nodes
 type SharePointNode = {
   id: string;
   name: string;
   parentId: string | null;
   children?: SharePointNode[];
-  // Add other properties from your schema as needed
   type?: string;
   icon?: string;
   restricted?: boolean;
@@ -26,7 +38,6 @@ const SharePointStructurePage = () => {
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
 
-  // --- NEW: Function to fetch data from our API ---
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -35,51 +46,39 @@ const SharePointStructurePage = () => {
       const data: SharePointNode[] = await response.json();
       setNodes(data);
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error('Error fetching data:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // --- NEW: Fetch data on component mount ---
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
-  // --- NEW: Effect to build the tree structure whenever the flat list of nodes changes ---
   useEffect(() => {
     if (nodes.length > 0) {
-      const buildTree = (items: SharePointNode[], parentId: string | null = null): SharePointNode[] => {
-        return items
-          .filter(item => item.parentId === parentId)
-          .map(item => ({
-            ...item,
-            children: buildTree(items, item.id),
-          }));
-      };
-      // Assuming the root node is the one with a null parentId
+      const buildTree = (items: SharePointNode[], parentId: string | null = null): SharePointNode[] =>
+        items.filter(i => i.parentId === parentId).map(i => ({ ...i, children: buildTree(items, i.id) }));
+
       const rootNode = nodes.find(n => !n.parentId);
       if (rootNode) {
         const tree = { ...rootNode, children: buildTree(nodes, rootNode.id) };
         setStructure(tree);
         setExpandedNodes(new Set([rootNode.id]));
       }
+    } else {
+      setStructure(null);
+      setExpandedNodes(new Set());
     }
   }, [nodes]);
 
   const toggleNode = (nodeId: string) => {
     setExpandedNodes(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(nodeId)) {
-        newSet.delete(nodeId);
-      } else {
-        newSet.add(nodeId);
-      }
-      return newSet;
+      const next = new Set(prev);
+      next.has(nodeId) ? next.delete(nodeId) : next.add(nodeId);
+      return next;
     });
   };
-  
-  // --- UPDATED: Handler to rename a node ---
+
   const handleEditName = async (nodeId: string, newName: string) => {
     if (!newName) return;
     try {
@@ -89,30 +88,26 @@ const SharePointStructurePage = () => {
         body: JSON.stringify({ name: newName }),
       });
       if (!response.ok) throw new Error('Failed to rename');
-      await fetchData(); // Refetch all data to ensure consistency
+      await fetchData();
     } catch (error) {
-      console.error("Error renaming node:", error);
+      console.error('Error renaming node:', error);
     } finally {
       setEditingNodeId(null);
     }
   };
 
-  // --- UPDATED: Handler to delete a node ---
   const handleDelete = async (nodeId: string) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer ce dossier et tous ses sous-dossiers?')) {
       try {
-        const response = await fetch(`/api/sharepoint/${nodeId}`, {
-          method: 'DELETE',
-        });
+        const response = await fetch(`/api/sharepoint/${nodeId}`, { method: 'DELETE' });
         if (!response.ok) throw new Error('Failed to delete');
-        await fetchData(); // Refetch all data
+        await fetchData();
       } catch (error) {
-        console.error("Error deleting node:", error);
+        console.error('Error deleting node:', error);
       }
     }
   };
 
-  // --- UPDATED: Handler to add a new folder ---
   const handleAddFolder = async (parentId: string) => {
     const folderName = window.prompt('Nom du nouveau dossier:');
     if (folderName) {
@@ -123,17 +118,17 @@ const SharePointStructurePage = () => {
           body: JSON.stringify({ name: folderName, parentId }),
         });
         if (!response.ok) throw new Error('Failed to add folder');
-        setExpandedNodes(prev => new Set(prev).add(parentId)); // Keep parent expanded
-        await fetchData(); // Refetch all data
+        setExpandedNodes(prev => new Set(prev).add(parentId));
+        await fetchData();
       } catch (error) {
-        console.error("Error adding folder:", error);
+        console.error('Error adding folder:', error);
       }
     }
   };
 
   const renderNode = (node: SharePointNode, depth = 0): JSX.Element => {
     const isExpanded = expandedNodes.has(node.id);
-    const hasChildren = node.children && node.children.length > 0;
+    const hasChildren = !!node.children?.length;
     const isSelected = selectedNodeId === node.id;
     const isEditing = editingNodeId === node.id;
 
@@ -144,18 +139,18 @@ const SharePointStructurePage = () => {
           style={{ paddingLeft: `${depth * 24 + 12}px` }}
           onClick={() => setSelectedNodeId(node.id)}
         >
-          {hasChildren && (
+          {hasChildren ? (
             <span onClick={(e) => { e.stopPropagation(); toggleNode(node.id); }} className="p-1">
               {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
             </span>
+          ) : (
+            <span className="w-6" />
           )}
-          
-          {!hasChildren && <span className="w-6"></span>}
-          
+
           {node.type === 'site' && <Building2 className="w-5 h-5 text-purple-500" />}
           {node.type === 'library' && <span className="text-xl">{node.icon || '📁'}</span>}
           {!node.type && (isExpanded ? <FolderOpen className="w-4 h-4 text-blue-500" /> : <Folder className="w-4 h-4 text-gray-500" />)}
-          
+
           {isEditing ? (
             <input
               type="text"
@@ -174,7 +169,7 @@ const SharePointStructurePage = () => {
               {node.name}
             </span>
           )}
-          
+
           <div className="ml-auto flex gap-2 items-center">
             {editMode && (
               <div className="hidden group-hover:flex gap-1">
@@ -184,7 +179,7 @@ const SharePointStructurePage = () => {
                 <button onClick={(e) => { e.stopPropagation(); handleAddFolder(node.id); }} className="p-1 hover:bg-green-100 rounded" title="Ajouter un sous-dossier">
                   <Plus className="w-3 h-3 text-green-600" />
                 </button>
-                {node.parentId && ( // Prevent deleting the root node
+                {node.parentId && (
                   <button onClick={(e) => { e.stopPropagation(); handleDelete(node.id); }} className="p-1 hover:bg-red-100 rounded" title="Supprimer">
                     <Trash2 className="w-3 h-3 text-red-600" />
                   </button>
@@ -193,10 +188,10 @@ const SharePointStructurePage = () => {
             )}
           </div>
         </div>
-        
+
         {isExpanded && hasChildren && (
           <div className="ml-2 border-l border-gray-200">
-            {node.children.map(child => renderNode(child, depth + 1))}
+            {node.children!.map(child => renderNode(child, depth + 1))}
           </div>
         )}
       </div>
@@ -218,7 +213,7 @@ const SharePointStructurePage = () => {
             {editMode ? "Mode Édition Actif" : "Activer l'Édition"}
           </button>
         </div>
-        
+
         <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4">
           {structure ? renderNode(structure) : <p>Aucune structure trouvée. Créez un dossier racine pour commencer.</p>}
         </div>
