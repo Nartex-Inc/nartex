@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth/next";
+import NextAuth from "next-auth";
 import { authOptions } from "@/auth";
 
 async function getTenantId() {
