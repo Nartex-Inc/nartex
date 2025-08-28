@@ -169,19 +169,19 @@ model SharePointNode {
   tenantId     String
   parentId     String?
   name         String
-  type         String   @default("folder") // "folder" or "library" or anything you need
+  type         String   @default("folder")
   icon         String?
 
-  // NEW
   restricted   Boolean  @default(false)
   highSecurity Boolean  @default(false)
-  editGroups   String[]? // null => inherit from parent
-  readGroups   String[]? // null => inherit from parent
+
+  // ✅ arrays (never null), empty [] means “inherit”
+  editGroups   String[] @default([])
+  readGroups   String[] @default([])
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  // Relations
   tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   parent       SharePointNode?  @relation("SPChildren", fields: [parentId], references: [id], onDelete: Cascade)
   children     SharePointNode[] @relation("SPChildren")
