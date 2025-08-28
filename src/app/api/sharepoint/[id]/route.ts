@@ -33,14 +33,11 @@ async function requireEditor() {
 }
 
 /** GET /api/sharepoint/:id */
-export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: Request, ctx: any) {
   const mech = await requireTenant();
   if ("error" in mech) return mech.error;
 
-  const id = params?.id?.toString();
+  const id = ctx?.params?.id?.toString();
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   const node = await prisma.sharePointNode.findFirst({
@@ -52,14 +49,11 @@ export async function GET(
 }
 
 /** PATCH /api/sharepoint/:id */
-export async function PATCH(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: Request, ctx: any) {
   const mech = await requireEditor();
   if ("error" in mech) return mech.error;
 
-  const id = params?.id?.toString();
+  const id = ctx?.params?.id?.toString();
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   let body: any;
@@ -84,7 +78,7 @@ export async function PATCH(
     data.name = name;
   }
 
-  // parent move (with cycle protection)
+  // parent move (cycle protection)
   if (Object.prototype.hasOwnProperty.call(body, "parentId")) {
     const parentId: string | null = body.parentId ?? null;
 
@@ -124,7 +118,7 @@ export async function PATCH(
   if (typeof body.restricted === "boolean") data.restricted = body.restricted;
   if (typeof body.highSecurity === "boolean") data.highSecurity = body.highSecurity;
 
-  // permissions (accept both shapes; “inherit”/null -> empty arrays)
+  // permissions
   const sanitize = (arr: unknown): string[] =>
     Array.isArray(arr)
       ? Array.from(new Set(arr.map((x) => String(x).trim()).filter(Boolean)))
@@ -157,12 +151,8 @@ export async function PATCH(
     readGroupsToSet = body.readGroups === null ? null : sanitize(body.readGroups);
   }
 
-  if (editGroupsToSet !== undefined) {
-    data.editGroups = editGroupsToSet === null ? [] : editGroupsToSet;
-  }
-  if (readGroupsToSet !== undefined) {
-    data.readGroups = readGroupsToSet === null ? [] : readGroupsToSet;
-  }
+  if (editGroupsToSet !== undefined) data.editGroups = editGroupsToSet === null ? [] : editGroupsToSet;
+  if (readGroupsToSet !== undefined) data.readGroups = readGroupsToSet === null ? [] : readGroupsToSet;
 
   const updated = await prisma.sharePointNode.update({
     where: { id },
@@ -173,14 +163,11 @@ export async function PATCH(
 }
 
 /** DELETE /api/sharepoint/:id (recursive) */
-export async function DELETE(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_req: Request, ctx: any) {
   const mech = await requireEditor();
   if ("error" in mech) return mech.error;
 
-  const id = params?.id?.toString();
+  const id = ctx?.params?.id?.toString();
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   const all = await prisma.sharePointNode.findMany({
@@ -201,7 +188,6 @@ export async function DELETE(
 
   const toDelete = new Set<string>();
   const queue: string[] = [id];
-
   while (queue.length) {
     const cur = queue.shift()!;
     if (toDelete.has(cur)) continue;
