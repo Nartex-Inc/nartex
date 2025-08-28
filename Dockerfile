@@ -4,6 +4,10 @@
 FROM node:18-bullseye AS builder
 WORKDIR /app
 
+# Cache-busting argument - changes every build
+ARG CACHEBUST=1
+ENV CACHEBUST=$CACHEBUST
+
 # Build args (Next may read some at build time)
 ARG GIT_COMMIT_HASH
 ARG DATABASE_URL
@@ -13,13 +17,16 @@ ARG EMAIL_SERVER_USER
 ARG EMAIL_SERVER_PASSWORD
 ARG EMAIL_FROM
 ARG NEXTAUTH_URL
+ARG AUTH_URL
 ARG NEXTAUTH_SECRET
+ARG AUTH_TRUST_HOST
 ARG GOOGLE_CLIENT_ID
 ARG GOOGLE_CLIENT_SECRET
 ARG AZURE_AD_CLIENT_ID
 ARG AZURE_AD_CLIENT_SECRET
 ARG AZURE_AD_TENANT_ID
 
+# Set all environment variables
 ENV GIT_COMMIT_HASH=$GIT_COMMIT_HASH \
     DATABASE_URL=$DATABASE_URL \
     EMAIL_SERVER_HOST=$EMAIL_SERVER_HOST \
@@ -28,7 +35,9 @@ ENV GIT_COMMIT_HASH=$GIT_COMMIT_HASH \
     EMAIL_SERVER_PASSWORD=$EMAIL_SERVER_PASSWORD \
     EMAIL_FROM=$EMAIL_FROM \
     NEXTAUTH_URL=$NEXTAUTH_URL \
+    AUTH_URL=$AUTH_URL \
     NEXTAUTH_SECRET=$NEXTAUTH_SECRET \
+    AUTH_TRUST_HOST=$AUTH_TRUST_HOST \
     GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID \
     GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET \
     AZURE_AD_CLIENT_ID=$AZURE_AD_CLIENT_ID \
@@ -36,12 +45,19 @@ ENV GIT_COMMIT_HASH=$GIT_COMMIT_HASH \
     AZURE_AD_TENANT_ID=$AZURE_AD_TENANT_ID \
     NEXT_TELEMETRY_DISABLED=1
 
-# 1) Install deps
+# Clear any potential caches before starting
+RUN rm -rf /tmp/* /var/cache/* /root/.npm /root/.cache || true
+
+# 1) Install deps with fresh cache
 COPY package*.json ./
-RUN npm ci
+RUN npm cache clean --force && \
+    npm ci --no-cache --prefer-offline=false
 
 # 2) Copy source
 COPY . .
+
+# Clear any existing Next.js build artifacts
+RUN rm -rf .next node_modules/.cache dist build || true
 
 # Safety nets (keep helpers present if repo missed them)
 RUN /bin/sh -eu -c '\
@@ -55,6 +71,7 @@ RUN /bin/sh -eu -c '\
       > src/lib/utils.ts; \
   fi \
 '
+
 RUN /bin/sh -eu -c '\
   if [ ! -f src/components/ui/input.tsx ]; then \
     mkdir -p src/components/ui; \
@@ -73,17 +90,30 @@ RUN /bin/sh -eu -c '\
   fi \
 '
 
-# 3) Prisma client
-RUN npx prisma generate
+# 3) Prisma client generation with fresh cache
+RUN npx prisma generate --no-engine-cache
 
-# 4) Next build (produces .next/standalone with server.js)
-RUN npm run build
+# 4) Next.js build with cache busting - force unique build ID
+RUN echo "Building with CACHEBUST: $CACHEBUST" && \
+    echo "Building with COMMIT: $GIT_COMMIT_HASH" && \
+    NEXT_BUILD_ID="${GIT_COMMIT_HASH}-${CACHEBUST}" npm run build
+
+# Log build output for verification
+RUN echo "Build complete. Listing output:" && \
+    ls -la .next/standalone/ || true && \
+    ls -la .next/static/ || true
 
 # ============================
 # Stage 2: Runtime
 # ============================
 FROM node:18-bullseye-slim AS runner
 WORKDIR /app
+
+# Pass through cache bust to runtime for verification
+ARG CACHEBUST=1
+ARG GIT_COMMIT_HASH
+ENV CACHEBUST=$CACHEBUST \
+    GIT_COMMIT_HASH=$GIT_COMMIT_HASH
 
 ENV NODE_ENV=production \
     PORT=3000 \
@@ -95,9 +125,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl openssl \
  && rm -rf /var/lib/apt/lists/*
 
-# ---- Install the current RDS trust bundle (prefer regional, fallback to global) ----
-# We write it to /etc/ssl/certs/rds-ca.pem and ALSO symlink to the legacy combined name
-# so existing PGSSLROOTCERT=/etc/ssl/certs/rds-combined-ca-bundle.pem keeps working.
+# Install the current RDS trust bundle
 RUN set -eux; \
   dest="/etc/ssl/certs/rds-ca.pem"; \
   curl -fsSL "https://truststore.pki.rds.amazonaws.com/ca-central-1/ca-bundle.pem" -o "$dest" \
@@ -106,19 +134,27 @@ RUN set -eux; \
   grep -q "BEGIN CERTIFICATE" "$dest"; \
   ln -sf "$dest" /etc/ssl/certs/rds-combined-ca-bundle.pem
 
-# Make Node trust the bundle globally (pg, fetch, etc.)
+# Make Node trust the bundle globally
 ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/rds-ca.pem
 
-# --- Next.js app files ---
+# Copy Next.js app files from builder
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
-# Prisma (defensive)
+# Copy Prisma files (defensive)
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma/client ./node_modules/.prisma/client
 COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
-EXPOSE 3000
-CMD ["node", "server.js"]
+# Add build info file for verification
+RUN echo "{\"cachebust\":\"$CACHEBUST\",\"commit\":\"$GIT_COMMIT_HASH\",\"built\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > /app/build-info.json
 
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3000/api/health || exit 1
+
+EXPOSE 3000
+
+# Start the application
+CMD ["node", "server.js"]
