@@ -27,16 +27,10 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-/* ────────────────────────────────────────────────────────────────────────────
-  Exported widths (use in your page layout to offset content):
-  expanded → Tailwind w-64 (16rem)    collapsed → Tailwind w-[84px]
-──────────────────────────────────────────────────────────────────────────── */
+/* Width helpers (optional) */
 export const SIDEBAR_EXPANDED_W = "16rem";
 export const SIDEBAR_COLLAPSED_W = "84px";
 
-/* ────────────────────────────────────────────────────────────────────────────
-  Navigation structure (unchanged)
-──────────────────────────────────────────────────────────────────────────── */
 type NavItem = { href: string; title: string; icon: React.ElementType };
 
 const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
@@ -71,28 +65,25 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   },
 ];
 
-/* ────────────────────────────────────────────────────────────────────────────
-  Props
-──────────────────────────────────────────────────────────────────────────── */
 interface SidebarProps {
-  isOpen: boolean;           // desktop expanded/collapsed
-  isMobileOpen: boolean;     // mobile drawer open
+  isOpen: boolean;
+  isMobileOpen: boolean;
   toggleSidebar: () => void;
   closeMobileSidebar: () => void;
+  /** Pass the exact same image URL your UserNav uses */
+  userImage?: string;
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
-  Small atoms
-──────────────────────────────────────────────────────────────────────────── */
+/* ── Small atoms ────────────────────────────────────────────────────────── */
 function Brand({ condensed }: { condensed: boolean }) {
   return (
     <div className="relative flex items-center">
-      {/* soft gradient glow behind the brand */}
-      <div className="pointer-events-none absolute -inset-2 -z-10 opacity-50 blur-2xl"
-           style={{
-             background:
-               "radial-gradient(120px 60px at 10% 50%, rgba(59,130,246,0.12), transparent), radial-gradient(120px 60px at 90% 50%, rgba(168,85,247,0.12), transparent)"
-           }}
+      <div
+        className="pointer-events-none absolute -inset-2 -z-10 opacity-50 blur-2xl"
+        style={{
+          background:
+            "radial-gradient(120px 60px at 10% 50%, rgba(59,130,246,0.12), transparent), radial-gradient(120px 60px at 90% 50%, rgba(168,85,247,0.12), transparent)",
+        }}
       />
       <Image
         src="/sinto-logo.svg"
@@ -125,9 +116,6 @@ function SectionLabel({ children, hidden }: { children: React.ReactNode; hidden?
   );
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
-  Nav link
-──────────────────────────────────────────────────────────────────────────── */
 function NavLink({
   item,
   expanded,
@@ -179,12 +167,7 @@ function NavLink({
       >
         <Icon className={cn("h-4 w-4", active ? "text-blue-300" : "text-muted-foreground")} />
       </span>
-      {expanded && (
-        <span className="truncate">
-          {item.title}
-        </span>
-      )}
-      {/* subtle caret for active */}
+      {expanded && <span className="truncate">{item.title}</span>}
       {expanded && active && (
         <span className="ml-auto h-2 w-2 rounded-full bg-blue-400/70 shadow-[0_0_10px_rgba(96,165,250,0.7)]" />
       )}
@@ -193,7 +176,6 @@ function NavLink({
 
   if (expanded) return linkContent;
 
-  // icon-only with tooltip when collapsed
   return (
     <Tooltip delayDuration={120}>
       <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
@@ -204,40 +186,21 @@ function NavLink({
   );
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
-  Group
-──────────────────────────────────────────────────────────────────────────── */
-function NavGroup({
-  title,
-  expanded,
-  children,
-}: {
-  title: string;
-  expanded: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1">
-      <SectionLabel hidden={!expanded}>{title}</SectionLabel>
-      <nav className={cn("flex flex-col gap-1 px-2", !expanded && "items-center px-1")}>
-        {children}
-      </nav>
-    </div>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────────────────
-  Sidebar
-──────────────────────────────────────────────────────────────────────────── */
+/* ── Main component ─────────────────────────────────────────────────────── */
 export function Sidebar({
   isOpen,
   isMobileOpen,
   toggleSidebar,
   closeMobileSidebar,
+  userImage,
 }: SidebarProps) {
   const { data } = useSession();
   const user = data?.user;
   const display = user?.name || user?.email?.split("@")[0] || "Utilisateur";
+
+  // ✨ Single source of truth for avatar:
+  const avatarUrl = userImage ?? user?.image ?? null;
+  const initial = (display || "?").trim().charAt(0).toUpperCase();
 
   const expanded = isOpen || isMobileOpen;
   const desktopWidth = isOpen ? "lg:w-64" : "lg:w-[84px]";
@@ -279,30 +242,39 @@ export function Sidebar({
           <div className="flex-1 overflow-y-auto p-3">
             <div className="flex flex-col gap-5">
               {NAV_GROUPS.map((group) => (
-                <NavGroup key={group.title} title={group.title} expanded>
-                  {group.items.map((item) => (
-                    <NavLink
-                      key={item.href}
-                      item={item}
-                      expanded
-                      isMobile
-                      closeMobile={closeMobileSidebar}
-                    />
-                  ))}
-                </NavGroup>
+                <div key={group.title} className="space-y-1">
+                  <SectionLabel>{group.title}</SectionLabel>
+                  <nav className="flex flex-col gap-1 px-2">
+                    {group.items.map((item) => (
+                      <NavLink
+                        key={item.href}
+                        item={item}
+                        expanded
+                        isMobile
+                        closeMobile={closeMobileSidebar}
+                      />
+                    ))}
+                  </nav>
+                </div>
               ))}
             </div>
           </div>
 
           <div className="border-t border-white/10 p-3">
             <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-2">
-              <Image
-                src={user?.image || `https://avatar.vercel.sh/${user?.email}.svg`}
-                alt={display}
-                width={36}
-                height={36}
-                className="rounded-full ring-1 ring-white/15"
-              />
+              {avatarUrl ? (
+                <Image
+                  src={avatarUrl}
+                  alt={display}
+                  width={36}
+                  height={36}
+                  className="rounded-full ring-1 ring-white/15 object-cover"
+                />
+              ) : (
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xs font-semibold">
+                  {initial}
+                </div>
+              )}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{display}</p>
                 <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
@@ -329,12 +301,7 @@ export function Sidebar({
           desktopWidth
         )}
       >
-        <div
-          className={cn(
-            "absolute inset-0 -z-10 rounded-none border-r border-white/10 bg-[rgba(7,11,17,0.92)] backdrop-blur-xl"
-          )}
-        />
-        {/* Header */}
+        <div className="absolute inset-0 -z-10 border-r border-white/10 bg-[rgba(7,11,17,0.92)] backdrop-blur-xl" />
         <div className="flex h-16 items-center justify-between border-b border-white/10 px-3">
           <Brand condensed={!expanded} />
           <Button
@@ -344,43 +311,48 @@ export function Sidebar({
             aria-label={isOpen ? "Réduire" : "Agrandir"}
             className="rounded-full"
           >
-            <ChevronLeft
-              className={cn("h-5 w-5 transition-transform", !isOpen && "rotate-180")}
-            />
+            <ChevronLeft className={cn("h-5 w-5 transition-transform", !isOpen && "rotate-180")} />
           </Button>
         </div>
 
-        {/* Body */}
         <div className="flex h-[calc(100%-4rem)] flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto p-3">
             <div className="flex flex-col gap-5">
               {NAV_GROUPS.map((group) => (
-                <NavGroup key={group.title} title={group.title} expanded={expanded}>
-                  {group.items.map((item) => (
-                    <NavLink
-                      key={item.href}
-                      item={item}
-                      expanded={expanded}
-                      isMobile={false}
-                      closeMobile={() => {}}
-                    />
-                  ))}
-                </NavGroup>
+                <div key={group.title} className="space-y-1">
+                  <SectionLabel hidden={!expanded}>{group.title}</SectionLabel>
+                  <nav className={cn("flex flex-col gap-1 px-2", !expanded && "items-center px-1")}>
+                    {group.items.map((item) => (
+                      <NavLink
+                        key={item.href}
+                        item={item}
+                        expanded={expanded}
+                        isMobile={false}
+                        closeMobile={() => {}}
+                      />
+                    ))}
+                  </nav>
+                </div>
               ))}
             </div>
           </div>
 
-          {/* Footer / user strip */}
           <div className="border-t border-white/10 p-2">
             {expanded ? (
               <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-2">
-                <Image
-                  src={user?.image || `https://avatar.vercel.sh/${user?.email}.svg`}
-                  alt={display}
-                  width={36}
-                  height={36}
-                  className="rounded-full ring-1 ring-white/15"
-                />
+                {avatarUrl ? (
+                  <Image
+                    src={avatarUrl}
+                    alt={display}
+                    width={36}
+                    height={36}
+                    className="rounded-full ring-1 ring-white/15 object-cover"
+                  />
+                ) : (
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xs font-semibold">
+                    {initial}
+                  </div>
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{display}</p>
                   <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
@@ -404,13 +376,17 @@ export function Sidebar({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03]">
-                    <Image
-                      src={user?.image || `https://avatar.vercel.sh/${user?.email}.svg`}
-                      alt={display}
-                      width={28}
-                      height={28}
-                      className="rounded-full ring-1 ring-white/15"
-                    />
+                    {avatarUrl ? (
+                      <Image
+                        src={avatarUrl}
+                        alt={display}
+                        width={28}
+                        height={28}
+                        className="rounded-full ring-1 ring-white/15 object-cover"
+                      />
+                    ) : (
+                      <span className="text-xs font-semibold">{initial}</span>
+                    )}
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="right" className="space-y-1">
