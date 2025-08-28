@@ -590,8 +590,7 @@ export default function DashboardPage() {
 
   return (
     <main className={`min-h-screen bg-black ${inter.className}`}>
-      {/* Offset for fixed header + sidebar and add nice gutters */}
-      <div className="with-sidebar-shift pt-8 px-3 sm:px-4 pb-8">
+      <div className="pt-0 px-0 pb-8">
         <DashboardContent />
       </div>
     </main>
