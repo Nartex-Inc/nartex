@@ -1,201 +1,123 @@
-version: 0.2
+# ============================
+# Stage 1: Build
+# ============================
+FROM node:18-bullseye AS builder
+WORKDIR /app
 
-env:
-  variables:
-    AWS_DEFAULT_REGION: "ca-central-1"
-    AWS_ACCOUNT_ID: "586359898361"
-    IMAGE_REPO_NAME: "nartex-next"
-    NEXTAUTH_URL: "https://app.nartex.ca"
-    EMAIL_SERVER_HOST: "smtp.gmail.com"
-    EMAIL_SERVER_PORT: "587"
-    EMAIL_SERVER_USER: "n.labranche@nartex.ca"
-    EMAIL_FROM: "Nartex <noreply@nartex.ca>"
-    AZURE_AD_TENANT_ID: "organizations"
+# Build args (Next may read some at build time)
+ARG GIT_COMMIT_HASH
+ARG DATABASE_URL
+ARG EMAIL_SERVER_HOST
+ARG EMAIL_SERVER_PORT
+ARG EMAIL_SERVER_USER
+ARG EMAIL_SERVER_PASSWORD
+ARG EMAIL_FROM
+ARG NEXTAUTH_URL
+ARG NEXTAUTH_SECRET
+ARG GOOGLE_CLIENT_ID
+ARG GOOGLE_CLIENT_SECRET
+ARG AZURE_AD_CLIENT_ID
+ARG AZURE_AD_CLIENT_SECRET
+ARG AZURE_AD_TENANT_ID
 
-  secrets-manager:
-    DATABASE_URL:           nartex/prod/env:DATABASE_URL
-    EMAIL_SERVER_PASSWORD:  nartex/prod/env:EMAIL_SERVER_PASSWORD
-    NEXTAUTH_SECRET:        nartex/prod/env:NEXTAUTH_SECRET
-    GOOGLE_CLIENT_ID:       nartex/prod/env:GOOGLE_CLIENT_ID
-    GOOGLE_CLIENT_SECRET:   nartex/prod/env:GOOGLE_CLIENT_SECRET
-    AZURE_AD_CLIENT_ID:     nartex/prod/env:AZURE_AD_CLIENT_ID
-    AZURE_AD_CLIENT_SECRET: nartex/prod/env:AZURE_AD_CLIENT_SECRET
-    RDS_CREDENTIALS:        nartex/prod/rds-credentials
-    
-phases:
-  install:
-    runtime-versions:
-      nodejs: 18
-    commands:
-      - echo "📦 INSTALL – npm ci for workspace tooling"
-      - npm ci
+ENV GIT_COMMIT_HASH=$GIT_COMMIT_HASH \
+    DATABASE_URL=$DATABASE_URL \
+    EMAIL_SERVER_HOST=$EMAIL_SERVER_HOST \
+    EMAIL_SERVER_PORT=$EMAIL_SERVER_PORT \
+    EMAIL_SERVER_USER=$EMAIL_SERVER_USER \
+    EMAIL_SERVER_PASSWORD=$EMAIL_SERVER_PASSWORD \
+    EMAIL_FROM=$EMAIL_FROM \
+    NEXTAUTH_URL=$NEXTAUTH_URL \
+    NEXTAUTH_SECRET=$NEXTAUTH_SECRET \
+    GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID \
+    GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET \
+    AZURE_AD_CLIENT_ID=$AZURE_AD_CLIENT_ID \
+    AZURE_AD_CLIENT_SECRET=$AZURE_AD_CLIENT_SECRET \
+    AZURE_AD_TENANT_ID=$AZURE_AD_TENANT_ID \
+    NEXT_TELEMETRY_DISABLED=1
 
-  pre_build:
-    commands:
-      - echo "📜 PRE_BUILD – write script to disk and run it"
-      - |
-        cat > ci-prebuild.sh << 'SH'
-        #!/usr/bin/env bash
-        set -euo pipefail
-        set -x
+# 1) Install deps
+COPY package*.json ./
+RUN npm ci
 
-        # 1) Runtime deps
-        npm pkg set dependencies.recharts="^2.12.7"
-        npm pkg set dependencies.lucide-react="^0.452.0"
-        npm pkg set dependencies.class-variance-authority="^0.7.0"
-        npm pkg set dependencies.clsx="^2.1.1"
-        npm pkg set dependencies.tailwind-merge="^2.5.2"
-        npm pkg set dependencies.tailwindcss-animate="^1.0.7"
-        npm pkg set dependencies.pg="^8.11.3"
-        npm pkg set dependencies.swr="^2.3.0"
-        npm pkg set dependencies.@next-auth/prisma-adapter="^1.0.7"
+# 2) Copy source
+COPY . .
 
-        # 1b) Dev typings so TS is happy in CI
-        npm pkg set devDependencies.@types/node="^18.19.0"
-        npm pkg set devDependencies.@types/pg="^8.11.7"
+# Safety nets (keep helpers present if repo missed them)
+RUN /bin/sh -eu -c '\
+  if [ ! -f src/lib/utils.ts ]; then \
+    mkdir -p src/lib; \
+    printf "%s\n" \
+      "import { type ClassValue } from \"clsx\";" \
+      "import clsx from \"clsx\";" \
+      "import { twMerge } from \"tailwind-merge\";" \
+      "export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }" \
+      > src/lib/utils.ts; \
+  fi \
+'
+RUN /bin/sh -eu -c '\
+  if [ ! -f src/components/ui/input.tsx ]; then \
+    mkdir -p src/components/ui; \
+    printf "%s\n" \
+      "import * as React from \"react\";" \
+      "import { cn } from \"@/lib/utils\";" \
+      "export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}" \
+      "export const Input = React.forwardRef<HTMLInputElement, InputProps>((" \
+      "  { className, ...props }, ref) => (" \
+      "    <input ref={ref} className={cn(\"flex h-9 w-full rounded-md border bg-white/90 dark:bg-neutral-900 px-3 py-2 text-sm outline-none\", className)} {...props} />" \
+      "  )" \
+      ");" \
+      "Input.displayName = \"Input\";" \
+      "export default Input;" \
+      > src/components/ui/input.tsx; \
+  fi \
+'
 
-        # 2) shadcn config (idempotent)
-        node <<'NODE'
-        const fs = require('fs');
-        const p = 'components.json';
-        const j = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p,'utf8')) : {};
-        j.$schema = 'https://ui.shadcn.com/schema.json';
-        j.style = 'default';
-        j.rsc = true;
-        j.tsx = true;
-        j.tailwind = { config: 'tailwind.config.ts', css: 'src/app/globals.css', baseColor: 'gray', cssVariables: true };
-        j.aliases = { components: '@/components', utils: '@/lib/utils' };
-        j.iconLibrary = 'lucide';
-        j.components = j.components || [];
-        j.path = 'src/components';
-        fs.writeFileSync(p, JSON.stringify(j, null, 2));
-        NODE
+# 3) Prisma client
+RUN npx prisma generate
 
-        mkdir -p src/lib src/components/ui src/components/dashboard
+# 4) Next build (produces .next/standalone with server.js)
+RUN npm run build
 
-        # 3) cn() helper if missing
-        if [ ! -f src/lib/utils.ts ]; then
-          cat > src/lib/utils.ts << 'TS'
-        import type { ClassValue } from "clsx";
-        import clsx from "clsx";
-        import { twMerge } from "tailwind-merge";
-        export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
-        TS
-        fi
+# ============================
+# Stage 2: Runtime
+# ============================
+FROM node:18-bullseye-slim AS runner
+WORKDIR /app
 
-        # 4) Make TS/Webpack resolve "@/*" and **parse JSONC** tsconfig safely
-        node <<'NODE'
-        const fs = require('fs');
-        const file = 'tsconfig.json';
-        let j = { compilerOptions: {} };
+ENV NODE_ENV=production \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0 \
+    NEXT_TELEMETRY_DISABLED=1
 
-        const strip = (s) =>
-          s.replace(/\/\*[\s\S]*?\*\//g, '')      // /* block comments */
-           .replace(/(^|[^:])\/\/.*$/gm, '$1');   // // line comments (not after ":")
+# Tools + system CA
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl openssl \
+ && rm -rf /var/lib/apt/lists/*
 
-        if (fs.existsSync(file)) {
-          try { j = JSON.parse(strip(fs.readFileSync(file, 'utf8'))); }
-          catch (e) {
-            console.warn('⚠️  tsconfig.json had comments or bad JSON; rewriting minimal config. Reason:', e.message);
-          }
-        }
+# ---- Install the current RDS trust bundle (prefer regional, fallback to global) ----
+# We write it to /etc/ssl/certs/rds-ca.pem and ALSO symlink to the legacy combined name
+# so existing PGSSLROOTCERT=/etc/ssl/certs/rds-combined-ca-bundle.pem keeps working.
+RUN set -eux; \
+  dest="/etc/ssl/certs/rds-ca.pem"; \
+  curl -fsSL "https://truststore.pki.rds.amazonaws.com/ca-central-1/ca-bundle.pem" -o "$dest" \
+  || curl -fsSL "https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem" -o "$dest"; \
+  chmod 0644 "$dest"; \
+  grep -q "BEGIN CERTIFICATE" "$dest"; \
+  ln -sf "$dest" /etc/ssl/certs/rds-combined-ca-bundle.pem
 
-        j.compilerOptions = j.compilerOptions || {};
-        j.compilerOptions.baseUrl = j.compilerOptions.baseUrl || '.';
-        j.compilerOptions.paths = Object.assign({ '@/*': ['./src/*'] }, j.compilerOptions.paths || {});
-        j.compilerOptions.skipLibCheck = true;
-        j.compilerOptions.types = Array.from(new Set([...(j.compilerOptions.types || []), 'node']));
+# Make Node trust the bundle globally (pg, fetch, etc.)
+ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/rds-ca.pem
 
-        fs.writeFileSync(file, JSON.stringify(j, null, 2));
-        NODE
+# --- Next.js app files ---
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
-        # 5) Minimal stubs so Next build doesn't break if these are missing
-        if [ ! -f src/components/nartex-logo.tsx ]; then
-          cat > src/components/nartex-logo.tsx << 'TSX'
-        import * as React from "react";
-        export default function NartexLogo({ className="" }: { className?: string }) {
-          return <span className={className} style={{ fontWeight: 600, letterSpacing: ".05em" }}>nartex</span>;
-        }
-        TSX
-        fi
+# Prisma (defensive)
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma/client ./node_modules/.prisma/client
+COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
-        if [ ! -f src/components/dashboard/header.tsx ]; then
-          cat > src/components/dashboard/header.tsx << 'TSX'
-        export default function DashboardHeader(){ return <div className="px-4 py-3 text-sm text-muted-foreground">Dashboard Header</div>; }
-        TSX
-        fi
-
-        if [ ! -f src/components/dashboard/sidebar.tsx ]; then
-          cat > src/components/dashboard/sidebar.tsx << 'TSX'
-        export default function DashboardSidebar(){ return <aside className="p-4 text-sm text-muted-foreground">Sidebar</aside>; }
-        TSX
-        fi
-
-        if [ ! -f src/components/dashboard/new-product-requests-table.tsx ]; then
-          cat > src/components/dashboard/new-product-requests-table.tsx << 'TSX'
-        export default function NewProductRequestsTable(){ return <div className="p-4 text-sm text-muted-foreground">New product requests (stub)</div>; }
-        TSX
-        fi
-
-        if [ ! -f src/components/product-requests-table.tsx ]; then
-          cat > src/components/product-requests-table.tsx << 'TSX'
-        export default function ProductRequestsTable(){ return <div className="p-4 text-sm text-muted-foreground">Product requests (stub)</div>; }
-        TSX
-        fi
-
-        echo "📂 Components present:"; ls -la src/components || true; ls -la src/components/dashboard || true
-
-        # 6) Refresh lockfile for Docker layer cache
-        npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-        SH
-      - chmod +x ci-prebuild.sh
-      - bash ci-prebuild.sh
-
-  build:
-    commands:
-      - echo "🏗 BUILD – resolve commit hash"
-      - COMMIT_HASH=$(git rev-parse --short HEAD)
-      - echo "🏗 BUILD – docker image (no cache)"
-      - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
-      - |
-        docker build \
-          --build-arg GIT_COMMIT_HASH=$COMMIT_HASH \
-          --build-arg DATABASE_URL="$DATABASE_URL" \
-          --build-arg EMAIL_SERVER_HOST="$EMAIL_SERVER_HOST" \
-          --build-arg EMAIL_SERVER_PORT="$EMAIL_SERVER_PORT" \
-          --build-arg EMAIL_SERVER_USER="$EMAIL_SERVER_USER" \
-          --build-arg EMAIL_SERVER_PASSWORD="$EMAIL_SERVER_PASSWORD" \
-          --build-arg EMAIL_FROM="$EMAIL_FROM" \
-          --build-arg NEXTAUTH_URL="$NEXTAUTH_URL" \
-          --build-arg NEXTAUTH_SECRET="$NEXTAUTH_SECRET" \
-          --build-arg GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
-          --build-arg GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
-          --build-arg AZURE_AD_CLIENT_ID="$AZURE_AD_CLIENT_ID" \
-          --build-arg AZURE_AD_CLIENT_SECRET="$AZURE_AD_CLIENT_SECRET" \
-          --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
-          -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
-          -t "$ECR_IMAGE_URI:latest" .
-
-      - echo "🔑 Login to ECR"
-      - |
-        PASS="$(aws ecr get-login-password --region "$AWS_DEFAULT_REGION")"
-        echo "$PASS" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
-
-      - echo "📤 Push images"
-      - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
-      - docker push "$ECR_IMAGE_URI:latest"
-
-  post_build:
-    commands:
-      - echo "🔄 Force new ECS deployment"
-      - |
-        aws ecs update-service \
-          --cluster nartex-cluster \
-          --service nartex-next-service \
-          --force-new-deployment \
-          --region $AWS_DEFAULT_REGION
-        # Consider pinning the task def to $COMMIT_HASH for exact rollouts.
-
-artifacts:
-  files:
-    - imagedefinitions.json
+EXPOSE 3000
+CMD ["node", "server.js"]
