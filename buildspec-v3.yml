@@ -127,10 +127,9 @@ phases:
       - echo "⚙️ BUILD – generate Prisma client"
       - npx prisma generate
       - echo "🏗 BUILD – resolve commit hash"
-      - |
-        COMMIT_HASH=$(git rev-parse --short HEAD)
-        echo "COMMIT_HASH=$COMMIT_HASH"
-        ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
+      - "COMMIT_HASH=$(git rev-parse --short HEAD)"
+      - "echo COMMIT_HASH=$COMMIT_HASH"
+      - "ECR_IMAGE_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
       - echo "🐳 BUILD – docker image"
       - |
         docker build \
@@ -138,19 +137,14 @@ phases:
           -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
           -t "$ECR_IMAGE_URI:latest" .
       - echo "🧾 BUILD – write imagedefinitions.json artifact"
-      - |
-        printf '[{"name":"%s","imageUri":"%s"}]\n' \
-          "$CONTAINER_NAME" "$ECR_IMAGE_URI:$COMMIT_HASH" > imagedefinitions.json
-        cat imagedefinitions.json
+      - "printf '[{\"name\":\"%s\",\"imageUri\":\"%s\"}]\\n' \"$CONTAINER_NAME\" \"$ECR_IMAGE_URI:$COMMIT_HASH\" > imagedefinitions.json"
+      - cat imagedefinitions.json
       - echo "🔑 Login to ECR"
-      - |
-        aws ecr get-login-password --region "$AWS_DEFAULT_REGION" \
-          | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
+      - "aws ecr get-login-password --region \"$AWS_DEFAULT_REGION\" | docker login --username AWS --password-stdin \"$ECR_IMAGE_URI\""
       - echo "📤 Push images"
-      - |
-        docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
-        docker push "$ECR_IMAGE_URI:latest"
-
+      - "docker push \"$ECR_IMAGE_URI:$COMMIT_HASH\""
+      - "docker push \"$ECR_IMAGE_URI:latest\""
+  
   post_build:
     commands:
       - 'echo "🔄 Force new ECS deployment"'
