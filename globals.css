@@ -1,0 +1,14 @@
+:root {
+  --sidebar-w: 16rem; /* 256px (expanded default for SSR) */
+}
+
+@media (min-width: 1024px) {
+  .with-sidebar-shift {
+    margin-left: var(--sidebar-w);
+    transition: margin-left 200ms ease;
+  }
+  .with-sidebar-pad {
+    padding-left: var(--sidebar-w);
+    transition: padding-left 200ms ease;
+  }
+}
