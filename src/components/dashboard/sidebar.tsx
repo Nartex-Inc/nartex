@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -156,7 +157,7 @@ export function Sidebar({
 
   return (
     <TooltipProvider>
-      {/* MOBILE drawer: sits below the sticky header (h-16) */}
+      {/* MOBILE drawer: below sticky header */}
       <div
         className={cn(
           "fixed left-0 top-16 z-50 h-[calc(100svh-4rem)] w-64 -translate-x-full border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-lg transition-transform duration-300 lg:hidden",
@@ -166,8 +167,16 @@ export function Sidebar({
         aria-modal="true"
       >
         <aside className="flex h-full flex-col">
+          {/* Brand row (mobile) */}
           <div className="flex h-12 flex-none items-center justify-between border-b px-4">
-            <span className="text-sm font-semibold tracking-wide">Menu</span>
+            <Image
+              src="/sinto-logo.svg"
+              alt="Sinto"
+              width={96}
+              height={22}
+              priority
+              className="select-none"
+            />
             <Button
               variant="ghost"
               size="icon"
@@ -178,6 +187,7 @@ export function Sidebar({
             </Button>
           </div>
 
+          {/* Scrollable nav */}
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
             <div className="flex flex-col gap-4">
               {NAV_GROUPS.map((group) => (
@@ -196,6 +206,7 @@ export function Sidebar({
             </div>
           </div>
 
+          {/* Pinned user strip */}
           <div className="flex-none border-t p-3">
             <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-2">
               <Avatar className="h-8 w-8">
@@ -219,7 +230,7 @@ export function Sidebar({
         </aside>
       </div>
 
-      {/* DESKTOP rail: fixed under the header with exact viewport remainder */}
+      {/* DESKTOP rail: below header, with logo */}
       <aside
         aria-label="Barre latérale"
         className={cn(
@@ -227,8 +238,22 @@ export function Sidebar({
           desktopWidth
         )}
       >
-        {/* header row inside the rail */}
-        <div className="flex h-12 flex-none items-center justify-end border-b px-3">
+        {/* Brand row (desktop) */}
+        <div className="flex h-12 flex-none items-center justify-between border-b px-3">
+          <div className="flex items-center gap-2 overflow-hidden">
+            {/* Show full logo only when expanded */}
+            <Image
+              src="/sinto-logo.svg"
+              alt="Sinto"
+              width={92}
+              height={20}
+              priority
+              className={cn(
+                "select-none transition-opacity duration-200",
+                isOpen ? "opacity-100" : "opacity-0"
+              )}
+            />
+          </div>
           <Button
             variant="ghost"
             size="icon"
@@ -241,7 +266,7 @@ export function Sidebar({
           </Button>
         </div>
 
-        {/* scrollable middle */}
+        {/* Scrollable nav */}
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
           <div className="flex flex-col gap-4">
             {NAV_GROUPS.map((group) => (
@@ -260,7 +285,7 @@ export function Sidebar({
           </div>
         </div>
 
-        {/* pinned bottom user strip */}
+        {/* Pinned user strip */}
         <div className="flex-none border-t p-2">
           {expanded ? (
             <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-2">
