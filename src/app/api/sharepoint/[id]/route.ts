@@ -5,8 +5,6 @@ import { authOptions } from "@/auth";
 import prisma from "@/lib/prisma";
 
 const EDITOR_ROLES = new Set(["ceo", "admin", "ti-exec", "direction-exec"]);
-
-type RouteParams = { params: { id: string } };
 type PermSpec = { edit?: string[]; read?: string[] } | "inherit" | null;
 
 async function requireTenant() {
@@ -14,23 +12,19 @@ async function requireTenant() {
   if (!session?.user?.id) {
     return { error: NextResponse.json({ error: "Not authenticated" }, { status: 401 }) };
   }
-
   const userTenant = await prisma.userTenant.findFirst({
     where: { userId: (session.user as any).id },
     select: { tenantId: true },
   });
-
   if (!userTenant) {
     return { error: NextResponse.json({ error: "Tenant not found" }, { status: 404 }) };
   }
-
   return { tenantId: userTenant.tenantId, session };
 }
 
 async function requireEditor() {
   const base = await requireTenant();
   if ("error" in base) return base as any;
-
   const role = (base.session?.user as any)?.role as string | undefined;
   if (!role || !EDITOR_ROLES.has(role)) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
@@ -39,7 +33,10 @@ async function requireEditor() {
 }
 
 /** GET /api/sharepoint/:id */
-export async function GET(_req: Request, { params }: RouteParams) {
+export async function GET(
+  _req: Request,
+  { params }: { params: { id: string } }
+) {
   const mech = await requireTenant();
   if ("error" in mech) return mech.error;
 
@@ -55,7 +52,10 @@ export async function GET(_req: Request, { params }: RouteParams) {
 }
 
 /** PATCH /api/sharepoint/:id */
-export async function PATCH(req: Request, { params }: RouteParams) {
+export async function PATCH(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
   const mech = await requireEditor();
   if ("error" in mech) return mech.error;
 
@@ -69,7 +69,6 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  // Ensure the node exists in this tenant and grab current parent for cycle check.
   const current = await prisma.sharePointNode.findFirst({
     where: { id, tenantId: mech.tenantId },
     select: { id: true, parentId: true },
@@ -78,14 +77,14 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
   const data: Record<string, any> = {};
 
-  // ---- rename
+  // rename
   if (typeof body.name === "string") {
     const name = body.name.trim();
     if (!name) return NextResponse.json({ error: "Name cannot be empty" }, { status: 400 });
     data.name = name;
   }
 
-  // ---- parent move (with cycle protection)
+  // parent move (with cycle protection)
   if (Object.prototype.hasOwnProperty.call(body, "parentId")) {
     const parentId: string | null = body.parentId ?? null;
 
@@ -102,7 +101,6 @@ export async function PATCH(req: Request, { params }: RouteParams) {
         return NextResponse.json({ error: "Parent not found in tenant" }, { status: 400 });
       }
 
-      // Walk up ancestors of the proposed parent to prevent cycles.
       let cursor: string | null | undefined = parent.parentId;
       while (cursor) {
         if (cursor === id) {
@@ -122,21 +120,15 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     data.parentId = parentId;
   }
 
-  // ---- flags
+  // flags
   if (typeof body.restricted === "boolean") data.restricted = body.restricted;
   if (typeof body.highSecurity === "boolean") data.highSecurity = body.highSecurity;
 
-  // ---- permissions (accept both shapes; map inherit/null -> empty arrays)
-  const sanitize = (arr: unknown): string[] => {
-    if (!Array.isArray(arr)) return [];
-    return Array.from(
-      new Set(
-        arr
-          .map((x) => String(x).trim())
-          .filter(Boolean)
-      )
-    );
-  };
+  // permissions (accept both shapes; “inherit”/null -> empty arrays)
+  const sanitize = (arr: unknown): string[] =>
+    Array.isArray(arr)
+      ? Array.from(new Set(arr.map((x) => String(x).trim()).filter(Boolean)))
+      : [];
 
   let editGroupsToSet: string[] | null | undefined;
   let readGroupsToSet: string[] | null | undefined;
@@ -144,7 +136,6 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   if (Object.prototype.hasOwnProperty.call(body, "permissions")) {
     const perms: PermSpec = body.permissions;
     if (perms == null || perms === "inherit") {
-      // store as empty arrays (inherit)
       editGroupsToSet = null;
       readGroupsToSet = null;
     } else {
@@ -159,7 +150,6 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     }
   }
 
-  // Also allow top-level fields, with null meaning inherit.
   if (Object.prototype.hasOwnProperty.call(body, "editGroups")) {
     editGroupsToSet = body.editGroups === null ? null : sanitize(body.editGroups);
   }
@@ -167,7 +157,6 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     readGroupsToSet = body.readGroups === null ? null : sanitize(body.readGroups);
   }
 
-  // Persist arrays (null => empty array for "inherit")
   if (editGroupsToSet !== undefined) {
     data.editGroups = editGroupsToSet === null ? [] : editGroupsToSet;
   }
@@ -176,22 +165,24 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   }
 
   const updated = await prisma.sharePointNode.update({
-    where: { id }, // unique id; tenant check already done above
+    where: { id },
     data,
   });
 
   return NextResponse.json(updated);
 }
 
-/** DELETE /api/sharepoint/:id (recursive within tenant) */
-export async function DELETE(_req: Request, { params }: RouteParams) {
+/** DELETE /api/sharepoint/:id (recursive) */
+export async function DELETE(
+  _req: Request,
+  { params }: { params: { id: string } }
+) {
   const mech = await requireEditor();
   if ("error" in mech) return mech.error;
 
   const id = params?.id?.toString();
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-  // Load all nodes for tenant; we’ll compute the subtree to delete.
   const all = await prisma.sharePointNode.findMany({
     where: { tenantId: mech.tenantId },
     select: { id: true, parentId: true },
