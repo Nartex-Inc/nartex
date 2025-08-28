@@ -150,18 +150,13 @@ phases:
 
   post_build:
     commands:
-      - echo "🧾 POST_BUILD – write imagedefinitions.json for ECS deploy stage"
+      - echo "🔄 Force new ECS deployment"
       - |
-        cat > imagedefinitions.json << JSON
-        [
-          {
-            "name": "${CONTAINER_NAME}",
-            "imageUri": "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME}:${COMMIT_HASH}"
-          }
-        ]
-        JSON
-      - cat imagedefinitions.json
-      - echo "✅ Build complete. Handing off to CodePipeline ECS Deploy."
+        aws ecs update-service \
+          --cluster nartex-cluster \
+          --service nartex-next-service \
+          --force-new-deployment \
+          --region $AWS_DEFAULT_REGION
 
 artifacts:
   files:
