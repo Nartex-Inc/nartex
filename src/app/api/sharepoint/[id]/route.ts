@@ -95,6 +95,7 @@ export async function PATCH(req: Request, ctx: any) {
         return NextResponse.json({ error: "Parent not found in tenant" }, { status: 400 });
       }
 
+      // Walk up ancestors of the proposed parent to prevent cycles.
       let cursor: string | null | undefined = parent.parentId;
       while (cursor) {
         if (cursor === id) {
@@ -103,13 +104,16 @@ export async function PATCH(req: Request, ctx: any) {
             { status: 400 }
           );
         }
-        const ancestor = await prisma.sharePointNode.findFirst({
-          where: { id: cursor, tenantId: mech.tenantId },
-          select: { parentId: true },
-        });
+      
+        // 👇 Explicitly type the narrow select result
+        const ancestor: { parentId: string | null } | null =
+          await prisma.sharePointNode.findFirst({
+            where: { id: cursor, tenantId: mech.tenantId },
+            select: { parentId: true },
+          });
+      
         cursor = ancestor?.parentId ?? null;
       }
-    }
 
     data.parentId = parentId;
   }
