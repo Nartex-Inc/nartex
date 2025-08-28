@@ -45,8 +45,8 @@ type APINode = {
 
   restricted?: boolean | null;
   highSecurity?: boolean | null;
-  editGroups?: string[] | null; // null => inherit
-  readGroups?: string[] | null; // null => inherit
+  editGroups?: string[] | null; // [] => inherit (mapped to null in view)
+  readGroups?: string[] | null; // [] => inherit (mapped to null in view)
 
   createdAt: string;
   updatedAt: string;
@@ -65,26 +65,28 @@ type NodeItem = {
   children?: NodeItem[];
 };
 
-type PermSpec = {
-  editGroups?: string[] | null;
-  readGroups?: string[] | null;
-  restricted?: boolean;
-  highSecurity?: boolean;
-} | null;
+type PermSpec =
+  | {
+      editGroups?: string[] | null;
+      readGroups?: string[] | null;
+      restricted?: boolean;
+      highSecurity?: boolean;
+    }
+  | null;
 
 /* =============================================================================
    Data helpers
 ============================================================================= */
+const fetcher = (url: string) =>
+  fetch(url).then((r) => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  });
 
-// Add this helper (right above or below `fetcher`)
+// Map DB shape (empty array means inherit) to view shape (null means inherit)
 const toView = (arr?: string[] | null) =>
   Array.isArray(arr) && arr.length === 0 ? null : arr;
 
-const fetcher = (url: string) => fetch(url).then((r) => {
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  return r.json();
-});
-
 /** Build a tree from the flat /api/sharepoint response. */
 function buildTree(rows: APINode[]): NodeItem {
   const byParent = new Map<string | null, APINode[]>();
@@ -102,44 +104,8 @@ function buildTree(rows: APINode[]): NodeItem {
     icon: n.icon ?? undefined,
     restricted: !!n.restricted,
     highSecurity: !!n.highSecurity,
-    // ⬇️ use toView so [] (inherit) becomes null for the UI
     editGroups: toView(n.editGroups),
     readGroups: toView(n.readGroups),
-    children: (byParent.get(n.id) ?? [])
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map(toNode),
-  });
-
-  const rootChildren = (byParent.get(null) ?? []).sort((a, b) =>
-    a.name.localeCompare(b.name)
-  );
-  return {
-    id: "root",
-    name: "ROOT",
-    type: "site",
-    children: rootChildren.map(toNode),
-  };
-}
-
-/** Build a tree from the flat /api/sharepoint response. */
-function buildTree(rows: APINode[]): NodeItem {
-  const byParent = new Map<string | null, APINode[]>();
-  rows.forEach((n) => {
-    const k = n.parentId ?? null;
-    const arr = byParent.get(k) ?? [];
-    arr.push(n);
-    byParent.set(k, arr);
-  });
-
-  const toNode = (n: APINode): NodeItem => ({
-    id: n.id,
-    name: n.name,
-    type: (n.type as any) ?? "folder",
-    icon: n.icon ?? undefined,
-    restricted: !!n.restricted,
-    highSecurity: !!n.highSecurity,
-    editGroups: n.editGroups ?? null,
-    readGroups: n.readGroups ?? null,
     children: (byParent.get(n.id) ?? [])
       .sort((a, b) => a.name.localeCompare(b.name))
       .map(toNode),
@@ -179,11 +145,15 @@ export default function SharePointPage() {
    Structure Viewer (live CRUD)
 ============================================================================= */
 function SharePointStructure() {
-  const { data, error, isLoading } = useSWR<APINode[]>("/api/sharepoint", fetcher, {
-    revalidateOnFocus: false,
-  });
+  const { data, error, isLoading } = useSWR<APINode[]>(
+    "/api/sharepoint",
+    fetcher,
+    { revalidateOnFocus: false }
+  );
 
-  const [expanded, setExpanded] = React.useState<Set<string>>(new Set(["root"]));
+  const [expanded, setExpanded] = React.useState<Set<string>>(
+    new Set(["root"])
+  );
   const [selected, setSelected] = React.useState<NodeItem | null>(null);
 
   const tree = React.useMemo(() => (data ? buildTree(data) : null), [data]);
@@ -214,7 +184,6 @@ function SharePointStructure() {
       updatedAt: new Date().toISOString(),
     };
 
-    // optimistic add
     mutate(
       "/api/sharepoint",
       (prev: APINode[] | undefined) => (prev ? [...prev, optimistic] : prev),
@@ -228,7 +197,6 @@ function SharePointStructure() {
       });
       if (!res.ok) throw new Error("Erreur de création");
     } catch (e) {
-      // rollback
       mutate(
         "/api/sharepoint",
         (prev: APINode[] | undefined) =>
@@ -237,7 +205,7 @@ function SharePointStructure() {
       );
       alert((e as Error).message);
     } finally {
-      mutate("/api/sharepoint"); // revalidate
+      mutate("/api/sharepoint");
     }
   };
 
@@ -246,7 +214,6 @@ function SharePointStructure() {
     if (!name || name.trim() === node.name) return;
     const oldName = node.name;
 
-    // optimistic rename
     mutate(
       "/api/sharepoint",
       (prev: APINode[] | undefined) =>
@@ -261,7 +228,6 @@ function SharePointStructure() {
       });
       if (!res.ok) throw new Error("Échec de la mise à jour du nom");
     } catch (e) {
-      // rollback
       mutate(
         "/api/sharepoint",
         (prev: APINode[] | undefined) =>
@@ -275,11 +241,13 @@ function SharePointStructure() {
   };
 
   const deleteNode = async (node: NodeItem) => {
-    if (!confirm(`Supprimer « ${node.name} » et tous ses sous-dossiers ?`)) return;
+    if (!confirm(`Supprimer « ${node.name} » et tous ses sous-dossiers ?`))
+      return;
 
-    // optimistic remove subtree: easiest is to just revalidate after
     try {
-      const res = await fetch(`/api/sharepoint/${node.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/sharepoint/${node.id}`, {
+        method: "DELETE",
+      });
       if (!res.ok) throw new Error("Suppression échouée");
       if (selected?.id === node.id) setSelected(null);
     } catch (e) {
@@ -298,7 +266,6 @@ function SharePointStructure() {
       readGroups: perms.readGroups,
     };
 
-    // optimistic
     mutate(
       "/api/sharepoint",
       (prev: APINode[] | undefined) =>
@@ -325,7 +292,7 @@ function SharePointStructure() {
       if (!res.ok) throw new Error("Mise à jour des permissions échouée");
     } catch (e) {
       alert((e as Error).message);
-      mutate("/api/sharepoint"); // rollback by revalidating
+      mutate("/api/sharepoint");
     } finally {
       mutate("/api/sharepoint");
     }
@@ -363,7 +330,7 @@ function SharePointStructure() {
   const renderNode = (node: NodeItem, depth = 0): React.ReactNode => {
     const isExpanded = expanded.has(node.id);
     const hasChildren = !!node.children?.length;
-    const isSelected = selected?.id === node.id;
+    aconst isSelected = selected?.id === node.id;
 
     return (
       <div key={node.id} className="select-none">
@@ -374,19 +341,21 @@ function SharePointStructure() {
             isSelected
               ? "bg-gradient-to-r from-blue-500/10 via-blue-400/5 to-transparent border-white/10"
               : "",
-            node.restricted ? "pl-[calc(theme(spacing.3)+2px)] border-l-2 border-amber-400/40" : "",
-            node.highSecurity ? "pl-[calc(theme(spacing.3)+2px)] border-l-2 border-red-500/40" : "",
+            node.restricted
+              ? "pl-[calc(theme(spacing.3)+2px)] border-l-2 border-amber-400/40"
+              : "",
+            node.highSecurity
+              ? "pl-[calc(theme(spacing.3)+2px)] border-l-2 border-red-500/40"
+              : "",
           ].join(" ")}
           style={{ paddingLeft: depth * 20 + 12 }}
           onClick={(e) => {
-            // ignore clicks on action buttons
             const t = e.target as HTMLElement;
             if (t.closest("[data-node-action]")) return;
             if (hasChildren) toggle(node.id);
             setSelected(node);
           }}
         >
-          {/* Chevron */}
           {hasChildren && (
             <span
               className="text-muted-foreground/70 transition-transform"
@@ -396,9 +365,12 @@ function SharePointStructure() {
             </span>
           )}
 
-          {/* Icon */}
-          {node.type === "site" && <Building2 className="h-5 w-5 text-purple-400" />}
-          {node.type === "library" && <span className="text-lg">{node.icon || "📁"}</span>}
+          {node.type === "site" && (
+            <Building2 className="h-5 w-5 text-purple-400" />
+          )}
+          {node.type === "library" && (
+            <span className="text-lg">{node.icon || "📁"}</span>
+          )}
           {(!node.type || node.type === "folder") &&
             (isExpanded ? (
               <FolderOpen className="h-4 w-4 text-blue-400" />
@@ -406,7 +378,6 @@ function SharePointStructure() {
               <Folder className="h-4 w-4 text-muted-foreground/70" />
             ))}
 
-          {/* Name + flags */}
           <span
             className={[
               "font-medium",
@@ -419,10 +390,10 @@ function SharePointStructure() {
             {node.highSecurity && <Shield className="h-3 w-3 text-red-400" />}
           </span>
 
-          {/* badges */}
-          <div className="ml-auto hidden gap-2 md:flex">{permissionBadges(node)}</div>
+          <div className="ml-auto hidden gap-2 md:flex">
+            {permissionBadges(node)}
+          </div>
 
-          {/* actions (show on hover) */}
           <div className="ml-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
             <button
               data-node-action
@@ -450,14 +421,19 @@ function SharePointStructure() {
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
-                <PermissionsButton node={node} onSave={(p) => updatePermissions(node, p)} />
+                <PermissionsButton
+                  node={node}
+                  onSave={(p) => updatePermissions(node, p)}
+                />
               </>
             )}
           </div>
         </div>
 
         {isExpanded && hasChildren && (
-          <div className="ml-2 space-y-1">{node.children!.map((c) => renderNode(c, depth + 1))}</div>
+          <div className="ml-2 space-y-1">
+            {node.children!.map((c) => renderNode(c, depth + 1))}
+          </div>
         )}
       </div>
     );
@@ -516,30 +492,40 @@ function SharePointStructure() {
 
         {/* Right rail */}
         <div className="col-span-12 lg:col-span-4 space-y-4">
-          {/* Selected node details */}
           {selected && (
             <Card className="space-y-3">
-              <CardTitle icon={<Settings2 className="h-5 w-5 text-purple-400" />}>
+              <CardTitle
+                icon={<Settings2 className="h-5 w-5 text-purple-400" />}
+              >
                 Détails du dossier
               </CardTitle>
               <div className="text-sm text-gray-300">
                 <div className="flex items-center gap-2">
                   <span className="text-gray-400">Nom :</span>
-                  <span className="font-medium text-white">{selected.name}</span>
+                  <span className="font-medium text-white">
+                    {selected.name}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-gray-400">Type :</span>
                   <span className="font-mono">{selected.type ?? "folder"}</span>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">{permissionBadges(selected)}</div>
-              <PermissionsInlineEditor node={selected} onSave={(p) => updatePermissions(selected, p)} />
+              <div className="flex flex-wrap gap-2">
+                {permissionBadges(selected)}
+              </div>
+              <PermissionsInlineEditor
+                node={selected}
+                onSave={(p) => updatePermissions(selected, p)}
+              />
             </Card>
           )}
 
           {/* Legend */}
           <Card>
-            <CardTitle icon={<Star className="h-5 w-5 text-yellow-400" />}>Légende</CardTitle>
+            <CardTitle icon={<Star className="h-5 w-5 text-yellow-400" />}>
+              Légende
+            </CardTitle>
             <div className="mt-4 space-y-3 text-sm">
               <div className="flex items-center gap-3 text-gray-300">
                 <Lock className="h-4 w-4 text-amber-400" />
@@ -562,7 +548,9 @@ function SharePointStructure() {
 
           {/* Security groups (static helper) */}
           <Card>
-            <CardTitle icon={<Users className="h-5 w-5 text-purple-400" />}>Groupes de sécurité</CardTitle>
+            <CardTitle icon={<Users className="h-5 w-5 text-purple-400" />}>
+              Groupes de sécurité
+            </CardTitle>
             <div className="mt-4 space-y-3 text-sm text-gray-300">
               <div>
                 <span className="font-medium text-gray-200">Standard :</span>
@@ -645,7 +633,9 @@ function PermissionsInlineEditor({
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 space-y-3">
       <div className="grid gap-2">
-        <label className="text-xs text-gray-400">Groupes (édition) — séparés par “,”</label>
+        <label className="text-xs text-gray-400">
+          Groupes (édition) — séparés par “,”
+        </label>
         <input
           className="rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
           value={editGroups}
@@ -654,7 +644,9 @@ function PermissionsInlineEditor({
         />
       </div>
       <div className="grid gap-2">
-        <label className="text-xs text-gray-400">Groupes (lecture) — séparés par “,”</label>
+        <label className="text-xs text-gray-400">
+          Groupes (lecture) — séparés par “,”
+        </label>
         <input
           className="rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
           value={readGroups}
@@ -664,11 +656,19 @@ function PermissionsInlineEditor({
       </div>
       <div className="flex items-center gap-4">
         <label className="flex items-center gap-2 text-sm text-gray-300">
-          <input type="checkbox" checked={restricted} onChange={(e) => setRestricted(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={restricted}
+            onChange={(e) => setRestricted(e.target.checked)}
+          />
           Accès restreint
         </label>
         <label className="flex items-center gap-2 text-sm text-gray-300">
-          <input type="checkbox" checked={highSecurity} onChange={(e) => setHighSecurity(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={highSecurity}
+            onChange={(e) => setHighSecurity(e.target.checked)}
+          />
           Haute sécurité
         </label>
       </div>
@@ -708,7 +708,9 @@ function PermissionModal({
     (initial?.readGroups ?? []).join(", ")
   );
   const [restricted, setRestricted] = React.useState(!!initial?.restricted);
-  const [highSecurity, setHighSecurity] = React.useState(!!initial?.highSecurity);
+  const [highSecurity, setHighSecurity] = React.useState(
+    !!initial?.highSecurity
+  );
 
   return (
     <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -729,7 +731,9 @@ function PermissionModal({
 
         <div className="mt-4 space-y-3">
           <div className="grid gap-2">
-            <label className="text-xs text-gray-400">Groupes (édition) — séparés par “,”</label>
+            <label className="text-xs text-gray-400">
+              Groupes (édition) — séparés par “,”
+            </label>
             <input
               className="rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
               value={editGroups}
@@ -738,7 +742,9 @@ function PermissionModal({
             />
           </div>
           <div className="grid gap-2">
-            <label className="text-xs text-gray-400">Groupes (lecture) — séparés par “,”</label>
+            <label className="text-xs text-gray-400">
+              Groupes (lecture) — séparés par “,”
+            </label>
             <input
               className="rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
               value={readGroups}
@@ -748,11 +754,19 @@ function PermissionModal({
           </div>
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 text-sm text-gray-300">
-              <input type="checkbox" checked={restricted} onChange={(e) => setRestricted(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={restricted}
+                onChange={(e) => setRestricted(e.target.checked)}
+              />
               Accès restreint
             </label>
             <label className="flex items-center gap-2 text-sm text-gray-300">
-              <input type="checkbox" checked={highSecurity} onChange={(e) => setHighSecurity(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={highSecurity}
+                onChange={(e) => setHighSecurity(e.target.checked)}
+              />
               Haute sécurité
             </label>
           </div>
@@ -791,35 +805,6 @@ function splitOrNull(s: string): string[] | null {
     .map((x) => x.trim())
     .filter(Boolean);
   return arr.length ? arr : null;
-}
-
-/* =============================================================================
-   UI atoms
-============================================================================= */
-function Card({
-  children,
-  className,
-}: React.PropsWithChildren<{ className?: string }>) {
-  return (
-    <div
-      className={[
-        "relative rounded-2xl border border-gray-900 bg-gray-950/80 backdrop-blur-sm p-4 md:p-5",
-        className ?? "",
-      ].join(" ")}
-    >
-      <div className="pointer-events-none absolute -inset-0.5 -z-10 rounded-2xl opacity-0 blur transition group-hover:opacity-30" />
-      {children}
-    </div>
-  );
-}
-
-function CardTitle({ icon, children }: { icon?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2">
-      {icon}
-      <h3 className="text-sm font-medium tracking-wide text-white">{children}</h3>
-    </div>
-  );
 }
 
 /* =============================================================================
