@@ -5,7 +5,6 @@ import { authOptions } from "@/auth";
 import prisma from "@/lib/prisma";
 
 const EDITOR_ROLES = new Set(["ceo", "admin", "ti-exec", "direction-exec"]);
-type RouteCtx = { params: { id: string } };
 type PermSpec = { edit?: string[]; read?: string[] } | "inherit" | null;
 
 async function requireTenant() {
@@ -34,7 +33,7 @@ async function requireEditor() {
 }
 
 /** GET /api/sharepoint/:id */
-export async function GET(_req: Request, ctx: RouteCtx) {
+export async function GET(_req: Request, ctx: { params: { id: string } }) {
   const mech = await requireTenant();
   if ("error" in mech) return mech.error;
 
@@ -50,7 +49,7 @@ export async function GET(_req: Request, ctx: RouteCtx) {
 }
 
 /** PATCH /api/sharepoint/:id */
-export async function PATCH(req: Request, ctx: RouteCtx) {
+export async function PATCH(req: Request, ctx: { params: { id: string } }) {
   const mech = await requireEditor();
   if ("error" in mech) return mech.error;
 
@@ -96,12 +95,16 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
         return NextResponse.json({ error: "Parent not found in tenant" }, { status: 400 });
       }
 
-      // climb ancestors of parent to prevent cycles
-      let cursor: string | null | undefined = parent.parentId;
-      while (cursor) {
+      // Walk up ancestors of the proposed parent to prevent cycles.
+      let cursor: string | null = parent.parentId ?? null; // <-- explicit type
+      while (cursor !== null) {
         if (cursor === id) {
-          return NextResponse.json({ error: "Cannot move node under its own descendant" }, { status: 400 });
+          return NextResponse.json(
+            { error: "Cannot move node under its own descendant" },
+            { status: 400 }
+          );
         }
+        // <-- explicit type for select result to break inference loop
         const ancestor: { parentId: string | null } | null =
           await prisma.sharePointNode.findFirst({
             where: { id: cursor, tenantId: mech.tenantId },
@@ -111,7 +114,6 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
       }
     }
 
-    // still inside the outer "parentId" block
     data.parentId = parentId;
   }
 
@@ -164,7 +166,7 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
 }
 
 /** DELETE /api/sharepoint/:id (recursive) */
-export async function DELETE(_req: Request, ctx: RouteCtx) {
+export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
   const mech = await requireEditor();
   if ("error" in mech) return mech.error;
 
