@@ -6,7 +6,6 @@ env:
     AWS_ACCOUNT_ID: "586359898361"
     IMAGE_REPO_NAME: "nartex-next"
 
-    # App env that you pass into the Docker build
     NEXTAUTH_URL: "https://app.nartex.ca"
     EMAIL_SERVER_HOST: "smtp.gmail.com"
     EMAIL_SERVER_PORT: "587"
@@ -14,7 +13,6 @@ env:
     EMAIL_FROM: "Nartex <noreply@nartex.ca>"
     AZURE_AD_TENANT_ID: "organizations"
 
-    # ECS targets (adjust to your real names)
     CLUSTER_NAME: "nartex-cluster"
     SERVICE_NAME: "nartex-next-service"
 
@@ -39,7 +37,7 @@ phases:
   pre_build:
     commands:
       - set -euxo pipefail
-      - echo "📜 PRE_BUILD – patch runtime deps and refresh lockfile"
+      - echo "📜 PRE_BUILD – ensure runtime deps and refresh lockfile"
       - |
         node <<'NODE'
         const fs = require('fs');
@@ -67,25 +65,21 @@ phases:
         console.log(changed ? "package.json updated" : "package.json already OK");
         NODE
       - npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-
-      # Compute image coordinates for this phase (and print them for debugging)
-      - export COMMIT_HASH="$(git rev-parse --short HEAD)"
-      - export ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
-      - echo "🧾 Will build: ${ECR_IMAGE_URI}:${COMMIT_HASH}"
-
-      # ECR login (needed again before pushing)
-      - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" \
+      - |
+        export COMMIT_HASH="$(git rev-parse --short HEAD)"
+        export ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
+        echo "🧾 Will build: ${ECR_IMAGE_URI}:${COMMIT_HASH}"
+      - |
+        aws ecr get-login-password --region "$AWS_DEFAULT_REGION" \
           | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
 
   build:
     commands:
       - set -euxo pipefail
-      # Recompute here because each phase uses a new shell
-      - export COMMIT_HASH="$(git rev-parse --short HEAD)"
-      - export ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
-      - echo "🏗 BUILD – docker image ${ECR_IMAGE_URI}:${COMMIT_HASH}"
-
       - |
+        export COMMIT_HASH="$(git rev-parse --short HEAD)"
+        export ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
+        echo "🏗 BUILD – docker image ${ECR_IMAGE_URI}:${COMMIT_HASH}"
         docker build \
           --build-arg GIT_COMMIT_HASH="$COMMIT_HASH" \
           --build-arg DATABASE_URL="$DATABASE_URL" \
@@ -103,12 +97,9 @@ phases:
           --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
           -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
           -t "$ECR_IMAGE_URI:latest" .
-
-      - echo "🔐 ECR login (again, just before push)"
-      - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" \
+      - |
+        aws ecr get-login-password --region "$AWS_DEFAULT_REGION" \
           | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
-
-      - echo "📤 Push images"
       - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
       - docker push "$ECR_IMAGE_URI:latest"
 
@@ -122,13 +113,11 @@ phases:
           --service "$SERVICE_NAME" \
           --force-new-deployment \
           --region "$AWS_DEFAULT_REGION"
-
         echo "⏳ Waiting for service to stabilize…"
         aws ecs wait services-stable \
           --cluster "$CLUSTER_NAME" \
           --services "$SERVICE_NAME" \
           --region "$AWS_DEFAULT_REGION"
-
       - echo "✅ ECS deployment complete."
 
 artifacts:
