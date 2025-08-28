@@ -30,13 +30,12 @@ import { cn } from "@/lib/utils";
 type NavItem = { href: string; title: string; icon: React.ElementType };
 
 interface SidebarProps {
-  isOpen: boolean;        // desktop expanded/collapsed
-  isMobileOpen: boolean;  // mobile drawer open
+  isOpen: boolean;
+  isMobileOpen: boolean;
   toggleSidebar: () => void;
   closeMobileSidebar: () => void;
 }
 
-/* ------------------------- Nav structure ------------------------- */
 const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: "GÉNÉRAL",
@@ -69,7 +68,6 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   },
 ];
 
-/* ------------------------------- Helpers -------------------------------- */
 function NavLink({
   item,
   expanded,
@@ -107,7 +105,6 @@ function NavLink({
 
   if (expanded) return content;
 
-  // Collapsed: icon-only with tooltip
   return (
     <Tooltip delayDuration={150}>
       <TooltipTrigger asChild>{content}</TooltipTrigger>
@@ -141,7 +138,6 @@ function NavGroup({
   );
 }
 
-/* -------------------------------- Sidebar -------------------------------- */
 export function Sidebar({
   isOpen,
   isMobileOpen,
@@ -152,30 +148,25 @@ export function Sidebar({
   const user = data?.user;
   const display = user?.name || user?.email?.split("@")[0] || "Utilisateur";
   const initials =
-    display
-      .split(" ")
-      .map((p) => p[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase() || "U";
+    (display.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase() ||
+      "U");
 
   const expanded = isOpen || isMobileOpen;
   const desktopWidth = isOpen ? "lg:w-64" : "lg:w-[84px]";
 
   return (
     <TooltipProvider>
-      {/* Mobile drawer (fixed full height) */}
+      {/* MOBILE drawer: sits below the sticky header (h-16) */}
       <div
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 -translate-x-full border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-lg transition-transform duration-300 lg:hidden",
+          "fixed left-0 top-16 z-50 h-[calc(100svh-4rem)] w-64 -translate-x-full border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-lg transition-transform duration-300 lg:hidden",
           isMobileOpen && "translate-x-0"
         )}
         role="dialog"
         aria-modal="true"
       >
-        <aside className="flex h-svh flex-col">
-          {/* Top bar */}
-          <div className="flex h-16 flex-none items-center justify-between border-b px-4">
+        <aside className="flex h-full flex-col">
+          <div className="flex h-12 flex-none items-center justify-between border-b px-4">
             <span className="text-sm font-semibold tracking-wide">Menu</span>
             <Button
               variant="ghost"
@@ -187,7 +178,6 @@ export function Sidebar({
             </Button>
           </div>
 
-          {/* Scroll area */}
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
             <div className="flex flex-col gap-4">
               {NAV_GROUPS.map((group) => (
@@ -206,7 +196,6 @@ export function Sidebar({
             </div>
           </div>
 
-          {/* Pinned user strip */}
           <div className="flex-none border-t p-3">
             <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-2">
               <Avatar className="h-8 w-8">
@@ -215,9 +204,7 @@ export function Sidebar({
               </Avatar>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{display}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {user?.email}
-                </p>
+                <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
               </div>
               <Button
                 variant="ghost"
@@ -232,16 +219,16 @@ export function Sidebar({
         </aside>
       </div>
 
-      {/* Desktop rail — FIXED + viewport height so avatar is ALWAYS visible */}
+      {/* DESKTOP rail: fixed under the header with exact viewport remainder */}
       <aside
         aria-label="Barre latérale"
         className={cn(
-          "fixed inset-y-0 left-0 z-30 hidden border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 transition-[width] duration-300 lg:flex lg:flex-col",
+          "fixed left-0 top-16 z-30 hidden h-[calc(100svh-4rem)] border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 transition-[width] duration-300 lg:flex lg:flex-col",
           desktopWidth
         )}
       >
-        {/* Header row */}
-        <div className="flex h-16 flex-none items-center justify-end border-b px-3">
+        {/* header row inside the rail */}
+        <div className="flex h-12 flex-none items-center justify-end border-b px-3">
           <Button
             variant="ghost"
             size="icon"
@@ -254,7 +241,7 @@ export function Sidebar({
           </Button>
         </div>
 
-        {/* Make only this middle section scrollable */}
+        {/* scrollable middle */}
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
           <div className="flex flex-col gap-4">
             {NAV_GROUPS.map((group) => (
@@ -273,7 +260,7 @@ export function Sidebar({
           </div>
         </div>
 
-        {/* Pinned bottom user strip (never scrolls away) */}
+        {/* pinned bottom user strip */}
         <div className="flex-none border-t p-2">
           {expanded ? (
             <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-2">
@@ -283,9 +270,7 @@ export function Sidebar({
               </Avatar>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{display}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {user?.email}
-                </p>
+                <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
               </div>
               <Tooltip>
                 <TooltipTrigger asChild>
