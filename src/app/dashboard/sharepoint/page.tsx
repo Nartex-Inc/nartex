@@ -330,7 +330,7 @@ function SharePointStructure() {
   const renderNode = (node: NodeItem, depth = 0): React.ReactNode => {
     const isExpanded = expanded.has(node.id);
     const hasChildren = !!node.children?.length;
-    aconst isSelected = selected?.id === node.id;
+    const isSelected = selected?.id === node.id;
 
     return (
       <div key={node.id} className="select-none">
