@@ -114,7 +114,7 @@ phases:
   build:
     commands:
       - |
-        set -euo pipefail
+        set -eu
         echo "🚀 BUILD – run Prisma migrations against prod"
         if [ -d prisma/migrations ] && [ "$(ls -A prisma/migrations)" ]; then
           npx prisma migrate deploy --schema=prisma/schema.prisma
@@ -123,31 +123,31 @@ phases:
         else
           echo "ℹ️ No Prisma migrations to apply."
         fi
-
+  
       - echo "⚙️ BUILD – generate Prisma client (ensures types are current)"
       - npx prisma generate
-
+  
       - echo "🏗 BUILD – resolve commit hash"
       - COMMIT_HASH=$(git rev-parse --short HEAD)
       - echo "COMMIT_HASH=$COMMIT_HASH"
       - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
-
+  
       - echo "🐳 BUILD – docker image (no secrets as build args)"
       - |
         docker build \
           --build-arg GIT_COMMIT_HASH="$COMMIT_HASH" \
           -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
           -t "$ECR_IMAGE_URI:latest" .
-
+  
       - echo "🧾 BUILD – write imagedefinitions.json artifact"
       - |
         printf '[{"name":"%s","imageUri":"%s"}]\n' \
           "$CONTAINER_NAME" "$ECR_IMAGE_URI:$COMMIT_HASH" > imagedefinitions.json
         cat imagedefinitions.json
-
+  
       - echo "🔑 Login to ECR"
       - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
-
+  
       - echo "📤 Push images"
       - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
       - docker push "$ECR_IMAGE_URI:latest"
