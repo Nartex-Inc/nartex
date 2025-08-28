@@ -7,37 +7,29 @@ import { authConfig } from "../auth.config";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import AzureADProvider from "next-auth/providers/azure-ad";
+
 import bcrypt from "bcryptjs";
+import type { User } from "@prisma/client";
 
 export const authOptions: NextAuthOptions = {
-  // Required in prod – same value on every ECS task
-  secret: process.env.NEXTAUTH_SECRET,
-
-  // Important behind Cloudflare/ALB
-  trustHost: process.env.AUTH_TRUST_HOST === "true" || process.env.NODE_ENV === "production",
-
+  // custom pages
   pages: authConfig.pages,
+
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
 
   providers: [
-    process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
-      ? GoogleProvider({
-          clientId: process.env.GOOGLE_CLIENT_ID!,
-          clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-          allowDangerousEmailAccountLinking: true,
-        })
-      : null,
-
-    process.env.AZURE_AD_CLIENT_ID && process.env.AZURE_AD_CLIENT_SECRET
-      ? AzureADProvider({
-          clientId: process.env.AZURE_AD_CLIENT_ID!,
-          clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
-          tenantId: process.env.AZURE_AD_TENANT_ID || "organizations",
-          allowDangerousEmailAccountLinking: true,
-        })
-      : null,
-
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+      allowDangerousEmailAccountLinking: true,
+    }),
+    AzureADProvider({
+      clientId: process.env.AZURE_AD_CLIENT_ID ?? "",
+      clientSecret: process.env.AZURE_AD_CLIENT_SECRET ?? "",
+      tenantId: process.env.AZURE_AD_TENANT_ID || "organizations",
+      allowDangerousEmailAccountLinking: true,
+    }),
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -53,16 +45,7 @@ export const authOptions: NextAuthOptions = {
         if (!user || !user.password) return null;
 
         const ok = await bcrypt.compare(String(credentials.password), user.password);
-        if (!ok) return null;
-
-        // Return a minimal, normalized object
-        return {
-          id: user.id,
-          name: user.name ?? null,
-          email: user.email ?? null,
-          image: user.image ?? null,
-          role: (user as any).role,
-        } as any;
+        return ok ? (user as unknown as User) : null;
       },
     }),
   ].filter(Boolean) as any,
