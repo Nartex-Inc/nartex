@@ -155,6 +155,11 @@ export function Sidebar({
   const expanded = isOpen || isMobileOpen;
   const desktopWidth = isOpen ? "lg:w-64" : "lg:w-[84px]";
 
+  React.useEffect(() => {
+    const w = isOpen ? "16rem" : "84px";
+    document.documentElement.style.setProperty("--sidebar-w", w);
+  }, [isOpen]);
+
   return (
     <TooltipProvider>
       {/* MOBILE drawer: below sticky header */}
