@@ -113,18 +113,25 @@ phases:
 
   build:
     commands:
-      - echo "🚀 BUILD – apply prisma migrations"
-      - npx prisma migrate deploy
-      - echo "⚙️ BUILD – generate prisma client"
-      - npx prisma generate
+      - echo "🚀 BUILD – Prisma (deploy committed migrations)"
+      - |
+        if [ -d prisma/migrations ] && [ "$(ls -A prisma/migrations)" ]; then
+          npx prisma migrate deploy --schema=prisma/schema.prisma
+          echo "🔎 Prisma status (expect 'Database is up to date')"
+          npx prisma migrate status --schema=prisma/schema.prisma
+        else
+          echo "ℹ️ No migrations folder or it is empty – skipping deploy."
+        fi
+      - echo "⚙️ BUILD – Generate Prisma client"
+      - npx prisma generate --schema=prisma/schema.prisma
       - echo "🏗 BUILD – resolve commit hash"
       - COMMIT_HASH=$(git rev-parse --short HEAD)
       - echo "COMMIT_HASH=$COMMIT_HASH"
       - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
-      - echo "🏗 BUILD – docker image"
+      - echo "🐳 BUILD – docker image"
       - |
         docker build \
-          --build-arg GIT_COMMIT_HASH=$COMMIT_HASH \
+          --build-arg GIT_COMMIT_HASH="$COMMIT_HASH" \
           --build-arg DATABASE_URL="$DATABASE_URL" \
           --build-arg EMAIL_SERVER_HOST="$EMAIL_SERVER_HOST" \
           --build-arg EMAIL_SERVER_PORT="$EMAIL_SERVER_PORT" \
@@ -140,10 +147,13 @@ phases:
           --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
           -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
           -t "$ECR_IMAGE_URI:latest" .
-
+      - echo "🧾 BUILD – write imagedefinitions.json artifact"
+      - |
+        printf '[{"name":"%s","imageUri":"%s"}]\n' \
+          "$CONTAINER_NAME" "$ECR_IMAGE_URI:$COMMIT_HASH" > imagedefinitions.json
+        cat imagedefinitions.json
       - echo "🔑 Login to ECR"
       - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
-
       - echo "📤 Push images"
       - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
       - docker push "$ECR_IMAGE_URI:latest"
