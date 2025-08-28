@@ -8,8 +8,8 @@ import { ThemeProvider } from "@/components/theme-provider"; // ⬅️ add this
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Nartex Application",
-  description: "Your Application Description",
+  title: "Nartex | CRM visuel & BI | Automatisation et optimisation des processus connectés",
+  description: "Nartex est une plateforme SaaS de CRM visuel et intelligence d'affaires (BI) qui automatise vos processus et connecte vos données pour des insights exploitables.",
 };
 
 export default function RootLayout({
