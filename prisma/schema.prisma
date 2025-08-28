@@ -109,8 +109,8 @@ model Tenant {
   updatedAt DateTime    @updatedAt      @map("updated_at")
 
   // ─── Relations ────────────────────────────────────────────────────────────
-  users     UserTenant[]
-  projects  Project[]   // Example: Relation to tenant-scoped models
+  users           UserTenant[]
+  projects        Project[]
   sharePointNodes SharePointNode[]
 
   @@map("tenants")
@@ -139,9 +139,7 @@ model UserTenant {
 model Project {
   id        String               @id @default(uuid())
   name      String
-  stage     ProductLifecycleStage // Assuming enum from your app (define if needed)
-  // Add other fields as per your application (e.g., description, dueDate, etc.)
-
+  stage     ProductLifecycleStage
   tenantId  String
   createdAt DateTime             @default(now()) @map("created_at")
   updatedAt DateTime             @updatedAt      @map("updated_at")
@@ -164,28 +162,31 @@ enum ProductLifecycleStage {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 8. SHAREPOINT NODE (NEW MODEL FOR THE EDITABLE STRUCTURE)                  //
+// 8. SHAREPOINT NODE (UPDATED MODEL FOR THE EDITABLE STRUCTURE)              //
 ////////////////////////////////////////////////////////////////////////////////
 model SharePointNode {
-  id           String    @id @default(cuid())
-  name         String
-  type         String?   // 'site', 'library', 'folder'
-  icon         String?   // Emoji or icon identifier
-  restricted   Boolean   @default(false)
-  highSecurity Boolean   @default(false)
-  permissions  Json?     // Stores { edit: string[], read: string[] } or "inherit"
-
-  // --- Self-referencing relation for tree structure ---
+  id           String   @id @default(cuid())
+  tenantId     String
   parentId     String?
-  parent       SharePointNode?  @relation("NodeChildren", fields: [parentId], references: [id], onDelete: Cascade)
-  children     SharePointNode[] @relation("NodeChildren")
+  name         String
+  type         String   @default("folder") // "folder" or "library" or anything you need
+  icon         String?
 
-  // --- Multi-tenancy Relation ---
-  tenantId  String
-  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // NEW
+  restricted   Boolean  @default(false)
+  highSecurity Boolean  @default(false)
+  editGroups   String[]? // null => inherit from parent
+  readGroups   String[]? // null => inherit from parent
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
+  // Relations
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent       SharePointNode?  @relation("SPChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children     SharePointNode[] @relation("SPChildren")
+
+  @@index([tenantId])
+  @@index([tenantId, parentId])
   @@map("sharepoint_nodes")
 }
