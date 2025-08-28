@@ -17,6 +17,7 @@ import {
   Ticket,
   LogOut,
   ChevronLeft,
+  FolderTree,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,7 +49,7 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: "ADMINISTRATION",
     items: [
-      { href: "/dashboard/sharepoint", title: "Arborescence", icon: UserPlus },
+      { href: "/dashboard/sharepoint", title: "Arborescence", icon: FolderTree },
       { href: "/dashboard/admin/onboarding", title: "Onboarding", icon: UserPlus },
       { href: "/dashboard/admin/returns", title: "Gestion des retours", icon: RefreshCcw },
       { href: "/dashboard/admin/collections", title: "Recouvrement", icon: Receipt },
