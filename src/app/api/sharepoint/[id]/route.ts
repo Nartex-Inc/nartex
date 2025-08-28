@@ -6,6 +6,7 @@ import prisma from "@/lib/prisma";
 
 const EDITOR_ROLES = new Set(["ceo", "admin", "ti-exec", "direction-exec"]);
 
+type RouteParams = { params: { id: string } };
 type PermSpec = { edit?: string[]; read?: string[] } | "inherit" | null;
 
 async function requireTenant() {
@@ -13,19 +14,23 @@ async function requireTenant() {
   if (!session?.user?.id) {
     return { error: NextResponse.json({ error: "Not authenticated" }, { status: 401 }) };
   }
+
   const userTenant = await prisma.userTenant.findFirst({
     where: { userId: (session.user as any).id },
     select: { tenantId: true },
   });
+
   if (!userTenant) {
     return { error: NextResponse.json({ error: "Tenant not found" }, { status: 404 }) };
   }
+
   return { tenantId: userTenant.tenantId, session };
 }
 
 async function requireEditor() {
   const base = await requireTenant();
   if ("error" in base) return base as any;
+
   const role = (base.session?.user as any)?.role as string | undefined;
   if (!role || !EDITOR_ROLES.has(role)) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
@@ -34,11 +39,11 @@ async function requireEditor() {
 }
 
 /** GET /api/sharepoint/:id */
-export async function GET(_req: Request, { params }: any) {
+export async function GET(_req: Request, { params }: RouteParams) {
   const mech = await requireTenant();
   if ("error" in mech) return mech.error;
 
-  const id = params?.id?.toString() ?? "";
+  const id = params?.id?.toString();
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   const node = await prisma.sharePointNode.findFirst({
@@ -50,38 +55,39 @@ export async function GET(_req: Request, { params }: any) {
 }
 
 /** PATCH /api/sharepoint/:id */
-export async function PATCH(req: Request, { params }: any) {
+export async function PATCH(req: Request, { params }: RouteParams) {
   const mech = await requireEditor();
   if ("error" in mech) return mech.error;
 
-  const id = params?.id?.toString() ?? "";
+  const id = params?.id?.toString();
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-  let body: any = {};
+  let body: any;
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
+  // Ensure the node exists in this tenant and grab current parent for cycle check.
   const current = await prisma.sharePointNode.findFirst({
     where: { id, tenantId: mech.tenantId },
     select: { id: true, parentId: true },
   });
   if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const data: any = {};
+  const data: Record<string, any> = {};
 
-  // ---- name
+  // ---- rename
   if (typeof body.name === "string") {
     const name = body.name.trim();
     if (!name) return NextResponse.json({ error: "Name cannot be empty" }, { status: 400 });
     data.name = name;
   }
 
-  // ---- parent move (with cycle check)
+  // ---- parent move (with cycle protection)
   if (Object.prototype.hasOwnProperty.call(body, "parentId")) {
-    const parentId = body.parentId ?? null;
+    const parentId: string | null = body.parentId ?? null;
 
     if (parentId === id) {
       return NextResponse.json({ error: "Cannot set parentId to self" }, { status: 400 });
@@ -95,11 +101,15 @@ export async function PATCH(req: Request, { params }: any) {
       if (!parent) {
         return NextResponse.json({ error: "Parent not found in tenant" }, { status: 400 });
       }
-      // climb ancestors of parent to prevent cycles
+
+      // Walk up ancestors of the proposed parent to prevent cycles.
       let cursor: string | null | undefined = parent.parentId;
       while (cursor) {
         if (cursor === id) {
-          return NextResponse.json({ error: "Cannot move node under its own descendant" }, { status: 400 });
+          return NextResponse.json(
+            { error: "Cannot move node under its own descendant" },
+            { status: 400 }
+          );
         }
         const ancestor = await prisma.sharePointNode.findFirst({
           where: { id: cursor, tenantId: mech.tenantId },
@@ -108,6 +118,7 @@ export async function PATCH(req: Request, { params }: any) {
         cursor = ancestor?.parentId ?? null;
       }
     }
+
     data.parentId = parentId;
   }
 
@@ -115,25 +126,25 @@ export async function PATCH(req: Request, { params }: any) {
   if (typeof body.restricted === "boolean") data.restricted = body.restricted;
   if (typeof body.highSecurity === "boolean") data.highSecurity = body.highSecurity;
 
-  // ---- permissions (support BOTH shapes)
+  // ---- permissions (accept both shapes; map inherit/null -> empty arrays)
   const sanitize = (arr: unknown): string[] => {
     if (!Array.isArray(arr)) return [];
-    const out = Array.from(
+    return Array.from(
       new Set(
         arr
           .map((x) => String(x).trim())
           .filter(Boolean)
       )
     );
-    return out;
   };
 
   let editGroupsToSet: string[] | null | undefined;
   let readGroupsToSet: string[] | null | undefined;
 
   if (Object.prototype.hasOwnProperty.call(body, "permissions")) {
-    const perms = body.permissions;
+    const perms: PermSpec = body.permissions;
     if (perms == null || perms === "inherit") {
+      // store as empty arrays (inherit)
       editGroupsToSet = null;
       readGroupsToSet = null;
     } else {
@@ -148,7 +159,7 @@ export async function PATCH(req: Request, { params }: any) {
     }
   }
 
-  // Top-level editGroups/readGroups also supported
+  // Also allow top-level fields, with null meaning inherit.
   if (Object.prototype.hasOwnProperty.call(body, "editGroups")) {
     editGroupsToSet = body.editGroups === null ? null : sanitize(body.editGroups);
   }
@@ -156,25 +167,31 @@ export async function PATCH(req: Request, { params }: any) {
     readGroupsToSet = body.readGroups === null ? null : sanitize(body.readGroups);
   }
 
-  if (editGroupsToSet !== undefined) data.editGroups = editGroupsToSet;
-  if (readGroupsToSet !== undefined) data.readGroups = readGroupsToSet;
+  // Persist arrays (null => empty array for "inherit")
+  if (editGroupsToSet !== undefined) {
+    data.editGroups = editGroupsToSet === null ? [] : editGroupsToSet;
+  }
+  if (readGroupsToSet !== undefined) {
+    data.readGroups = readGroupsToSet === null ? [] : readGroupsToSet;
+  }
 
   const updated = await prisma.sharePointNode.update({
-    where: { id },
+    where: { id }, // unique id; tenant check already done above
     data,
   });
 
   return NextResponse.json(updated);
 }
 
-/** DELETE /api/sharepoint/:id  (recursive) */
-export async function DELETE(_req: Request, { params }: any) {
+/** DELETE /api/sharepoint/:id (recursive within tenant) */
+export async function DELETE(_req: Request, { params }: RouteParams) {
   const mech = await requireEditor();
   if ("error" in mech) return mech.error;
 
-  const id = params?.id?.toString() ?? "";
+  const id = params?.id?.toString();
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
+  // Load all nodes for tenant; we’ll compute the subtree to delete.
   const all = await prisma.sharePointNode.findMany({
     where: { tenantId: mech.tenantId },
     select: { id: true, parentId: true },
@@ -193,6 +210,7 @@ export async function DELETE(_req: Request, { params }: any) {
 
   const toDelete = new Set<string>();
   const queue: string[] = [id];
+
   while (queue.length) {
     const cur = queue.shift()!;
     if (toDelete.has(cur)) continue;
