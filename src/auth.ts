@@ -7,32 +7,37 @@ import { authConfig } from "../auth.config";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import AzureADProvider from "next-auth/providers/azure-ad";
-
 import bcrypt from "bcryptjs";
-import type { User } from "@prisma/client";
 
 export const authOptions: NextAuthOptions = {
-  // keep your pages from auth.config.ts
-  pages: authConfig.pages,
+  // Required in prod – same value on every ECS task
+  secret: process.env.NEXTAUTH_SECRET,
 
+  // Important behind Cloudflare/ALB
+  trustHost: process.env.AUTH_TRUST_HOST === "true" || process.env.NODE_ENV === "production",
+
+  pages: authConfig.pages,
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
 
   providers: [
-    // Google
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-      allowDangerousEmailAccountLinking: true,
-    }),
-    // Azure AD
-    AzureADProvider({
-      clientId: process.env.AZURE_AD_CLIENT_ID ?? "",
-      clientSecret: process.env.AZURE_AD_CLIENT_SECRET ?? "",
-      tenantId: process.env.AZURE_AD_TENANT_ID || "organizations",
-      allowDangerousEmailAccountLinking: true,
-    }),
-    // Credentials (email/password)
+    process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? GoogleProvider({
+          clientId: process.env.GOOGLE_CLIENT_ID!,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+          allowDangerousEmailAccountLinking: true,
+        })
+      : null,
+
+    process.env.AZURE_AD_CLIENT_ID && process.env.AZURE_AD_CLIENT_SECRET
+      ? AzureADProvider({
+          clientId: process.env.AZURE_AD_CLIENT_ID!,
+          clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
+          tenantId: process.env.AZURE_AD_TENANT_ID || "organizations",
+          allowDangerousEmailAccountLinking: true,
+        })
+      : null,
+
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -48,13 +53,21 @@ export const authOptions: NextAuthOptions = {
         if (!user || !user.password) return null;
 
         const ok = await bcrypt.compare(String(credentials.password), user.password);
-        return ok ? (user as unknown as User) : null;
+        if (!ok) return null;
+
+        // Return a minimal, normalized object
+        return {
+          id: user.id,
+          name: user.name ?? null,
+          email: user.email ?? null,
+          image: user.image ?? null,
+          role: (user as any).role,
+        } as any;
       },
     }),
-  ].filter(Boolean) as any, // tolerate missing envs in CI
+  ].filter(Boolean) as any,
 
   callbacks: {
-    // keep your token enrichment
     async jwt({ token, user }) {
       if (user) {
         (token as any).id = (user as any).id;
@@ -62,7 +75,6 @@ export const authOptions: NextAuthOptions = {
       }
       return token;
     },
-    // keep your session shaping
     async session({ session, token }) {
       if (session.user && token) {
         (session.user as any).id = (token as any).id;
