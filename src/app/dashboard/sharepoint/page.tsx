@@ -75,10 +75,51 @@ type PermSpec = {
 /* =============================================================================
    Data helpers
 ============================================================================= */
+
+// Add this helper (right above or below `fetcher`)
+const toView = (arr?: string[] | null) =>
+  Array.isArray(arr) && arr.length === 0 ? null : arr;
+
 const fetcher = (url: string) => fetch(url).then((r) => {
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 });
+
+/** Build a tree from the flat /api/sharepoint response. */
+function buildTree(rows: APINode[]): NodeItem {
+  const byParent = new Map<string | null, APINode[]>();
+  rows.forEach((n) => {
+    const k = n.parentId ?? null;
+    const arr = byParent.get(k) ?? [];
+    arr.push(n);
+    byParent.set(k, arr);
+  });
+
+  const toNode = (n: APINode): NodeItem => ({
+    id: n.id,
+    name: n.name,
+    type: (n.type as any) ?? "folder",
+    icon: n.icon ?? undefined,
+    restricted: !!n.restricted,
+    highSecurity: !!n.highSecurity,
+    // ⬇️ use toView so [] (inherit) becomes null for the UI
+    editGroups: toView(n.editGroups),
+    readGroups: toView(n.readGroups),
+    children: (byParent.get(n.id) ?? [])
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(toNode),
+  });
+
+  const rootChildren = (byParent.get(null) ?? []).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+  return {
+    id: "root",
+    name: "ROOT",
+    type: "site",
+    children: rootChildren.map(toNode),
+  };
+}
 
 /** Build a tree from the flat /api/sharepoint response. */
 function buildTree(rows: APINode[]): NodeItem {
