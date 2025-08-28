@@ -304,9 +304,9 @@ const DashboardContent = () => {
   if (isLoading) return <LoadingState />;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       {/* Title / filters */}
-      <div className="mb-6 md:mb-8 border-b border-gray-900 pb-6 md:pb-8">
+      <div className="mb-4 border-b border-gray-900 pb-4">
         <div className="flex flex-wrap items-center justify-between gap-6">
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
             Tableau de bord<span className="text-blue-500">.</span>
@@ -362,7 +362,7 @@ const DashboardContent = () => {
       </div>
 
       {/* KPI */}
-      <div className="bg-gray-950/50 backdrop-blur-sm rounded-2xl p-8 border border-gray-900">
+      <div className="bg-gray-950/50 backdrop-blur-sm rounded-2xl p-5 md:p-6 border border-gray-900">
         <h3 className="text-xs uppercase tracking-widest text-gray-500 mb-3">
           Chiffre d&apos;affaires total
         </h3>
@@ -386,7 +386,7 @@ const DashboardContent = () => {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-12 gap-6">
+      <div className="grid grid-cols-12 gap-4">
         <ChartContainer title="Répartition par expert" className="col-span-12 lg:col-span-5 xl:col-span-4">
           <ResponsiveContainer width="100%" height={350}>
             <PieChart>
@@ -591,7 +591,7 @@ export default function DashboardPage() {
   return (
     <main className={`min-h-screen bg-black ${inter.className}`}>
       {/* Offset for fixed header + sidebar and add nice gutters */}
-      <div className="pt-16 xl:ml-64 max-w-7xl 2xl:max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-10">
+      <div className="pt-8 xl:ml-64 px-3 sm:px-4 pb-8">
         <DashboardContent />
       </div>
     </main>
@@ -613,7 +613,7 @@ function ChartContainer({
   return (
     <div className={`group relative ${className}`}>
       <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-900 to-purple-900 rounded-2xl blur opacity-0 group-hover:opacity-30 transition duration-500" />
-      <div className="relative bg-gray-950/80 backdrop-blur-sm rounded-2xl p-6 md:p-8 border border-gray-900 h-full flex flex-col">
+      <div className="relative bg-gray-950/80 backdrop-blur-sm rounded-2xl p-4 md:p-5 border border-gray-900 h-full flex flex-col">
         <h3 className="text-sm font-medium text-white tracking-wide mb-4">{title}</h3>
         <div className="flex-grow">{children}</div>
       </div>
