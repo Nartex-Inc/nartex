@@ -44,17 +44,7 @@ export async function GET() {
   return NextResponse.json(nodes);
 }
 
-/** POST /api/sharepoint
- * body: {
- *   name: string;
- *   parentId?: string | null;
- *   type?: string;    // default "folder"
- *   icon?: string;
- *   restricted?: boolean;
- *   highSecurity?: boolean;
- *   permissions?: { edit?: string[]; read?: string[] } | "inherit" | null
- * }
- */
+/** POST /api/sharepoint */
 export async function POST(req: Request) {
   const mech = await requireEditor();
   if ("error" in mech) return mech.error;
@@ -66,7 +56,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { name, parentId, type = "folder", icon, restricted = false, highSecurity = false, permissions } = body ?? {};
+  const {
+    name,
+    parentId,
+    type = "folder",
+    icon,
+    restricted = false,
+    highSecurity = false,
+    permissions,
+    // optionally allow direct fields too
+    editGroups: editGroupsRaw,
+    readGroups: readGroupsRaw,
+  } = body ?? {};
+
   if (!name || typeof name !== "string" || name.trim() === "") {
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
   }
@@ -82,17 +84,40 @@ export async function POST(req: Request) {
     }
   }
 
-  let editGroups: string[] | null = null;
-  let readGroups: string[] | null = null;
-  if (permissions && permissions !== "inherit") {
+  // ---- sanitize helper
+  const sanitize = (arr: unknown): string[] => {
+    if (!Array.isArray(arr)) return [];
+    return Array.from(
+      new Set(
+        arr.map((x) => String(x).trim()).filter(Boolean)
+      )
+    );
+  };
+
+  // ---- permissions normalization (arrays only; inherit/null => [])
+  let editGroups: string[] = [];
+  let readGroups: string[] = [];
+
+  if (permissions == null || permissions === "inherit") {
+    editGroups = [];
+    readGroups = [];
+  } else {
     if (permissions.edit && !Array.isArray(permissions.edit)) {
       return NextResponse.json({ error: "permissions.edit must be an array" }, { status: 400 });
     }
     if (permissions.read && !Array.isArray(permissions.read)) {
       return NextResponse.json({ error: "permissions.read must be an array" }, { status: 400 });
     }
-    editGroups = permissions.edit ?? [];
-    readGroups = permissions.read ?? [];
+    editGroups = sanitize(permissions.edit ?? []);
+    readGroups = sanitize(permissions.read ?? []);
+  }
+
+  // Also accept top-level fields; null means inherit => []
+  if (Object.prototype.hasOwnProperty.call(body, "editGroups")) {
+    editGroups = editGroupsRaw === null ? [] : sanitize(editGroupsRaw);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "readGroups")) {
+    readGroups = readGroupsRaw === null ? [] : sanitize(readGroupsRaw);
   }
 
   const newNode = await prisma.sharePointNode.create({
@@ -104,8 +129,8 @@ export async function POST(req: Request) {
       icon,
       restricted,
       highSecurity,
-      editGroups,
-      readGroups,
+      editGroups, // arrays only
+      readGroups, // arrays only
     },
   });
 
