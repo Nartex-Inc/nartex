@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import {
@@ -25,14 +24,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 type NavItem = { href: string; title: string; icon: React.ElementType };
 
 interface SidebarProps {
-  isOpen: boolean;          // desktop expanded/collapsed
-  isMobileOpen: boolean;    // mobile drawer open
+  isOpen: boolean;        // desktop expanded/collapsed
+  isMobileOpen: boolean;  // mobile drawer open
   toggleSidebar: () => void;
   closeMobileSidebar: () => void;
 }
@@ -108,6 +107,7 @@ function NavLink({
 
   if (expanded) return content;
 
+  // Collapsed: icon-only with tooltip
   return (
     <Tooltip delayDuration={150}>
       <TooltipTrigger asChild>{content}</TooltipTrigger>
@@ -150,49 +150,33 @@ export function Sidebar({
 }: SidebarProps) {
   const { data } = useSession();
   const user = data?.user;
-  const display = user?.name || user?.email?.split("@")[0] || "User";
-
+  const display = user?.name || user?.email?.split("@")[0] || "Utilisateur";
   const initials =
-    (display || "U")
+    display
       .split(" ")
       .map((p) => p[0])
       .join("")
       .slice(0, 2)
       .toUpperCase() || "U";
 
-  // Use the same avatar strategy as header UserNav
-  const avatarSrc =
-    user?.image ||
-    (user?.email
-      ? `https://avatar.vercel.sh/${encodeURIComponent(
-          user.email
-        )}.svg?text=${encodeURIComponent(initials)}`
-      : "");
-
   const expanded = isOpen || isMobileOpen;
   const desktopWidth = isOpen ? "lg:w-64" : "lg:w-[84px]";
 
   return (
     <TooltipProvider>
-      {/* Mobile drawer */}
+      {/* Mobile drawer (fixed full height) */}
       <div
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 -translate-x-full border-r bg-background shadow-lg transition-transform duration-300 lg:hidden",
+          "fixed inset-y-0 left-0 z-50 w-64 -translate-x-full border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-lg transition-transform duration-300 lg:hidden",
           isMobileOpen && "translate-x-0"
         )}
         role="dialog"
         aria-modal="true"
       >
-        <aside className="flex h-full flex-col">
-          <div className="flex h-16 items-center justify-between border-b px-4">
-            <Image
-              src="/sinto-logo.svg"
-              alt="Sinto"
-              width={92}
-              height={20}
-              className="select-none"
-              priority
-            />
+        <aside className="flex h-svh flex-col">
+          {/* Top bar */}
+          <div className="flex h-16 flex-none items-center justify-between border-b px-4">
+            <span className="text-sm font-semibold tracking-wide">Menu</span>
             <Button
               variant="ghost"
               size="icon"
@@ -203,7 +187,8 @@ export function Sidebar({
             </Button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-3">
+          {/* Scroll area */}
+          <div className="min-h-0 flex-1 overflow-y-auto p-3">
             <div className="flex flex-col gap-4">
               {NAV_GROUPS.map((group) => (
                 <NavGroup key={group.title} title={group.title} expanded>
@@ -221,58 +206,43 @@ export function Sidebar({
             </div>
           </div>
 
-          {/* Mobile user strip (Avatar matches header) */}
-          {user && (
-            <div className="border-t p-3">
-              <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-2">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={avatarSrc} alt={display} />
-                  <AvatarFallback className="text-[11px]">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{display}</p>
-                  {user.email && (
-                    <p className="truncate text-xs text-muted-foreground">
-                      {user.email}
-                    </p>
-                  )}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Déconnexion"
-                  onClick={() => signOut({ callbackUrl: "/" })}
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
+          {/* Pinned user strip */}
+          <div className="flex-none border-t p-3">
+            <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-2">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={user?.image ?? ""} alt={display} />
+                <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{display}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {user?.email}
+                </p>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Déconnexion"
+                onClick={() => signOut({ callbackUrl: "/" })}
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
             </div>
-          )}
+          </div>
         </aside>
       </div>
 
-      {/* Desktop rail */}
+      {/* Desktop rail — FIXED + viewport height so avatar is ALWAYS visible */}
       <aside
         aria-label="Barre latérale"
         className={cn(
-          "relative z-30 hidden shrink-0 border-r bg-background transition-[width] duration-300 lg:block",
+          "fixed inset-y-0 left-0 z-30 hidden border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 transition-[width] duration-300 lg:flex lg:flex-col",
           desktopWidth
         )}
       >
-        <div className="flex h-16 items-center justify-between border-b px-3">
-          <div className="flex items-center gap-2">
-            <Image
-              src="/sinto-logo.svg"
-              alt="Sinto"
-              width={92}
-              height={20}
-              className={cn("select-none transition-opacity", !expanded && "opacity-0")}
-              priority
-            />
-          </div>
-        <Button
+        {/* Header row */}
+        <div className="flex h-16 flex-none items-center justify-end border-b px-3">
+          <Button
             variant="ghost"
             size="icon"
             onClick={toggleSidebar}
@@ -284,85 +254,70 @@ export function Sidebar({
           </Button>
         </div>
 
-        <div className="flex h-[calc(100%-4rem)] flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-3">
-            <div className="flex flex-col gap-4">
-              {NAV_GROUPS.map((group) => (
-                <NavGroup
-                  key={group.title}
-                  title={group.title}
-                  expanded={expanded}
-                >
-                  {group.items.map((item) => (
-                    <NavLink
-                      key={item.href}
-                      item={item}
-                      expanded={expanded}
-                      isMobile={false}
-                      closeMobile={() => {}}
-                    />
-                  ))}
-                </NavGroup>
-              ))}
-            </div>
+        {/* Make only this middle section scrollable */}
+        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          <div className="flex flex-col gap-4">
+            {NAV_GROUPS.map((group) => (
+              <NavGroup key={group.title} title={group.title} expanded={expanded}>
+                {group.items.map((item) => (
+                  <NavLink
+                    key={item.href}
+                    item={item}
+                    expanded={expanded}
+                    isMobile={false}
+                    closeMobile={() => {}}
+                  />
+                ))}
+              </NavGroup>
+            ))}
           </div>
+        </div>
 
-          {/* Desktop user strip – uses the SAME Avatar as header */}
-          {user && (
-            <div className="border-t p-2">
-              {expanded ? (
-                <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-2">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={avatarSrc} alt={display} />
-                    <AvatarFallback className="text-[11px]">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{display}</p>
-                    {user.email && (
-                      <p className="truncate text-xs text-muted-foreground">
-                        {user.email}
-                      </p>
-                    )}
-                  </div>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Déconnexion"
-                        onClick={() => signOut({ callbackUrl: "/" })}
-                      >
-                        <LogOut className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">Déconnexion</TooltipContent>
-                  </Tooltip>
-                </div>
-              ) : (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-muted/50">
-                      <Avatar className="h-7 w-7">
-                        <AvatarImage src={avatarSrc} alt={display} />
-                        <AvatarFallback className="text-[10px]">
-                          {initials}
-                        </AvatarFallback>
-                      </Avatar>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="space-y-1">
-                    <p className="text-sm font-medium">{display}</p>
-                    {user?.email && (
-                      <p className="text-xs text-muted-foreground">
-                        {user.email}
-                      </p>
-                    )}
-                  </TooltipContent>
-                </Tooltip>
-              )}
+        {/* Pinned bottom user strip (never scrolls away) */}
+        <div className="flex-none border-t p-2">
+          {expanded ? (
+            <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-2">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={user?.image ?? ""} alt={display} />
+                <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{display}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {user?.email}
+                </p>
+              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Déconnexion"
+                    onClick={() => signOut({ callbackUrl: "/" })}
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Déconnexion</TooltipContent>
+              </Tooltip>
             </div>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-muted/50">
+                  <Avatar className="h-7 w-7">
+                    <AvatarImage src={user?.image ?? ""} alt={display} />
+                    <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
+                  </Avatar>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="space-y-1">
+                <p className="text-sm font-medium">{display}</p>
+                {user?.email && (
+                  <p className="text-xs text-muted-foreground">{user.email}</p>
+                )}
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
       </aside>
