@@ -5,7 +5,7 @@ env:
     AWS_DEFAULT_REGION: "ca-central-1"
     AWS_ACCOUNT_ID: "586359898361"
     IMAGE_REPO_NAME: "nartex-next"
-    # Must match the "name" field in your ECS Task Definition container.
+    # Must match the "name" field in your Task Definition container.
     CONTAINER_NAME: "nextjs"
     NEXTAUTH_URL: "https://app.nartex.ca"
     EMAIL_SERVER_HOST: "smtp.gmail.com"
@@ -38,7 +38,7 @@ phases:
       - echo "📜 PRE_BUILD – preparing workspace"
       - |
         cat > ci-prebuild.sh << 'SH'
-        set -e
+        set -euo pipefail
         set -x
 
         # Remove legacy file if present to avoid conflicts
@@ -113,25 +113,33 @@ phases:
 
   build:
     commands:
-      - echo "🚀 BUILD – run Prisma migrations against prod"
-      - test -d prisma/migrations && test "$(ls -A prisma/migrations)" && npx prisma migrate deploy --schema=prisma/schema.prisma || echo "ℹ️ No Prisma migrations to apply."
-      - echo "🔎 Prisma status (should report 'Database is up to date')"
-      - npx prisma migrate status --schema=prisma/schema.prisma || true
-
-      - echo "⚙️ BUILD – generate Prisma client (ensures types are current)"
+      - echo "🚀 BUILD – apply prisma migrations"
+      - npx prisma migrate deploy
+      - echo "⚙️ BUILD – generate prisma client"
       - npx prisma generate
-
       - echo "🏗 BUILD – resolve commit hash"
       - COMMIT_HASH=$(git rev-parse --short HEAD)
       - echo "COMMIT_HASH=$COMMIT_HASH"
       - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
-
-      - echo "🐳 BUILD – docker image (no secrets as build args)"
-      - docker build --build-arg GIT_COMMIT_HASH="$COMMIT_HASH" -t "$ECR_IMAGE_URI:$COMMIT_HASH" -t "$ECR_IMAGE_URI:latest" .
-
-      - echo "🧾 BUILD – write imagedefinitions.json artifact"
-      - printf '[{"name":"%s","imageUri":"%s"}]\n' "$CONTAINER_NAME" "$ECR_IMAGE_URI:$COMMIT_HASH" > imagedefinitions.json
-      - cat imagedefinitions.json
+      - echo "🏗 BUILD – docker image"
+      - |
+        docker build \
+          --build-arg GIT_COMMIT_HASH=$COMMIT_HASH \
+          --build-arg DATABASE_URL="$DATABASE_URL" \
+          --build-arg EMAIL_SERVER_HOST="$EMAIL_SERVER_HOST" \
+          --build-arg EMAIL_SERVER_PORT="$EMAIL_SERVER_PORT" \
+          --build-arg EMAIL_SERVER_USER="$EMAIL_SERVER_USER" \
+          --build-arg EMAIL_SERVER_PASSWORD="$EMAIL_SERVER_PASSWORD" \
+          --build-arg EMAIL_FROM="$EMAIL_FROM" \
+          --build-arg NEXTAUTH_URL="$NEXTAUTH_URL" \
+          --build-arg NEXTAUTH_SECRET="$NEXTAUTH_SECRET" \
+          --build-arg GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
+          --build-arg GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
+          --build-arg AZURE_AD_CLIENT_ID="$AZURE_AD_CLIENT_ID" \
+          --build-arg AZURE_AD_CLIENT_SECRET="$AZURE_AD_CLIENT_SECRET" \
+          --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
+          -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
+          -t "$ECR_IMAGE_URI:latest" .
 
       - echo "🔑 Login to ECR"
       - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
@@ -148,7 +156,7 @@ phases:
           --cluster nartex-cluster \
           --service nartex-next-service \
           --force-new-deployment \
-          --region "$AWS_DEFAULT_REGION"
+          --region $AWS_DEFAULT_REGION
 
 artifacts:
   files:
