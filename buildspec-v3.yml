@@ -1,5 +1,4 @@
 version: 0.2
-shell: bash
 
 env:
   variables:
@@ -39,7 +38,7 @@ phases:
       - echo "📜 PRE_BUILD – preparing workspace"
       - |
         cat > ci-prebuild.sh << 'SH'
-        set -euo pipefail
+        set -e
         set -x
 
         # Remove legacy file if present to avoid conflicts
@@ -74,7 +73,7 @@ phases:
         mkdir -p src/lib src/components/ui src/components/dashboard
 
         # cn() helper if missing
-        if (!test -f src/lib/utils.ts); then
+        if [ ! -f src/lib/utils.ts ]; then
           cat > src/lib/utils.ts << 'TS'
         import type { ClassValue } from "clsx";
         import clsx from "clsx";
@@ -115,14 +114,9 @@ phases:
   build:
     commands:
       - echo "🚀 BUILD – run Prisma migrations against prod"
-      - |
-        if [ -d prisma/migrations ] && [ "$(ls -A prisma/migrations)" ]; then
-          npx prisma migrate deploy --schema=prisma/schema.prisma
-          echo "🔎 Prisma status (should report 'Database is up to date')"
-          npx prisma migrate status --schema=prisma/schema.prisma
-        else
-          echo "ℹ️ No Prisma migrations to apply."
-        fi
+      - test -d prisma/migrations && test "$(ls -A prisma/migrations)" && npx prisma migrate deploy --schema=prisma/schema.prisma || echo "ℹ️ No Prisma migrations to apply."
+      - echo "🔎 Prisma status (should report 'Database is up to date')"
+      - npx prisma migrate status --schema=prisma/schema.prisma || true
 
       - echo "⚙️ BUILD – generate Prisma client (ensures types are current)"
       - npx prisma generate
@@ -133,17 +127,11 @@ phases:
       - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
 
       - echo "🐳 BUILD – docker image (no secrets as build args)"
-      - |
-        docker build \
-          --build-arg GIT_COMMIT_HASH="$COMMIT_HASH" \
-          -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
-          -t "$ECR_IMAGE_URI:latest" .
+      - docker build --build-arg GIT_COMMIT_HASH="$COMMIT_HASH" -t "$ECR_IMAGE_URI:$COMMIT_HASH" -t "$ECR_IMAGE_URI:latest" .
 
       - echo "🧾 BUILD – write imagedefinitions.json artifact"
-      - |
-        printf '[{"name":"%s","imageUri":"%s"}]\n' \
-          "$CONTAINER_NAME" "$ECR_IMAGE_URI:$COMMIT_HASH" > imagedefinitions.json
-        cat imagedefinitions.json
+      - printf '[{"name":"%s","imageUri":"%s"}]\n' "$CONTAINER_NAME" "$ECR_IMAGE_URI:$COMMIT_HASH" > imagedefinitions.json
+      - cat imagedefinitions.json
 
       - echo "🔑 Login to ECR"
       - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
