@@ -114,15 +114,17 @@ phases:
   build:
     commands:
       - |
-        set -eu
-        echo "🚀 BUILD – run Prisma migrations against prod"
-        if [ -d prisma/migrations ] && [ "$(ls -A prisma/migrations)" ]; then
-          npx prisma migrate deploy --schema=prisma/schema.prisma
-          echo "🔎 Prisma status (should report 'Database is up to date')"
-          npx prisma migrate status --schema=prisma/schema.prisma
-        else
-          echo "ℹ️ No Prisma migrations to apply."
-        fi
+        bash -lc '
+          set -eu
+          echo "🚀 BUILD – run Prisma migrations against prod"
+          if [ -d prisma/migrations ] && [ "$(ls -A prisma/migrations)" ]; then
+            npx prisma migrate deploy --schema=prisma/schema.prisma
+            echo "🔎 Prisma status (should report '\''Database is up to date'\'')"
+            npx prisma migrate status --schema=prisma/schema.prisma
+          else
+            echo "ℹ️ No Prisma migrations to apply."
+          fi
+        '
   
       - echo "⚙️ BUILD – generate Prisma client (ensures types are current)"
       - npx prisma generate
