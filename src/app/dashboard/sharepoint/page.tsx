@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import useSWR, { mutate } from "swr";
 import { useSession } from "next-auth/react";
 import { Inter } from "next/font/google";
 import {
@@ -14,6 +15,12 @@ import {
   Edit,
   Star,
   Building2,
+  Plus,
+  Pencil,
+  Trash2,
+  Settings2,
+  Save,
+  X,
 } from "lucide-react";
 
 /* =============================================================================
@@ -27,27 +34,94 @@ const inter = Inter({
 /* =============================================================================
    Types
 ============================================================================= */
-type PermSpec = { edit?: string[]; read?: string[] } | "inherit" | undefined;
+// Server node (what the API returns)
+type APINode = {
+  id: string;
+  tenantId: string;
+  parentId: string | null;
+  name: string;
+  type: string | null; // 'site' | 'library' | 'folder' | null
+  icon?: string | null;
 
+  restricted?: boolean | null;
+  highSecurity?: boolean | null;
+  editGroups?: string[] | null; // null => inherit
+  readGroups?: string[] | null; // null => inherit
+
+  createdAt: string;
+  updatedAt: string;
+};
+
+// View node (tree)
 type NodeItem = {
   id: string;
   name: string;
-  type?: "site" | "library";
+  type?: "site" | "library" | "folder";
   icon?: string;
   restricted?: boolean;
   highSecurity?: boolean;
-  permissions?: PermSpec;
+  editGroups?: string[] | null;
+  readGroups?: string[] | null;
   children?: NodeItem[];
 };
 
+type PermSpec = {
+  editGroups?: string[] | null;
+  readGroups?: string[] | null;
+  restricted?: boolean;
+  highSecurity?: boolean;
+} | null;
+
 /* =============================================================================
-   Page
+   Data helpers
+============================================================================= */
+const fetcher = (url: string) => fetch(url).then((r) => {
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+});
+
+/** Build a tree from the flat /api/sharepoint response. */
+function buildTree(rows: APINode[]): NodeItem {
+  const byParent = new Map<string | null, APINode[]>();
+  rows.forEach((n) => {
+    const k = n.parentId ?? null;
+    const arr = byParent.get(k) ?? [];
+    arr.push(n);
+    byParent.set(k, arr);
+  });
+
+  const toNode = (n: APINode): NodeItem => ({
+    id: n.id,
+    name: n.name,
+    type: (n.type as any) ?? "folder",
+    icon: n.icon ?? undefined,
+    restricted: !!n.restricted,
+    highSecurity: !!n.highSecurity,
+    editGroups: n.editGroups ?? null,
+    readGroups: n.readGroups ?? null,
+    children: (byParent.get(n.id) ?? [])
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(toNode),
+  });
+
+  // virtual root
+  const rootChildren = (byParent.get(null) ?? []).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+  return {
+    id: "root",
+    name: "ROOT",
+    type: "site",
+    children: rootChildren.map(toNode),
+  };
+}
+
+/* =============================================================================
+   Page (auth gate)
 ============================================================================= */
 export default function SharePointPage() {
   const { data: session, status } = useSession();
-
   if (status === "loading") return <LoadingState />;
-  // Use the same gate you used on your dashboard page:
   if (status === "unauthenticated" || session?.user?.role !== "ventes-exec")
     return <AccessDenied />;
 
@@ -61,386 +135,184 @@ export default function SharePointPage() {
 }
 
 /* =============================================================================
-   Structure Viewer (dark UI, Stripe-ish cards)
+   Structure Viewer (live CRUD)
 ============================================================================= */
 function SharePointStructure() {
+  const { data, error, isLoading } = useSWR<APINode[]>("/api/sharepoint", fetcher, {
+    revalidateOnFocus: false,
+  });
+
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set(["root"]));
   const [selected, setSelected] = React.useState<NodeItem | null>(null);
-  const [activeCompany, setActiveCompany] = React.useState<string>("all");
 
-  const companies = [
-    { id: "all", name: "GROUPE COMPLET", color: "from-purple-500 to-blue-500" },
-    { id: "sinto", name: "Sinto", color: "from-blue-500 to-cyan-500" },
-    { id: "prolab", name: "Prolab", color: "from-green-500 to-emerald-500" },
-    { id: "otoprotec", name: "Otoprotec", color: "from-orange-500 to-red-500" },
-    { id: "lubrilab", name: "Lubrilab", color: "from-indigo-500 to-purple-500" },
-  ];
+  const tree = React.useMemo(() => (data ? buildTree(data) : null), [data]);
 
-  /* --------------------------- The structure (data) --------------------------- */
-  const structure: NodeItem = {
-    id: "root",
-    name: "GROUPE SINTO - SharePoint",
-    type: "site",
-    children: [
-      // --- ADMIN – FINANCE
-      {
-        id: "admin-finance",
-        name: "ADMIN – FINANCE",
-        type: "library",
-        icon: "💰",
-        children: [
-          {
-            id: "admin-principal",
-            name: "PRINCIPAL",
-            permissions: {
-              edit: ["SG-ADMIN-FINANCE-EXECUTIF", "SG-ADMIN-FINANCE-ALL"],
-              read: [],
-            },
-            children: [
-              { id: "listes-prix", name: "Listes de prix", permissions: "inherit" },
-              { id: "admin-gestion", name: "Administration & gestion", permissions: "inherit" },
-              { id: "contrats", name: "Contrats", permissions: "inherit" },
-              { id: "comm-procedures", name: "Communications & procédures", permissions: "inherit" },
-            ],
-          },
-          {
-            id: "admin-executif",
-            name: "EXÉCUTIF",
-            permissions: { edit: ["SG-ADMIN-FINANCE-EXECUTIF"], read: ["SG-ADMIN-FINANCE-ALL"] },
-            restricted: true,
-            children: [
-              { id: "etats-financiers", name: "États financiers", permissions: "inherit" },
-              { id: "budgets", name: "Budgets", permissions: "inherit" },
-              { id: "financement", name: "Financement et prêts", permissions: "inherit" },
-              { id: "fiscalite", name: "Fiscalité (impôts)", permissions: "inherit" },
-              { id: "prix-revient", name: "Prix de revient", permissions: "inherit" },
-              { id: "soghu", name: "SOGHU et écofrais", permissions: "inherit" },
-              { id: "contrats-majeurs", name: "Contrats majeurs et gouvernance", permissions: "inherit" },
-              { id: "tresorerie", name: "Trésorerie", permissions: "inherit" },
-            ],
-          },
-          {
-            id: "cfo",
-            name: "CFO",
-            permissions: { edit: ["SG-CFO", "SG-PRESIDENT"], read: [] },
-            restricted: true,
-            highSecurity: true,
-            children: [
-              { id: "strategie", name: "Stratégie financière", permissions: "inherit" },
-              { id: "modeles", name: "Modèles & scénarios", permissions: "inherit" },
-              { id: "nego-bancaires", name: "Négociations bancaires confidentielles", permissions: "inherit" },
-              { id: "ma-invest", name: "Diligence M&A & investissements", permissions: "inherit" },
-              { id: "fisc-sensible", name: "Fiscalité sensible", permissions: "inherit" },
-            ],
-          },
-        ],
-      },
-      // --- OPÉRATIONS
-      {
-        id: "operations",
-        name: "OPÉRATIONS",
-        type: "library",
-        icon: "⚙️",
-        children: [
-          {
-            id: "ops-principal",
-            name: "PRINCIPAL",
-            permissions: { edit: ["SG-OPERATIONS-EXECUTIF", "SG-OPERATIONS-ALL"], read: [] },
-            children: [
-              { id: "plan-prod", name: "Planification de production", permissions: "inherit" },
-              { id: "logistique", name: "Logistique & expédition", permissions: "inherit" },
-              { id: "inventaire", name: "Inventaire", permissions: "inherit" },
-              { id: "maintenance", name: "Maintenance", permissions: "inherit" },
-              { id: "infrastructures", name: "Infrastructures (bâtiment)", permissions: "inherit" },
-              { id: "procedures-ops", name: "Procédures & modes opératoires", permissions: "inherit" },
-              { id: "csst", name: "CSST & SIMDUT", permissions: "inherit" },
-              { id: "qualite", name: "Qualité", permissions: "inherit" },
-              { id: "rapports", name: "Rapports & bilans", permissions: "inherit" },
-            ],
-          },
-          {
-            id: "ops-executif",
-            name: "EXÉCUTIF",
-            permissions: { edit: ["SG-OPERATIONS-EXECUTIF"], read: ["SG-OPERATIONS-ALL"] },
-            restricted: true,
-            children: [
-              { id: "kpi-ops", name: "KPI & tableaux de bord", permissions: "inherit" },
-              { id: "capex-ops", name: "Capex", permissions: "inherit" },
-              { id: "projets-strat", name: "Projets stratégiques", permissions: "inherit" },
-              { id: "contrats-fourn", name: "Contrats & fournisseurs critiques", permissions: "inherit" },
-            ],
-          },
-        ],
-      },
-      // --- TI
-      {
-        id: "ti",
-        name: "TI",
-        type: "library",
-        icon: "💻",
-        children: [
-          {
-            id: "ti-principal",
-            name: "PRINCIPAL",
-            permissions: { edit: ["SG-TI-EXECUTIF", "SG-TI-ALL"], read: [] },
-            children: [
-              { id: "architecture", name: "Architecture & infrastructure", permissions: "inherit" },
-              { id: "reseau", name: "Réseau & accès (VPN)", permissions: "inherit" },
-              { id: "outils", name: "Outils & logiciels", permissions: "inherit" },
-              { id: "scripts", name: "Scripts et automatisations", permissions: "inherit" },
-              { id: "inventaire-ti", name: "Inventaire TI", permissions: "inherit" },
-              { id: "proc-doc", name: "Procédures & documentation", permissions: "inherit" },
-              { id: "tests", name: "Tests & validations", permissions: "inherit" },
-            ],
-          },
-          {
-            id: "ti-executif",
-            name: "EXÉCUTIF",
-            permissions: { edit: ["SG-TI-EXECUTIF"], read: ["SG-TI-ALL"] },
-            restricted: true,
-            children: [
-              { id: "securite", name: "Sécurité (politiques, incidents, audits)", permissions: "inherit" },
-              { id: "contrats-lic", name: "Contrats & licences", permissions: "inherit" },
-              { id: "budget-ti", name: "Budget et coûts", permissions: "inherit" },
-              { id: "roadmap", name: "Feuille de route", permissions: "inherit" },
-              { id: "risques", name: "Risques & conformité", permissions: "inherit" },
-            ],
-          },
-        ],
-      },
-      // --- MARKETING
-      {
-        id: "marketing",
-        name: "MARKETING",
-        type: "library",
-        icon: "📣",
-        children: [
-          {
-            id: "mkt-principal",
-            name: "PRINCIPAL",
-            permissions: { edit: ["SG-MARKETING-EXECUTIF", "SG-MARKETING-ALL"], read: [] },
-            children: [
-              { id: "branding", name: "Branding & identité", permissions: "inherit" },
-              { id: "campagnes", name: "Campagnes", permissions: "inherit" },
-              { id: "calendrier", name: "Calendrier marketing", permissions: "inherit" },
-              { id: "social", name: "Réseaux sociaux", permissions: "inherit" },
-              { id: "website", name: "Site web", permissions: "inherit" },
-              { id: "comm-interne", name: "Communication interne", permissions: "inherit" },
-              { id: "medias", name: "Médias & assets", permissions: "inherit" },
-            ],
-          },
-          {
-            id: "mkt-executif",
-            name: "EXÉCUTIF",
-            permissions: { edit: ["SG-MARKETING-EXECUTIF"], read: ["SG-MARKETING-ALL"] },
-            restricted: true,
-            children: [
-              { id: "plan-mkt", name: "Plan marketing", permissions: "inherit" },
-              { id: "budget-mkt", name: "Budget", permissions: "inherit" },
-              { id: "etudes", name: "Études de marché", permissions: "inherit" },
-              { id: "partenariats", name: "Partenariats", permissions: "inherit" },
-              { id: "kpi-mkt", name: "KPI", permissions: "inherit" },
-            ],
-          },
-        ],
-      },
-      // --- RH
-      {
-        id: "rh",
-        name: "RH",
-        type: "library",
-        icon: "👥",
-        children: [
-          {
-            id: "rh-principal",
-            name: "PRINCIPAL",
-            permissions: { edit: ["SG-RH-EXECUTIF", "SG-RH-ALL"], read: [] },
-            children: [
-              { id: "onboarding", name: "Onboarding & offboarding", permissions: "inherit" },
-              { id: "politiques", name: "Politiques et procédures", permissions: "inherit" },
-              { id: "organisation", name: "Organisation (organigrammes)", permissions: "inherit" },
-              { id: "comm-rh", name: "Communications RH", permissions: "inherit" },
-              { id: "formation", name: "Formation & développement", permissions: "inherit" },
-            ],
-          },
-          {
-            id: "rh-executif",
-            name: "EXÉCUTIF",
-            permissions: { edit: ["SG-RH-EXECUTIF"], read: ["SG-RH-ALL"] },
-            restricted: true,
-            children: [
-              { id: "remuneration", name: "Rémunération globale", permissions: "inherit" },
-              { id: "paie", name: "Paie et relevés d'emploi", permissions: "inherit" },
-              { id: "avantages", name: "Avantages sociaux", permissions: "inherit" },
-              { id: "juridique-rh", name: "Juridique RH & dossiers sensibles", permissions: "inherit" },
-              { id: "performance", name: "Performance & évaluations", permissions: "inherit" },
-            ],
-          },
-        ],
-      },
-      // --- VENTES
-      {
-        id: "ventes",
-        name: "VENTES",
-        type: "library",
-        icon: "📈",
-        children: [
-          {
-            id: "ventes-principal",
-            name: "PRINCIPAL",
-            permissions: { edit: ["SG-VENTES-EXECUTIF"], read: ["SG-VENTES-ALL"] },
-            children: [
-              { id: "produits", name: "Produits", permissions: "inherit" },
-              { id: "fiches-tech", name: "Fiches techniques & signalétiques", permissions: "inherit" },
-              { id: "depliants", name: "Dépliants & brochures", permissions: "inherit" },
-              { id: "outils-vente", name: "Outils de support de vente", permissions: "inherit" },
-              { id: "promotions", name: "Promotions & campagnes", permissions: "inherit" },
-              { id: "references", name: "Références et cas à succès", permissions: "inherit" },
-              { id: "videos", name: "Vidéos & médias", permissions: "inherit" },
-              { id: "formation-ventes", name: "Formations des ventes", permissions: "inherit" },
-              { id: "experts", name: "Experts (représentants)", permissions: "inherit" },
-            ],
-          },
-          {
-            id: "ventes-executif",
-            name: "EXÉCUTIF",
-            permissions: { edit: ["SG-VENTES-EXECUTIF"], read: [] },
-            restricted: true,
-            children: [
-              { id: "strategie-ventes", name: "Stratégie & planification", permissions: "inherit" },
-              { id: "previsions", name: "Prévisions de vente & pipeline", permissions: "inherit" },
-              { id: "comptes-cles", name: "Comptes clés & ententes", permissions: "inherit" },
-              { id: "eval-reps", name: "Évaluations des représentants", permissions: "inherit" },
-              { id: "gestion-temps", name: "Outils de gestion du temps", permissions: "inherit" },
-              { id: "comptes-rendus", name: "Comptes rendus & transcripts", permissions: "inherit" },
-            ],
-          },
-        ],
-      },
-      // --- R&D
-      {
-        id: "rd",
-        name: "R&D",
-        type: "library",
-        icon: "🔬",
-        children: [
-          {
-            id: "rd-principal",
-            name: "PRINCIPAL",
-            permissions: { edit: ["SG-RD-EXECUTIF", "SG-RD-ALL"], read: [] },
-            children: [
-              { id: "projets", name: "Projets & protocoles (recettes)", permissions: "inherit" },
-              { id: "donnees", name: "Données & analyses", permissions: "inherit" },
-              { id: "controle-qual", name: "Contrôle qualité", permissions: "inherit" },
-              { id: "securite-reg", name: "Sécurité & réglementations", permissions: "inherit" },
-              { id: "inventaire-mat", name: "Inventaire & matières premières", permissions: "inherit" },
-              { id: "embouteillage", name: "Embouteillage & procédés", permissions: "inherit" },
-              { id: "carnets", name: "Carnets et rapports", permissions: "inherit" },
-            ],
-          },
-          {
-            id: "rd-executif",
-            name: "EXÉCUTIF",
-            permissions: { edit: ["SG-RD-EXECUTIF"], read: ["SG-RD-ALL"] },
-            restricted: true,
-            children: [
-              { id: "portfolio", name: "Portefeuille & roadmap", permissions: "inherit" },
-              { id: "budget-labo", name: "Budget et capex labo", permissions: "inherit" },
-              { id: "partenariats-nda", name: "Partenariats & NDA", permissions: "inherit" },
-              { id: "propriete-int", name: "Propriété intellectuelle & brevets", permissions: "inherit" },
-              { id: "kpi-strat", name: "KPI stratégiques", permissions: "inherit" },
-            ],
-          },
-        ],
-      },
-      // --- COMITÉ DE DIRECTION
-      {
-        id: "direction",
-        name: "COMITÉ DE DIRECTION",
-        type: "library",
-        icon: "🏢",
-        children: [
-          {
-            id: "dir-principal",
-            name: "PRINCIPAL",
-            permissions: { edit: ["SG-DIRECTION-ALL"], read: [] },
-            children: [
-              { id: "ordres-jour", name: "Ordres du jour & calendriers", permissions: "inherit" },
-              { id: "comm-dir", name: "Communications", permissions: "inherit" },
-              { id: "organigramme", name: "Organigramme fonctionnel", permissions: "inherit" },
-            ],
-          },
-          {
-            id: "dir-executif",
-            name: "EXÉCUTIF",
-            permissions: { edit: ["SG-DIRECTION-EXECUTIF"], read: ["SG-DIRECTION-ALL"] },
-            restricted: true,
-            highSecurity: true,
-            children: [
-              { id: "proces-verbaux", name: "Procès-verbaux & résolutions", permissions: "inherit" },
-              { id: "tableau-bord", name: "Tableau de bord", permissions: "inherit" },
-              { id: "projets-eval", name: "Projets en cours d'évaluation", permissions: "inherit" },
-              { id: "mecanique-exec", name: "Mécanique exécutive", permissions: "inherit" },
-              { id: "gouvernance", name: "Gouvernance & risques", permissions: "inherit" },
-            ],
-          },
-        ],
-      },
-      // --- PUBLIC
-      {
-        id: "public",
-        name: "PUBLIC",
-        type: "library",
-        icon: "🌐",
-        children: [
-          {
-            id: "public-principal",
-            name: "PRINCIPAL",
-            permissions: { edit: [], read: ["SG-GENERAL"] },
-            children: [
-              { id: "docs-publics", name: "Documents publics", permissions: "inherit" },
-              { id: "manuels", name: "Manuels & guides", permissions: "inherit" },
-              { id: "politiques-pub", name: "Politiques", permissions: "inherit" },
-              { id: "fiches-sds", name: "Fiches produits & SDS", permissions: "inherit" },
-              { id: "faq", name: "FAQ", permissions: "inherit" },
-              { id: "comm-externes", name: "Communications externes", permissions: "inherit" },
-              { id: "medias-logos", name: "Médias & logos", permissions: "inherit" },
-            ],
-          },
-        ],
-      },
-    ],
-  };
-
-  /* ------------------------------ UI helpers ------------------------------ */
   const toggle = (id: string) => {
     const next = new Set(expanded);
     next.has(id) ? next.delete(id) : next.add(id);
     setExpanded(next);
   };
 
-  const permissionBadges = (perm: PermSpec) => {
-    if (!perm || perm === "inherit") return null;
+  // ------- Mutations (Create / Rename / Delete / Edit permissions) ----------
+  const createChild = async (parentId: string | null) => {
+    const name = window.prompt("Nom du dossier à créer :", "");
+    if (!name) return;
+    const body = { name, parentId, type: "folder" };
+    const optimistic: APINode = {
+      id: `tmp-${Date.now()}`,
+      tenantId: "tmp",
+      parentId,
+      name,
+      type: "folder",
+      icon: null,
+      restricted: false,
+      highSecurity: false,
+      editGroups: null,
+      readGroups: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // optimistic add
+    mutate(
+      "/api/sharepoint",
+      (prev: APINode[] | undefined) => (prev ? [...prev, optimistic] : prev),
+      false
+    );
+    try {
+      const res = await fetch("/api/sharepoint", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("Erreur de création");
+    } catch (e) {
+      // rollback
+      mutate(
+        "/api/sharepoint",
+        (prev: APINode[] | undefined) =>
+          prev?.filter((n) => n.id !== optimistic.id),
+        false
+      );
+      alert((e as Error).message);
+    } finally {
+      mutate("/api/sharepoint"); // revalidate
+    }
+  };
+
+  const renameNode = async (node: NodeItem) => {
+    const name = window.prompt("Nouveau nom :", node.name);
+    if (!name || name.trim() === node.name) return;
+    const oldName = node.name;
+
+    // optimistic rename
+    mutate(
+      "/api/sharepoint",
+      (prev: APINode[] | undefined) =>
+        prev?.map((n) => (n.id === node.id ? { ...n, name } : n)),
+      false
+    );
+    try {
+      const res = await fetch(`/api/sharepoint/${node.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) throw new Error("Échec de la mise à jour du nom");
+    } catch (e) {
+      // rollback
+      mutate(
+        "/api/sharepoint",
+        (prev: APINode[] | undefined) =>
+          prev?.map((n) => (n.id === node.id ? { ...n, name: oldName } : n)),
+        false
+      );
+      alert((e as Error).message);
+    } finally {
+      mutate("/api/sharepoint");
+    }
+  };
+
+  const deleteNode = async (node: NodeItem) => {
+    if (!confirm(`Supprimer « ${node.name} » et tous ses sous-dossiers ?`)) return;
+
+    // optimistic remove subtree: easiest is to just revalidate after
+    try {
+      const res = await fetch(`/api/sharepoint/${node.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Suppression échouée");
+      if (selected?.id === node.id) setSelected(null);
+    } catch (e) {
+      alert((e as Error).message);
+    } finally {
+      mutate("/api/sharepoint");
+    }
+  };
+
+  const updatePermissions = async (node: NodeItem, perms: PermSpec) => {
+    if (!perms) return;
+    const payload: any = {
+      restricted: perms.restricted,
+      highSecurity: perms.highSecurity,
+      editGroups: perms.editGroups,
+      readGroups: perms.readGroups,
+    };
+
+    // optimistic
+    mutate(
+      "/api/sharepoint",
+      (prev: APINode[] | undefined) =>
+        prev?.map((n) =>
+          n.id === node.id
+            ? {
+                ...n,
+                restricted: !!payload.restricted,
+                highSecurity: !!payload.highSecurity,
+                editGroups: payload.editGroups ?? null,
+                readGroups: payload.readGroups ?? null,
+              }
+            : n
+        ),
+      false
+    );
+
+    try {
+      const res = await fetch(`/api/sharepoint/${node.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Mise à jour des permissions échouée");
+    } catch (e) {
+      alert((e as Error).message);
+      mutate("/api/sharepoint"); // rollback by revalidating
+    } finally {
+      mutate("/api/sharepoint");
+    }
+  };
+
+  const permissionBadges = (node: NodeItem) => {
+    const editLen = node.editGroups?.length ?? 0;
+    const readLen = node.readGroups?.length ?? 0;
     const out: React.ReactNode[] = [];
-    if (perm.edit?.length) {
+    if (editLen) {
       out.push(
         <span
           key="edit"
           className="inline-flex items-center gap-1 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-300"
         >
           <Edit className="h-3 w-3" />
-          {perm.edit.length} groupe{perm.edit.length > 1 ? "s" : ""}
+          {editLen} groupe{editLen > 1 ? "s" : ""}
         </span>
       );
     }
-    if (perm.read?.length) {
+    if (readLen) {
       out.push(
         <span
           key="read"
           className="inline-flex items-center gap-1 rounded-full border border-sky-400/20 bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-300"
         >
           <Eye className="h-3 w-3" />
-          {perm.read.length} groupe{perm.read.length > 1 ? "s" : ""}
+          {readLen} groupe{readLen > 1 ? "s" : ""}
         </span>
       );
     }
@@ -456,7 +328,7 @@ function SharePointStructure() {
       <div key={node.id} className="select-none">
         <div
           className={[
-            "flex items-center gap-2 rounded-xl px-3 py-2 transition-all",
+            "group flex items-center gap-2 rounded-xl px-3 py-2 transition-all",
             "hover:bg-white/[0.04] border border-transparent",
             isSelected
               ? "bg-gradient-to-r from-blue-500/10 via-blue-400/5 to-transparent border-white/10"
@@ -465,7 +337,10 @@ function SharePointStructure() {
             node.highSecurity ? "pl-[calc(theme(spacing.3)+2px)] border-l-2 border-red-500/40" : "",
           ].join(" ")}
           style={{ paddingLeft: depth * 20 + 12 }}
-          onClick={() => {
+          onClick={(e) => {
+            // ignore clicks on action buttons
+            const t = e.target as HTMLElement;
+            if (t.closest("[data-node-action]")) return;
             if (hasChildren) toggle(node.id);
             setSelected(node);
           }}
@@ -483,7 +358,7 @@ function SharePointStructure() {
           {/* Icon */}
           {node.type === "site" && <Building2 className="h-5 w-5 text-purple-400" />}
           {node.type === "library" && <span className="text-lg">{node.icon || "📁"}</span>}
-          {!node.type &&
+          {(!node.type || node.type === "folder") &&
             (isExpanded ? (
               <FolderOpen className="h-4 w-4 text-blue-400" />
             ) : (
@@ -503,7 +378,41 @@ function SharePointStructure() {
             {node.highSecurity && <Shield className="h-3 w-3 text-red-400" />}
           </span>
 
-          <div className="ml-auto flex flex-wrap gap-2">{permissionBadges(node.permissions)}</div>
+          {/* badges */}
+          <div className="ml-auto hidden gap-2 md:flex">{permissionBadges(node)}</div>
+
+          {/* actions (show on hover) */}
+          <div className="ml-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <button
+              data-node-action
+              className="rounded-md p-1 text-xs text-gray-300 hover:bg-white/10"
+              title="Ajouter un sous-dossier"
+              onClick={() => createChild(node.id === "root" ? null : node.id)}
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+            {node.id !== "root" && (
+              <>
+                <button
+                  data-node-action
+                  className="rounded-md p-1 text-xs text-gray-300 hover:bg-white/10"
+                  title="Renommer"
+                  onClick={() => renameNode(node)}
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+                <button
+                  data-node-action
+                  className="rounded-md p-1 text-xs text-red-400 hover:bg-red-500/10"
+                  title="Supprimer"
+                  onClick={() => deleteNode(node)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+                <PermissionsButton node={node} onSave={(p) => updatePermissions(node, p)} />
+              </>
+            )}
+          </div>
         </div>
 
         {isExpanded && hasChildren && (
@@ -513,99 +422,36 @@ function SharePointStructure() {
     );
   };
 
-  const findParentPerms = (
-    node: NodeItem,
-    targetId: string,
-    parentPerms: PermSpec = undefined
-  ): PermSpec => {
-    if (node.id === targetId) return parentPerms;
-    const nextParent = node.permissions && node.permissions !== "inherit" ? node.permissions : parentPerms;
-    for (const child of node.children ?? []) {
-      const res = findParentPerms(child, targetId, nextParent);
-      if (res) return res;
-    }
-    return undefined;
-  };
-
-  const PermissionDetails = ({ node }: { node: NodeItem }) => {
-    let perm = node.permissions;
-    if (perm === "inherit") {
-      perm = findParentPerms(structure, node.id) ?? "inherit";
-    }
-    if (!perm || perm === "inherit") return null;
-
+  if (error) {
     return (
-      <Card className="space-y-4">
-        <CardTitle icon={<Shield className="h-5 w-5 text-blue-400" />}>Permissions détaillées</CardTitle>
-
-        {perm.edit?.length ? (
-          <div>
-            <h4 className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-200">
-              <Edit className="h-4 w-4 text-emerald-400" />
-              Accès en édition
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              {perm.edit.map((g) => (
-                <span
-                  key={g}
-                  className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-sm font-medium text-emerald-300"
-                >
-                  {g}
-                </span>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        {perm.read?.length ? (
-          <div>
-            <h4 className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-200">
-              <Eye className="h-4 w-4 text-sky-400" />
-              Accès en lecture seule
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              {perm.read.map((g) => (
-                <span
-                  key={g}
-                  className="rounded-full border border-sky-400/20 bg-sky-500/10 px-3 py-1 text-sm font-medium text-sky-300"
-                >
-                  {g}
-                </span>
-              ))}
-            </div>
-          </div>
-        ) : null}
-      </Card>
+      <div className="p-6 text-sm text-red-400 border border-red-900/40 rounded-xl bg-red-950/20">
+        Erreur de chargement des dossiers. Réessayez.
+      </div>
     );
-  };
+  }
+  if (isLoading || !tree) return <LoadingState />;
 
-  /* ------------------------------- Render UI ------------------------------- */
   return (
     <div className="space-y-6">
-      {/* Page header (matches dashboard tone) */}
+      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
           Structure SharePoint<span className="text-blue-500">.</span>
         </h1>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {companies.map((c) => {
-            const active = activeCompany === c.id;
-            return (
-              <button
-                key={c.id}
-                onClick={() => setActiveCompany(c.id)}
-                className={[
-                  "rounded-lg px-3 py-2 text-sm font-medium transition-all",
-                  active
-                    ? `bg-gradient-to-r ${c.color} text-white shadow`
-                    : "border border-white/10 bg-white/[0.02] text-gray-300 hover:bg-white/[0.05]",
-                ].join(" ")}
-              >
-                {c.name}
-              </button>
-            );
-          })}
+        <div className="flex items-center gap-2">
+          <button
+            className="rounded-lg px-3 py-2 text-sm font-medium border border-white/10 bg-white/[0.02] text-gray-300 hover:bg-white/[0.05]"
+            onClick={() => createChild(null)}
+          >
+            Ajouter un dossier racine
+          </button>
+          <button
+            className="rounded-lg px-3 py-2 text-sm font-medium border border-white/10 bg-white/[0.02] text-gray-300 hover:bg-white/[0.05]"
+            onClick={() => mutate("/api/sharepoint")}
+            title="Rafraîchir"
+          >
+            Recharger
+          </button>
         </div>
       </div>
 
@@ -617,16 +463,38 @@ function SharePointStructure() {
               <CardTitle icon={<Folder className="h-5 w-5 text-blue-400" />}>
                 Arborescence des dossiers
               </CardTitle>
-              <p className="mt-1 text-sm text-gray-400">Site SharePoint unifié pour tout le groupe</p>
+              <p className="mt-1 text-sm text-gray-400">
+                Éditez en direct : créer, renommer, supprimer, permissions.
+              </p>
             </div>
-            <div className="max-h-[620px] overflow-y-auto pr-2">{renderNode(structure)}</div>
+            <div className="max-h-[620px] overflow-y-auto pr-2">
+              {tree.children?.map((c) => renderNode(c, 0))}
+            </div>
           </Card>
         </div>
 
         {/* Right rail */}
         <div className="col-span-12 lg:col-span-4 space-y-4">
           {/* Selected node details */}
-          {selected && <PermissionDetails node={selected} />}
+          {selected && (
+            <Card className="space-y-3">
+              <CardTitle icon={<Settings2 className="h-5 w-5 text-purple-400" />}>
+                Détails du dossier
+              </CardTitle>
+              <div className="text-sm text-gray-300">
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400">Nom :</span>
+                  <span className="font-medium text-white">{selected.name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400">Type :</span>
+                  <span className="font-mono">{selected.type ?? "folder"}</span>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">{permissionBadges(selected)}</div>
+              <PermissionsInlineEditor node={selected} onSave={(p) => updatePermissions(selected, p)} />
+            </Card>
+          )}
 
           {/* Legend */}
           <Card>
@@ -642,16 +510,16 @@ function SharePointStructure() {
               </div>
               <div className="flex items-center gap-3 text-gray-300">
                 <Edit className="h-4 w-4 text-emerald-400" />
-                <span>Permissions d&apos;édition</span>
+                <span>Groupes ayant l’édition</span>
               </div>
               <div className="flex items-center gap-3 text-gray-300">
                 <Eye className="h-4 w-4 text-sky-400" />
-                <span>Lecture seule</span>
+                <span>Groupes en lecture</span>
               </div>
             </div>
           </Card>
 
-          {/* Security groups */}
+          {/* Security groups (static helper) */}
           <Card>
             <CardTitle icon={<Users className="h-5 w-5 text-purple-400" />}>Groupes de sécurité</CardTitle>
             <div className="mt-4 space-y-3 text-sm text-gray-300">
@@ -678,7 +546,214 @@ function SharePointStructure() {
 }
 
 /* =============================================================================
-   Small UI atoms to match your dashboard cards
+   Permissions editor bits
+============================================================================= */
+function PermissionsButton({
+  node,
+  onSave,
+}: {
+  node: NodeItem;
+  onSave: (p: PermSpec) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <>
+      <button
+        data-node-action
+        className="rounded-md p-1 text-xs text-gray-300 hover:bg-white/10"
+        title="Éditer permissions"
+        onClick={() => setOpen(true)}
+      >
+        <Settings2 className="h-4 w-4" />
+      </button>
+      {open && (
+        <PermissionModal
+          initial={{
+            restricted: !!node.restricted,
+            highSecurity: !!node.highSecurity,
+            editGroups: node.editGroups ?? null,
+            readGroups: node.readGroups ?? null,
+          }}
+          onClose={() => setOpen(false)}
+          onSubmit={(p) => {
+            onSave(p);
+            setOpen(false);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function PermissionsInlineEditor({
+  node,
+  onSave,
+}: {
+  node: NodeItem;
+  onSave: (p: PermSpec) => void;
+}) {
+  const [editGroups, setEditGroups] = React.useState(
+    (node.editGroups ?? []).join(", ")
+  );
+  const [readGroups, setReadGroups] = React.useState(
+    (node.readGroups ?? []).join(", ")
+  );
+  const [restricted, setRestricted] = React.useState(!!node.restricted);
+  const [highSecurity, setHighSecurity] = React.useState(!!node.highSecurity);
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 space-y-3">
+      <div className="grid gap-2">
+        <label className="text-xs text-gray-400">Groupes (édition) — séparés par “,”</label>
+        <input
+          className="rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
+          value={editGroups}
+          onChange={(e) => setEditGroups(e.target.value)}
+          placeholder="SG-FOO-ALL, SG-FOO-EXECUTIF"
+        />
+      </div>
+      <div className="grid gap-2">
+        <label className="text-xs text-gray-400">Groupes (lecture) — séparés par “,”</label>
+        <input
+          className="rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
+          value={readGroups}
+          onChange={(e) => setReadGroups(e.target.value)}
+          placeholder="SG-FOO-ALL"
+        />
+      </div>
+      <div className="flex items-center gap-4">
+        <label className="flex items-center gap-2 text-sm text-gray-300">
+          <input type="checkbox" checked={restricted} onChange={(e) => setRestricted(e.target.checked)} />
+          Accès restreint
+        </label>
+        <label className="flex items-center gap-2 text-sm text-gray-300">
+          <input type="checkbox" checked={highSecurity} onChange={(e) => setHighSecurity(e.target.checked)} />
+          Haute sécurité
+        </label>
+      </div>
+      <div className="flex justify-end gap-2">
+        <button
+          className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-3 py-1.5 text-sm text-gray-300 hover:bg-white/10"
+          onClick={() =>
+            onSave({
+              restricted,
+              highSecurity,
+              editGroups: splitOrNull(editGroups),
+              readGroups: splitOrNull(readGroups),
+            })
+          }
+        >
+          <Save className="h-4 w-4" />
+          Enregistrer
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PermissionModal({
+  initial,
+  onClose,
+  onSubmit,
+}: {
+  initial: PermSpec;
+  onClose: () => void;
+  onSubmit: (p: PermSpec) => void;
+}) {
+  const [editGroups, setEditGroups] = React.useState(
+    (initial?.editGroups ?? []).join(", ")
+  );
+  const [readGroups, setReadGroups] = React.useState(
+    (initial?.readGroups ?? []).join(", ")
+  );
+  const [restricted, setRestricted] = React.useState(!!initial?.restricted);
+  const [highSecurity, setHighSecurity] = React.useState(!!initial?.highSecurity);
+
+  return (
+    <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-lg rounded-2xl border border-gray-800 bg-gray-950 p-5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium tracking-wide text-white flex items-center gap-2">
+            <Shield className="h-5 w-5 text-blue-400" />
+            Éditer les permissions
+          </h3>
+          <button
+            className="rounded-md p-1 text-gray-400 hover:bg-white/10"
+            onClick={onClose}
+            title="Fermer"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          <div className="grid gap-2">
+            <label className="text-xs text-gray-400">Groupes (édition) — séparés par “,”</label>
+            <input
+              className="rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
+              value={editGroups}
+              onChange={(e) => setEditGroups(e.target.value)}
+              placeholder="SG-FOO-ALL, SG-FOO-EXECUTIF"
+            />
+          </div>
+          <div className="grid gap-2">
+            <label className="text-xs text-gray-400">Groupes (lecture) — séparés par “,”</label>
+            <input
+              className="rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
+              value={readGroups}
+              onChange={(e) => setReadGroups(e.target.value)}
+              placeholder="SG-FOO-ALL"
+            />
+          </div>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-sm text-gray-300">
+              <input type="checkbox" checked={restricted} onChange={(e) => setRestricted(e.target.checked)} />
+              Accès restreint
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-300">
+              <input type="checkbox" checked={highSecurity} onChange={(e) => setHighSecurity(e.target.checked)} />
+              Haute sécurité
+            </label>
+          </div>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            className="rounded-lg border border-white/10 px-3 py-1.5 text-sm text-gray-300 hover:bg-white/10"
+            onClick={onClose}
+          >
+            Annuler
+          </button>
+          <button
+            className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+            onClick={() =>
+              onSubmit({
+                restricted,
+                highSecurity,
+                editGroups: splitOrNull(editGroups),
+                readGroups: splitOrNull(readGroups),
+              })
+            }
+          >
+            <Save className="h-4 w-4" />
+            Enregistrer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function splitOrNull(s: string): string[] | null {
+  const arr = s
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+  return arr.length ? arr : null;
+}
+
+/* =============================================================================
+   UI atoms
 ============================================================================= */
 function Card({
   children,
