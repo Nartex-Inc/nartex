@@ -54,7 +54,7 @@ export default function SharePointPage() {
   return (
     <main className={`min-h-screen bg-black ${inter.className}`}>
       {/* Offset for fixed header & left rail; keep tight gutters to match your dashboard */}
-      <div className="pt-8 xl:ml-64 px-3 sm:px-4 pb-8">
+      <div className="with-sidebar-shift pt-8 px-3 sm:px-4 pb-8">
         <SharePointStructure />
       </div>
     </main>
