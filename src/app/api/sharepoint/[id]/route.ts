@@ -82,7 +82,7 @@ export async function GET(_req: Request, ctx: { params: { id: string } }) {
 }
 
 /** PATCH /api/sharepoint/:id */
-export async function PATCH(req: Request, ctx: { params: { id: string } }) {
+export async function PATCH(req: Request, ctx: any) {
   const mech = await requireEditor();
   if ("error" in mech) return mech.error;
 
@@ -96,7 +96,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  // Ensure the node exists in this tenant (and get current parent for context)
+  // Ensure node exists for this tenant (also grab current parent if you want)
   const current = await prisma.sharePointNode.findFirst({
     where: { id, tenantId: mech.tenantId },
     select: { id: true, parentId: true },
@@ -108,11 +108,13 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
   // ---- rename
   if (typeof body.name === "string") {
     const name = body.name.trim();
-    if (!name) return NextResponse.json({ error: "Name cannot be empty" }, { status: 400 });
+    if (!name) {
+      return NextResponse.json({ error: "Name cannot be empty" }, { status: 400 });
+    }
     data.name = name;
   }
 
-  // ---- parent move (cycle-safe)
+  // ---- parent move (with cycle protection)
   if (Object.prototype.hasOwnProperty.call(body, "parentId")) {
     const parentId: string | null = body.parentId ?? null;
 
@@ -123,29 +125,47 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     if (parentId) {
       const parent = await prisma.sharePointNode.findFirst({
         where: { id: parentId, tenantId: mech.tenantId },
-        select: { id: true },
+        select: { id: true, parentId: true },
       });
       if (!parent) {
         return NextResponse.json({ error: "Parent not found in tenant" }, { status: 400 });
       }
 
-      const cycle = await isDescendant(parentId, id, mech.tenantId);
-      if (cycle) {
-        return NextResponse.json(
-          { error: "Cannot move node under its own descendant" },
-          { status: 400 }
-        );
+      // Walk ancestors of the proposed parent to prevent cycles.
+      let cursor: string | null = parent.parentId ?? null;
+      while (cursor) {
+        if (cursor === id) {
+          return NextResponse.json(
+            { error: "Cannot move node under its own descendant" },
+            { status: 400 },
+          );
+        }
+        // 👇 explicit type to satisfy strict TS
+        const anc: { parentId: string | null } | null =
+          await prisma.sharePointNode.findFirst({
+            where: { id: cursor, tenantId: mech.tenantId },
+            select: { parentId: true },
+          });
+
+        cursor = anc?.parentId ?? null;
       }
     }
 
-    data.parentId = parentId;
+    data.parentId = parentId; // allow null (move to root)
   }
 
   // ---- flags
   if (typeof body.restricted === "boolean") data.restricted = body.restricted;
   if (typeof body.highSecurity === "boolean") data.highSecurity = body.highSecurity;
 
-  // ---- permissions (accept object or "inherit"/null; persist empty arrays for inherit)
+  // ---- permissions (null/"inherit" => store as empty arrays)
+  const sanitize = (arr: unknown): string[] =>
+    Array.isArray(arr)
+      ? Array.from(new Set(arr.map((x) => String(x).trim()).filter(Boolean)))
+      : [];
+
+  type PermSpec = { edit?: string[]; read?: string[] } | "inherit" | null;
+
   let editGroupsToSet: string[] | null | undefined;
   let readGroupsToSet: string[] | null | undefined;
 
@@ -166,7 +186,6 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     }
   }
 
-  // allow top-level editGroups/readGroups fields as well (null => inherit)
   if (Object.prototype.hasOwnProperty.call(body, "editGroups")) {
     editGroupsToSet = body.editGroups === null ? null : sanitize(body.editGroups);
   }
@@ -174,14 +193,12 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     readGroupsToSet = body.readGroups === null ? null : sanitize(body.readGroups);
   }
 
-  if (editGroupsToSet !== undefined) data.editGroups = editGroupsToSet === null ? [] : editGroupsToSet;
-  if (readGroupsToSet !== undefined) data.readGroups = readGroupsToSet === null ? [] : readGroupsToSet;
+  if (editGroupsToSet !== undefined)
+    data.editGroups = editGroupsToSet === null ? [] : editGroupsToSet;
+  if (readGroupsToSet !== undefined)
+    data.readGroups = readGroupsToSet === null ? [] : readGroupsToSet;
 
-  const updated = await prisma.sharePointNode.update({
-    where: { id },
-    data,
-  });
-
+  const updated = await prisma.sharePointNode.update({ where: { id }, data });
   return NextResponse.json(updated);
 }
 
