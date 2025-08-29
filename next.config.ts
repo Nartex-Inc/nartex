@@ -30,7 +30,7 @@ const nextConfig: NextConfig = {
   compress: true,
 
   // If your repo has type errors that sometimes break CI, uncomment:
-  typescript: { ignoreBuildErrors: true },
+  // typescript: { ignoreBuildErrors: true },
 };
 
 export default nextConfig;
