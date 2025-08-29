@@ -41,12 +41,16 @@ async function loadAuth(): Promise<Authed | { error: NextResponse }> {
 }
 
 async function requireEditor(): Promise<Authed | { error: NextResponse }> {
-  const a = await loadAuth();
-  if ("error" in a) return a;
-  if (!EDITOR_ROLES.has(a.role)) {
-    return { error: NextResponse.json({ error: `Forbidden: role '${a.role}'` }, { status: 403 }) };
-  }
-  return a;
+  const a = await loadAuth();
+  if ("error" in a) return a;
+  
+  // FROM: Original role check that returns a 403 error
+  // if (!EDITOR_ROLES.has(a.role)) {
+  //   return { error: NextResponse.json({ error: `Forbidden: role '${a.role}'` }, { status: 403 }) };
+  // }
+  
+  // TO: Remove or comment out the role check to allow all authenticated users
+  return a;
 }
 
 const sanitize = (arr: unknown): string[] =>
