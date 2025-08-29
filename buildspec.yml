@@ -15,14 +15,14 @@ env:
     AZURE_AD_TENANT_ID: "organizations"
 
   secrets-manager:
-    DATABASE_URL: nartex/prod/env:DATABASE_URL
-    EMAIL_SERVER_PASSWORD: nartex/prod/env:EMAIL_SERVER_PASSWORD
-    NEXTAUTH_SECRET: nartex/prod/env:NEXTAUTH_SECRET
-    GOOGLE_CLIENT_ID: nartex/prod/env:GOOGLE_CLIENT_ID
-    GOOGLE_CLIENT_SECRET: nartex/prod/env:GOOGLE_CLIENT_SECRET
-    AZURE_AD_CLIENT_ID: nartex/prod/env:AZURE_AD_CLIENT_ID
+    DATABASE_URL:           nartex/prod/env:DATABASE_URL
+    EMAIL_SERVER_PASSWORD:  nartex/prod/env:EMAIL_SERVER_PASSWORD
+    NEXTAUTH_SECRET:        nartex/prod/env:NEXTAUTH_SECRET
+    GOOGLE_CLIENT_ID:       nartex/prod/env:GOOGLE_CLIENT_ID
+    GOOGLE_CLIENT_SECRET:   nartex/prod/env:GOOGLE_CLIENT_SECRET
+    AZURE_AD_CLIENT_ID:     nartex/prod/env:AZURE_AD_CLIENT_ID
     AZURE_AD_CLIENT_SECRET: nartex/prod/env:AZURE_AD_CLIENT_SECRET
-    RDS_CREDENTIALS: nartex/prod/rds-credentials
+    RDS_CREDENTIALS:        nartex/prod/rds-credentials
 
 phases:
   install:
@@ -150,25 +150,6 @@ phases:
 
   build:
     commands:
-      # =================================================================
-      # START: DIAGNOSTIC LOGS
-      # =================================================================
-      - echo "--- Verifying Git Source ---"
-      - echo "Current Git Commit:"
-      - git log -n 1
-      - echo "--------------------------"
-      - echo "Checking for presence of API route files..."
-      - ls -la src/app/api/sharepoint/
-      - echo "--------------------------"
-      - echo "Displaying content of ROOT API route file (src/app/api/sharepoint/route.ts):"
-      - cat src/app/api/sharepoint/route.ts || echo "ERROR: ROOT route file not found."
-      - echo "--------------------------"
-      - echo "Displaying content of DYNAMIC API route file (src/app/api/sharepoint/[id]/route.ts):"
-      - cat src/app/api/sharepoint/[id]/route.ts || echo "ERROR: DYNAMIC route file not found."
-      - echo "--- End of Verification ---"
-      # =================================================================
-      # END: DIAGNOSTIC LOGS
-      # =================================================================
       - echo "🚀 BUILD – apply prisma migrations"
       - npx prisma migrate deploy --schema=prisma/schema.prisma
       - echo "⚙️ BUILD – generate prisma client"
@@ -196,13 +177,16 @@ phases:
           --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
           -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
           -t "$ECR_IMAGE_URI:latest" .
+
       - echo "🧾 BUILD – write imagedefinitions.json artifact"
       - |
         printf '[{"name":"%s","imageUri":"%s"}]\n' \
           "$CONTAINER_NAME" "$ECR_IMAGE_URI:$COMMIT_HASH" > imagedefinitions.json
         cat imagedefinitions.json
+
       - echo "🔑 Login to ECR"
       - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
+
       - echo "📤 Push images"
       - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
       - docker push "$ECR_IMAGE_URI:latest"
