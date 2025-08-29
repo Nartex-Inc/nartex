@@ -1,3 +1,4 @@
+// src/app/api/sharepoint/[id]/route.ts
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
@@ -6,39 +7,46 @@ import prisma from "@/lib/prisma";
 const EDITOR_ROLES = new Set(["ceo", "admin", "ventes-exec", "ti-exec", "direction-exec"]);
 type PermSpec = { edit?: string[]; read?: string[] } | "inherit" | null;
 
-/* ---------- Utilities ---------- */
-async function requireTenant() {
+async function sessionWithRole() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
+  const id = (session?.user as any)?.id as string | undefined;
+  let role = (session?.user as any)?.role as string | undefined;
+
+  if (id && !role) {
+    const u = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+    role = u?.role;
+    if (role) (session!.user as any).role = role;
+  }
+  return { session, id, role };
+}
+
+async function requireTenant() {
+  const { session, id } = await sessionWithRole();
+  if (!session?.user || !id) {
     return { error: NextResponse.json({ error: "Not authenticated" }, { status: 401 }) };
   }
-  const userTenant = await prisma.userTenant.findFirst({
-    where: { userId: (session.user as any).id },
+  const ut = await prisma.userTenant.findFirst({
+    where: { userId: id },
     select: { tenantId: true },
   });
-  if (!userTenant) {
-    return { error: NextResponse.json({ error: "Tenant not found" }, { status: 404 }) };
-  }
-  return { tenantId: userTenant.tenantId, session };
+  if (!ut) return { error: NextResponse.json({ error: "Tenant not found" }, { status: 404 }) };
+  return { tenantId: ut.tenantId, session };
 }
 
 async function requireEditor() {
   const base = await requireTenant();
   if ("error" in base) return base as any;
-
-  let role = (base.session?.user as any)?.role as string | undefined;
-  if (!role && base.session?.user?.id) {
-    const u = await prisma.user.findUnique({
-      where: { id: (base.session.user as any).id },
-      select: { role: true },
-    });
-    role = u?.role ?? undefined;
-  }
+  const role = (base.session?.user as any)?.role as string | undefined;
   if (!role || !EDITOR_ROLES.has(role)) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
   return base;
 }
+
+const sanitize = (arr: unknown): string[] =>
+  Array.isArray(arr)
+    ? Array.from(new Set(arr.map((x) => String(x).trim()).filter(Boolean)))
+    : [];
 
 async function getParentId(nodeId: string, tenantId: string): Promise<string | null> {
   const row = await prisma.sharePointNode.findFirst({
@@ -48,17 +56,11 @@ async function getParentId(nodeId: string, tenantId: string): Promise<string | n
   return row?.parentId ?? null;
 }
 
-const sanitize = (arr: unknown): string[] =>
-  Array.isArray(arr)
-    ? Array.from(new Set(arr.map((x) => String(x).trim()).filter(Boolean)))
-    : [];
-
-/* ---------- Routes ---------- */
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, ctx: any) {
   const mech = await requireTenant();
   if ("error" in mech) return mech.error;
 
-  const id = params?.id?.toString();
+  const id = ctx?.params?.id?.toString();
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   const node = await prisma.sharePointNode.findFirst({
@@ -68,11 +70,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   return NextResponse.json(node);
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, ctx: any) {
   const mech = await requireEditor();
   if ("error" in mech) return mech.error;
 
-  const id = params?.id?.toString();
+  const id = ctx?.params?.id?.toString();
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   let body: any;
@@ -98,11 +100,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   if (Object.prototype.hasOwnProperty.call(body, "parentId")) {
     const parentId: string | null = body.parentId ?? null;
-
     if (parentId === id) {
       return NextResponse.json({ error: "Cannot set parentId to self" }, { status: 400 });
     }
-
     if (parentId) {
       const parent = await prisma.sharePointNode.findFirst({
         where: { id: parentId, tenantId: mech.tenantId },
@@ -111,20 +111,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       if (!parent) {
         return NextResponse.json({ error: "Parent not found in tenant" }, { status: 400 });
       }
-
-      // prevent cycles
       let cursor: string | null = parent.parentId ?? null;
       while (cursor) {
         if (cursor === id) {
           return NextResponse.json(
             { error: "Cannot move node under its own descendant" },
-            { status: 400 },
+            { status: 400 }
           );
         }
         cursor = await getParentId(cursor, mech.tenantId);
       }
     }
-
     data.parentId = parentId;
   }
 
@@ -150,14 +147,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       readGroupsToSet = sanitize(perms.read ?? []);
     }
   }
-
   if (Object.prototype.hasOwnProperty.call(body, "editGroups")) {
     editGroupsToSet = body.editGroups === null ? null : sanitize(body.editGroups);
   }
   if (Object.prototype.hasOwnProperty.call(body, "readGroups")) {
     readGroupsToSet = body.readGroups === null ? null : sanitize(body.readGroups);
   }
-
   if (editGroupsToSet !== undefined) data.editGroups = editGroupsToSet === null ? [] : editGroupsToSet;
   if (readGroupsToSet !== undefined) data.readGroups = readGroupsToSet === null ? [] : readGroupsToSet;
 
@@ -165,18 +160,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   return NextResponse.json(updated);
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, ctx: any) {
   const mech = await requireEditor();
   if ("error" in mech) return mech.error;
 
-  const id = params?.id?.toString();
+  const id = ctx?.params?.id?.toString();
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   const all = await prisma.sharePointNode.findMany({
     where: { tenantId: mech.tenantId },
     select: { id: true, parentId: true },
   });
-
   if (!all.some((n) => n.id === id)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -201,6 +195,5 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   await prisma.sharePointNode.deleteMany({
     where: { tenantId: mech.tenantId, id: { in: Array.from(toDelete) } },
   });
-
   return NextResponse.json({ deleted: toDelete.size });
 }
