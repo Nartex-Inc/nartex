@@ -7,6 +7,10 @@ import prisma from "@/lib/prisma";
 const EDITOR_ROLES = new Set(["ceo", "admin", "ti-exec", "direction-exec"]);
 type PermSpec = { edit?: string[]; read?: string[] } | "inherit" | null;
 
+/* ------------------------------------------------------------------ */
+/* Utilities                                                          */
+/* ------------------------------------------------------------------ */
+
 async function requireTenant() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -31,6 +35,35 @@ async function requireEditor() {
   }
   return base;
 }
+
+/** Walk up the parent chain to see if `candidateParentId` is a descendant of `childId`. */
+async function isDescendant(
+  candidateParentId: string,
+  childId: string,
+  tenantId: string
+): Promise<boolean> {
+  let cursor: string | null = candidateParentId; // explicit type
+  while (cursor) {
+    if (cursor === childId) return true;
+    // explicit type on the narrow select result to avoid inference loops
+    const parentRow: { parentId: string | null } | null =
+      await prisma.sharePointNode.findFirst({
+        where: { id: cursor, tenantId },
+        select: { parentId: true },
+      });
+    cursor = parentRow?.parentId ?? null;
+  }
+  return false;
+}
+
+const sanitize = (arr: unknown): string[] =>
+  Array.isArray(arr)
+    ? Array.from(new Set(arr.map((x) => String(x).trim()).filter(Boolean)))
+    : [];
+
+/* ------------------------------------------------------------------ */
+/* Routes                                                             */
+/* ------------------------------------------------------------------ */
 
 /** GET /api/sharepoint/:id */
 export async function GET(_req: Request, ctx: { params: { id: string } }) {
@@ -63,6 +96,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
+  // Ensure the node exists in this tenant (and get current parent for context)
   const current = await prisma.sharePointNode.findFirst({
     where: { id, tenantId: mech.tenantId },
     select: { id: true, parentId: true },
@@ -71,14 +105,14 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
 
   const data: Record<string, any> = {};
 
-  // rename
+  // ---- rename
   if (typeof body.name === "string") {
     const name = body.name.trim();
     if (!name) return NextResponse.json({ error: "Name cannot be empty" }, { status: 400 });
     data.name = name;
   }
 
-  // parent move (cycle protection)
+  // ---- parent move (cycle-safe)
   if (Object.prototype.hasOwnProperty.call(body, "parentId")) {
     const parentId: string | null = body.parentId ?? null;
 
@@ -89,44 +123,29 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     if (parentId) {
       const parent = await prisma.sharePointNode.findFirst({
         where: { id: parentId, tenantId: mech.tenantId },
-        select: { id: true, parentId: true },
+        select: { id: true },
       });
       if (!parent) {
         return NextResponse.json({ error: "Parent not found in tenant" }, { status: 400 });
       }
 
-      // Walk up ancestors of the proposed parent to prevent cycles.
-      let cursor: string | null = parent.parentId ?? null; // <-- explicit type
-      while (cursor !== null) {
-        if (cursor === id) {
-          return NextResponse.json(
-            { error: "Cannot move node under its own descendant" },
-            { status: 400 }
-          );
-        }
-        // <-- explicit type for select result to break inference loop
-        const ancestor: { parentId: string | null } | null =
-          await prisma.sharePointNode.findFirst({
-            where: { id: cursor, tenantId: mech.tenantId },
-            select: { parentId: true },
-          });
-        cursor = ancestor?.parentId ?? null;
+      const cycle = await isDescendant(parentId, id, mech.tenantId);
+      if (cycle) {
+        return NextResponse.json(
+          { error: "Cannot move node under its own descendant" },
+          { status: 400 }
+        );
       }
     }
 
     data.parentId = parentId;
   }
 
-  // flags
+  // ---- flags
   if (typeof body.restricted === "boolean") data.restricted = body.restricted;
   if (typeof body.highSecurity === "boolean") data.highSecurity = body.highSecurity;
 
-  // permissions
-  const sanitize = (arr: unknown): string[] =>
-    Array.isArray(arr)
-      ? Array.from(new Set(arr.map((x) => String(x).trim()).filter(Boolean)))
-      : [];
-
+  // ---- permissions (accept object or "inherit"/null; persist empty arrays for inherit)
   let editGroupsToSet: string[] | null | undefined;
   let readGroupsToSet: string[] | null | undefined;
 
@@ -147,6 +166,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     }
   }
 
+  // allow top-level editGroups/readGroups fields as well (null => inherit)
   if (Object.prototype.hasOwnProperty.call(body, "editGroups")) {
     editGroupsToSet = body.editGroups === null ? null : sanitize(body.editGroups);
   }
