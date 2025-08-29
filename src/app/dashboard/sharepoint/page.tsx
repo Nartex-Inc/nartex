@@ -1,3 +1,5 @@
+// src/app/dashboard/sharepoint/page.tsx
+
 "use client";
 
 import * as React from "react";
@@ -131,12 +133,13 @@ export default function SharePointPage() {
   const { data: session, status } = useSession();
   if (status === "loading") return <LoadingState />;
 
-  const VIEW_ROLES = new Set(["ventes-exec", "ceo", "admin", "ti-exec", "direction-exec"]);
-  const role = (session?.user as any)?.role ?? "";
-  const canView = VIEW_ROLES.has(role);
+  // const VIEW_ROLES = new Set(["ventes-exec", "ceo", "admin", "ti-exec", "direction-exec"]);
+  // const role = (session?.user as any)?.role ?? "";
+  // const canView = VIEW_ROLES.has(role);
   
-  if (status === "unauthenticated" || !canView) return <AccessDenied />;
+  // if (status === "unauthenticated" || !canView) return <AccessDenied />;
   // DELETE THE EXTRA return <AccessDenied />; LINE HERE
+  if (status === "unauthenticated") return <AccessDenied />;
   return (
     <main className={`min-h-screen bg-black ${inter.className}`}>
       <div className="pt-0 px-0 pb-8">
@@ -833,9 +836,4 @@ function AccessDenied() {
         <h3 className="mb-2 text-xl font-bold text-white">Accès restreint</h3>
         <p className="text-sm text-gray-400">
           Vous ne disposez pas des autorisations nécessaires pour consulter ces données.
-          Veuillez contacter votre département TI pour de l&apos;aide.
-        </p>
-      </div>
-    </div>
-  );
-}
+          Veuillez contacter votre département TI pour de l&apos;aide
