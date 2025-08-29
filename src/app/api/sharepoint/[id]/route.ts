@@ -41,21 +41,17 @@ async function loadAuth(): Promise<Authed | { error: NextResponse }> {
 }
 
 async function requireEditor(): Promise<Authed | { error: NextResponse }> {
-  const a = await loadAuth();
-  if ("error" in a) return a;
+  const a = await loadAuth();
+  if ("error" in a) return a;
   
-  // Temporarily force a custom, unique error message.
-  // We are doing this to PROVE if this new code is actually running on the server.
+  // The role check is bypassed for now to allow all users.
+  /*
   if (!EDITOR_ROLES.has(a.role)) {
-    return { 
-      error: NextResponse.json(
-        { message: "FORBIDDEN_V3_DEPLOYMENT_TEST", deployedAt: new Date().toISOString() }, 
-        { status: 403 }
-      ) 
-    };
+    return { error: NextResponse.json({ error: `Forbidden: role '${a.role}'` }, { status: 403 }) };
   }
+  */
   
-  return a;
+  return a;
 }
 
 const sanitize = (arr: unknown): string[] =>
