@@ -125,19 +125,24 @@ function buildTree(rows: APINode[]): NodeItem {
 }
 
 /* =============================================================================
-   Page (auth gate)
+   Page (auth gate)
 ============================================================================= */
 export default function SharePointPage() {
-  const { data: session, status } = useSession();
-  if (status === "loading") return <LoadingState />;
+  const { data: session, status } = useSession();
+  if (status === "loading") return <LoadingState />;
 
-  const VIEW_ROLES = new Set(["ventes-exec", "ceo", "admin", "ti-exec", "direction-exec"]);
-  const role = (session?.user as any)?.role ?? "";
-  const canView = VIEW_ROLES.has(role);
-  
-  if (status === "unauthenticated" || !canView) return <AccessDenied />;
+  // FROM: Original role-based check
+  // const VIEW_ROLES = new Set(["ventes-exec", "ceo", "admin", "ti-exec", "direction-exec"]);
+  // const role = (session?.user as any)?.role ?? "";
+  // const canView = VIEW_ROLES.has(role);
+  // if (status === "unauthenticated" || !canView) return <AccessDenied />;
 
-    return <AccessDenied />;
+  // TO: Allow everyone to view
+  const canView = true;
+  if (status === "unauthenticated") return <AccessDenied />;
+  
+  // ⛔️ REMOVE THIS LINE! It's likely a bug causing immediate access denial.
+  // return <AccessDenied />;
 
   return (
     <main className={`min-h-screen bg-black ${inter.className}`}>
