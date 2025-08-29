@@ -35,6 +35,34 @@ phases:
 
   pre_build:
     commands:
+      # =================================================================
+      # START: NEW SCRIPT TO DETECT CHANGES
+      # =================================================================
+      - echo "🔎 PRE_BUILD – detecting changes"
+      - |
+        # Get the list of changed files compared to the previous commit
+        CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD || git show --name-only)
+        echo "Changed files:"
+        echo "$CHANGED_FILES"
+        
+        # Assume a full build by default
+        export BUILD_TYPE="full"
+        
+        # Check if ALL changed files match frontend patterns. The grep -v inverts the match.
+        # If any file does NOT match a frontend pattern, the result of the grep will be non-empty.
+        NON_FRONTEND_CHANGES=$(echo "$CHANGED_FILES" | grep -vE "\.(tsx|ts|css|json|md)$|/app/|/components/|/lib/|/public/|tailwind\.config\.ts|next\.config\.ts|package-lock\.json")
+
+        if [ -z "$NON_FRONTEND_CHANGES" ]; then
+          echo "✅ Frontend-only changes detected. Preparing a fast build."
+          export BUILD_TYPE="frontend"
+        else
+          echo "⚠️ Backend or infrastructure changes detected. Running full build."
+          echo "Files requiring full build:"
+          echo "$NON_FRONTEND_CHANGES"
+        fi
+      # =================================================================
+      # END: NEW SCRIPT
+      # =================================================================
       - echo "📜 PRE_BUILD – preparing workspace"
       - |
         cat > ci-prebuild.sh << 'SH'
@@ -150,17 +178,28 @@ phases:
 
   build:
     commands:
-      - echo "🚀 BUILD – apply prisma migrations"
-      - npx prisma migrate deploy --schema=prisma/schema.prisma
+      # =================================================================
+      # START: CONDITIONAL PRISMA STEPS
+      # =================================================================
+      - |
+        if [ "$BUILD_TYPE" = "full" ]; then
+          echo "🚀 BUILD – applying prisma migrations"
+          npx prisma migrate deploy --schema=prisma/schema.prisma
+        else
+          echo "⏩ BUILD – skipping prisma migrations for frontend-only build"
+        fi
+      # =================================================================
+      # END: CONDITIONAL PRISMA STEPS
+      # =================================================================
       - echo "⚙️ BUILD – generate prisma client"
       - npx prisma generate --schema=prisma/schema.prisma
       - echo "🏗 BUILD – resolve commit hash"
       - COMMIT_HASH=$(git rev-parse --short HEAD)
       - echo "COMMIT_HASH=$COMMIT_HASH"
       - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
-      - echo "🐳 BUILD – docker image (no-cache + pull)"
+      - echo "🐳 BUILD – docker image (pull for cache)"
       - |
-        docker build --no-cache --pull --progress=plain \
+        docker build --pull --progress=plain \
           --build-arg GIT_COMMIT_HASH="$COMMIT_HASH" \
           --build-arg DATABASE_URL="$DATABASE_URL" \
           --build-arg EMAIL_SERVER_HOST="$EMAIL_SERVER_HOST" \
@@ -177,16 +216,13 @@ phases:
           --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
           -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
           -t "$ECR_IMAGE_URI:latest" .
-
       - echo "🧾 BUILD – write imagedefinitions.json artifact"
       - |
         printf '[{"name":"%s","imageUri":"%s"}]\n' \
           "$CONTAINER_NAME" "$ECR_IMAGE_URI:$COMMIT_HASH" > imagedefinitions.json
         cat imagedefinitions.json
-
       - echo "🔑 Login to ECR"
       - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
-
       - echo "📤 Push images"
       - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
       - docker push "$ECR_IMAGE_URI:latest"
