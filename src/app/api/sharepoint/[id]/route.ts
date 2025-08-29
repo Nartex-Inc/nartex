@@ -44,12 +44,17 @@ async function requireEditor(): Promise<Authed | { error: NextResponse }> {
   const a = await loadAuth();
   if ("error" in a) return a;
   
-  // FROM: Original role check that returns a 403 error
-  // if (!EDITOR_ROLES.has(a.role)) {
-  //   return { error: NextResponse.json({ error: `Forbidden: role '${a.role}'` }, { status: 403 }) };
-  // }
+  // Temporarily force a custom, unique error message.
+  // We are doing this to PROVE if this new code is actually running on the server.
+  if (!EDITOR_ROLES.has(a.role)) {
+    return { 
+      error: NextResponse.json(
+        { message: "FORBIDDEN_V3_DEPLOYMENT_TEST", deployedAt: new Date().toISOString() }, 
+        { status: 403 }
+      ) 
+    };
+  }
   
-  // TO: Remove or comment out the role check to allow all authenticated users
   return a;
 }
 
