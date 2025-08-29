@@ -42,10 +42,9 @@ async function isDescendant(
   childId: string,
   tenantId: string
 ): Promise<boolean> {
-  let cursor: string | null = candidateParentId; // explicit type
+  let cursor: string | null = candidateParentId;
   while (cursor) {
     if (cursor === childId) return true;
-    // explicit type on the narrow select result to avoid inference loops
     const parentRow: { parentId: string | null } | null =
       await prisma.sharePointNode.findFirst({
         where: { id: cursor, tenantId },
@@ -82,7 +81,7 @@ export async function GET(_req: Request, ctx: { params: { id: string } }) {
 }
 
 /** PATCH /api/sharepoint/:id */
-export async function PATCH(req: Request, ctx: any) {
+export async function PATCH(req: Request, ctx: { params: { id: string } }) {
   const mech = await requireEditor();
   if ("error" in mech) return mech.error;
 
@@ -96,7 +95,6 @@ export async function PATCH(req: Request, ctx: any) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  // Ensure node exists for this tenant (also grab current parent if you want)
   const current = await prisma.sharePointNode.findFirst({
     where: { id, tenantId: mech.tenantId },
     select: { id: true, parentId: true },
@@ -114,7 +112,7 @@ export async function PATCH(req: Request, ctx: any) {
     data.name = name;
   }
 
-  // ---- parent move (with cycle protection)
+  // ---- parent move (cycle protection)
   if (Object.prototype.hasOwnProperty.call(body, "parentId")) {
     const parentId: string | null = body.parentId ?? null;
 
@@ -131,7 +129,6 @@ export async function PATCH(req: Request, ctx: any) {
         return NextResponse.json({ error: "Parent not found in tenant" }, { status: 400 });
       }
 
-      // Walk ancestors of the proposed parent to prevent cycles.
       let cursor: string | null = parent.parentId ?? null;
       while (cursor) {
         if (cursor === id) {
@@ -140,7 +137,6 @@ export async function PATCH(req: Request, ctx: any) {
             { status: 400 },
           );
         }
-        // 👇 explicit type to satisfy strict TS
         const anc: { parentId: string | null } | null =
           await prisma.sharePointNode.findFirst({
             where: { id: cursor, tenantId: mech.tenantId },
@@ -151,21 +147,14 @@ export async function PATCH(req: Request, ctx: any) {
       }
     }
 
-    data.parentId = parentId; // allow null (move to root)
+    data.parentId = parentId;
   }
 
   // ---- flags
   if (typeof body.restricted === "boolean") data.restricted = body.restricted;
   if (typeof body.highSecurity === "boolean") data.highSecurity = body.highSecurity;
 
-  // ---- permissions (null/"inherit" => store as empty arrays)
-  const sanitize = (arr: unknown): string[] =>
-    Array.isArray(arr)
-      ? Array.from(new Set(arr.map((x) => String(x).trim()).filter(Boolean)))
-      : [];
-
-  type PermSpec = { edit?: string[]; read?: string[] } | "inherit" | null;
-
+  // ---- permissions
   let editGroupsToSet: string[] | null | undefined;
   let readGroupsToSet: string[] | null | undefined;
 
