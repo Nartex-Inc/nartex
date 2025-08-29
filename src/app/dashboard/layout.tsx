@@ -81,7 +81,7 @@ export default function DashboardLayout({
         />
 
         {/* Main content; reserve space for the sidebar on lg+ via CSS var */}
-        <main className="relative z-0 flex-1 overflow-y-auto">
+        <main className="relative z-0 flex-1 overflow-y-auto bg-black">
           <div className="lg:pl-[var(--sidebar-w)]">
             <div className="mx-auto max-w-[1400px] px-3 sm:px-4 py-8">
               {children}
