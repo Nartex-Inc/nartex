@@ -46,7 +46,6 @@ export const authOptions: NextAuthOptions = {
   ].filter(Boolean) as any,
 
   callbacks: {
-    // Always carry id + role in the JWT. If role is missing (old token), hydrate from DB.
     async jwt({ token, user }) {
       if (user) {
         (token as any).id = (user as any).id;
@@ -54,19 +53,12 @@ export const authOptions: NextAuthOptions = {
       }
       if (!(token as any).role && token.sub) {
         try {
-          const db = await prisma.user.findUnique({
-            where: { id: token.sub },
-            select: { role: true },
-          });
+          const db = await prisma.user.findUnique({ where: { id: token.sub }, select: { role: true } });
           (token as any).role = db?.role ?? "user";
-        } catch {
-          // swallow
-        }
+        } catch {}
       }
       return token;
     },
-
-    // Mirror id + role into the session object that getServerSession() returns.
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = (token as any).id ?? token.sub ?? null;
