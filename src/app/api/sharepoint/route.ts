@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 
-const EDITOR_ROLES = new Set(["ceo", "admin", "ti-exec", "direction-exec"]);
+const EDITOR_ROLES = new Set(["ceo", "admin", "ventes-exec", "ti-exec", "direction-exec"]);
 
 async function requireTenant() {
   const session = await getServerSession(authOptions);
