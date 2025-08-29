@@ -150,11 +150,31 @@ phases:
 
     build:
       commands:
+        # =================================================================
+        # START: NEW DIAGNOSTIC COMMANDS
+        # =================================================================
+        - echo "--- Verifying Git Source ---"
+        - echo "Current Git Commit:"
+        - git log -n 1
+        - echo "--------------------------"
+        - echo "Checking for presence of API route files..."
+        - ls -la src/app/api/sharepoint/
+        - echo "--------------------------"
+        - echo "Displaying content of ROOT API route file (src/app/api/sharepoint/route.ts):"
+        - cat src/app/api/sharepoint/route.ts || echo "ERROR: ROOT route file not found."
+        - echo "--------------------------"
+        - echo "Displaying content of DYNAMIC API route file (src/app/api/sharepoint/[id]/route.ts):"
+        - cat src/app/api/sharepoint/[id]/route.ts || echo "ERROR: DYNAMIC route file not found."
+        - echo "--- End of Verification ---"
+        # =================================================================
+        # END: NEW DIAGNOSTIC COMMANDS
+        # =================================================================
+  
         - echo "🚀 BUILD – apply committed migrations (if any)"
         - npx prisma migrate deploy --schema=prisma/schema.prisma || true
   
         # ⚠️ This will apply schema changes that do NOT have migration files.
-        #     If there are destructive changes, --accept-data-loss is required.
+        #    If there are destructive changes, --accept-data-loss is required.
         - echo "🗃️ BUILD – sync DB to schema.prisma (auto-create/alter tables)"
         - npx prisma db push --schema=prisma/schema.prisma --skip-generate --accept-data-loss
   
