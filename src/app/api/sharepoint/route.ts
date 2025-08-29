@@ -4,62 +4,68 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import prisma from "@/lib/prisma";
 
-const EDITOR_ROLES = new Set(["ceo", "admin", "ventes-exec", "ti-exec", "direction-exec"]);
+const EDITOR_ROLES = new Set(["ceo","admin","ventes-exec","ti-exec","direction-exec"].map(s=>s.toLowerCase()));
 
-async function sessionWithRole() {
+type Authed = { userId: string; role: string; tenantId: string };
+
+async function loadAuth(): Promise<Authed | { error: NextResponse }> {
   const session = await getServerSession(authOptions);
-  const id = (session?.user as any)?.id as string | undefined;
-  let role = (session?.user as any)?.role as string | undefined;
+  const email = session?.user?.email ?? null;
+  let userId = (session?.user as any)?.id as string | undefined;
 
-  if (id && !role) {
-    const u = await prisma.user.findUnique({ where: { id }, select: { role: true } });
-    role = u?.role;
-    if (role) (session!.user as any).role = role;
+  if (!userId && email) {
+    const u = await prisma.user.findFirst({
+      where: { email: email },
+      select: { id: true },
+    });
+    userId = u?.id;
   }
-  return { session, id, role };
-}
-
-async function requireTenant() {
-  const { session, id } = await sessionWithRole();
-  if (!session?.user || !id) {
+  if (!userId) {
     return { error: NextResponse.json({ error: "Not authenticated" }, { status: 401 }) };
   }
-  const userTenant = await prisma.userTenant.findFirst({
-    where: { userId: id },
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+  const role = (user?.role ?? "user").toLowerCase().trim();
+
+  const ut = await prisma.userTenant.findFirst({
+    where: { userId },
     select: { tenantId: true },
   });
-  if (!userTenant) {
-    return { error: NextResponse.json({ error: "Tenant not found" }, { status: 404 }) };
+  if (!ut) {
+    return { error: NextResponse.json({ error: "Tenant not found for user" }, { status: 404 }) };
   }
-  return { tenantId: userTenant.tenantId, session };
+
+  return { userId, role, tenantId: ut.tenantId };
 }
 
-async function requireEditor() {
-  const base = await requireTenant();
-  if ("error" in base) return base as any;
-  const role = (base.session?.user as any)?.role as string | undefined;
-  if (!role || !EDITOR_ROLES.has(role)) {
-    return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+async function requireEditor(): Promise<(Authed & {}) | { error: NextResponse }> {
+  const a = await loadAuth();
+  if ("error" in a) return a;
+  if (!EDITOR_ROLES.has(a.role)) {
+    return { error: NextResponse.json({ error: `Forbidden: role '${a.role}'` }, { status: 403 }) };
   }
-  return base;
+  return a;
 }
 
-/** GET /api/sharepoint -> all nodes for the tenant */
+/** GET /api/sharepoint */
 export async function GET() {
-  const mech = await requireTenant();
-  if ("error" in mech) return mech.error;
+  const a = await loadAuth();
+  if ("error" in a) return a.error;
 
   const nodes = await prisma.sharePointNode.findMany({
-    where: { tenantId: mech.tenantId },
+    where: { tenantId: a.tenantId },
     orderBy: [{ parentId: "asc" }, { name: "asc" }],
   });
   return NextResponse.json(nodes);
 }
 
-/** POST /api/sharepoint -> create a node */
+/** POST /api/sharepoint */
 export async function POST(req: Request) {
-  const mech = await requireEditor();
-  if ("error" in mech) return mech.error;
+  const a = await requireEditor();
+  if ("error" in a) return a.error;
 
   let body: any;
   try {
@@ -84,10 +90,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
   }
 
-  // Verify parent belongs to the same tenant if provided
   if (parentId) {
     const parent = await prisma.sharePointNode.findFirst({
-      where: { id: parentId, tenantId: mech.tenantId },
+      where: { id: parentId, tenantId: a.tenantId },
       select: { id: true },
     });
     if (!parent) {
@@ -100,7 +105,6 @@ export async function POST(req: Request) {
       ? Array.from(new Set(arr.map((x) => String(x).trim()).filter(Boolean)))
       : [];
 
-  // Normalize permissions (arrays only; inherit/null => [])
   let editGroups: string[] = [];
   let readGroups: string[] = [];
 
@@ -129,7 +133,7 @@ export async function POST(req: Request) {
     data: {
       name: name.trim(),
       parentId: parentId ?? null,
-      tenantId: mech.tenantId,
+      tenantId: a.tenantId,
       type,
       icon,
       restricted,
