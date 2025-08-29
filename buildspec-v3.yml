@@ -40,10 +40,10 @@ phases:
         cat > ci-prebuild.sh << 'SH'
         set -euo pipefail
         set -x
-        
+
         # Remove legacy file if present to avoid conflicts
         rm -f src/lib/auth.ts || true
-        
+
         # Ensure runtime & dev deps (idempotent)
         npm pkg set dependencies.recharts="^2.12.7"
         npm pkg set dependencies.lucide-react="^0.452.0"
@@ -56,7 +56,7 @@ phases:
         npm pkg set dependencies.@next-auth/prisma-adapter="^1.0.7"
         npm pkg set devDependencies.@types/node="^18.19.0"
         npm pkg set devDependencies.@types/pg="^8.11.7"
-        
+
         # shadcn config (safe if already exists)
         node <<'NODE'
         const fs = require('fs');
@@ -69,9 +69,9 @@ phases:
         j.iconLibrary = 'lucide'; j.components = j.components || []; j.path = 'src/components';
         fs.writeFileSync(p, JSON.stringify(j, null, 2));
         NODE
-        
+
         mkdir -p src/lib src/components/ui src/components/dashboard
-        
+
         # cn() helper if missing
         if [ ! -f src/lib/utils.ts ]; then
           cat > src/lib/utils.ts << 'TS'
@@ -81,7 +81,7 @@ phases:
         export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
         TS
         fi
-        
+
         # ---- UI stubs used by page.tsx (Card + CardTitle) --------------------
         cat > src/components/ui/card.tsx << 'TSX'
         import * as React from "react";
@@ -94,30 +94,30 @@ phases:
         }
         export default Card;
         TSX
-        
+
         # Minimal dashboard stubs if absent (safe no-ops)
         [ -f src/components/nartex-logo.tsx ] || cat > src/components/nartex-logo.tsx << 'TSX'
         export default function NartexLogo({ className="" }: { className?: string }) {
           return <span className={className} style={{ fontWeight: 600, letterSpacing: ".05em" }}>nartex</span>;
         }
         TSX
-        
+
         [ -f src/components/dashboard/header.tsx ] || cat > src/components/dashboard/header.tsx << 'TSX'
         export default function DashboardHeader(){ return <div className="px-4 py-3 text-sm text-muted-foreground">Dashboard Header</div>; }
         TSX
-        
+
         [ -f src/components/dashboard/sidebar.tsx ] || cat > src/components/dashboard/sidebar.tsx << 'TSX'
         export default function DashboardSidebar(){ return <aside className="p-4 text-sm text-muted-foreground">Sidebar</aside>; }
         TSX
-        
+
         [ -f src/components/dashboard/new-product-requests-table.tsx ] || cat > src/components/dashboard/new-product-requests-table.tsx << 'TSX'
         export default function NewProductRequestsTable(){ return <div className="p-4 text-sm text-muted-foreground">New product requests (stub)</div>; }
         TSX
-        
+
         [ -f src/components/product-requests-table.tsx ] || cat > src/components/product-requests-table.tsx << 'TSX'
         export default function ProductRequestsTable(){ return <div className="p-4 text-sm text-muted-foreground">Product requests (stub)</div>; }
         TSX
-        
+
         # 🔧 Auto-insert missing import in the SharePoint page if needed
         node <<'NODE'
         const fs = require('fs');
@@ -141,18 +141,17 @@ phases:
           console.log('ℹ️ SharePoint page not found:', p);
         }
         NODE
-        
+
         # Refresh lockfile for better Docker cache hits
         npm install --package-lock-only --ignore-scripts --no-audit --no-fund
         SH
       - chmod +x ci-prebuild.sh
       - bash ci-prebuild.sh
 
-  # NOTE: The "build:" key below is NOT indented
   build:
     commands:
       # =================================================================
-      # START: NEW DIAGNOSTIC COMMANDS
+      # START: DIAGNOSTIC LOGS
       # =================================================================
       - echo "--- Verifying Git Source ---"
       - echo "Current Git Commit:"
@@ -168,20 +167,12 @@ phases:
       - cat src/app/api/sharepoint/[id]/route.ts || echo "ERROR: DYNAMIC route file not found."
       - echo "--- End of Verification ---"
       # =================================================================
-      # END: NEW DIAGNOSTIC COMMANDS
+      # END: DIAGNOSTIC LOGS
       # =================================================================
-
-      - echo "🚀 BUILD – apply committed migrations (if any)"
-      - npx prisma migrate deploy --schema=prisma/schema.prisma || true
-
-      # ⚠️ This will apply schema changes that do NOT have migration files.
-      #    If there are destructive changes, --accept-data-loss is required.
-      - echo "🗃️ BUILD – sync DB to schema.prisma (auto-create/alter tables)"
-      - npx prisma db push --schema=prisma/schema.prisma --skip-generate --accept-data-loss
-
-      - echo "⚙️ BUILD – generate Prisma client"
+      - echo "🚀 BUILD – apply prisma migrations"
+      - npx prisma migrate deploy --schema=prisma/schema.prisma
+      - echo "⚙️ BUILD – generate prisma client"
       - npx prisma generate --schema=prisma/schema.prisma
-
       - echo "🏗 BUILD – resolve commit hash"
       - COMMIT_HASH=$(git rev-parse --short HEAD)
       - echo "COMMIT_HASH=$COMMIT_HASH"
@@ -205,16 +196,13 @@ phases:
           --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
           -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
           -t "$ECR_IMAGE_URI:latest" .
-
       - echo "🧾 BUILD – write imagedefinitions.json artifact"
       - |
         printf '[{"name":"%s","imageUri":"%s"}]\n' \
           "$CONTAINER_NAME" "$ECR_IMAGE_URI:$COMMIT_HASH" > imagedefinitions.json
         cat imagedefinitions.json
-
       - echo "🔑 Login to ECR"
       - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
-
       - echo "📤 Push images"
       - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
       - docker push "$ECR_IMAGE_URI:latest"
