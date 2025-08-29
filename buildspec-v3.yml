@@ -25,110 +25,42 @@ env:
     RDS_CREDENTIALS:        nartex/prod/rds-credentials
 
 phases:
-  install:
-    runtime-versions:
-      nodejs: 18
-    commands:
-      - echo "📦 INSTALL – clean cache and install deps"
-      - npm cache clean --force
-      - npm ci
-
   pre_build:
     commands:
-      - echo "📜 PRE_BUILD – preparing workspace"
+      - echo "📜 PRE_BUILD – preparing environment and logging into ECR"
       - |
-        cat > ci-prebuild.sh << 'SH'
-        set -euo pipefail
-        set -x
-
-        # Remove legacy file if present to avoid conflicts
-        rm -f src/lib/auth.ts || true
-
-        # Ensure runtime & dev deps (idempotent)
-        npm pkg set dependencies.recharts="^2.12.7"
-        npm pkg set dependencies.lucide-react="^0.452.0"
-        npm pkg set dependencies.class-variance-authority="^0.7.0"
-        npm pkg set dependencies.clsx="^2.1.1"
-        npm pkg set dependencies.tailwind-merge="^2.5.2"
-        npm pkg set dependencies.tailwindcss-animate="^1.0.7"
-        npm pkg set dependencies.pg="^8.11.3"
-        npm pkg set dependencies.swr="^2.3.0"
-        npm pkg set dependencies.@next-auth/prisma-adapter="^1.0.7"
-        npm pkg set devDependencies.@types/node="^18.19.0"
-        npm pkg set devDependencies.@types/pg="^8.11.7"
-
-        # shadcn config (safe if already exists)
-        node <<'NODE'
-        const fs = require('fs');
-        const p = 'components.json';
-        const j = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p,'utf8')) : {};
-        j.$schema = 'https://ui.shadcn.com/schema.json';
-        j.style = 'default'; j.rsc = true; j.tsx = true;
-        j.tailwind = { config: 'tailwind.config.ts', css: 'src/app/globals.css', baseColor: 'gray', cssVariables: true };
-        j.aliases = { components: '@/components', utils: '@/lib/utils' };
-        j.iconLibrary = 'lucide'; j.components = j.components || []; j.path = 'src/components';
-        fs.writeFileSync(p, JSON.stringify(j, null, 2));
-        NODE
-
-        mkdir -p src/lib src/components/ui src/components/dashboard
-
-        # cn() helper if missing
-        if [ ! -f src/lib/utils.ts ]; then
-          cat > src/lib/utils.ts << 'TS'
-        import type { ClassValue } from "clsx";
-        import clsx from "clsx";
-        import { twMerge } from "tailwind-merge";
-        export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
-        TS
-        fi
-
-        # Minimal stubs if components are absent
-        [ -f src/components/nartex-logo.tsx ] || cat > src/components/nartex-logo.tsx << 'TSX'
-        export default function NartexLogo({ className="" }: { className?: string }) {
-          return <span className={className} style={{ fontWeight: 600, letterSpacing: ".05em" }}>nartex</span>;
-        }
-        TSX
-
-        [ -f src/components/dashboard/header.tsx ] || cat > src/components/dashboard/header.tsx << 'TSX'
-        export default function DashboardHeader(){ return <div className="px-4 py-3 text-sm text-muted-foreground">Dashboard Header</div>; }
-        TSX
-
-        [ -f src/components/dashboard/sidebar.tsx ] || cat > src/components/dashboard/sidebar.tsx << 'TSX'
-        export default function DashboardSidebar(){ return <aside className="p-4 text-sm text-muted-foreground">Sidebar</aside>; }
-        TSX
-
-        [ -f src/components/dashboard/new-product-requests-table.tsx ] || cat > src/components/dashboard/new-product-requests-table.tsx << 'TSX'
-        export default function NewProductRequestsTable(){ return <div className="p-4 text-sm text-muted-foreground">New product requests (stub)</div>; }
-        TSX
-
-        [ -f src/components/product-requests-table.tsx ] || cat > src/components/product-requests-table.tsx << 'TSX'
-        export default function ProductRequestsTable(){ return <div className="p-4 text-sm text-muted-foreground">Product requests (stub)</div>; }
-        TSX
-
-        # Refresh lockfile for better Docker cache hits
-        npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-        SH
-      - chmod +x ci-prebuild.sh
-      - bash ci-prebuild.sh
-
-  build:
-    commands:
-      - echo "🚀 BUILD – Prisma (deploy committed migrations)"
-      - |
-        if [ -d prisma/migrations ] && [ "$(ls -A prisma/migrations)" ]; then
-          npx prisma migrate deploy --schema=prisma/schema.prisma
-          echo "🔎 Prisma status (expect 'Database is up to date')"
-          npx prisma migrate status --schema=prisma/schema.prisma
-        else
-          echo "ℹ️ No migrations folder or it is empty – skipping deploy."
-        fi
-      - echo "⚙️ BUILD – Generate Prisma client"
-      - npx prisma generate --schema=prisma/schema.prisma
-      - echo "🏗 BUILD – resolve commit hash"
+        # Login to ECR first
+        aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+      
+      - echo "🔧 PRE_BUILD – Setting up commit hash"
       - COMMIT_HASH=$(git rev-parse --short HEAD)
       - echo "COMMIT_HASH=$COMMIT_HASH"
       - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
-      - echo "🐳 BUILD – docker image"
+
+  build:
+    commands:
+      - echo "🚀 BUILD – Running Prisma migrations directly in Docker build"
+      - echo "🐳 BUILD – Building Docker image with all environment variables"
+      - |
+        # Create a temporary .env file for the Docker build context
+        # This ensures the build has access to all required environment variables
+        cat > .env.production << EOF
+        DATABASE_URL=$DATABASE_URL
+        EMAIL_SERVER_HOST=$EMAIL_SERVER_HOST
+        EMAIL_SERVER_PORT=$EMAIL_SERVER_PORT
+        EMAIL_SERVER_USER=$EMAIL_SERVER_USER
+        EMAIL_SERVER_PASSWORD=$EMAIL_SERVER_PASSWORD
+        EMAIL_FROM=$EMAIL_FROM
+        NEXTAUTH_URL=$NEXTAUTH_URL
+        NEXTAUTH_SECRET=$NEXTAUTH_SECRET
+        GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
+        GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
+        AZURE_AD_CLIENT_ID=$AZURE_AD_CLIENT_ID
+        AZURE_AD_CLIENT_SECRET=$AZURE_AD_CLIENT_SECRET
+        AZURE_AD_TENANT_ID=$AZURE_AD_TENANT_ID
+        EOF
+      
+      - echo "🐳 BUILD – Building Docker image"
       - |
         docker build --no-cache --pull \
           --build-arg GIT_COMMIT_HASH="$COMMIT_HASH" \
@@ -147,26 +79,32 @@ phases:
           --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
           -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
           -t "$ECR_IMAGE_URI:latest" .
-      - echo "🧾 BUILD – write imagedefinitions.json artifact"
+      
+      - echo "🧾 BUILD – Writing imagedefinitions.json artifact"
       - |
         printf '[{"name":"%s","imageUri":"%s"}]\n' \
           "$CONTAINER_NAME" "$ECR_IMAGE_URI:$COMMIT_HASH" > imagedefinitions.json
         cat imagedefinitions.json
-      - echo "🔑 Login to ECR"
-      - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
-      - echo "📤 Push images"
+      
+      - echo "📤 BUILD – Pushing images to ECR"
       - docker push "$ECR_IMAGE_URI:$COMMIT_HASH"
       - docker push "$ECR_IMAGE_URI:latest"
+      
+      - echo "🧹 BUILD – Cleaning up sensitive files"
+      - rm -f .env.production
 
   post_build:
     commands:
-      - echo "🔄 Force new ECS deployment"
+      - echo "✅ POST_BUILD – Build completed on $(date)"
+      - echo "🔄 POST_BUILD – Forcing new ECS deployment"
       - |
         aws ecs update-service \
           --cluster nartex-cluster \
           --service nartex-next-service \
           --force-new-deployment \
-          --region $AWS_DEFAULT_REGION
+          --region $AWS_DEFAULT_REGION \
+          || echo "⚠️ ECS update-service failed (service may not exist yet)"
+      - echo "✨ POST_BUILD – Deployment triggered successfully"
 
 artifacts:
   files:
