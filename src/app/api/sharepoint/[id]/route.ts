@@ -1,4 +1,3 @@
-// src/app/api/sharepoint/[id]/route.ts
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
@@ -7,8 +6,7 @@ import prisma from "@/lib/prisma";
 const EDITOR_ROLES = new Set(["ceo", "admin", "ventes-exec", "ti-exec", "direction-exec"]);
 type PermSpec = { edit?: string[]; read?: string[] } | "inherit" | null;
 
-/* ------------------------------ Utilities ------------------------------ */
-
+/* ---------- Utilities ---------- */
 async function requireTenant() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -27,14 +25,21 @@ async function requireTenant() {
 async function requireEditor() {
   const base = await requireTenant();
   if ("error" in base) return base as any;
-  const role = (base.session?.user as any)?.role as string | undefined;
+
+  let role = (base.session?.user as any)?.role as string | undefined;
+  if (!role && base.session?.user?.id) {
+    const u = await prisma.user.findUnique({
+      where: { id: (base.session.user as any).id },
+      select: { role: true },
+    });
+    role = u?.role ?? undefined;
+  }
   if (!role || !EDITOR_ROLES.has(role)) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
   return base;
 }
 
-/** Narrow helper for parentId lookups (typed return). */
 async function getParentId(nodeId: string, tenantId: string): Promise<string | null> {
   const row = await prisma.sharePointNode.findFirst({
     where: { id: nodeId, tenantId },
@@ -48,28 +53,26 @@ const sanitize = (arr: unknown): string[] =>
     ? Array.from(new Set(arr.map((x) => String(x).trim()).filter(Boolean)))
     : [];
 
-/* -------------------------------- Routes -------------------------------- */
-
-export async function GET(_req: Request, ctx: any) {
+/* ---------- Routes ---------- */
+export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const mech = await requireTenant();
   if ("error" in mech) return mech.error;
 
-  const id = ctx?.params?.id?.toString();
+  const id = params?.id?.toString();
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   const node = await prisma.sharePointNode.findFirst({
     where: { id, tenantId: mech.tenantId },
   });
-
   if (!node) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(node);
 }
 
-export async function PATCH(req: Request, ctx: any) {
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const mech = await requireEditor();
   if ("error" in mech) return mech.error;
 
-  const id = ctx?.params?.id?.toString();
+  const id = params?.id?.toString();
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   let body: any;
@@ -87,14 +90,12 @@ export async function PATCH(req: Request, ctx: any) {
 
   const data: Record<string, any> = {};
 
-  // rename
   if (typeof body.name === "string") {
     const name = body.name.trim();
     if (!name) return NextResponse.json({ error: "Name cannot be empty" }, { status: 400 });
     data.name = name;
   }
 
-  // parent move (cycle protection)
   if (Object.prototype.hasOwnProperty.call(body, "parentId")) {
     const parentId: string | null = body.parentId ?? null;
 
@@ -111,27 +112,25 @@ export async function PATCH(req: Request, ctx: any) {
         return NextResponse.json({ error: "Parent not found in tenant" }, { status: 400 });
       }
 
-      // Walk up ancestors of the proposed parent to prevent cycles.
+      // prevent cycles
       let cursor: string | null = parent.parentId ?? null;
       while (cursor) {
         if (cursor === id) {
           return NextResponse.json(
             { error: "Cannot move node under its own descendant" },
-            { status: 400 }
+            { status: 400 },
           );
         }
         cursor = await getParentId(cursor, mech.tenantId);
       }
     }
 
-    data.parentId = parentId; // allow null => move to root
+    data.parentId = parentId;
   }
 
-  // flags
   if (typeof body.restricted === "boolean") data.restricted = body.restricted;
   if (typeof body.highSecurity === "boolean") data.highSecurity = body.highSecurity;
 
-  // permissions (null/"inherit" => store as empty arrays)
   let editGroupsToSet: string[] | null | undefined;
   let readGroupsToSet: string[] | null | undefined;
 
@@ -166,11 +165,11 @@ export async function PATCH(req: Request, ctx: any) {
   return NextResponse.json(updated);
 }
 
-export async function DELETE(_req: Request, ctx: any) {
+export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   const mech = await requireEditor();
   if ("error" in mech) return mech.error;
 
-  const id = ctx?.params?.id?.toString();
+  const id = params?.id?.toString();
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   const all = await prisma.sharePointNode.findMany({
