@@ -11,9 +11,7 @@ import bcrypt from "bcryptjs";
 import type { User } from "@prisma/client";
 
 export const authOptions: NextAuthOptions = {
-  // your custom pages (keep as-is)
   pages: authConfig.pages,
-
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
 
@@ -37,12 +35,10 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
-
         const user = await prisma.user.findUnique({
           where: { email: String(credentials.email) },
         });
         if (!user || !user.password) return null;
-
         const ok = await bcrypt.compare(String(credentials.password), user.password);
         return ok ? (user as unknown as User) : null;
       },
@@ -50,51 +46,31 @@ export const authOptions: NextAuthOptions = {
   ].filter(Boolean) as any,
 
   callbacks: {
-    /**
-     * Ensure the JWT always carries `id` and `role`.
-     * - On sign-in: copy from the User object.
-     * - If missing later: fetch from DB by token.sub.
-     * - Allow role updates via `session.update({ role })` if you ever use it.
-     */
-    async jwt({ token, user, trigger, session }) {
-      // On first sign-in we have a `user` object — copy id & role
+    // Always carry id + role in the JWT. If role is missing (old token), hydrate from DB.
+    async jwt({ token, user }) {
       if (user) {
-        const id = (user as any).id;
-        const role = (user as any).role ?? null;
-        token.sub = id; // make sure sub is set
-        (token as any).id = id;
-        (token as any).role = role;
+        (token as any).id = (user as any).id;
+        (token as any).role = (user as any).role ?? "user";
       }
-
-      // If role missing/stale, hydrate from DB
-      if (!(token as any).role && (token.sub || (token as any).id)) {
-        const id = (token as any).id ?? token.sub!;
+      if (!(token as any).role && token.sub) {
         try {
-          const dbUser = await prisma.user.findUnique({
-            where: { id },
+          const db = await prisma.user.findUnique({
+            where: { id: token.sub },
             select: { role: true },
           });
-          (token as any).role = dbUser?.role ?? null;
+          (token as any).role = db?.role ?? "user";
         } catch {
-          // ignore; keep token as-is
+          // swallow
         }
       }
-
-      // Optional: allow client-side session.update({ role }) to refresh token
-      if (trigger === "update" && session && (session as any).role) {
-        (token as any).role = (session as any).role;
-      }
-
       return token;
     },
 
-    /**
-     * Expose id & role on `session.user` so server routes (and client) can read them.
-     */
+    // Mirror id + role into the session object that getServerSession() returns.
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = (token as any).id ?? token.sub ?? null;
-        (session.user as any).role = (token as any).role ?? null;
+        (session.user as any).role = (token as any).role ?? "user";
       }
       return session;
     },
