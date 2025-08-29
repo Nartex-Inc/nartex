@@ -1,4 +1,3 @@
-// src/app/api/sharepoint/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
@@ -6,6 +5,7 @@ import { authOptions } from "@/auth";
 
 const EDITOR_ROLES = new Set(["ceo", "admin", "ventes-exec", "ti-exec", "direction-exec"]);
 
+/** Resolve tenant from the signed-in user (401/404 on failure). */
 async function requireTenant() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -21,10 +21,23 @@ async function requireTenant() {
   return { tenantId: userTenant.tenantId, session };
 }
 
+/** Editor gate: allow if role is in EDITOR_ROLES; fall back to DB if session lacks role. */
 async function requireEditor() {
   const base = await requireTenant();
   if ("error" in base) return base as any;
-  const role = (base.session?.user as any)?.role as string | undefined;
+
+  // 1) try from session (JWT-backed)
+  let role = (base.session?.user as any)?.role as string | undefined;
+
+  // 2) harden: fetch from DB if missing
+  if (!role && base.session?.user?.id) {
+    const u = await prisma.user.findUnique({
+      where: { id: (base.session.user as any).id },
+      select: { role: true },
+    });
+    role = u?.role ?? undefined;
+  }
+
   if (!role || !EDITOR_ROLES.has(role)) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
@@ -44,7 +57,7 @@ export async function GET() {
   return NextResponse.json(nodes);
 }
 
-/** POST /api/sharepoint */
+/** POST /api/sharepoint -> create node (editor only) */
 export async function POST(req: Request) {
   const mech = await requireEditor();
   if ("error" in mech) return mech.error;
@@ -64,7 +77,6 @@ export async function POST(req: Request) {
     restricted = false,
     highSecurity = false,
     permissions,
-    // optionally allow direct fields too
     editGroups: editGroupsRaw,
     readGroups: readGroupsRaw,
   } = body ?? {};
@@ -73,7 +85,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
   }
 
-  // If parent is provided, ensure it exists in this tenant
+  // Validate parent inside tenant
   if (parentId) {
     const parent = await prisma.sharePointNode.findFirst({
       where: { id: parentId, tenantId: mech.tenantId },
@@ -84,17 +96,13 @@ export async function POST(req: Request) {
     }
   }
 
-  // ---- sanitize helper
-  const sanitize = (arr: unknown): string[] => {
-    if (!Array.isArray(arr)) return [];
-    return Array.from(
-      new Set(
-        arr.map((x) => String(x).trim()).filter(Boolean)
-      )
-    );
-  };
+  // Sanitize list helpers
+  const sanitize = (arr: unknown): string[] =>
+    Array.isArray(arr)
+      ? Array.from(new Set(arr.map((x) => String(x).trim()).filter(Boolean)))
+      : [];
 
-  // ---- permissions normalization (arrays only; inherit/null => [])
+  // Normalize permissions (store arrays only; inherit/null => [])
   let editGroups: string[] = [];
   let readGroups: string[] = [];
 
@@ -112,7 +120,6 @@ export async function POST(req: Request) {
     readGroups = sanitize(permissions.read ?? []);
   }
 
-  // Also accept top-level fields; null means inherit => []
   if (Object.prototype.hasOwnProperty.call(body, "editGroups")) {
     editGroups = editGroupsRaw === null ? [] : sanitize(editGroupsRaw);
   }
@@ -129,8 +136,8 @@ export async function POST(req: Request) {
       icon,
       restricted,
       highSecurity,
-      editGroups, // arrays only
-      readGroups, // arrays only
+      editGroups,
+      readGroups,
     },
   });
 
