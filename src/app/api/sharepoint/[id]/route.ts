@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import prisma from "@/lib/prisma";
 
-const EDITOR_ROLES = new Set(["ceo", "admin", "ti-exec", "direction-exec"]);
+const EDITOR_ROLES = new Set(["ceo", "admin", "ventes-exec", "ti-exec", "direction-exec"]);
 type PermSpec = { edit?: string[]; read?: string[] } | "inherit" | null;
 
 /* ------------------------------ Utilities ------------------------------ */
