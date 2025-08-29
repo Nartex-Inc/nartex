@@ -130,7 +130,13 @@ function buildTree(rows: APINode[]): NodeItem {
 export default function SharePointPage() {
   const { data: session, status } = useSession();
   if (status === "loading") return <LoadingState />;
-  if (status === "unauthenticated" || session?.user?.role !== "ventes-exec")
+
+  const VIEW_ROLES = new Set(["ventes-exec", "ceo", "admin", "ti-exec", "direction-exec"]);
+  const role = (session?.user as any)?.role ?? "";
+  const canView = VIEW_ROLES.has(role);
+  
+  if (status === "unauthenticated" || !canView) return <AccessDenied />;
+
     return <AccessDenied />;
 
   return (
