@@ -1,0 +1,43 @@
+import * as React from "react";
+import { cn } from "@/lib/utils";
+
+export function Card({
+  className,
+  children,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border border-white/10 bg-white/[0.02] p-4",
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Custom title that accepts an optional `icon` prop (matches your usage) */
+export function CardTitle({
+  className,
+  icon,
+  children,
+}: {
+  className?: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-2 text-sm font-medium tracking-wide text-white",
+        className
+      )}
+    >
+      {icon ? <span className="shrink-0">{icon}</span> : null}
+      <span>{children}</span>
+    </div>
+  );
+}
