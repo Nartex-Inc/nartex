@@ -99,37 +99,17 @@ RUN node -e "\
 # Stage 2: Runtime
 # ============================
 FROM node:18-bullseye-slim AS runner
+# In your final production/runner stage...
 WORKDIR /app
 
-ENV NODE_ENV=production \
-    PORT=3000 \
-    HOSTNAME=0.0.0.0 \
-    NEXT_TELEMETRY_DISABLED=1
+# Copy the self-contained server, node_modules, and assets from the builder stage
+COPY --from=builder /app/.next/standalone ./
 
-# Minimal tools + CA certs
-RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl openssl \
- && rm -rf /var/lib/apt/lists/*
+# Copy static assets like CSS and JS bundles
+COPY --from=builder /app/.next/static ./.next/static
 
-# RDS trust bundle (regional → global fallback)
-RUN set -eux; \
-  dest="/etc/ssl/certs/rds-ca.pem"; \
-  curl -fsSL "https://truststore.pki.rds.amazonaws.com/ca-central-1/ca-bundle.pem" -o "$dest" \
-  || curl -fsSL "https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem" -o "$dest"; \
-  chmod 0644 "$dest"; \
-  ln -sf "$dest" /etc/ssl/certs/rds-combined-ca-bundle.pem
-ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/rds-ca.pem
+# Copy public assets like images and fonts
+COPY --from=builder /app/public ./public
 
-# ---- Next.js app files (standalone output) ----
-COPY --from=builder /app/.next/standalone         ./
-COPY --from=builder /app/.next/static             ./.next/static
-COPY --from=builder /app/.next/server             ./.next/server   # <-- REQUIRED for App Router routes
-COPY --from=builder /app/public                   ./public
-
-# Prisma runtime bits (defensive; standalone usually includes them)
-COPY --from=builder /app/prisma                           ./prisma
-COPY --from=builder /app/node_modules/.prisma/client      ./node_modules/.prisma/client
-COPY --from=builder /app/node_modules/@prisma/client      ./node_modules/@prisma/client
-
-EXPOSE 3000
+# Your CMD should then run the standalone server
 CMD ["node", "server.js"]
