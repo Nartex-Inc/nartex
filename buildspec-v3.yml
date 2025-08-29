@@ -82,7 +82,20 @@ phases:
         TS
         fi
 
-        # Minimal stubs if components are absent
+        # ---- UI stubs used by page.tsx (Card + CardTitle) --------------------
+        cat > src/components/ui/card.tsx << 'TSX'
+        import * as React from "react";
+        import { cn } from "@/lib/utils";
+        export function Card({ className = "", children }: React.PropsWithChildren<{ className?: string }>) {
+          return <div className={cn("rounded-xl border border-white/10 bg-white/[0.02] p-4", className)}>{children}</div>;
+        }
+        export function CardTitle({ className = "", icon, children }: React.PropsWithChildren<{ className?: string; icon?: React.ReactNode }>) {
+          return <div className={cn("mb-2 flex items-center gap-2 text-sm font-semibold text-gray-200", className)}>{icon}{children}</div>;
+        }
+        export default Card;
+        TSX
+
+        # Minimal dashboard stubs if absent (safe no-ops)
         [ -f src/components/nartex-logo.tsx ] || cat > src/components/nartex-logo.tsx << 'TSX'
         export default function NartexLogo({ className="" }: { className?: string }) {
           return <span className={className} style={{ fontWeight: 600, letterSpacing: ".05em" }}>nartex</span>;
@@ -105,6 +118,30 @@ phases:
         export default function ProductRequestsTable(){ return <div className="p-4 text-sm text-muted-foreground">Product requests (stub)</div>; }
         TSX
 
+        # 🔧 Auto-insert missing import in the SharePoint page if needed
+        node <<'NODE'
+        const fs = require('fs');
+        const p = 'src/app/dashboard/sharepoint/page.tsx';
+        if (fs.existsSync(p)) {
+          let s = fs.readFileSync(p, 'utf8');
+          if (!/components\/ui\/card/.test(s)) {
+            const importLine = 'import { Card, CardTitle } from "@/components/ui/card";\\n';
+            if (s.startsWith('"use client"') || s.startsWith("'use client'")) {
+              const i = s.indexOf('\\n');
+              s = s.slice(0, i + 1) + importLine + s.slice(i + 1);
+            } else {
+              s = importLine + s;
+            }
+            fs.writeFileSync(p, s);
+            console.log('✅ Injected Card/CardTitle import in', p);
+          } else {
+            console.log('ℹ️ Card/CardTitle import already present in', p);
+          }
+        } else {
+          console.log('ℹ️ SharePoint page not found:', p);
+        }
+        NODE
+
         # Refresh lockfile for better Docker cache hits
         npm install --package-lock-only --ignore-scripts --no-audit --no-fund
         SH
@@ -114,17 +151,17 @@ phases:
   build:
     commands:
       - echo "🚀 BUILD – apply prisma migrations"
-      - npx prisma migrate deploy
+      - npx prisma migrate deploy --schema=prisma/schema.prisma
       - echo "⚙️ BUILD – generate prisma client"
-      - npx prisma generate
+      - npx prisma generate --schema=prisma/schema.prisma
       - echo "🏗 BUILD – resolve commit hash"
       - COMMIT_HASH=$(git rev-parse --short HEAD)
       - echo "COMMIT_HASH=$COMMIT_HASH"
       - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
-      - echo "🏗 BUILD – docker image"
+      - echo "🐳 BUILD – docker image (no-cache + pull)"
       - |
-        docker build \
-          --build-arg GIT_COMMIT_HASH=$COMMIT_HASH \
+        docker build --no-cache --pull --progress=plain \
+          --build-arg GIT_COMMIT_HASH="$COMMIT_HASH" \
           --build-arg DATABASE_URL="$DATABASE_URL" \
           --build-arg EMAIL_SERVER_HOST="$EMAIL_SERVER_HOST" \
           --build-arg EMAIL_SERVER_PORT="$EMAIL_SERVER_PORT" \
@@ -141,6 +178,12 @@ phases:
           -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
           -t "$ECR_IMAGE_URI:latest" .
 
+      - echo "🧾 BUILD – write imagedefinitions.json artifact"
+      - |
+        printf '[{"name":"%s","imageUri":"%s"}]\n' \
+          "$CONTAINER_NAME" "$ECR_IMAGE_URI:$COMMIT_HASH" > imagedefinitions.json
+        cat imagedefinitions.json
+
       - echo "🔑 Login to ECR"
       - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
 
@@ -156,8 +199,5 @@ phases:
           --cluster nartex-cluster \
           --service nartex-next-service \
           --force-new-deployment \
-          --region $AWS_DEFAULT_REGION
+          --region "$AWS_DEFAULT_REGION"
 
-artifacts:
-  files:
-    - imagedefinitions.json
