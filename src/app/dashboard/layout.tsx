@@ -55,7 +55,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-muted/40">
+    <div className="flex min-h-screen flex-col bg-black">
       {/* Sticky app header */}
       <Header
         onToggleMobileSidebar={() => setMobileOpen((v) => !v)}
