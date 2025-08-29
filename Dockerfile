@@ -102,6 +102,14 @@ FROM node:18-bullseye-slim AS runner
 # In your final production/runner stage...
 WORKDIR /app
 
+# =================================================================
+# START: NEW COMMAND TO ADD SSL CERTIFICATE
+# =================================================================
+COPY --from=builder /app/certs/rds-combined-ca-bundle.pem /etc/ssl/certs/rds-combined-ca-bundle.pem
+# =================================================================
+# END: NEW COMMAND
+# =================================================================
+
 # Copy the self-contained server, node_modules, and assets from the builder stage
 COPY --from=builder /app/.next/standalone ./
 
