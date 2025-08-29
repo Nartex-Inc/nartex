@@ -6,6 +6,7 @@ import prisma from "@/lib/prisma";
 
 const EDITOR_ROLES = new Set(["ceo", "admin", "ti-exec", "direction-exec"]);
 type PermSpec = { edit?: string[]; read?: string[] } | "inherit" | null;
+type Ctx = { params: { id: string } };
 
 /* ------------------------------------------------------------------ */
 /* Utilities                                                          */
@@ -36,23 +37,13 @@ async function requireEditor() {
   return base;
 }
 
-/** Walk up the parent chain to see if `candidateParentId` is a descendant of `childId`. */
-async function isDescendant(
-  candidateParentId: string,
-  childId: string,
-  tenantId: string
-): Promise<boolean> {
-  let cursor: string | null = candidateParentId;
-  while (cursor) {
-    if (cursor === childId) return true;
-    const parentRow: { parentId: string | null } | null =
-      await prisma.sharePointNode.findFirst({
-        where: { id: cursor, tenantId },
-        select: { parentId: true },
-      });
-    cursor = parentRow?.parentId ?? null;
-  }
-  return false;
+/** Return the parentId for a node in a tenant (typed to avoid implicit-any issues). */
+async function getParentId(nodeId: string, tenantId: string): Promise<string | null> {
+  const row = await prisma.sharePointNode.findFirst({
+    where: { id: nodeId, tenantId },
+    select: { parentId: true },
+  });
+  return row?.parentId ?? null;
 }
 
 const sanitize = (arr: unknown): string[] =>
@@ -65,7 +56,7 @@ const sanitize = (arr: unknown): string[] =>
 /* ------------------------------------------------------------------ */
 
 /** GET /api/sharepoint/:id */
-export async function GET(_req: Request, ctx: { params: { id: string } }) {
+export async function GET(_req: Request, ctx: Ctx) {
   const mech = await requireTenant();
   if ("error" in mech) return mech.error;
 
@@ -81,7 +72,7 @@ export async function GET(_req: Request, ctx: { params: { id: string } }) {
 }
 
 /** PATCH /api/sharepoint/:id */
-export async function PATCH(req: Request, ctx: { params: { id: string } }) {
+export async function PATCH(req: Request, ctx: Ctx) {
   const mech = await requireEditor();
   if ("error" in mech) return mech.error;
 
@@ -129,6 +120,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
         return NextResponse.json({ error: "Parent not found in tenant" }, { status: 400 });
       }
 
+      // Walk up to make sure we’re not moving under a descendant.
       let cursor: string | null = parent.parentId ?? null;
       while (cursor) {
         if (cursor === id) {
@@ -137,25 +129,18 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
             { status: 400 },
           );
         }
-      
-        // 👇 explicit type so TS doesn't infer a recursive `any`
-        const parentRow: { parentId: string | null } | null =
-          await prisma.sharePointNode.findFirst({
-            where: { id: cursor, tenantId: mech.tenantId },
-            select: { parentId: true },
-          });
-      
-        cursor = parentRow?.parentId ?? null;
+        cursor = await getParentId(cursor, mech.tenantId);
       }
+    }
 
-    data.parentId = parentId;
+    data.parentId = parentId; // allow null to move to root
   }
 
   // ---- flags
   if (typeof body.restricted === "boolean") data.restricted = body.restricted;
   if (typeof body.highSecurity === "boolean") data.highSecurity = body.highSecurity;
 
-  // ---- permissions
+  // ---- permissions (null/"inherit" => store as empty arrays)
   let editGroupsToSet: string[] | null | undefined;
   let readGroupsToSet: string[] | null | undefined;
 
@@ -193,7 +178,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
 }
 
 /** DELETE /api/sharepoint/:id (recursive) */
-export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
+export async function DELETE(_req: Request, ctx: Ctx) {
   const mech = await requireEditor();
   if ("error" in mech) return mech.error;
 
