@@ -137,15 +137,16 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
             { status: 400 },
           );
         }
-        const anc: { parentId: string | null } | null =
+      
+        // ✅ Give the narrow select an explicit type so TS doesn’t infer a recursive `any`
+        const parentRow: { parentId: string | null } | null =
           await prisma.sharePointNode.findFirst({
             where: { id: cursor, tenantId: mech.tenantId },
             select: { parentId: true },
           });
-
-        cursor = anc?.parentId ?? null;
+      
+        cursor = parentRow?.parentId ?? null;
       }
-    }
 
     data.parentId = parentId;
   }
