@@ -136,9 +136,7 @@ export default function SharePointPage() {
   const canView = VIEW_ROLES.has(role);
   
   if (status === "unauthenticated" || !canView) return <AccessDenied />;
-
-    return <AccessDenied />;
-
+  // DELETE THE EXTRA return <AccessDenied />; LINE HERE
   return (
     <main className={`min-h-screen bg-black ${inter.className}`}>
       <div className="pt-0 px-0 pb-8">
