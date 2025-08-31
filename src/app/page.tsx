@@ -44,7 +44,7 @@ const LoadingSpinner: React.FC<{ className?: string }> = ({ className = "h-5 w-5
   </svg>
 );
 
-/* ---------------- Particles (neutral, subtle) ---------------- */
+/* ---------------- Particle field + green star twinkles ---------------- */
 const ParticleField: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -56,7 +56,7 @@ const ParticleField: React.FC = () => {
     resize();
 
     type P = { x: number; y: number; vx: number; vy: number; r: number; o: number; };
-    const pts: P[] = Array.from({ length: 60 }, () => ({
+    const dots: P[] = Array.from({ length: 60 }, () => ({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
       vx: (Math.random() - 0.5) * 0.25,
@@ -66,13 +66,52 @@ const ParticleField: React.FC = () => {
     }));
     const linkDist = 180;
 
-    const draw = () => {
-      // dark neutral wash (no tint)
+    // star artifacts (subtle emerald twinkles)
+    type S = { x: number; y: number; s: number; phase: number; speed: number; driftX: number; driftY: number };
+    const stars: S[] = Array.from({ length: 28 }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      s: Math.random() * 1.2 + 0.6,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.002 + Math.random() * 0.003, // twinkle speed
+      driftX: (Math.random() - 0.5) * 0.05,
+      driftY: (Math.random() - 0.5) * 0.05,
+    }));
+
+    const drawStar = (s: S, t: number) => {
+      const a = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * s.speed + s.phase)); // 0.35..1.0
+      const size = s.s * 2;
+      ctx.save();
+      ctx.translate(s.x, s.y);
+      ctx.globalAlpha = a * 0.8;
+      ctx.strokeStyle = "rgba(16,185,129,0.9)";
+      ctx.lineWidth = 0.6;
+
+      // simple 4-ray sparkle
+      ctx.beginPath();
+      ctx.moveTo(-size, 0); ctx.lineTo(size, 0);
+      ctx.moveTo(0, -size); ctx.lineTo(0, size);
+      ctx.stroke();
+
+      // center glow
+      const grd = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 1.6);
+      grd.addColorStop(0, "rgba(110,231,183,0.65)");
+      grd.addColorStop(1, "rgba(110,231,183,0)");
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(0, 0, size * 1.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    };
+
+    const step = (ts: number) => {
+      // neutral wash (no green tint)
       ctx.fillStyle = "rgba(24,24,27,0.10)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      for (let i = 0; i < pts.length; i++) {
-        const p = pts[i];
+      // dots + lines
+      for (let i = 0; i < dots.length; i++) {
+        const p = dots[i];
         p.x += p.vx; p.y += p.vy;
         if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
         if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
@@ -82,8 +121,8 @@ const ParticleField: React.FC = () => {
         ctx.fillStyle = `rgba(110,231,183,${p.o})`;
         ctx.fill();
 
-        for (let j = i + 1; j < pts.length; j++) {
-          const q = pts[j];
+        for (let j = i + 1; j < dots.length; j++) {
+          const q = dots[j];
           const d = Math.hypot(p.x - q.x, p.y - q.y);
           if (d < linkDist) {
             ctx.beginPath();
@@ -96,12 +135,23 @@ const ParticleField: React.FC = () => {
         }
       }
 
-      raf = requestAnimationFrame(draw);
+      // twinkling stars
+      for (const s of stars) {
+        s.x += s.driftX; s.y += s.driftY;
+        if (s.x < -10) s.x = canvas.width + 10;
+        if (s.x > canvas.width + 10) s.x = -10;
+        if (s.y < -10) s.y = canvas.height + 10;
+        if (s.y > canvas.height + 10) s.y = -10;
+        drawStar(s, ts);
+      }
+
+      raf = requestAnimationFrame(step);
     };
 
-    draw();
-    window.addEventListener("resize", resize);
-    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); };
+    raf = requestAnimationFrame(step);
+    const onResize = () => { resize(); };
+    window.addEventListener("resize", onResize);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); };
   }, []);
 
   return <canvas ref={canvasRef} className="fixed inset-0 -z-10 pointer-events-none" />;
@@ -167,7 +217,7 @@ function LoginForm() {
       <div className="pointer-events-none absolute -top-24 -left-24 w-[36rem] h-[36rem] rounded-full bg-emerald-600/10 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-24 -right-24 w-[36rem] h-[36rem] rounded-full bg-teal-500/10 blur-3xl" />
 
-      {/* Banners (tiny, overlay) */}
+      {/* Banners */}
       {showBanner && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-emerald-950/60 backdrop-blur-xl border border-emerald-500/25 text-emerald-300 px-4 py-2 rounded-full shadow-lg z-50 text-xs animate-fade-in-down">
           Votre compte est activé. Bienvenue chez Nartex.
@@ -179,7 +229,7 @@ function LoginForm() {
         </div>
       )}
 
-      {/* Header (compact, premium) */}
+      {/* Header */}
       <header className="relative z-10 h-16 px-8">
         <div className="h-full max-w-6xl mx-auto flex items-center justify-between">
           <Link href="/" className="relative group">
@@ -198,12 +248,18 @@ function LoginForm() {
       {/* Main grid (no scroll) */}
       <main className="relative z-10 h-[calc(100vh-4rem)]">
         <div className="h-full max-w-6xl mx-auto px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
-          {/* Left: Value prop (kept compact to avoid scrolling) */}
+          {/* Left: Value prop */}
           <section className="hidden lg:block">
-            <h1 className="tracking-tight leading-tight font-semibold text-white/90" style={{ fontSize: "clamp(32px, 5vw, 54px)" }}>
-              Propulsez votre croissance avec
-              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">
-                Nartex — le CRM unifié
+            <h1 className="tracking-tight leading-tight font-semibold text-white/90">
+              <span className="block" style={{ fontSize: "clamp(28px, 4.5vw, 48px)" }}>
+                Propulsez votre croissance avec
+              </span>
+              <span className="mt-1 block">
+                {/* Inline green SVG logo next to the text */}
+                <span className="inline-flex items-baseline gap-2">
+                  <NartexLogo className="inline h-[42px] w-auto text-emerald-400 align-baseline" />
+                  <span className="text-white/90" style={{ fontSize: "clamp(28px, 4.5vw, 48px)" }}>— le CRM unifié</span>
+                </span>
               </span>
             </h1>
 
@@ -224,12 +280,7 @@ function LoginForm() {
                 </div>
               ))}
             </div>
-
-            <div className="mt-8 flex items-center gap-6 opacity-80">
-              <div className="h-8 w-24 rounded bg-gradient-to-r from-zinc-800 to-zinc-700" />
-              <div className="h-8 w-24 rounded bg-gradient-to-r from-zinc-800 to-zinc-700" />
-              <div className="h-8 w-24 rounded bg-gradient-to-r from-zinc-800 to-zinc-700" />
-            </div>
+            {/* Removed the three grey placeholder blocks */}
           </section>
 
           {/* Right: Auth card */}
@@ -243,7 +294,6 @@ function LoginForm() {
                   Accédez à votre espace de travail et à vos données clients, en toute sécurité.
                 </p>
 
-                {/* Error */}
                 <AuthForm
                   emailState={[email, setEmail]}
                   passwordState={[password, setPassword]}
@@ -259,7 +309,7 @@ function LoginForm() {
         </div>
       </main>
 
-      {/* Footer (compact, single line) */}
+      {/* Footer */}
       <footer className="h-16 px-8 text-center text-xs text-zinc-500 relative z-10">
         <div className="h-full max-w-6xl mx-auto flex items-center justify-center gap-4 font-mono tracking-widest">
           <span>© {new Date().getFullYear()} NARTEX</span>
@@ -268,7 +318,6 @@ function LoginForm() {
         </div>
       </footer>
 
-      {/* Animations */}
       <style jsx>{`
         @keyframes fade-in-down { from { opacity: 0; transform: translate(-50%, -1rem); } to { opacity: 1; transform: translate(-50%, 0); } }
         .animate-fade-in-down { animation: fade-in-down 0.5s ease-out forwards; }
@@ -277,7 +326,7 @@ function LoginForm() {
   );
 }
 
-/* ---------------- Extracted Auth form to keep layout concise ---------------- */
+/* ---------------- Extracted Auth form ---------------- */
 function AuthForm({
   emailState,
   passwordState,
