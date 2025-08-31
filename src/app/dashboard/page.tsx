@@ -22,10 +22,7 @@ import {
 /* =============================================================================
    Font
 ============================================================================= */
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
 /* =============================================================================
    Types & helpers
@@ -45,23 +42,30 @@ type FilterState = {
   customers: string[];
 };
 
-const EMERALD = "#10b981";
-const TEAL = "#14b8a6";
-const MINT = "#34d399";
-const CARD_BORDER = "#1f2937";
-const GRID = "#1b2530";
-const LABEL = "#9ca3af";
-const MUTED = "#6b7280";
-const SURFACE = "rgba(9, 11, 14, 0.7)";
+/** Brand neutrals + restrained accents (less green, more pro) */
+const COLORS = {
+  bg: "#000000", // pitch-black
+  card: "rgba(8,10,12,0.72)",
+  cardBorder: "rgba(120, 120, 130, 0.12)",
+  grid: "#141922",
+  label: "#9aa2af",
+  labelMuted: "#737a86",
+  accentPrimary: "#22d3ee", // cyan
+  accentSecondary: "#8b5cf6", // violet
+  accentTertiary: "#10b981", // emerald (sparingly)
+  accentQuaternary: "#f59e0b", // amber
+};
 
-const SEGMENT_GRADIENTS = [
-  { start: "#10b981", end: "#065f46" },
-  { start: "#34d399", end: "#047857" },
-  { start: "#0ea5e9", end: "#075985" },
-  { start: "#22d3ee", end: "#155e75" },
-  { start: "#a3e635", end: "#3f6212" },
-  { start: "#f59e0b", end: "#7c2d12" },
-  { start: "#ef4444", end: "#7f1d1d" },
+/** Categorical set for pie + bars (legend will match exactly) */
+const PIE_COLORS = [
+  "#0ea5e9", // sky
+  "#8b5cf6", // violet
+  "#10b981", // emerald
+  "#f59e0b", // amber
+  "#22d3ee", // cyan
+  "#ef4444", // red
+  "#a3e635", // lime
+  "#f472b6", // pink
 ];
 
 const currency = (n: number) =>
@@ -79,101 +83,6 @@ const compactCurrency = (n: number) =>
     style: "currency",
     currency: "CAD",
   }).format(n);
-
-/* =============================================================================
-   Background twinkles (subtle, consistent with auth screens)
-============================================================================= */
-const TwinkleField: React.FC = () => {
-  const ref = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let raf = 0;
-
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-    resize();
-
-    type Star = {
-      x: number;
-      y: number;
-      s: number;
-      phase: number;
-      speed: number;
-      driftX: number;
-      driftY: number;
-    };
-
-    const stars: Star[] = Array.from({ length: 28 }, () => ({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      s: Math.random() * 1.1 + 0.6,
-      phase: Math.random() * Math.PI * 2,
-      speed: 0.002 + Math.random() * 0.003,
-      driftX: (Math.random() - 0.5) * 0.04,
-      driftY: (Math.random() - 0.5) * 0.04,
-    }));
-
-    const drawStar = (s: Star, t: number) => {
-      const a = 0.25 + 0.55 * (0.5 + 0.5 * Math.sin(t * s.speed + s.phase));
-      const size = s.s * 2;
-      ctx.save();
-      ctx.translate(s.x, s.y);
-      ctx.globalAlpha = a * 0.75;
-      ctx.strokeStyle = "rgba(16,185,129,0.9)";
-      ctx.lineWidth = 0.5;
-
-      ctx.beginPath();
-      ctx.moveTo(-size, 0);
-      ctx.lineTo(size, 0);
-      ctx.moveTo(0, -size);
-      ctx.lineTo(0, size);
-      ctx.stroke();
-
-      const grd = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 1.6);
-      grd.addColorStop(0, "rgba(110,231,183,0.6)");
-      grd.addColorStop(1, "rgba(110,231,183,0)");
-      ctx.fillStyle = grd;
-      ctx.beginPath();
-      ctx.arc(0, 0, size * 1.6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    };
-
-    const loop: FrameRequestCallback = (ts) => {
-      ctx.fillStyle = "rgba(10, 12, 14, 0.25)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      for (const s of stars) {
-        s.x += s.driftX;
-        s.y += s.driftY;
-        if (s.x < -8) s.x = canvas.width + 8;
-        if (s.x > canvas.width + 8) s.x = -8;
-        if (s.y < -8) s.y = canvas.height + 8;
-        if (s.y > canvas.height + 8) s.y = -8;
-        drawStar(s, ts);
-      }
-
-      raf = requestAnimationFrame(loop);
-    };
-
-    raf = requestAnimationFrame(loop);
-    const onResize = () => resize();
-    window.addEventListener("resize", onResize);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("resize", onResize);
-    };
-  }, []);
-
-  return <canvas ref={ref} className="fixed inset-0 -z-10 pointer-events-none" />;
-};
 
 /* =============================================================================
    Animated number
@@ -228,7 +137,7 @@ const AnimatedNumber = ({
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload?.length) {
     return (
-      <div className="bg-zinc-950/90 backdrop-blur-xl border border-emerald-500/20 rounded-lg px-3 py-2 shadow-2xl">
+      <div className="bg-black/90 backdrop-blur-xl border border-white/10 rounded-md px-3 py-2 shadow-2xl">
         <p className="text-[11px] text-zinc-400 mb-1">{label}</p>
         <p className="text-sm font-semibold text-white">{currency(payload[0].value)}</p>
       </div>
@@ -237,22 +146,21 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-const CustomLegend = (props: any) => {
-  const { payload, onLegendClick } = props;
+/** Legend with exact color squares passed via payload */
+const CustomLegend = ({ payload, onLegendClick }: any) => {
   return (
     <ul className="flex flex-col space-y-1 text-[11px]">
       {payload.map((entry: any) => (
         <li
           key={entry.value}
-          className={
-            entry.value !== "Autres"
-              ? "flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity"
-              : "flex items-center space-x-2 opacity-50"
-          }
-          onClick={() => entry.value !== "Autres" && onLegendClick(entry.value)}
+          className="flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={() => onLegendClick?.(entry.value)}
         >
-          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-          <span className="text-zinc-400">{entry.value}</span>
+          <span
+            className="w-2.5 h-2.5 rounded-[3px]"
+            style={{ backgroundColor: entry.color, boxShadow: "0 0 0 1px rgba(255,255,255,0.06) inset" }}
+          />
+          <span className="text-zinc-300">{entry.value}</span>
         </li>
       ))}
     </ul>
@@ -382,10 +290,10 @@ const DashboardContent = () => {
 
   const salesByRep = useMemo(() => {
     const allReps = aggregateData(filteredData, "salesRepName");
-    if (allReps.length <= 7) return allReps;
-    const top7 = allReps.slice(0, 7);
-    const othersValue = allReps.slice(7).reduce((sum, rep) => sum + rep.value, 0);
-    return [...top7, { name: "Autres", value: othersValue }];
+    if (allReps.length <= 8) return allReps;
+    const top = allReps.slice(0, 8);
+    const othersValue = allReps.slice(8).reduce((s, r) => s + r.value, 0);
+    return [...top, { name: "Autres", value: othersValue }];
   }, [filteredData]);
 
   const salesByItem = useMemo(() => aggregateData(filteredData, "itemCode", 10), [filteredData]);
@@ -407,67 +315,83 @@ const DashboardContent = () => {
   if (error) return <ErrorState message={error.message} />;
   if (isLoading) return <LoadingState />;
 
+  /** Build exact legend payload (color squares = slice colors) */
+  const repLegendPayload = salesByRep.map((d, i) => ({
+    value: d.name,
+    color: d.name === "Autres" ? "#303a47" : PIE_COLORS[i % PIE_COLORS.length],
+    type: "square",
+    id: `legend-${i}`,
+  }));
+
   return (
     <div className="space-y-6">
-      {/* Top ribbon / filters */}
-      <div className="rounded-2xl border border-[rgba(16,185,129,0.15)] bg-[rgba(7,10,12,0.65)] backdrop-blur-xl p-4 md:p-5 relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-emerald-500/5 via-transparent to-transparent" />
-        <div className="flex flex-wrap items-center justify-between gap-6 relative z-10">
-          <div>
-            <h1 className="text-2xl md:text-3xl lg:text-4xl font-semibold tracking-tight text-white">
-              Performance commerciale
-              <span className="text-emerald-400">.</span>
-            </h1>
-            <p className="text-sm text-zinc-400 mt-1">
-              Vision unifiée de vos revenus — conçue pour l’action.
-            </p>
-          </div>
-
-          <div className="flex items-center flex-wrap gap-3">
-            <select
-              value={stagedSelectedRep}
-              onChange={(e) => setStagedSelectedRep(e.target.value)}
-              className="appearance-none bg-zinc-950/60 border border-zinc-800 rounded-lg px-4 py-2.5 pr-10 text-sm focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/30 text-white/90"
-            >
-              <option value="">Tous les experts</option>
-              {allSalesReps.map((rep) => (
-                <option key={rep} value={rep}>
-                  {rep}
-                </option>
-              ))}
-            </select>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={stagedDateRange.start}
-                onChange={(e) => setStagedDateRange((prev) => ({ ...prev, start: e.target.value }))}
-                className="bg-zinc-950/60 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/30 text-white/90"
-              />
-              <span className="text-zinc-500 text-sm">à</span>
-              <input
-                type="date"
-                value={stagedDateRange.end}
-                onChange={(e) => setStagedDateRange((prev) => ({ ...prev, end: e.target.value }))}
-                className="bg-zinc-950/60 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/30 text-white/90"
-              />
+      {/* Top ribbon / filters  */}
+      <div className="rounded-2xl border" style={{ borderColor: COLORS.cardBorder, background: COLORS.card }}>
+        <div className="px-4 md:px-6 py-4 md:py-5">
+          <div className="flex flex-wrap items-center justify-between gap-6">
+            <div>
+              <h1 className="text-2xl md:text-3xl lg:text-4xl font-semibold tracking-tight text-white">
+                Performance commerciale<span className="text-cyan-400">.</span>
+              </h1>
+              <p className="text-sm" style={{ color: COLORS.label }}>
+                Vision unifiée de vos revenus — conçue pour l’action.
+              </p>
             </div>
 
-            <button
-              onClick={applyFilters}
-              className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-lg text-sm font-semibold hover:shadow-[0_0_0_3px_rgba(16,185,129,0.15)] transition-all"
-            >
-              Appliquer
-            </button>
-
-            {hasActiveFilters && (
-              <button
-                onClick={resetFilters}
-                className="px-4 py-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 rounded-lg text-sm font-medium hover:bg-emerald-500/15 transition-all"
+            <div className="flex items-center flex-wrap gap-3">
+              <select
+                value={stagedSelectedRep}
+                onChange={(e) => setStagedSelectedRep(e.target.value)}
+                className="appearance-none bg-black/60 border rounded-lg px-4 py-2.5 pr-10 text-sm text-white/90 focus:outline-none focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/30"
+                style={{ borderColor: COLORS.cardBorder }}
               >
-                Réinitialiser
+                <option value="">Tous les experts</option>
+                {allSalesReps.map((rep) => (
+                  <option key={rep} value={rep}>
+                    {rep}
+                  </option>
+                ))}
+              </select>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={stagedDateRange.start}
+                  onChange={(e) => setStagedDateRange((p) => ({ ...p, start: e.target.value }))}
+                  className="bg-black/60 border rounded-lg px-3 py-2 text-sm text-white/90 focus:outline-none focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/30"
+                  style={{ borderColor: COLORS.cardBorder }}
+                />
+                <span className="text-zinc-500 text-sm">à</span>
+                <input
+                  type="date"
+                  value={stagedDateRange.end}
+                  onChange={(e) => setStagedDateRange((p) => ({ ...p, end: e.target.value }))}
+                  className="bg-black/60 border rounded-lg px-3 py-2 text-sm text-white/90 focus:outline-none focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/30"
+                  style={{ borderColor: COLORS.cardBorder }}
+                />
+              </div>
+
+              <button
+                onClick={applyFilters}
+                className="px-4 py-2.5 rounded-lg text-sm font-semibold text-black"
+                style={{
+                  background:
+                    "linear-gradient(90deg, #22d3ee 0%, #8b5cf6 100%)",
+                }}
+              >
+                Appliquer
               </button>
-            )}
+
+              {hasActiveFilters && (
+                <button
+                  onClick={resetFilters}
+                  className="px-4 py-2.5 rounded-lg text-sm font-medium text-zinc-200 hover:bg-white/5 transition-colors border"
+                  style={{ borderColor: COLORS.cardBorder }}
+                >
+                  Réinitialiser
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -478,7 +402,7 @@ const DashboardContent = () => {
           <p className="text-4xl md:text-5xl font-bold tracking-tight text-white">
             <AnimatedNumber value={totalSales} format={currency} />
           </p>
-          <p className="text-sm text-zinc-400 mt-2">
+          <p className="text-sm mt-2" style={{ color: COLORS.label }}>
             {transactionCount.toLocaleString("fr-CA")} transactions • moyenne{" "}
             <span className="text-white font-medium">{currency(averageTransactionValue)}</span>
           </p>
@@ -489,22 +413,22 @@ const DashboardContent = () => {
             <AreaChart data={salesByMonth}>
               <defs>
                 <linearGradient id="gArea" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={EMERALD} stopOpacity={0.35} />
-                  <stop offset="100%" stopColor={EMERALD} stopOpacity={0} />
+                  <stop offset="0%" stopColor={COLORS.accentPrimary} stopOpacity={0.3} />
+                  <stop offset="100%" stopColor={COLORS.accentPrimary} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
-              <XAxis dataKey="name" tick={{ fill: MUTED, fontSize: 11 }} stroke={GRID} />
+              <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
+              <XAxis dataKey="name" tick={{ fill: COLORS.labelMuted, fontSize: 11 }} stroke={COLORS.grid} />
               <YAxis
                 tickFormatter={compactCurrency}
-                tick={{ fill: MUTED, fontSize: 11 }}
-                stroke={GRID}
+                tick={{ fill: COLORS.labelMuted, fontSize: 11 }}
+                stroke={COLORS.grid}
               />
               <Tooltip content={<CustomTooltip />} />
               <Area
                 type="monotone"
                 dataKey="value"
-                stroke={MINT}
+                stroke={COLORS.accentPrimary}
                 strokeWidth={2}
                 fill="url(#gArea)"
                 animationDuration={900}
@@ -519,63 +443,45 @@ const DashboardContent = () => {
         <ChartCard title="Répartition par expert" className="col-span-12 lg:col-span-5 xl:col-span-4">
           <ResponsiveContainer width="100%" height={350}>
             <PieChart>
-              <defs>
-                {SEGMENT_GRADIENTS.map((g, i) => (
-                  <linearGradient key={`seg-${i}`} id={`seg-${i}`}>
-                    <stop offset="0%" stopColor={g.start} />
-                    <stop offset="100%" stopColor={g.end} />
-                  </linearGradient>
-                ))}
-              </defs>
               <Pie
                 data={salesByRep}
                 dataKey="value"
                 nameKey="name"
-                innerRadius="70%"
+                innerRadius="68%"
                 outerRadius="100%"
                 paddingAngle={2}
               >
                 {salesByRep.map((entry, index) => (
                   <Cell
                     key={`cell-${index}-${animationKey}`}
-                    fill={
-                      entry.name === "Autres"
-                        ? "#2a3340"
-                        : `url(#seg-${index % SEGMENT_GRADIENTS.length})`
-                    }
+                    fill={entry.name === "Autres" ? "#303a47" : PIE_COLORS[index % PIE_COLORS.length]}
                     onClick={(e) =>
                       entry.name !== "Autres" &&
                       handleSelect("salesReps", entry.name, (e as any).shiftKey)
                     }
-                    className={
-                      entry.name === "Autres"
-                        ? ""
-                        : "cursor-pointer hover:opacity-80 transition-opacity"
-                    }
+                    className={entry.name === "Autres" ? "" : "cursor-pointer hover:opacity-85 transition-opacity"}
                     style={{
                       filter:
-                        filters.salesReps.length === 0 ||
-                        filters.salesReps.includes(entry.name)
+                        filters.salesReps.length === 0 || filters.salesReps.includes(entry.name)
                           ? "none"
                           : "grayscale(80%)",
                       opacity:
-                        filters.salesReps.length === 0 ||
-                        filters.salesReps.includes(entry.name)
+                        filters.salesReps.length === 0 || filters.salesReps.includes(entry.name)
                           ? 1
-                          : 0.32,
+                          : 0.35,
                     }}
                   />
                 ))}
               </Pie>
               <Tooltip content={<CustomTooltip />} />
+              {/* Legend squares that MATCH the pie colors */}
               <Legend
-                content={
-                  <CustomLegend onLegendClick={(v: string) => handleSelect("salesReps", v)} />
-                }
+                payload={repLegendPayload}
+                content={<CustomLegend onLegendClick={(v: string) => handleSelect("salesReps", v)} />}
                 layout="vertical"
                 align="right"
                 verticalAlign="middle"
-                wrapperStyle={{ paddingLeft: "18px" }}
+                wrapperStyle={{ paddingLeft: 14 }}
               />
             </PieChart>
           </ResponsiveContainer>
@@ -589,22 +495,22 @@ const DashboardContent = () => {
             <AreaChart data={salesByMonth}>
               <defs>
                 <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={TEAL} stopOpacity={0.32} />
-                  <stop offset="100%" stopColor={TEAL} stopOpacity={0} />
+                  <stop offset="0%" stopColor={COLORS.accentSecondary} stopOpacity={0.28} />
+                  <stop offset="100%" stopColor={COLORS.accentSecondary} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
-              <XAxis dataKey="name" tick={{ fill: MUTED, fontSize: 11 }} stroke={GRID} />
+              <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
+              <XAxis dataKey="name" tick={{ fill: COLORS.labelMuted, fontSize: 11 }} stroke={COLORS.grid} />
               <YAxis
                 tickFormatter={compactCurrency}
-                tick={{ fill: MUTED, fontSize: 11 }}
-                stroke={GRID}
+                tick={{ fill: COLORS.labelMuted, fontSize: 11 }}
+                stroke={COLORS.grid}
               />
               <Tooltip content={<CustomTooltip />} />
               <Area
                 type="monotone"
                 dataKey="value"
-                stroke={EMERALD}
+                stroke={COLORS.accentSecondary}
                 strokeWidth={2}
                 fillOpacity={1}
                 fill="url(#salesGradient)"
@@ -617,22 +523,22 @@ const DashboardContent = () => {
         <ChartCard title="Top 10 produits" className="col-span-12 xl:col-span-6">
           <ResponsiveContainer width="100%" height={400}>
             <BarChart data={salesByItem} layout="vertical" margin={{ left: 30 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
+              <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
               <XAxis
                 type="number"
                 tickFormatter={compactCurrency}
-                tick={{ fill: MUTED, fontSize: 11 }}
-                stroke={GRID}
+                tick={{ fill: COLORS.labelMuted, fontSize: 11 }}
+                stroke={COLORS.grid}
               />
               <YAxis
                 type="category"
                 dataKey="name"
                 width={100}
-                tick={{ fill: LABEL, fontSize: 11 }}
+                tick={{ fill: COLORS.label, fontSize: 11 }}
                 stroke="none"
               />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="value" fill={MINT} radius={[0, 6, 6, 0]} animationDuration={900}>
+              <Bar dataKey="value" fill={COLORS.accentPrimary} radius={[0, 6, 6, 0]} animationDuration={900}>
                 {salesByItem.map((entry, index) => (
                   <Cell
                     key={`cell-${index}-${animationKey}`}
@@ -640,15 +546,13 @@ const DashboardContent = () => {
                     className="cursor-pointer"
                     style={{
                       filter:
-                        filters.itemCodes.length === 0 ||
-                        filters.itemCodes.includes(entry.name)
+                        filters.itemCodes.length === 0 || filters.itemCodes.includes(entry.name)
                           ? "none"
                           : "grayscale(80%)",
                       opacity:
-                        filters.itemCodes.length === 0 ||
-                        filters.itemCodes.includes(entry.name)
+                        filters.itemCodes.length === 0 || filters.itemCodes.includes(entry.name)
                           ? 1
-                          : 0.32,
+                          : 0.35,
                     }}
                   />
                 ))}
@@ -660,22 +564,22 @@ const DashboardContent = () => {
         <ChartCard title="Top 10 clients" className="col-span-12 xl:col-span-6">
           <ResponsiveContainer width="100%" height={400}>
             <BarChart data={salesByCustomer} layout="vertical" margin={{ left: 30 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={GRID} />
+              <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
               <XAxis
                 type="number"
                 tickFormatter={compactCurrency}
-                tick={{ fill: MUTED, fontSize: 11 }}
-                stroke={GRID}
+                tick={{ fill: COLORS.labelMuted, fontSize: 11 }}
+                stroke={COLORS.grid}
               />
               <YAxis
                 type="category"
                 dataKey="name"
                 width={160}
-                tick={{ fill: LABEL, fontSize: 11 }}
+                tick={{ fill: COLORS.label, fontSize: 11 }}
                 stroke="none"
               />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="value" fill={TEAL} radius={[0, 6, 6, 0]} animationDuration={900}>
+              <Bar dataKey="value" fill={COLORS.accentSecondary} radius={[0, 6, 6, 0]} animationDuration={900}>
                 {salesByCustomer.map((entry, index) => (
                   <Cell
                     key={`cell-${index}-${animationKey}`}
@@ -683,15 +587,13 @@ const DashboardContent = () => {
                     className="cursor-pointer"
                     style={{
                       filter:
-                        filters.customers.length === 0 ||
-                        filters.customers.includes(entry.name)
+                        filters.customers.length === 0 || filters.customers.includes(entry.name)
                           ? "none"
                           : "grayscale(80%)",
                       opacity:
-                        filters.customers.length === 0 ||
-                        filters.customers.includes(entry.name)
+                        filters.customers.length === 0 || filters.customers.includes(entry.name)
                           ? 1
-                          : 0.32,
+                          : 0.35,
                     }}
                   />
                 ))}
@@ -705,7 +607,7 @@ const DashboardContent = () => {
 };
 
 /* =============================================================================
-   Page wrapper (brand background + spacing)
+   Page wrapper — pitch black + WIDER content
 ============================================================================= */
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -715,15 +617,12 @@ export default function DashboardPage() {
     return <AccessDenied />;
 
   return (
-    <main className={`min-h-screen ${inter.className} bg-black text-white relative`}>
-      {/* Background to match Signin/Signup */}
-      <TwinkleField />
-      <div className="pointer-events-none absolute -top-24 -left-24 w-[42rem] h-[42rem] rounded-full bg-emerald-600/15 blur-3xl -z-10" />
-      <div className="pointer-events-none absolute -bottom-32 -right-24 w-[46rem] h-[46rem] rounded-full bg-teal-500/10 blur-3xl -z-10" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(90%_70%_at_10%_10%,rgba(16,185,129,0.06),transparent),radial-gradient(60%_50%_at_100%_100%,rgba(20,184,166,0.05),transparent)] -z-10" />
-
-      <div className="px-5 md:px-8 py-6 md:py-8">
-        <DashboardContent />
+    <main className={`min-h-screen ${inter.className}`} style={{ background: COLORS.bg, color: "#fff" }}>
+      {/* Wider container to nearly full viewport width; tweak max-w as needed for your sidebar */}
+      <div className="px-4 md:px-6 lg:px-8 py-6 md:py-8">
+        <div className="mx-auto w-full max-w-[1720px]">{/* ~Full width, small margins for breathing */}
+          <DashboardContent />
+        </div>
       </div>
     </main>
   );
@@ -743,8 +642,10 @@ function KpiCard({
 }) {
   return (
     <div className={`group relative ${className}`}>
-      <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-900/40 to-teal-900/40 rounded-2xl blur opacity-0 group-hover:opacity-40 transition duration-500" />
-      <div className="relative rounded-2xl border border-[rgba(16,185,129,0.15)] bg-[rgba(6,9,11,0.65)] backdrop-blur-xl p-5 h-full">
+      <div className="absolute -inset-0.5 rounded-2xl blur opacity-0 group-hover:opacity-40 transition duration-500"
+           style={{ background: "linear-gradient(90deg, rgba(34,211,238,0.25), rgba(139,92,246,0.25))" }} />
+      <div className="relative rounded-2xl p-5 h-full"
+           style={{ background: COLORS.card, border: `1px solid ${COLORS.cardBorder}` }}>
         <h3 className="text-[12px] uppercase tracking-widest text-zinc-500 mb-2">{title}</h3>
         {children}
       </div>
@@ -763,8 +664,10 @@ function ChartCard({
 }) {
   return (
     <div className={`group relative ${className}`}>
-      <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-900/40 to-teal-900/40 rounded-2xl blur opacity-0 group-hover:opacity-40 transition duration-500" />
-      <div className="relative bg-[rgba(6,9,11,0.7)] backdrop-blur-xl rounded-2xl p-4 md:p-5 border border-[rgba(16,185,129,0.15)] h-full flex flex-col">
+      <div className="absolute -inset-0.5 rounded-2xl blur opacity-0 group-hover:opacity-35 transition duration-500"
+           style={{ background: "linear-gradient(90deg, rgba(34,211,238,0.20), rgba(139,92,246,0.20))" }} />
+      <div className="relative rounded-2xl p-4 md:p-5 border h-full flex flex-col"
+           style={{ background: COLORS.card, borderColor: COLORS.cardBorder }}>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-medium tracking-wide">{title}</h3>
         </div>
@@ -777,7 +680,7 @@ function ChartCard({
 const LoadingState = () => (
   <div className="fixed inset-0 bg-black flex items-center justify-center">
     <div className="flex flex-col items-center space-y-4">
-      <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+      <div className="w-16 h-16 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin" />
       <p className="text-lg font-normal tracking-wide text-white">Chargement du tableau de bord…</p>
     </div>
   </div>
@@ -790,7 +693,7 @@ const ErrorState = ({ message }: { message: string }) => (
       <p className="text-sm text-zinc-400">{message}</p>
       <button
         onClick={() => window.location.reload()}
-        className="mt-6 px-4 py-2 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors"
+        className="mt-6 px-4 py-2 bg-white/5 border border-white/10 text-white rounded-lg hover:bg-white/10 transition-colors"
       >
         Recharger la page
       </button>
