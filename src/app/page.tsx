@@ -44,7 +44,7 @@ const LoadingSpinner: React.FC<{ className?: string }> = ({ className = "h-5 w-5
   </svg>
 );
 
-/* ---------------- Particle field + green star twinkles ---------------- */
+/* ---------------- Particle field + emerald twinkles ---------------- */
 const ParticleField: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -66,46 +66,46 @@ const ParticleField: React.FC = () => {
     }));
     const linkDist = 180;
 
-    // star artifacts (subtle emerald twinkles)
+    // Emerald “star” artifacts — brighter & more of them
     type S = { x: number; y: number; s: number; phase: number; speed: number; driftX: number; driftY: number };
-    const stars: S[] = Array.from({ length: 28 }, () => ({
+    const stars: S[] = Array.from({ length: 48 }, () => ({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
-      s: Math.random() * 1.2 + 0.6,
+      s: Math.random() * 1.6 + 0.7,
       phase: Math.random() * Math.PI * 2,
-      speed: 0.002 + Math.random() * 0.003, // twinkle speed
-      driftX: (Math.random() - 0.5) * 0.05,
-      driftY: (Math.random() - 0.5) * 0.05,
+      speed: 0.0025 + Math.random() * 0.0035,
+      driftX: (Math.random() - 0.5) * 0.06,
+      driftY: (Math.random() - 0.5) * 0.06,
     }));
 
     const drawStar = (s: S, t: number) => {
-      const a = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * s.speed + s.phase)); // 0.35..1.0
-      const size = s.s * 2;
+      const a = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(t * s.speed + s.phase)); // 0.45..1.0
+      const size = s.s * 2.2;
       ctx.save();
       ctx.translate(s.x, s.y);
-      ctx.globalAlpha = a * 0.8;
-      ctx.strokeStyle = "rgba(16,185,129,0.9)";
-      ctx.lineWidth = 0.6;
+      ctx.globalAlpha = a;
+      ctx.strokeStyle = "rgba(16,185,129,0.95)";
+      ctx.lineWidth = 0.7;
 
-      // simple 4-ray sparkle
+      // four-ray sparkle
       ctx.beginPath();
       ctx.moveTo(-size, 0); ctx.lineTo(size, 0);
       ctx.moveTo(0, -size); ctx.lineTo(0, size);
       ctx.stroke();
 
-      // center glow
-      const grd = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 1.6);
-      grd.addColorStop(0, "rgba(110,231,183,0.65)");
+      // core glow
+      const grd = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 1.8);
+      grd.addColorStop(0, "rgba(110,231,183,0.85)");
       grd.addColorStop(1, "rgba(110,231,183,0)");
       ctx.fillStyle = grd;
       ctx.beginPath();
-      ctx.arc(0, 0, size * 1.6, 0, Math.PI * 2);
+      ctx.arc(0, 0, size * 1.8, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     };
 
-    const step = (ts: number) => {
-      // neutral wash (no green tint)
+    const step: FrameRequestCallback = (ts) => {
+      // neutral dark wash
       ctx.fillStyle = "rgba(24,24,27,0.10)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -126,7 +126,7 @@ const ParticleField: React.FC = () => {
           const d = Math.hypot(p.x - q.x, p.y - q.y);
           if (d < linkDist) {
             ctx.beginPath();
-            ctx.strokeStyle = `rgba(52,211,153,${(1 - d / linkDist) * 0.2})`;
+            ctx.strokeStyle = `rgba(52,211,153,${(1 - d / linkDist) * 0.22})`;
             ctx.lineWidth = 0.5;
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(q.x, q.y);
@@ -138,10 +138,10 @@ const ParticleField: React.FC = () => {
       // twinkling stars
       for (const s of stars) {
         s.x += s.driftX; s.y += s.driftY;
-        if (s.x < -10) s.x = canvas.width + 10;
-        if (s.x > canvas.width + 10) s.x = -10;
-        if (s.y < -10) s.y = canvas.height + 10;
-        if (s.y > canvas.height + 10) s.y = -10;
+        if (s.x < -12) s.x = canvas.width + 12;
+        if (s.x > canvas.width + 12) s.x = -12;
+        if (s.y < -12) s.y = canvas.height + 12;
+        if (s.y > canvas.height + 12) s.y = -12;
         drawStar(s, ts);
       }
 
@@ -149,7 +149,7 @@ const ParticleField: React.FC = () => {
     };
 
     raf = requestAnimationFrame(step);
-    const onResize = () => { resize(); };
+    const onResize = () => resize();
     window.addEventListener("resize", onResize);
     return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); };
   }, []);
@@ -182,7 +182,7 @@ function LoginForm() {
 
   if (status === "loading") {
     return (
-      <div className="h-screen flex items-center justify-center bg-zinc-950">
+      <div className="fixed inset-0 flex items-center justify-center bg-zinc-950">
         <LoadingSpinner className="h-8 w-8 text-emerald-500" />
       </div>
     );
@@ -209,8 +209,8 @@ function LoginForm() {
   };
 
   return (
-    /* Non-scrollable viewport container */
-    <div className="h-screen overflow-hidden relative bg-zinc-950 text-gray-100 font-sans antialiased">
+    /* Non-scrollable viewport container (iOS-safe) */
+    <div className="fixed inset-0 overflow-hidden bg-zinc-950 text-gray-100 font-sans antialiased">
       <ParticleField />
 
       {/* Soft brand spotlights */}
@@ -230,7 +230,7 @@ function LoginForm() {
       )}
 
       {/* Header */}
-      <header className="relative z-10 h-16 px-8">
+      <header className="relative z-10 h-16 px-6 lg:px-8">
         <div className="h-full max-w-6xl mx-auto flex items-center justify-between">
           <Link href="/" className="relative group">
             <div className="absolute -inset-2 bg-gradient-to-r from-emerald-600 to-green-600 rounded-lg blur-xl opacity-0 group-hover:opacity-20 transition-opacity duration-500" />
@@ -239,29 +239,27 @@ function LoginForm() {
           <div className="hidden md:flex items-center gap-3 text-xs text-zinc-500">
             <span className="inline-flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Unified CRM Platform</span>
+              <span>Plateforme de gestion d'entreprise unifiée</span>
             </span>
           </div>
         </div>
       </header>
 
-      {/* Main grid (no scroll) */}
-      <main className="relative z-10 h-[calc(100vh-4rem)]">
-        <div className="h-full max-w-6xl mx-auto px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
-          {/* Left: Value prop */}
+      {/* Main grid — sized to the dynamic viewport height (no scroll on iPhone) */}
+      <main className="relative z-10 h-[calc(100dvh-4rem)]">
+        <div className="h-full max-w-6xl mx-auto px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+          {/* Left: Value prop (hidden on small screens to ensure fit) */}
           <section className="hidden lg:block">
-            <h1 className="tracking-tight leading-tight font-semibold text-white/90">
-              <span className="block" style={{ fontSize: "clamp(28px, 4.5vw, 48px)" }}>
-                Propulsez votre croissance avec
-              </span>
-              <span className="mt-1 block">
-                {/* Inline green SVG logo next to the text */}
-                <span className="inline-flex items-baseline gap-2">
-                  <NartexLogo className="inline h-[42px] w-auto text-emerald-400 align-baseline" />
-                  <span className="text-white/90" style={{ fontSize: "clamp(28px, 4.5vw, 48px)" }}>— le CRM unifié</span>
-                </span>
-              </span>
-            </h1>
+            {/* 2x2 grid: col1 = logo, col2 = headline; row2 col2 = 'unifié' perfectly aligned under the logo */}
+            <div className="grid grid-cols-[auto,1fr] gap-x-2 items-baseline">
+              <NartexLogo className="col-start-1 row-start-1 h-[42px] w-auto text-emerald-400" />
+              <h1 className="col-start-2 row-start-1 text-white/90 font-semibold leading-tight" style={{ fontSize: "clamp(28px,4.5vw,48px)" }}>
+                — le CRM
+              </h1>
+              <div className="col-start-2 row-start-2 text-white/90 font-semibold leading-tight" style={{ fontSize: "clamp(28px,4.5vw,48px)" }}>
+                unifié
+              </div>
+            </div>
 
             <p className="mt-4 text-zinc-400 text-sm leading-relaxed max-w-[46ch]">
               Centralisez contacts, opportunités et opérations. Nartex transforme vos données en visuels convaincants,
@@ -280,17 +278,15 @@ function LoginForm() {
                 </div>
               ))}
             </div>
-            {/* Removed the three grey placeholder blocks */}
           </section>
 
-          {/* Right: Auth card */}
-          <section className="w-full">
-            <div className="relative">
-              {/* Accented glow ring */}
+          {/* Right: Auth card — compact on mobile to always fit */}
+          <section className="w-full flex items-center justify-center">
+            <div className="relative w-full max-w-sm sm:max-w-md">
               <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-emerald-700/20 via-teal-600/15 to-emerald-700/20 blur-xl opacity-70" />
-              <div className="relative rounded-2xl border border-zinc-800/60 bg-zinc-950/60 backdrop-blur-2xl shadow-2xl shadow-black/30 p-8">
-                <h2 className="text-center text-2xl font-semibold text-white">Connexion sécurisée</h2>
-                <p className="text-center text-zinc-500 text-sm mt-1">
+              <div className="relative rounded-2xl border border-zinc-800/60 bg-zinc-950/60 backdrop-blur-2xl shadow-2xl shadow-black/30 p-6 sm:p-8">
+                <h2 className="text-center text-xl sm:text-2xl font-semibold text-white">Connexion sécurisée</h2>
+                <p className="text-center text-zinc-500 text-xs sm:text-sm mt-1">
                   Accédez à votre espace de travail et à vos données clients, en toute sécurité.
                 </p>
 
@@ -310,7 +306,7 @@ function LoginForm() {
       </main>
 
       {/* Footer */}
-      <footer className="h-16 px-8 text-center text-xs text-zinc-500 relative z-10">
+      <footer className="h-16 px-6 lg:px-8 text-center text-xs text-zinc-500 relative z-10">
         <div className="h-full max-w-6xl mx-auto flex items-center justify-center gap-4 font-mono tracking-widest">
           <span>© {new Date().getFullYear()} NARTEX</span>
           <span className="text-zinc-700">|</span>
@@ -351,12 +347,12 @@ function AuthForm({
   return (
     <>
       {error && (
-        <div className="mt-6 bg-red-950/30 border border-red-900/50 text-red-400 px-4 py-3 rounded-lg text-sm text-center" role="alert">
+        <div className="mt-5 sm:mt-6 bg-red-950/30 border border-red-900/50 text-red-400 px-4 py-3 rounded-lg text-sm text-center" role="alert">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+      <form onSubmit={handleSubmit} className="mt-5 sm:mt-6 space-y-4 sm:space-y-5">
         <div>
           <label htmlFor="email" className="block text-[11px] font-medium text-zinc-400 mb-2 uppercase tracking-wider">
             Adresse e-mail
@@ -414,7 +410,7 @@ function AuthForm({
         </button>
       </form>
 
-      <div className="relative my-6">
+      <div className="relative my-5 sm:my-6">
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-zinc-800" />
         </div>
@@ -441,7 +437,7 @@ function AuthForm({
         ))}
       </div>
 
-      <p className="mt-6 text-center text-zinc-500 text-[12px]">
+      <p className="mt-5 text-center text-zinc-500 text-[12px]">
         Pas encore de compte ?{" "}
         <Link href="/signup" className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">
           Créer un compte
@@ -453,7 +449,7 @@ function AuthForm({
 
 /* ---------------- Page Export ---------------- */
 const PremiumLoginPage: NextPage = () => (
-  <Suspense fallback={<div className="h-screen flex items-center justify-center bg-zinc-950"><LoadingSpinner className="h-8 w-8 text-emerald-500" /></div>}>
+  <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-zinc-950"><LoadingSpinner className="h-8 w-8 text-emerald-500" /></div>}>
     <LoginForm />
   </Suspense>
 );
