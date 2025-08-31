@@ -44,9 +44,19 @@ const LoadingSpinner: React.FC<{ className?: string }> = ({ className = "h-5 w-5
   </svg>
 );
 
-/* ---------------- Particle field + emerald twinkles ---------------- */
+/* ---------------- Sophisticated Particles (tiny, pulsing, darkened by overlays) ---------------- */
 const ParticleField: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // HSL→RGB helper
+  const hslToRgb = (h: number, s: number, l: number) => {
+    s /= 100; l /= 100;
+    const k = (n: number) => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    return [Math.round(255 * f(0)), Math.round(255 * f(8)), Math.round(255 * f(4))];
+  };
+
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
     const ctx = canvas.getContext("2d"); if (!ctx) return;
@@ -55,94 +65,80 @@ const ParticleField: React.FC = () => {
     const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
     resize();
 
-    type P = { x: number; y: number; vx: number; vy: number; r: number; o: number; };
-    const dots: P[] = Array.from({ length: 60 }, () => ({
+    type P = { x: number; y: number; vx: number; vy: number; r: number; baseO: number; };
+    // Fewer but crisper points
+    const dots: P[] = Array.from({ length: Math.max(80, Math.floor((window.innerWidth * window.innerHeight) / 40000)) }, () => ({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
-      vx: (Math.random() - 0.5) * 0.25,
-      vy: (Math.random() - 0.5) * 0.25,
-      r: Math.random() * 1.5 + 0.5,
-      o: Math.random() * 0.5 + 0.2,
+      vx: (Math.random() - 0.5) * 0.18,
+      vy: (Math.random() - 0.5) * 0.18,
+      r: Math.random() * 1.1 + 0.4,         // tiny
+      baseO: Math.random() * 0.15 + 0.08,   // low alpha
     }));
-    const linkDist = 180;
+    const linkDist = 150;
 
-    // Emerald “star” artifacts — brighter & more of them
-    type S = { x: number; y: number; s: number; phase: number; speed: number; driftX: number; driftY: number };
-    const stars: S[] = Array.from({ length: 48 }, () => ({
+    // A handful of extra “anchor” points for faint triangles
+    const anchors: P[] = Array.from({ length: 7 }, () => ({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
-      s: Math.random() * 1.6 + 0.7,
-      phase: Math.random() * Math.PI * 2,
-      speed: 0.0025 + Math.random() * 0.0035,
-      driftX: (Math.random() - 0.5) * 0.06,
-      driftY: (Math.random() - 0.5) * 0.06,
+      vx: (Math.random() - 0.5) * 0.08,
+      vy: (Math.random() - 0.5) * 0.08,
+      r: 0.8,
+      baseO: 0.06,
     }));
-
-    const drawStar = (s: S, t: number) => {
-      const a = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(t * s.speed + s.phase)); // 0.45..1.0
-      const size = s.s * 2.2;
-      ctx.save();
-      ctx.translate(s.x, s.y);
-      ctx.globalAlpha = a;
-      ctx.strokeStyle = "rgba(16,185,129,0.95)";
-      ctx.lineWidth = 0.7;
-
-      // four-ray sparkle
-      ctx.beginPath();
-      ctx.moveTo(-size, 0); ctx.lineTo(size, 0);
-      ctx.moveTo(0, -size); ctx.lineTo(0, size);
-      ctx.stroke();
-
-      // core glow
-      const grd = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 1.8);
-      grd.addColorStop(0, "rgba(110,231,183,0.85)");
-      grd.addColorStop(1, "rgba(110,231,183,0)");
-      ctx.fillStyle = grd;
-      ctx.beginPath();
-      ctx.arc(0, 0, size * 1.8, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    };
 
     const step: FrameRequestCallback = (ts) => {
-      // neutral dark wash
-      ctx.fillStyle = "rgba(24,24,27,0.10)";
+      // neutral wash (dark)
+      ctx.fillStyle = "rgba(17,17,19,0.18)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // dots + lines
+      // emerald pulse (hue & lightness vary)
+      const hue = 152 + 8 * Math.sin(ts / 2800);
+      const light = 62 + 10 * Math.sin(ts / 3200 + 0.8);
+      const [rC, gC, bC] = hslToRgb(hue, 72, light);
+      const [rLine, gLine, bLine] = hslToRgb(hue, 68, 48);
+
+      // dots
       for (let i = 0; i < dots.length; i++) {
         const p = dots[i];
         p.x += p.vx; p.y += p.vy;
         if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
         if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
 
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(110,231,183,${p.o})`;
-        ctx.fill();
+        // subtle glow point
+        const o = p.baseO * 0.9;
+        ctx.fillStyle = `rgba(${rC},${gC},${bC},${o})`;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
 
+        // links
         for (let j = i + 1; j < dots.length; j++) {
           const q = dots[j];
-          const d = Math.hypot(p.x - q.x, p.y - q.y);
+          const dx = p.x - q.x, dy = p.y - q.y;
+          const d = Math.hypot(dx, dy);
           if (d < linkDist) {
-            ctx.beginPath();
-            ctx.strokeStyle = `rgba(52,211,153,${(1 - d / linkDist) * 0.22})`;
-            ctx.lineWidth = 0.5;
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(q.x, q.y);
-            ctx.stroke();
+            const opacity = (1 - d / linkDist) * 0.10; // very faint
+            ctx.strokeStyle = `rgba(${rLine},${gLine},${bLine},${opacity})`;
+            ctx.lineWidth = 0.35;
+            ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
           }
         }
       }
 
-      // twinkling stars
-      for (const s of stars) {
-        s.x += s.driftX; s.y += s.driftY;
-        if (s.x < -12) s.x = canvas.width + 12;
-        if (s.x > canvas.width + 12) s.x = -12;
-        if (s.y < -12) s.y = canvas.height + 12;
-        if (s.y > canvas.height + 12) s.y = -12;
-        drawStar(s, ts);
+      // slow anchors + faint triangles
+      ctx.lineWidth = 0.25;
+      ctx.fillStyle = `rgba(${rC},${gC},${bC},0.045)`;
+      ctx.strokeStyle = `rgba(${rC},${gC},${bC},0.06)`;
+      for (const a of anchors) {
+        a.x += a.vx; a.y += a.vy;
+        if (a.x < 0 || a.x > canvas.width) a.vx *= -1;
+        if (a.y < 0 || a.y > canvas.height) a.vy *= -1;
+      }
+      // draw a few triangles between every third anchor to keep minimal
+      for (let i = 0; i + 2 < anchors.length; i += 3) {
+        const A = anchors[i], B = anchors[i + 1], C = anchors[i + 2];
+        ctx.beginPath();
+        ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.lineTo(C.x, C.y); ctx.closePath();
+        ctx.fill(); ctx.stroke();
       }
 
       raf = requestAnimationFrame(step);
@@ -209,25 +205,20 @@ function LoginForm() {
   };
 
   return (
-    /* Non-scrollable viewport container (iOS-safe) */
+    /* Non-scrollable viewport container (desktop + iPhone) */
     <div className="fixed inset-0 overflow-hidden bg-zinc-950 text-gray-100 font-sans antialiased">
+      {/* Canvas (underlays) */}
       <ParticleField />
 
-      {/* Soft brand spotlights */}
-      <div className="pointer-events-none absolute -top-24 -left-24 w-[36rem] h-[36rem] rounded-full bg-emerald-600/10 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-24 -right-24 w-[36rem] h-[36rem] rounded-full bg-teal-500/10 blur-3xl" />
-
-      {/* Banners */}
-      {showBanner && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-emerald-950/60 backdrop-blur-xl border border-emerald-500/25 text-emerald-300 px-4 py-2 rounded-full shadow-lg z-50 text-xs animate-fade-in-down">
-          Votre compte est activé. Bienvenue chez Nartex.
-        </div>
-      )}
-      {showNewUserBanner && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-emerald-950/60 backdrop-blur-xl border border-emerald-500/25 text-emerald-300 px-4 py-2 rounded-full shadow-lg z-50 text-xs animate-fade-in-down">
-          Vérifiez votre e-mail pour finaliser votre inscription.
-        </div>
-      )}
+      {/* Global darkening + emerald gradients (keeps particles at ~20–30% perceived strength) */}
+      <div className="pointer-events-none absolute inset-0 -z-[5] bg-black/65" />
+      <div
+        className="pointer-events-none absolute inset-0 -z-[4] opacity-70"
+        style={{
+          background:
+            "radial-gradient(45rem 35rem at 15% 12%, rgba(16,185,129,0.18), rgba(0,0,0,0) 55%), radial-gradient(40rem 30rem at 85% 88%, rgba(16,185,129,0.12), rgba(0,0,0,0) 52%)",
+        }}
+      />
 
       {/* Header */}
       <header className="relative z-10 h-16 px-6 lg:px-8">
@@ -245,12 +236,12 @@ function LoginForm() {
         </div>
       </header>
 
-      {/* Main grid — sized to the dynamic viewport height (no scroll on iPhone) */}
+      {/* Main grid (no scroll) */}
       <main className="relative z-10 h-[calc(100dvh-4rem)]">
         <div className="h-full max-w-6xl mx-auto px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-          {/* Left: Value prop (hidden on small screens to ensure fit) */}
+          {/* Left headline (hidden on mobile for fit) */}
           <section className="hidden lg:block">
-            {/* 2x2 grid: col1 = logo, col2 = headline; row2 col2 = 'unifié' perfectly aligned under the logo */}
+            {/* Grid to align “unifié” under Nartex logo’s N */}
             <div className="grid grid-cols-[auto,1fr] gap-x-2 items-baseline">
               <NartexLogo className="col-start-1 row-start-1 h-[42px] w-auto text-emerald-400" />
               <h1 className="col-start-2 row-start-1 text-white/90 font-semibold leading-tight" style={{ fontSize: "clamp(28px,4.5vw,48px)" }}>
@@ -280,11 +271,11 @@ function LoginForm() {
             </div>
           </section>
 
-          {/* Right: Auth card — compact on mobile to always fit */}
+          {/* Right: Auth card (compact on mobile) */}
           <section className="w-full flex items-center justify-center">
             <div className="relative w-full max-w-sm sm:max-w-md">
               <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-emerald-700/20 via-teal-600/15 to-emerald-700/20 blur-xl opacity-70" />
-              <div className="relative rounded-2xl border border-zinc-800/60 bg-zinc-950/60 backdrop-blur-2xl shadow-2xl shadow-black/30 p-6 sm:p-8">
+              <div className="relative rounded-2xl border border-zinc-800/60 bg-zinc-950/60 backdrop-blur-2xl shadow-2xl shadow-black/50 p-6 sm:p-8">
                 <h2 className="text-center text-xl sm:text-2xl font-semibold text-white">Connexion sécurisée</h2>
                 <p className="text-center text-zinc-500 text-xs sm:text-sm mt-1">
                   Accédez à votre espace de travail et à vos données clients, en toute sécurité.
@@ -322,7 +313,7 @@ function LoginForm() {
   );
 }
 
-/* ---------------- Extracted Auth form ---------------- */
+/* ---------------- Auth form ---------------- */
 function AuthForm({
   emailState,
   passwordState,
