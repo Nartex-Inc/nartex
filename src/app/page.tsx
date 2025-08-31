@@ -74,6 +74,7 @@ const LoadingSpinner: React.FC<{ className?: string }> = ({ className = "h-5 w-5
   </svg>
 );
 
+// --- ParticleField (neutral wash, matches signup) ---
 const ParticleField: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -108,26 +109,16 @@ const ParticleField: React.FC = () => {
       particles.push({
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.3,
-        vy: (Math.random() - 0.5) * 0.3,
+        vx: (Math.random() - 0.5) * 0.2,
+        vy: (Math.random() - 0.5) * 0.2,
         radius: Math.random() * 1.5 + 0.5,
         opacity: Math.random() * 0.5 + 0.2,
       });
     }
 
-    const color1 = { r: 110, g: 231, b: 183 };
-    const color2 = { r: 16, g: 185, b: 129 };
-    const lineColor = { r: 52, g: 211, b: 153 };
-
     const animate = () => {
-      const timeFactor = (Math.sin(Date.now() / 4000) + 1) / 2;
-      const r = color1.r + (color2.r - color1.r) * timeFactor;
-      const g = color1.g + (color2.g - color1.g) * timeFactor;
-      const b = color1.b + (color2.b - color1.b) * timeFactor;
-
-      // Canvas wash behind particles (constant opacity, not using 'p' out of scope)
-      const baseOpacity = 0.08;
-      ctx.fillStyle = `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, ${baseOpacity})`;
+      // Neutral dark wash (no green tint)
+      ctx.fillStyle = "rgba(24, 24, 27, 0.10)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       particles.forEach((p, i) => {
@@ -137,13 +128,13 @@ const ParticleField: React.FC = () => {
         if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
         if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
 
-        // Draw particle
+        // Particle
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, ${p.opacity})`;
+        ctx.fillStyle = `rgba(110, 231, 183, ${p.opacity})`; // mint dots
         ctx.fill();
 
-        // Connect nearby particles
+        // Lines
         for (let j = i + 1; j < particles.length; j++) {
           const p2 = particles[j];
           const dx = p.x - p2.x;
@@ -153,7 +144,7 @@ const ParticleField: React.FC = () => {
           if (distance < connectionDistance) {
             ctx.beginPath();
             const opacity = 1 - distance / connectionDistance;
-            ctx.strokeStyle = `rgba(${lineColor.r}, ${lineColor.g}, ${lineColor.b}, ${opacity * 0.2})`;
+            ctx.strokeStyle = `rgba(52, 211, 153, ${opacity * 0.2})`;
             ctx.lineWidth = 0.5;
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(p2.x, p2.y);
@@ -167,7 +158,6 @@ const ParticleField: React.FC = () => {
 
     animate();
     window.addEventListener("resize", resizeCanvas);
-
     return () => {
       window.removeEventListener("resize", resizeCanvas);
       cancelAnimationFrame(animationFrameId);
