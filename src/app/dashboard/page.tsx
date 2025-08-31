@@ -52,11 +52,9 @@ const COLORS = {
   labelMuted: "#737a86",
   accentPrimary: "#22d3ee", // cyan
   accentSecondary: "#8b5cf6", // violet
-  accentTertiary: "#10b981", // emerald (sparingly)
-  accentQuaternary: "#f59e0b", // amber
 };
 
-/** Categorical set for pie + bars (legend will match exactly) */
+/** Categorical set for pie + bars */
 const PIE_COLORS = [
   "#0ea5e9", // sky
   "#8b5cf6", // violet
@@ -146,11 +144,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-/** Legend with exact color squares passed via payload */
+/** Legend UI (we’ll pass it the already-patched payload) */
 const CustomLegend = ({ payload, onLegendClick }: any) => {
   return (
     <ul className="flex flex-col space-y-1 text-[11px]">
-      {payload.map((entry: any) => (
+      {(payload || []).map((entry: any) => (
         <li
           key={entry.value}
           className="flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity"
@@ -315,13 +313,11 @@ const DashboardContent = () => {
   if (error) return <ErrorState message={error.message} />;
   if (isLoading) return <LoadingState />;
 
-  /** Build exact legend payload (color squares = slice colors) */
-  const repLegendPayload = salesByRep.map((d, i) => ({
-    value: d.name,
-    color: d.name === "Autres" ? "#303a47" : PIE_COLORS[i % PIE_COLORS.length],
-    type: "square",
-    id: `legend-${i}`,
-  }));
+  /** Color map for legend patching */
+  const colorMap: Record<string, string> = {};
+  salesByRep.forEach((d, i) => {
+    colorMap[d.name] = d.name === "Autres" ? "#303a47" : PIE_COLORS[i % PIE_COLORS.length];
+  });
 
   return (
     <div className="space-y-6">
@@ -474,14 +470,25 @@ const DashboardContent = () => {
                 ))}
               </Pie>
               <Tooltip content={<CustomTooltip />} />
-              {/* Legend squares that MATCH the pie colors */}
+              {/* Use Recharts payload but patch colors in content to MATCH the pie */}
               <Legend
-                payload={repLegendPayload}
-                content={<CustomLegend onLegendClick={(v: string) => handleSelect("salesReps", v)} />}
                 layout="vertical"
                 align="right"
                 verticalAlign="middle"
                 wrapperStyle={{ paddingLeft: 14 }}
+                content={(props: any) => {
+                  const patched =
+                    props?.payload?.map((p: any) => ({
+                      ...p,
+                      color: colorMap[p.value] ?? p.color,
+                    })) ?? [];
+                  return (
+                    <CustomLegend
+                      payload={patched}
+                      onLegendClick={(v: string) => handleSelect("salesReps", v)}
+                    />
+                  );
+                }}
               />
             </PieChart>
           </ResponsiveContainer>
@@ -618,9 +625,8 @@ export default function DashboardPage() {
 
   return (
     <main className={`min-h-screen ${inter.className}`} style={{ background: COLORS.bg, color: "#fff" }}>
-      {/* Wider container to nearly full viewport width; tweak max-w as needed for your sidebar */}
       <div className="px-4 md:px-6 lg:px-8 py-6 md:py-8">
-        <div className="mx-auto w-full max-w-[1720px]">{/* ~Full width, small margins for breathing */}
+        <div className="mx-auto w-full max-w-[1720px]">
           <DashboardContent />
         </div>
       </div>
@@ -642,10 +648,14 @@ function KpiCard({
 }) {
   return (
     <div className={`group relative ${className}`}>
-      <div className="absolute -inset-0.5 rounded-2xl blur opacity-0 group-hover:opacity-40 transition duration-500"
-           style={{ background: "linear-gradient(90deg, rgba(34,211,238,0.25), rgba(139,92,246,0.25))" }} />
-      <div className="relative rounded-2xl p-5 h-full"
-           style={{ background: COLORS.card, border: `1px solid ${COLORS.cardBorder}` }}>
+      <div
+        className="absolute -inset-0.5 rounded-2xl blur opacity-0 group-hover:opacity-40 transition duration-500"
+        style={{ background: "linear-gradient(90deg, rgba(34,211,238,0.25), rgba(139,92,246,0.25))" }}
+      />
+      <div
+        className="relative rounded-2xl p-5 h-full"
+        style={{ background: COLORS.card, border: `1px solid ${COLORS.cardBorder}` }}
+      >
         <h3 className="text-[12px] uppercase tracking-widest text-zinc-500 mb-2">{title}</h3>
         {children}
       </div>
@@ -664,10 +674,14 @@ function ChartCard({
 }) {
   return (
     <div className={`group relative ${className}`}>
-      <div className="absolute -inset-0.5 rounded-2xl blur opacity-0 group-hover:opacity-35 transition duration-500"
-           style={{ background: "linear-gradient(90deg, rgba(34,211,238,0.20), rgba(139,92,246,0.20))" }} />
-      <div className="relative rounded-2xl p-4 md:p-5 border h-full flex flex-col"
-           style={{ background: COLORS.card, borderColor: COLORS.cardBorder }}>
+      <div
+        className="absolute -inset-0.5 rounded-2xl blur opacity-0 group-hover:opacity-35 transition duration-500"
+        style={{ background: "linear-gradient(90deg, rgba(34,211,238,0.20), rgba(139,92,246,0.20))" }}
+      />
+      <div
+        className="relative rounded-2xl p-4 md:p-5 border h-full flex flex-col"
+        style={{ background: COLORS.card, borderColor: COLORS.cardBorder }}
+      >
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-medium tracking-wide">{title}</h3>
         </div>
