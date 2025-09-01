@@ -527,6 +527,7 @@ function SharePointStructure() {
                 {permissionBadges(selected)}
               </div>
               <PermissionsInlineEditor
+                key={selected.id}
                 node={selected}
                 onSave={(p) => updatePermissions(selected, p)}
               />
