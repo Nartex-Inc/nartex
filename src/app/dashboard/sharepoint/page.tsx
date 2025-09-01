@@ -595,21 +595,12 @@ function SharePointStructure() {
           <h1 className="text-3xl font-bold tracking-tight">
             Structure SharePoint<span className="text-blue-500">.</span>
           </h1>
-          <div className="flex items-center gap-2">
-            <button
-              className="rounded-lg px-3 py-1.5 text-sm font-medium border border-white/10 bg-white/[0.02] text-gray-300 hover:bg-white/[0.05] transition-colors"
-              onClick={() => startCreating(null)}
-            >
-              Ajouter un dossier racine
-            </button>
-            <button
-              className="rounded-lg px-3 py-1.5 text-sm font-medium border border-white/10 bg-white/[0.02] text-gray-300 hover:bg-white/[0.05] transition-colors"
-              onClick={() => mutate("/api/sharepoint")}
-              title="Rafraîchir"
-            >
-              Recharger
-            </button>
-          </div>
+          <button
+            className="rounded-lg px-3 py-1.5 text-sm font-medium border border-white/10 bg-white/[0.02] text-gray-300 hover:bg-white/[0.05] transition-colors"
+            onClick={() => startCreating("root")}
+          >
+            Ajouter un dossier racine
+          </button>
         </div>
       </div>
 
@@ -741,22 +732,10 @@ function PermissionsInlineViewer({
   // Use parent permissions if inherited, otherwise use node's own
   const effectiveNode = isInherited && parentWithPerms ? parentWithPerms : node;
   
-  const [editText, setEditText] = React.useState(
-    (effectiveNode.editGroups ?? []).join(", ")
-  );
-  const [readText, setReadText] = React.useState(
-    (effectiveNode.readGroups ?? []).join(", ")
-  );
-  const [restricted, setRestricted] = React.useState(!!effectiveNode.restricted);
-  const [highSecurity, setHighSecurity] = React.useState(!!effectiveNode.highSecurity);
-
-  React.useEffect(() => {
-    const source = isInherited && parentWithPerms ? parentWithPerms : node;
-    setEditText((source.editGroups ?? []).join(", "));
-    setReadText((source.readGroups ?? []).join(", "));
-    setRestricted(!!source.restricted);
-    setHighSecurity(!!source.highSecurity);
-  }, [node.id, node.editGroups, node.readGroups, node.restricted, node.highSecurity, isInherited, parentWithPerms]);
+  const editGroups = effectiveNode.editGroups ?? [];
+  const readGroups = effectiveNode.readGroups ?? [];
+  const restricted = !!effectiveNode.restricted;
+  const highSecurity = !!effectiveNode.highSecurity;
 
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 space-y-3">
@@ -768,26 +747,42 @@ function PermissionsInlineViewer({
       
       <div className="grid gap-2">
         <label className="text-xs text-gray-400">
-          Groupes (édition) — séparés par ","
+          Groupes (édition) — {editGroups.length} groupe{editGroups.length !== 1 ? 's' : ''}
         </label>
-        <input
-          className="rounded-lg bg-gray-950/80 border border-gray-800 px-3 py-1.5 text-xs text-gray-300"
-          value={editText || "(aucun)"}
-          readOnly
-          disabled
-        />
+        <div className="rounded-lg bg-gray-950/80 border border-gray-800 px-3 py-2 min-h-[32px]">
+          {editGroups.length > 0 ? (
+            <div className="space-y-1">
+              {editGroups.map((group, index) => (
+                <div key={index} className="text-xs text-gray-300">
+                  {group}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-xs text-gray-500">(aucun)</div>
+          )}
+        </div>
       </div>
+      
       <div className="grid gap-2">
         <label className="text-xs text-gray-400">
-          Groupes (lecture) — séparés par ","
+          Groupes (lecture) — {readGroups.length} groupe{readGroups.length !== 1 ? 's' : ''}
         </label>
-        <input
-          className="rounded-lg bg-gray-950/80 border border-gray-800 px-3 py-1.5 text-xs text-gray-300"
-          value={readText || "(aucun)"}
-          readOnly
-          disabled
-        />
+        <div className="rounded-lg bg-gray-950/80 border border-gray-800 px-3 py-2 min-h-[32px]">
+          {readGroups.length > 0 ? (
+            <div className="space-y-1">
+              {readGroups.map((group, index) => (
+                <div key={index} className="text-xs text-gray-300">
+                  {group}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-xs text-gray-500">(aucun)</div>
+          )}
+        </div>
       </div>
+      
       <div className="flex items-center gap-4">
         <label className="flex items-center gap-2 text-xs text-gray-300">
           <input type="checkbox" checked={restricted} readOnly disabled />
@@ -828,11 +823,15 @@ function PermissionModal({
   onClose: () => void;
   onSubmit: (p: PermSpec) => void;
 }) {
-  const [editGroups, setEditGroups] = React.useState(
-    (initial?.editGroups ?? []).join(", ")
+  const [editGroups, setEditGroups] = React.useState<string[]>(
+    initial?.editGroups && initial.editGroups.length > 0 
+      ? initial.editGroups 
+      : [""]
   );
-  const [readGroups, setReadGroups] = React.useState(
-    (initial?.readGroups ?? []).join(", ")
+  const [readGroups, setReadGroups] = React.useState<string[]>(
+    initial?.readGroups && initial.readGroups.length > 0 
+      ? initial.readGroups 
+      : [""]
   );
   const [restricted, setRestricted] = React.useState(!!initial?.restricted);
   const [highSecurity, setHighSecurity] = React.useState(
@@ -840,8 +839,16 @@ function PermissionModal({
   );
 
   React.useEffect(() => {
-    setEditGroups((initial?.editGroups ?? []).join(", "));
-    setReadGroups((initial?.readGroups ?? []).join(", "));
+    setEditGroups(
+      initial?.editGroups && initial.editGroups.length > 0 
+        ? initial.editGroups 
+        : [""]
+    );
+    setReadGroups(
+      initial?.readGroups && initial.readGroups.length > 0 
+        ? initial.readGroups 
+        : [""]
+    );
     setRestricted(!!initial?.restricted);
     setHighSecurity(!!initial?.highSecurity);
   }, [
@@ -851,9 +858,45 @@ function PermissionModal({
     initial?.highSecurity,
   ]);
 
+  const addEditGroup = () => {
+    if (editGroups.every(g => g.trim())) {
+      setEditGroups([...editGroups, ""]);
+    }
+  };
+
+  const addReadGroup = () => {
+    if (readGroups.every(g => g.trim())) {
+      setReadGroups([...readGroups, ""]);
+    }
+  };
+
+  const updateEditGroup = (index: number, value: string) => {
+    const updated = [...editGroups];
+    updated[index] = value;
+    setEditGroups(updated);
+  };
+
+  const updateReadGroup = (index: number, value: string) => {
+    const updated = [...readGroups];
+    updated[index] = value;
+    setReadGroups(updated);
+  };
+
+  const removeEditGroup = (index: number) => {
+    if (editGroups.length > 1) {
+      setEditGroups(editGroups.filter((_, i) => i !== index));
+    }
+  };
+
+  const removeReadGroup = (index: number) => {
+    if (readGroups.length > 1) {
+      setReadGroups(readGroups.filter((_, i) => i !== index));
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-gray-800 bg-gray-950 p-5">
+      <div className="w-full max-w-lg rounded-2xl border border-gray-800 bg-gray-950 p-5 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-medium tracking-wide text-white flex items-center gap-2">
             <Shield className="h-5 w-5 text-blue-400" />
@@ -870,27 +913,75 @@ function PermissionModal({
 
         <div className="mt-4 space-y-3">
           <div className="grid gap-2">
-            <label className="text-xs text-gray-400">
-              Groupes (édition) — séparés par ","
-            </label>
-            <input
-              className="rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
-              value={editGroups}
-              onChange={(e) => setEditGroups(e.target.value)}
-              placeholder="SG-FOO-ALL, SG-FOO-EXECUTIF"
-            />
+            <div className="flex items-center justify-between">
+              <label className="text-xs text-gray-400">Groupes (édition)</label>
+              <button
+                className="text-xs px-2 py-0.5 rounded bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                onClick={addEditGroup}
+                disabled={!editGroups.every(g => g.trim())}
+                title="Ajouter un groupe"
+              >
+                <Plus className="h-3 w-3 inline" /> Ajouter
+              </button>
+            </div>
+            <div className="space-y-2">
+              {editGroups.map((group, index) => (
+                <div key={index} className="flex gap-2">
+                  <input
+                    className="flex-1 rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                    value={group}
+                    onChange={(e) => updateEditGroup(index, e.target.value)}
+                    placeholder="SG-FOO-EXECUTIF"
+                  />
+                  {editGroups.length > 1 && (
+                    <button
+                      className="rounded-lg p-2 text-red-400 hover:bg-red-500/10"
+                      onClick={() => removeEditGroup(index)}
+                      title="Supprimer"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
+          
           <div className="grid gap-2">
-            <label className="text-xs text-gray-400">
-              Groupes (lecture) — séparés par ","
-            </label>
-            <input
-              className="rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
-              value={readGroups}
-              onChange={(e) => setReadGroups(e.target.value)}
-              placeholder="SG-FOO-ALL"
-            />
+            <div className="flex items-center justify-between">
+              <label className="text-xs text-gray-400">Groupes (lecture)</label>
+              <button
+                className="text-xs px-2 py-0.5 rounded bg-sky-600/20 text-sky-400 hover:bg-sky-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                onClick={addReadGroup}
+                disabled={!readGroups.every(g => g.trim())}
+                title="Ajouter un groupe"
+              >
+                <Plus className="h-3 w-3 inline" /> Ajouter
+              </button>
+            </div>
+            <div className="space-y-2">
+              {readGroups.map((group, index) => (
+                <div key={index} className="flex gap-2">
+                  <input
+                    className="flex-1 rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                    value={group}
+                    onChange={(e) => updateReadGroup(index, e.target.value)}
+                    placeholder="SG-FOO-ALL"
+                  />
+                  {readGroups.length > 1 && (
+                    <button
+                      className="rounded-lg p-2 text-red-400 hover:bg-red-500/10"
+                      onClick={() => removeReadGroup(index)}
+                      title="Supprimer"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
+          
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 text-sm text-gray-300">
               <input
@@ -927,8 +1018,12 @@ function PermissionModal({
               onSubmit({
                 restricted,
                 highSecurity,
-                editGroups: splitOrNull(editGroups),
-                readGroups: splitOrNull(readGroups),
+                editGroups: editGroups.filter(g => g.trim()).length > 0 
+                  ? editGroups.filter(g => g.trim()) 
+                  : null,
+                readGroups: readGroups.filter(g => g.trim()).length > 0 
+                  ? readGroups.filter(g => g.trim()) 
+                  : null,
               })
             }
           >
