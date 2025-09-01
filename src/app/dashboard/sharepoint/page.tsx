@@ -642,6 +642,20 @@ function PermissionsInlineEditor({
   const [restricted, setRestricted] = React.useState(!!node.restricted);
   const [highSecurity, setHighSecurity] = React.useState(!!node.highSecurity);
 
+  // ⬇️ Re-sync when the selected node changes
+  React.useEffect(() => {
+    setEditGroups((node.editGroups ?? []).join(", "));
+    setReadGroups((node.readGroups ?? []).join(", "));
+    setRestricted(!!node.restricted);
+    setHighSecurity(!!node.highSecurity);
+  }, [
+    node.id,
+    node.editGroups,
+    node.readGroups,
+    node.restricted,
+    node.highSecurity,
+  ]);
+
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 space-y-3">
       <div className="grid gap-2">
@@ -704,108 +718,93 @@ function PermissionsInlineEditor({
   );
 }
 
-function PermissionModal({
-  initial,
-  onClose,
-  onSubmit,
+function PermissionsInlineEditor({
+  node,
+  onSave,
 }: {
-  initial: PermSpec;
-  onClose: () => void;
-  onSubmit: (p: PermSpec) => void;
+  node: NodeItem;
+  onSave: (p: PermSpec) => void;
 }) {
   const [editGroups, setEditGroups] = React.useState(
-    (initial?.editGroups ?? []).join(", ")
+    (node.editGroups ?? []).join(", ")
   );
   const [readGroups, setReadGroups] = React.useState(
-    (initial?.readGroups ?? []).join(", ")
+    (node.readGroups ?? []).join(", ")
   );
-  const [restricted, setRestricted] = React.useState(!!initial?.restricted);
-  const [highSecurity, setHighSecurity] = React.useState(
-    !!initial?.highSecurity
-  );
+  const [restricted, setRestricted] = React.useState(!!node.restricted);
+  const [highSecurity, setHighSecurity] = React.useState(!!node.highSecurity);
+
+  // ⬇️ Re-sync when the selected node changes
+  React.useEffect(() => {
+    setEditGroups((node.editGroups ?? []).join(", "));
+    setReadGroups((node.readGroups ?? []).join(", "));
+    setRestricted(!!node.restricted);
+    setHighSecurity(!!node.highSecurity);
+  }, [
+    node.id,
+    node.editGroups,
+    node.readGroups,
+    node.restricted,
+    node.highSecurity,
+  ]);
 
   return (
-    <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-gray-800 bg-gray-950 p-5">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium tracking-wide text-white flex items-center gap-2">
-            <Shield className="h-5 w-5 text-blue-400" />
-            Éditer les permissions
-          </h3>
-          <button
-            className="rounded-md p-1 text-gray-400 hover:bg-white/10"
-            onClick={onClose}
-            title="Fermer"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="mt-4 space-y-3">
-          <div className="grid gap-2">
-            <label className="text-xs text-gray-400">
-              Groupes (édition) — séparés par “,”
-            </label>
-            <input
-              className="rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
-              value={editGroups}
-              onChange={(e) => setEditGroups(e.target.value)}
-              placeholder="SG-FOO-ALL, SG-FOO-EXECUTIF"
-            />
-          </div>
-          <div className="grid gap-2">
-            <label className="text-xs text-gray-400">
-              Groupes (lecture) — séparés par “,”
-            </label>
-            <input
-              className="rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
-              value={readGroups}
-              onChange={(e) => setReadGroups(e.target.value)}
-              placeholder="SG-FOO-ALL"
-            />
-          </div>
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-sm text-gray-300">
-              <input
-                type="checkbox"
-                checked={restricted}
-                onChange={(e) => setRestricted(e.target.checked)}
-              />
-              Accès restreint
-            </label>
-            <label className="flex items-center gap-2 text-sm text-gray-300">
-              <input
-                type="checkbox"
-                checked={highSecurity}
-                onChange={(e) => setHighSecurity(e.target.checked)}
-              />
-              Haute sécurité
-            </label>
-          </div>
-        </div>
-
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            className="rounded-lg border border-white/10 px-3 py-1.5 text-sm text-gray-300 hover:bg-white/10"
-            onClick={onClose}
-          >
-            Annuler
-          </button>
-          <button
-            className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-            onClick={() =>
-              onSubmit({
-                restricted,
-                highSecurity,
-                editGroups: splitOrNull(editGroups),
-                readGroups: splitOrNull(readGroups),
-              })
-            }
-          >
-            <Save className="h-4 w-4" />
-            Enregistrer
-          </button>
-        </div>
+    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 space-y-3">
+      <div className="grid gap-2">
+        <label className="text-xs text-gray-400">
+          Groupes (édition) — séparés par “,”
+        </label>
+        <input
+          className="rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
+          value={editGroups}
+          onChange={(e) => setEditGroups(e.target.value)}
+          placeholder="SG-FOO-ALL, SG-FOO-EXECUTIF"
+        />
+      </div>
+      <div className="grid gap-2">
+        <label className="text-xs text-gray-400">
+          Groupes (lecture) — séparés par “,”
+        </label>
+        <input
+          className="rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
+          value={readGroups}
+          onChange={(e) => setReadGroups(e.target.value)}
+          placeholder="SG-FOO-ALL"
+        />
+      </div>
+      <div className="flex items-center gap-4">
+        <label className="flex items-center gap-2 text-sm text-gray-300">
+          <input
+            type="checkbox"
+            checked={restricted}
+            onChange={(e) => setRestricted(e.target.checked)}
+          />
+          Accès restreint
+        </label>
+        <label className="flex items-center gap-2 text-sm text-gray-300">
+          <input
+            type="checkbox"
+            checked={highSecurity}
+            onChange={(e) => setHighSecurity(e.target.checked)}
+          />
+          Haute sécurité
+        </label>
+      </div>
+      <div className="flex justify-end gap-2">
+        <button
+          className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-3 py-1.5 text-sm text-gray-300 hover:bg-white/10"
+          onClick={() =>
+            onSave({
+              restricted,
+              highSecurity,
+              editGroups: splitOrNull(editGroups),
+              readGroups: splitOrNull(readGroups),
+            })
+          }
+        >
+          <Save className="h-4 w-4" />
+          Enregistrer
+        </button>
       </div>
     </div>
   );
