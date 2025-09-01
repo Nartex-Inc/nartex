@@ -22,6 +22,7 @@ import {
   Settings2,
   Save,
   X,
+  Check,
 } from "lucide-react";
 
 /* =============================================================================
@@ -65,6 +66,7 @@ type NodeItem = {
   editGroups?: string[] | null;
   readGroups?: string[] | null;
   children?: NodeItem[];
+  depth?: number; // Track depth in tree
 };
 
 type PermSpec =
@@ -99,7 +101,7 @@ function buildTree(rows: APINode[]): NodeItem {
     byParent.set(k, arr);
   });
 
-  const toNode = (n: APINode): NodeItem => ({
+  const toNode = (n: APINode, depth: number = 0): NodeItem => ({
     id: n.id,
     parentId: n.parentId ?? null,
     name: n.name,
@@ -109,9 +111,10 @@ function buildTree(rows: APINode[]): NodeItem {
     highSecurity: !!n.highSecurity,
     editGroups: toView(n.editGroups),
     readGroups: toView(n.readGroups),
+    depth,
     children: (byParent.get(n.id) ?? [])
       .sort((a, b) => a.name.localeCompare(b.name))
-      .map(toNode),
+      .map(c => toNode(c, depth + 1)),
   });
 
   // virtual root
@@ -123,7 +126,8 @@ function buildTree(rows: APINode[]): NodeItem {
     parentId: null,
     name: "ROOT",
     type: "site",
-    children: rootChildren.map(toNode),
+    depth: 0,
+    children: rootChildren.map(c => toNode(c, 1)),
   };
 }
 
@@ -137,6 +141,24 @@ function findNodeById(root: NodeItem | null, id: string): NodeItem | null {
   return null;
 }
 
+// Find parent node to get inherited permissions
+function findParentWithPermissions(tree: NodeItem | null, node: NodeItem): NodeItem | null {
+  if (!tree || !node.parentId) return null;
+  
+  const parent = findNodeById(tree, node.parentId);
+  if (!parent) return null;
+  
+  // If parent has permissions, return it
+  if (parent.editGroups || parent.readGroups) return parent;
+  
+  // Otherwise, continue up the tree
+  if (parent.parentId) {
+    return findParentWithPermissions(tree, parent);
+  }
+  
+  return null;
+}
+
 /* =============================================================================
    Page (auth gate)
 ============================================================================= */
@@ -144,14 +166,12 @@ export default function SharePointPage() {
   const { status } = useSession();
   if (status === "loading") return <LoadingState />;
 
-  // TO: Allow everyone to view
+  // Allow everyone to view
   if (status === "unauthenticated") return <AccessDenied />;
 
   return (
-    <main className={`min-h-screen bg-black ${inter.className}`}>
-      <div className="pt-0 px-0 pb-8">
-        <SharePointStructure />
-      </div>
+    <main className={`h-screen bg-black overflow-hidden ${inter.className}`}>
+      <SharePointStructure />
     </main>
   );
 }
@@ -170,6 +190,10 @@ function SharePointStructure() {
     new Set(["root"])
   );
   const [selected, setSelected] = React.useState<NodeItem | null>(null);
+  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [editingName, setEditingName] = React.useState("");
+  const [creatingInId, setCreatingInId] = React.useState<string | null>(null);
+  const [newFolderName, setNewFolderName] = React.useState("");
 
   const tree = React.useMemo(() => (data ? buildTree(data) : null), [data]);
 
@@ -187,15 +211,30 @@ function SharePointStructure() {
   };
 
   // ------- Mutations (Create / Rename / Delete / Edit permissions) ----------
-  const createChild = async (parentId: string | null) => {
-    const name = window.prompt("Nom du dossier à créer :", "");
-    if (!name) return;
-    const body = { name, parentId, type: "folder" };
+  const startCreating = (parentId: string | null) => {
+    const id = parentId === null ? "root" : parentId;
+    setCreatingInId(id);
+    setNewFolderName("");
+    // Expand parent to show new folder input
+    const next = new Set(expanded);
+    next.add(id);
+    setExpanded(next);
+  };
+
+  const confirmCreate = async () => {
+    if (!newFolderName.trim()) {
+      setCreatingInId(null);
+      return;
+    }
+    
+    const parentId = creatingInId === "root" ? null : creatingInId;
+    const body = { name: newFolderName.trim(), parentId, type: "folder" };
+    
     const optimistic: APINode = {
       id: `tmp-${Date.now()}`,
       tenantId: "tmp",
       parentId,
-      name,
+      name: newFolderName.trim(),
       type: "folder",
       icon: null,
       restricted: false,
@@ -211,6 +250,10 @@ function SharePointStructure() {
       (prev: APINode[] | undefined) => (prev ? [...prev, optimistic] : prev),
       false
     );
+    
+    setCreatingInId(null);
+    setNewFolderName("");
+    
     try {
       const res = await fetch("/api/sharepoint", {
         method: "POST",
@@ -231,29 +274,45 @@ function SharePointStructure() {
     }
   };
 
-  const renameNode = async (node: NodeItem) => {
-    const name = window.prompt("Nouveau nom :", node.name);
-    if (!name || name.trim() === node.name) return;
-    const oldName = node.name;
+  const startRenaming = (node: NodeItem) => {
+    setEditingId(node.id);
+    setEditingName(node.name);
+  };
 
+  const confirmRename = async () => {
+    if (!editingId || !editingName.trim()) {
+      setEditingId(null);
+      return;
+    }
+
+    const node = findNodeById(tree, editingId);
+    if (!node || editingName.trim() === node.name) {
+      setEditingId(null);
+      return;
+    }
+
+    const oldName = node.name;
     mutate(
       "/api/sharepoint",
       (prev: APINode[] | undefined) =>
-        prev?.map((n) => (n.id === node.id ? { ...n, name } : n)),
+        prev?.map((n) => (n.id === editingId ? { ...n, name: editingName.trim() } : n)),
       false
     );
+    
+    setEditingId(null);
+
     try {
-      const res = await fetch(`/api/sharepoint/${node.id}`, {
+      const res = await fetch(`/api/sharepoint/${editingId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name: editingName.trim() }),
       });
       if (!res.ok) throw new Error("Échec de la mise à jour du nom");
     } catch (e) {
       mutate(
         "/api/sharepoint",
         (prev: APINode[] | undefined) =>
-          prev?.map((n) => (n.id === node.id ? { ...n, name: oldName } : n)),
+          prev?.map((n) => (n.id === editingId ? { ...n, name: oldName } : n)),
         false
       );
       alert((e as Error).message);
@@ -349,18 +408,23 @@ function SharePointStructure() {
     return out;
   };
 
-  const renderNode = (node: NodeItem, depth = 0): React.ReactNode => {
+  const renderNode = (node: NodeItem, visualDepth = 0): React.ReactNode => {
     const isExpanded = expanded.has(node.id);
     const hasChildren = !!node.children?.length;
     const isSelected = selected?.id === node.id;
-    const canEditPermissions = node.type === "library"; // only top-level “blue” folders
+    const isEditing = editingId === node.id;
+    const isCreating = creatingInId === node.id;
+    
+    // Only level 2 folders (depth === 2) can have permissions edited
+    // These are the direct children of top-level folders
+    const canEditPermissions = node.depth === 2 && node.id !== "root";
 
     return (
       <div key={node.id} className="select-none">
         <div
           className={[
-            "group flex items-center gap-2 rounded-xl px-3 py-2 transition-all",
-            "hover:bg-white/[0.04] border border-transparent",
+            "group flex items-center gap-2 rounded-lg px-3 py-1.5 transition-all",
+            "hover:bg-white/[0.03] border border-transparent",
             isSelected
               ? "bg-gradient-to-r from-blue-500/10 via-blue-400/5 to-transparent border-white/10"
               : "",
@@ -371,10 +435,11 @@ function SharePointStructure() {
               ? "pl-[calc(theme(spacing.3)+2px)] border-l-2 border-red-500/40"
               : "",
           ].join(" ")}
-          style={{ paddingLeft: depth * 20 + 12 }}
+          style={{ paddingLeft: visualDepth * 20 + 12 }}
           onClick={(e) => {
             const t = e.target as HTMLElement;
             if (t.closest("[data-node-action]")) return;
+            if (t.closest("input")) return;
             if (hasChildren) toggle(node.id);
             setSelected(node);
           }}
@@ -384,34 +449,49 @@ function SharePointStructure() {
               className="text-muted-foreground/70 transition-transform"
               style={{ transform: isExpanded ? "rotate(90deg)" : "none" }}
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-3.5 w-3.5" />
             </span>
           )}
 
           {node.type === "site" && (
-            <Building2 className="h-5 w-5 text-purple-400" />
+            <Building2 className="h-4 w-4 text-purple-400" />
           )}
           {node.type === "library" && (
-            <span className="text-lg">{node.icon || "📁"}</span>
+            <span className="text-base">{node.icon || "📁"}</span>
           )}
           {(!node.type || node.type === "folder") &&
             (isExpanded ? (
-              <FolderOpen className="h-4 w-4 text-blue-400" />
+              <FolderOpen className="h-3.5 w-3.5 text-blue-400" />
             ) : (
-              <Folder className="h-4 w-4 text-muted-foreground/70" />
+              <Folder className="h-3.5 w-3.5 text-muted-foreground/70" />
             ))}
 
-          <span
-            className={[
-              "font-medium",
-              node.type === "library" ? "text-white" : "text-gray-200",
-              "flex items-center gap-1",
-            ].join(" ")}
-          >
-            {node.name}
-            {node.restricted && <Lock className="h-3 w-3 text-amber-400" />}
-            {node.highSecurity && <Shield className="h-3 w-3 text-red-400" />}
-          </span>
+          {isEditing ? (
+            <input
+              className="flex-1 rounded bg-gray-900 border border-blue-500 px-2 py-0.5 text-sm text-white outline-none"
+              value={editingName}
+              onChange={(e) => setEditingName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") confirmRename();
+                if (e.key === "Escape") setEditingId(null);
+              }}
+              onBlur={confirmRename}
+              autoFocus
+            />
+          ) : (
+            <span
+              className={[
+                "font-medium text-sm",
+                node.type === "library" ? "text-white" : "text-gray-200",
+                "flex items-center gap-1",
+              ].join(" ")}
+              onDoubleClick={() => node.id !== "root" && startRenaming(node)}
+            >
+              {node.name}
+              {node.restricted && <Lock className="h-3 w-3 text-amber-400" />}
+              {node.highSecurity && <Shield className="h-3 w-3 text-red-400" />}
+            </span>
+          )}
 
           <div className="ml-auto hidden gap-2 md:flex">
             {permissionBadges(node)}
@@ -422,19 +502,19 @@ function SharePointStructure() {
               data-node-action
               className="rounded-md p-1 text-xs text-gray-300 hover:bg-white/10"
               title="Ajouter un sous-dossier"
-              onClick={() => createChild(node.id === "root" ? null : node.id)}
+              onClick={() => startCreating(node.id === "root" ? null : node.id)}
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-3.5 w-3.5" />
             </button>
             {node.id !== "root" && (
               <>
                 <button
                   data-node-action
                   className="rounded-md p-1 text-xs text-gray-300 hover:bg-white/10"
-                  title="Renommer"
-                  onClick={() => renameNode(node)}
+                  title="Renommer (F2)"
+                  onClick={() => startRenaming(node)}
                 >
-                  <Pencil className="h-4 w-4" />
+                  <Pencil className="h-3.5 w-3.5" />
                 </button>
                 <button
                   data-node-action
@@ -442,10 +522,10 @@ function SharePointStructure() {
                   title="Supprimer"
                   onClick={() => deleteNode(node)}
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="h-3.5 w-3.5" />
                 </button>
 
-                {/* Permissions can only be edited on top-level “library” nodes */}
+                {/* Permissions can only be edited on level 2 folders */}
                 {canEditPermissions && (
                   <PermissionsButton
                     node={node}
@@ -457,14 +537,46 @@ function SharePointStructure() {
           </div>
         </div>
 
+        {isCreating && (
+          <div className="ml-2 mt-1" style={{ paddingLeft: (visualDepth + 1) * 20 + 12 }}>
+            <div className="flex items-center gap-2">
+              <Folder className="h-3.5 w-3.5 text-muted-foreground/70" />
+              <input
+                className="flex-1 rounded bg-gray-900 border border-blue-500 px-2 py-0.5 text-sm text-white outline-none"
+                placeholder="Nouveau dossier"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") confirmCreate();
+                  if (e.key === "Escape") setCreatingInId(null);
+                }}
+                onBlur={confirmCreate}
+                autoFocus
+              />
+            </div>
+          </div>
+        )}
+
         {isExpanded && hasChildren && (
-          <div className="ml-2 space-y-1">
-            {node.children!.map((c) => renderNode(c, depth + 1))}
+          <div className="ml-2">
+            {node.children!.map((c) => renderNode(c, visualDepth + 1))}
           </div>
         )}
       </div>
     );
   };
+
+  // Global keyboard handler for F2
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F2" && selected && selected.id !== "root" && !editingId) {
+        e.preventDefault();
+        startRenaming(selected);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selected, editingId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (error) {
     return (
@@ -476,124 +588,136 @@ function SharePointStructure() {
   if (isLoading || !tree) return <LoadingState />;
 
   return (
-    <div className="space-y-6">
+    <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-          Structure SharePoint<span className="text-blue-500">.</span>
-        </h1>
-        <div className="flex items-center gap-2">
-          <button
-            className="rounded-lg px-3 py-2 text-sm font-medium border border-white/10 bg-white/[0.02] text-gray-300 hover:bg-white/[0.05]"
-            onClick={() => createChild(null)}
-          >
-            Ajouter un dossier racine
-          </button>
-          <button
-            className="rounded-lg px-3 py-2 text-sm font-medium border border-white/10 bg-white/[0.02] text-gray-300 hover:bg-white/[0.05]"
-            onClick={() => mutate("/api/sharepoint")}
-            title="Rafraîchir"
-          >
-            Recharger
-          </button>
+      <div className="flex-shrink-0 px-6 py-4 border-b border-gray-800">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-3xl font-bold tracking-tight">
+            Structure SharePoint<span className="text-blue-500">.</span>
+          </h1>
+          <div className="flex items-center gap-2">
+            <button
+              className="rounded-lg px-3 py-1.5 text-sm font-medium border border-white/10 bg-white/[0.02] text-gray-300 hover:bg-white/[0.05] transition-colors"
+              onClick={() => startCreating(null)}
+            >
+              Ajouter un dossier racine
+            </button>
+            <button
+              className="rounded-lg px-3 py-1.5 text-sm font-medium border border-white/10 bg-white/[0.02] text-gray-300 hover:bg-white/[0.05] transition-colors"
+              onClick={() => mutate("/api/sharepoint")}
+              title="Rafraîchir"
+            >
+              Recharger
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-12 gap-4">
+      <div className="flex-1 overflow-hidden flex">
         {/* Explorer */}
-        <div className="col-span-12 lg:col-span-8">
-          <Card>
+        <div className="flex-1 overflow-y-auto p-6">
+          <Card className="h-full">
             <div className="mb-4">
               <CardTitle icon={<Folder className="h-5 w-5 text-blue-400" />}>
                 Arborescence des dossiers
               </CardTitle>
-              <p className="mt-1 text-sm text-gray-400">
-                Éditez en direct : créer, renommer, supprimer, permissions.
+              <p className="mt-1 text-xs text-gray-400">
+                Double-cliquez ou appuyez sur F2 pour renommer. Permissions éditables au niveau 2.
               </p>
             </div>
-            <div className="max-h-[620px] overflow-y-auto pr-2">
+            <div className="overflow-y-auto pr-2" style={{ maxHeight: "calc(100vh - 250px)" }}>
               {tree.children?.map((c) => renderNode(c, 0))}
             </div>
           </Card>
         </div>
 
         {/* Right rail */}
-        <div className="col-span-12 lg:col-span-4 space-y-4">
-          {selected && (
-            <Card className="space-y-3">
-              <CardTitle
-                icon={<Settings2 className="h-5 w-5 text-purple-400" />}
-              >
-                Détails du dossier
+        <div className="w-96 border-l border-gray-800 p-6 overflow-y-auto">
+          <div className="space-y-4">
+            {selected && selected.id !== "root" && (
+              <Card className="space-y-3">
+                <CardTitle
+                  icon={<Settings2 className="h-5 w-5 text-purple-400" />}
+                >
+                  Détails du dossier
+                </CardTitle>
+                <div className="text-sm text-gray-300 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400">Nom :</span>
+                    <span className="font-medium text-white">
+                      {selected.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400">Type :</span>
+                    <span className="font-mono text-xs">{selected.type ?? "folder"}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400">Niveau :</span>
+                    <span className="font-mono text-xs">{selected.depth}</span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {permissionBadges(selected)}
+                </div>
+
+                {/* Permission viewer - shows inherited for level 3+ */}
+                <PermissionsInlineViewer 
+                  key={selected.id} 
+                  node={selected}
+                  tree={tree}
+                />
+              </Card>
+            )}
+
+            {/* Legend */}
+            <Card>
+              <CardTitle icon={<Star className="h-5 w-5 text-yellow-400" />}>
+                Légende
               </CardTitle>
-              <div className="text-sm text-gray-300">
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-400">Nom :</span>
-                  <span className="font-medium text-white">
-                    {selected.name}
-                  </span>
+              <div className="mt-4 space-y-2 text-xs">
+                <div className="flex items-center gap-3 text-gray-300">
+                  <Lock className="h-3.5 w-3.5 text-amber-400" />
+                  <span>Accès restreint</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-400">Type :</span>
-                  <span className="font-mono">{selected.type ?? "folder"}</span>
+                <div className="flex items-center gap-3 text-gray-300">
+                  <Shield className="h-3.5 w-3.5 text-red-400" />
+                  <span>Haute sécurité</span>
+                </div>
+                <div className="flex items-center gap-3 text-gray-300">
+                  <Edit className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Groupes ayant l'édition</span>
+                </div>
+                <div className="flex items-center gap-3 text-gray-300">
+                  <Eye className="h-3.5 w-3.5 text-sky-400" />
+                  <span>Groupes en lecture</span>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {permissionBadges(selected)}
-              </div>
-
-              {/* Read-only viewer: reflects selected’s current permissions */}
-              <PermissionsInlineViewer key={selected.id} node={selected} />
             </Card>
-          )}
 
-          {/* Legend */}
-          <Card>
-            <CardTitle icon={<Star className="h-5 w-5 text-yellow-400" />}>
-              Légende
-            </CardTitle>
-            <div className="mt-4 space-y-3 text-sm">
-              <div className="flex items-center gap-3 text-gray-300">
-                <Lock className="h-4 w-4 text-amber-400" />
-                <span>Accès restreint</span>
+            {/* Security groups (static helper) */}
+            <Card>
+              <CardTitle icon={<Users className="h-5 w-5 text-purple-400" />}>
+                Groupes de sécurité
+              </CardTitle>
+              <div className="mt-4 space-y-2 text-xs text-gray-300">
+                <div>
+                  <span className="font-medium text-gray-200">Standard :</span>
+                  <p className="text-gray-400">SG-[DEPT]-ALL</p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-200">Exécutif :</span>
+                  <p className="text-gray-400">SG-[DEPT]-EXECUTIF</p>
+                </div>
+                <div className="border-t border-white/10 pt-2">
+                  <span className="font-medium text-gray-200">Spéciaux :</span>
+                  <p className="text-gray-400">SG-CFO, SG-PRESIDENT</p>
+                  <p className="text-gray-400">SG-DIRECTION-ALL</p>
+                  <p className="text-gray-400">SG-DIRECTION-EXECUTIF</p>
+                </div>
               </div>
-              <div className="flex items-center gap-3 text-gray-300">
-                <Shield className="h-4 w-4 text-red-400" />
-                <span>Haute sécurité</span>
-              </div>
-              <div className="flex items-center gap-3 text-gray-300">
-                <Edit className="h-4 w-4 text-emerald-400" />
-                <span>Groupes ayant l’édition</span>
-              </div>
-              <div className="flex items-center gap-3 text-gray-300">
-                <Eye className="h-4 w-4 text-sky-400" />
-                <span>Groupes en lecture</span>
-              </div>
-            </div>
-          </Card>
-
-          {/* Security groups (static helper) */}
-          <Card>
-            <CardTitle icon={<Users className="h-5 w-5 text-purple-400" />}>
-              Groupes de sécurité
-            </CardTitle>
-            <div className="mt-4 space-y-3 text-sm text-gray-300">
-              <div>
-                <span className="font-medium text-gray-200">Standard :</span>
-                <p className="text-gray-400">SG-[DEPT]-ALL</p>
-              </div>
-              <div>
-                <span className="font-medium text-gray-200">Exécutif :</span>
-                <p className="text-gray-400">SG-[DEPT]-EXECUTIF</p>
-              </div>
-              <div className="border-t border-white/10 pt-3">
-                <span className="font-medium text-gray-200">Spéciaux :</span>
-                <p className="text-gray-400">SG-CFO, SG-PRESIDENT</p>
-                <p className="text-gray-400">SG-DIRECTION-ALL</p>
-                <p className="text-gray-400">SG-DIRECTION-EXECUTIF</p>
-              </div>
-            </div>
-          </Card>
+            </Card>
+          </div>
         </div>
       </div>
     </div>
@@ -603,61 +727,87 @@ function SharePointStructure() {
 /* =============================================================================
    Permissions viewer (READ-ONLY in right rail)
 ============================================================================= */
-function PermissionsInlineViewer({ node }: { node: NodeItem }) {
-  // reflect changes on selection swap
+function PermissionsInlineViewer({ 
+  node, 
+  tree 
+}: { 
+  node: NodeItem;
+  tree: NodeItem;
+}) {
+  // For level 3+ folders, find inherited permissions
+  const isInherited = node.depth && node.depth > 2;
+  const parentWithPerms = isInherited ? findParentWithPermissions(tree, node) : null;
+  
+  // Use parent permissions if inherited, otherwise use node's own
+  const effectiveNode = isInherited && parentWithPerms ? parentWithPerms : node;
+  
   const [editText, setEditText] = React.useState(
-    (node.editGroups ?? []).join(", ")
+    (effectiveNode.editGroups ?? []).join(", ")
   );
   const [readText, setReadText] = React.useState(
-    (node.readGroups ?? []).join(", ")
+    (effectiveNode.readGroups ?? []).join(", ")
   );
-  const [restricted, setRestricted] = React.useState(!!node.restricted);
-  const [highSecurity, setHighSecurity] = React.useState(!!node.highSecurity);
+  const [restricted, setRestricted] = React.useState(!!effectiveNode.restricted);
+  const [highSecurity, setHighSecurity] = React.useState(!!effectiveNode.highSecurity);
 
   React.useEffect(() => {
-    setEditText((node.editGroups ?? []).join(", "));
-    setReadText((node.readGroups ?? []).join(", "));
-    setRestricted(!!node.restricted);
-    setHighSecurity(!!node.highSecurity);
-  }, [node.id, node.editGroups, node.readGroups, node.restricted, node.highSecurity]);
+    const source = isInherited && parentWithPerms ? parentWithPerms : node;
+    setEditText((source.editGroups ?? []).join(", "));
+    setReadText((source.readGroups ?? []).join(", "));
+    setRestricted(!!source.restricted);
+    setHighSecurity(!!source.highSecurity);
+  }, [node.id, node.editGroups, node.readGroups, node.restricted, node.highSecurity, isInherited, parentWithPerms]);
 
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 space-y-3">
+      {isInherited && (
+        <div className="text-xs text-amber-400 bg-amber-500/10 rounded-lg px-2 py-1 border border-amber-400/20">
+          Permissions héritées{parentWithPerms ? ` de "${parentWithPerms.name}"` : ""}
+        </div>
+      )}
+      
       <div className="grid gap-2">
         <label className="text-xs text-gray-400">
-          Groupes (édition) — séparés par “,”
+          Groupes (édition) — séparés par ","
         </label>
         <input
-          className="rounded-lg bg-gray-950/80 border border-gray-800 px-3 py-2 text-sm text-gray-300"
-          value={editText}
+          className="rounded-lg bg-gray-950/80 border border-gray-800 px-3 py-1.5 text-xs text-gray-300"
+          value={editText || "(aucun)"}
           readOnly
           disabled
         />
       </div>
       <div className="grid gap-2">
         <label className="text-xs text-gray-400">
-          Groupes (lecture) — séparés par “,”
+          Groupes (lecture) — séparés par ","
         </label>
         <input
-          className="rounded-lg bg-gray-950/80 border border-gray-800 px-3 py-2 text-sm text-gray-300"
-          value={readText}
+          className="rounded-lg bg-gray-950/80 border border-gray-800 px-3 py-1.5 text-xs text-gray-300"
+          value={readText || "(aucun)"}
           readOnly
           disabled
         />
       </div>
       <div className="flex items-center gap-4">
-        <label className="flex items-center gap-2 text-sm text-gray-300">
+        <label className="flex items-center gap-2 text-xs text-gray-300">
           <input type="checkbox" checked={restricted} readOnly disabled />
           Accès restreint
         </label>
-        <label className="flex items-center gap-2 text-sm text-gray-300">
+        <label className="flex items-center gap-2 text-xs text-gray-300">
           <input type="checkbox" checked={highSecurity} readOnly disabled />
           Haute sécurité
         </label>
       </div>
-      <p className="text-xs text-gray-500">
-        Pour modifier, utilisez le bouton <em>« Éditer permissions »</em> sur le dossier parent autorisé.
-      </p>
+      
+      {node.depth === 2 ? (
+        <p className="text-xs text-gray-500">
+          Utilisez le bouton <Settings2 className="inline h-3 w-3" /> pour modifier les permissions.
+        </p>
+      ) : (
+        <p className="text-xs text-gray-500">
+          Les permissions sont héritées du dossier parent de niveau 2.
+        </p>
+      )}
     </div>
   );
 }
@@ -685,7 +835,6 @@ function PermissionModal({
     !!initial?.highSecurity
   );
 
-  // ⬇️ Re-sync when parent passes a different 'initial'
   React.useEffect(() => {
     setEditGroups((initial?.editGroups ?? []).join(", "));
     setReadGroups((initial?.readGroups ?? []).join(", "));
@@ -702,9 +851,9 @@ function PermissionModal({
     <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="w-full max-w-lg rounded-2xl border border-gray-800 bg-gray-950 p-5">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium tracking-wide text-white flex items-center gap-2">
+          <h3 className="text-lg font-medium tracking-wide text-white flex items-center gap-2">
             <Shield className="h-5 w-5 text-blue-400" />
-            Éditer les permissions
+            Éditer les permissions (Niveau 2)
           </h3>
           <button
             className="rounded-md p-1 text-gray-400 hover:bg-white/10"
@@ -718,7 +867,7 @@ function PermissionModal({
         <div className="mt-4 space-y-3">
           <div className="grid gap-2">
             <label className="text-xs text-gray-400">
-              Groupes (édition) — séparés par “,”
+              Groupes (édition) — séparés par ","
             </label>
             <input
               className="rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
@@ -729,7 +878,7 @@ function PermissionModal({
           </div>
           <div className="grid gap-2">
             <label className="text-xs text-gray-400">
-              Groupes (lecture) — séparés par “,”
+              Groupes (lecture) — séparés par ","
             </label>
             <input
               className="rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
@@ -755,6 +904,9 @@ function PermissionModal({
               />
               Haute sécurité
             </label>
+          </div>
+          <div className="text-xs text-gray-500 bg-gray-900 rounded-lg p-2 border border-gray-800">
+            Ces permissions s'appliqueront à ce dossier et seront héritées par tous ses sous-dossiers.
           </div>
         </div>
 
@@ -786,7 +938,7 @@ function PermissionModal({
 }
 
 /* =============================================================================
-   Button that opens the modal (only on top-level “library” nodes)
+   Button that opens the modal (only on level 2 folders)
 ============================================================================= */
 function PermissionsButton({
   node,
@@ -800,15 +952,15 @@ function PermissionsButton({
     <>
       <button
         data-node-action
-        className="rounded-md p-1 text-xs text-gray-300 hover:bg-white/10"
-        title="Éditer permissions"
+        className="rounded-md p-1 text-xs text-blue-400 hover:bg-blue-500/10"
+        title="Éditer permissions (Niveau 2)"
         onClick={() => setOpen(true)}
       >
-        <Settings2 className="h-4 w-4" />
+        <Settings2 className="h-3.5 w-3.5" />
       </button>
       {open && (
         <PermissionModal
-          key={node.id} // ensures fresh state when a different node is selected
+          key={node.id}
           initial={{
             restricted: !!node.restricted,
             highSecurity: !!node.highSecurity,
