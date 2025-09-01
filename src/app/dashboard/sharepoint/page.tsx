@@ -681,98 +681,6 @@ function PermissionsInlineEditor({
   );
 }
 
-function PermissionsInlineEditor({
-  node,
-  onSave,
-}: {
-  node: NodeItem;
-  onSave: (p: PermSpec) => void;
-}) {
-  const [editGroups, setEditGroups] = React.useState(
-    (node.editGroups ?? []).join(", ")
-  );
-  const [readGroups, setReadGroups] = React.useState(
-    (node.readGroups ?? []).join(", ")
-  );
-  const [restricted, setRestricted] = React.useState(!!node.restricted);
-  const [highSecurity, setHighSecurity] = React.useState(!!node.highSecurity);
-
-  // ⬇️ Re-sync when the selected node changes
-  React.useEffect(() => {
-    setEditGroups((node.editGroups ?? []).join(", "));
-    setReadGroups((node.readGroups ?? []).join(", "));
-    setRestricted(!!node.restricted);
-    setHighSecurity(!!node.highSecurity);
-  }, [
-    node.id,
-    node.editGroups,
-    node.readGroups,
-    node.restricted,
-    node.highSecurity,
-  ]);
-
-  return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 space-y-3">
-      <div className="grid gap-2">
-        <label className="text-xs text-gray-400">
-          Groupes (édition) — séparés par “,”
-        </label>
-        <input
-          className="rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
-          value={editGroups}
-          onChange={(e) => setEditGroups(e.target.value)}
-          placeholder="SG-FOO-ALL, SG-FOO-EXECUTIF"
-        />
-      </div>
-      <div className="grid gap-2">
-        <label className="text-xs text-gray-400">
-          Groupes (lecture) — séparés par “,”
-        </label>
-        <input
-          className="rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
-          value={readGroups}
-          onChange={(e) => setReadGroups(e.target.value)}
-          placeholder="SG-FOO-ALL"
-        />
-      </div>
-      <div className="flex items-center gap-4">
-        <label className="flex items-center gap-2 text-sm text-gray-300">
-          <input
-            type="checkbox"
-            checked={restricted}
-            onChange={(e) => setRestricted(e.target.checked)}
-          />
-          Accès restreint
-        </label>
-        <label className="flex items-center gap-2 text-sm text-gray-300">
-          <input
-            type="checkbox"
-            checked={highSecurity}
-            onChange={(e) => setHighSecurity(e.target.checked)}
-          />
-          Haute sécurité
-        </label>
-      </div>
-      <div className="flex justify-end gap-2">
-        <button
-          className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-3 py-1.5 text-sm text-gray-300 hover:bg-white/10"
-          onClick={() =>
-            onSave({
-              restricted,
-              highSecurity,
-              editGroups: splitOrNull(editGroups),
-              readGroups: splitOrNull(readGroups),
-            })
-          }
-        >
-          <Save className="h-4 w-4" />
-          Enregistrer
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function PermissionModal({
   initial,
   onClose,
@@ -890,6 +798,44 @@ function PermissionModal({
         </div>
       </div>
     </div>
+  );
+}
+
+function PermissionsButton({
+  node,
+  onSave,
+}: {
+  node: NodeItem;
+  onSave: (p: PermSpec) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <>
+      <button
+        data-node-action
+        className="rounded-md p-1 text-xs text-gray-300 hover:bg-white/10"
+        title="Éditer permissions"
+        onClick={() => setOpen(true)}
+      >
+        <Settings2 className="h-4 w-4" />
+      </button>
+      {open && (
+        <PermissionModal
+          key={node.id}  // ⬅️ ensures fresh state when a different node is selected
+          initial={{
+            restricted: !!node.restricted,
+            highSecurity: !!node.highSecurity,
+            editGroups: node.editGroups ?? null,
+            readGroups: node.readGroups ?? null,
+          }}
+          onClose={() => setOpen(false)}
+          onSubmit={(p) => {
+            onSave(p);
+            setOpen(false);
+          }}
+        />
+      )}
+    </>
   );
 }
 
