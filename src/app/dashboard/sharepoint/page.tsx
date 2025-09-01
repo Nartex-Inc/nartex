@@ -415,9 +415,9 @@ function SharePointStructure() {
     const isEditing = editingId === node.id;
     const isCreating = creatingInId === node.id;
     
-    // Only level 2 folders (depth === 2) can have permissions edited
-    // These are the direct children of top-level folders
-    const canEditPermissions = node.depth === 2 && node.id !== "root";
+    // Only level 3 folders (depth === 3) can have permissions edited
+    // These are the third level folders in the hierarchy
+    const canEditPermissions = node.depth === 3 && node.id !== "root";
 
     return (
       <div key={node.id} className="select-none">
@@ -622,7 +622,7 @@ function SharePointStructure() {
                 Arborescence des dossiers
               </CardTitle>
               <p className="mt-1 text-xs text-gray-400">
-                Double-cliquez ou appuyez sur F2 pour renommer. Permissions éditables au niveau 2.
+                Double-cliquez ou appuyez sur F2 pour renommer. Permissions éditables au niveau 3.
               </p>
             </div>
             <div className="overflow-y-auto pr-2" style={{ maxHeight: "calc(100vh - 250px)" }}>
@@ -734,8 +734,8 @@ function PermissionsInlineViewer({
   node: NodeItem;
   tree: NodeItem;
 }) {
-  // For level 3+ folders, find inherited permissions
-  const isInherited = node.depth && node.depth > 2;
+  // For level 4+ folders, find inherited permissions from level 3 parent
+  const isInherited = node.depth && node.depth > 3;
   const parentWithPerms = isInherited ? findParentWithPermissions(tree, node) : null;
   
   // Use parent permissions if inherited, otherwise use node's own
@@ -799,13 +799,17 @@ function PermissionsInlineViewer({
         </label>
       </div>
       
-      {node.depth === 2 ? (
+      {node.depth === 3 ? (
         <p className="text-xs text-gray-500">
           Utilisez le bouton <Settings2 className="inline h-3 w-3" /> pour modifier les permissions.
         </p>
+      ) : node.depth && node.depth > 3 ? (
+        <p className="text-xs text-gray-500">
+          Les permissions sont héritées du dossier parent de niveau 3.
+        </p>
       ) : (
         <p className="text-xs text-gray-500">
-          Les permissions sont héritées du dossier parent de niveau 2.
+          Les permissions peuvent être définies au niveau 3 de l'arborescence.
         </p>
       )}
     </div>
@@ -853,7 +857,7 @@ function PermissionModal({
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-medium tracking-wide text-white flex items-center gap-2">
             <Shield className="h-5 w-5 text-blue-400" />
-            Éditer les permissions (Niveau 2)
+            Éditer les permissions (Niveau 3)
           </h3>
           <button
             className="rounded-md p-1 text-gray-400 hover:bg-white/10"
@@ -953,7 +957,7 @@ function PermissionsButton({
       <button
         data-node-action
         className="rounded-md p-1 text-xs text-blue-400 hover:bg-blue-500/10"
-        title="Éditer permissions (Niveau 2)"
+        title="Éditer permissions (Niveau 3)"
         onClick={() => setOpen(true)}
       >
         <Settings2 className="h-3.5 w-3.5" />
