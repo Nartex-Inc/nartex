@@ -56,6 +56,7 @@ type APINode = {
 // View node (tree)
 type NodeItem = {
   id: string;
+  parentId?: string | null;
   name: string;
   type?: "site" | "library" | "folder";
   icon?: string;
@@ -100,6 +101,7 @@ function buildTree(rows: APINode[]): NodeItem {
 
   const toNode = (n: APINode): NodeItem => ({
     id: n.id,
+    parentId: n.parentId ?? null,
     name: n.name,
     type: (n.type as any) ?? "folder",
     icon: n.icon ?? undefined,
@@ -118,31 +120,32 @@ function buildTree(rows: APINode[]): NodeItem {
   );
   return {
     id: "root",
+    parentId: null,
     name: "ROOT",
     type: "site",
     children: rootChildren.map(toNode),
   };
 }
 
+function findNodeById(root: NodeItem | null, id: string): NodeItem | null {
+  if (!root) return null;
+  if (root.id === id) return root;
+  for (const c of root.children ?? []) {
+    const f = findNodeById(c, id);
+    if (f) return f;
+  }
+  return null;
+}
+
 /* =============================================================================
-   Page (auth gate)
+   Page (auth gate)
 ============================================================================= */
 export default function SharePointPage() {
-  const { data: session, status } = useSession();
-  if (status === "loading") return <LoadingState />;
-
-  // FROM: Original role-based check
-  // const VIEW_ROLES = new Set(["ventes-exec", "ceo", "admin", "ti-exec", "direction-exec"]);
-  // const role = (session?.user as any)?.role ?? "";
-  // const canView = VIEW_ROLES.has(role);
-  // if (status === "unauthenticated" || !canView) return <AccessDenied />;
+  const { status } = useSession();
+  if (status === "loading") return <LoadingState />;
 
   // TO: Allow everyone to view
-  const canView = true;
   if (status === "unauthenticated") return <AccessDenied />;
-  
-  // ⛔️ REMOVE THIS LINE! It's likely a bug causing immediate access denial.
-  // return <AccessDenied />;
 
   return (
     <main className={`min-h-screen bg-black ${inter.className}`}>
@@ -169,6 +172,13 @@ function SharePointStructure() {
   const [selected, setSelected] = React.useState<NodeItem | null>(null);
 
   const tree = React.useMemo(() => (data ? buildTree(data) : null), [data]);
+
+  // Keep 'selected' bound to the latest node instance after SWR updates
+  React.useEffect(() => {
+    if (!tree || !selected) return;
+    const fresh = findNodeById(tree, selected.id);
+    if (fresh && fresh !== selected) setSelected(fresh);
+  }, [tree, selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = (id: string) => {
     const next = new Set(expanded);
@@ -343,6 +353,7 @@ function SharePointStructure() {
     const isExpanded = expanded.has(node.id);
     const hasChildren = !!node.children?.length;
     const isSelected = selected?.id === node.id;
+    const canEditPermissions = node.type === "library"; // only top-level “blue” folders
 
     return (
       <div key={node.id} className="select-none">
@@ -433,10 +444,14 @@ function SharePointStructure() {
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
-                <PermissionsButton
-                  node={node}
-                  onSave={(p) => updatePermissions(node, p)}
-                />
+
+                {/* Permissions can only be edited on top-level “library” nodes */}
+                {canEditPermissions && (
+                  <PermissionsButton
+                    node={node}
+                    onSave={(p) => updatePermissions(node, p)}
+                  />
+                )}
               </>
             )}
           </div>
@@ -526,11 +541,9 @@ function SharePointStructure() {
               <div className="flex flex-wrap gap-2">
                 {permissionBadges(selected)}
               </div>
-              <PermissionsInlineEditor
-                key={selected.id}
-                node={selected}
-                onSave={(p) => updatePermissions(selected, p)}
-              />
+
+              {/* Read-only viewer: reflects selected’s current permissions */}
+              <PermissionsInlineViewer key={selected.id} node={selected} />
             </Card>
           )}
 
@@ -588,37 +601,25 @@ function SharePointStructure() {
 }
 
 /* =============================================================================
-   Permissions editor bits
+   Permissions viewer (READ-ONLY in right rail)
 ============================================================================= */
-function PermissionsInlineEditor({
-  node,
-  onSave,
-}: {
-  node: NodeItem;
-  onSave: (p: PermSpec) => void;
-}) {
-  const [editGroups, setEditGroups] = React.useState(
+function PermissionsInlineViewer({ node }: { node: NodeItem }) {
+  // reflect changes on selection swap
+  const [editText, setEditText] = React.useState(
     (node.editGroups ?? []).join(", ")
   );
-  const [readGroups, setReadGroups] = React.useState(
+  const [readText, setReadText] = React.useState(
     (node.readGroups ?? []).join(", ")
   );
   const [restricted, setRestricted] = React.useState(!!node.restricted);
   const [highSecurity, setHighSecurity] = React.useState(!!node.highSecurity);
 
-  // ⬇️ Re-sync when the selected node changes
   React.useEffect(() => {
-    setEditGroups((node.editGroups ?? []).join(", "));
-    setReadGroups((node.readGroups ?? []).join(", "));
+    setEditText((node.editGroups ?? []).join(", "));
+    setReadText((node.readGroups ?? []).join(", "));
     setRestricted(!!node.restricted);
     setHighSecurity(!!node.highSecurity);
-  }, [
-    node.id,
-    node.editGroups,
-    node.readGroups,
-    node.restricted,
-    node.highSecurity,
-  ]);
+  }, [node.id, node.editGroups, node.readGroups, node.restricted, node.highSecurity]);
 
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 space-y-3">
@@ -627,10 +628,10 @@ function PermissionsInlineEditor({
           Groupes (édition) — séparés par “,”
         </label>
         <input
-          className="rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
-          value={editGroups}
-          onChange={(e) => setEditGroups(e.target.value)}
-          placeholder="SG-FOO-ALL, SG-FOO-EXECUTIF"
+          className="rounded-lg bg-gray-950/80 border border-gray-800 px-3 py-2 text-sm text-gray-300"
+          value={editText}
+          readOnly
+          disabled
         />
       </div>
       <div className="grid gap-2">
@@ -638,50 +639,32 @@ function PermissionsInlineEditor({
           Groupes (lecture) — séparés par “,”
         </label>
         <input
-          className="rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
-          value={readGroups}
-          onChange={(e) => setReadGroups(e.target.value)}
-          placeholder="SG-FOO-ALL"
+          className="rounded-lg bg-gray-950/80 border border-gray-800 px-3 py-2 text-sm text-gray-300"
+          value={readText}
+          readOnly
+          disabled
         />
       </div>
       <div className="flex items-center gap-4">
         <label className="flex items-center gap-2 text-sm text-gray-300">
-          <input
-            type="checkbox"
-            checked={restricted}
-            onChange={(e) => setRestricted(e.target.checked)}
-          />
+          <input type="checkbox" checked={restricted} readOnly disabled />
           Accès restreint
         </label>
         <label className="flex items-center gap-2 text-sm text-gray-300">
-          <input
-            type="checkbox"
-            checked={highSecurity}
-            onChange={(e) => setHighSecurity(e.target.checked)}
-          />
+          <input type="checkbox" checked={highSecurity} readOnly disabled />
           Haute sécurité
         </label>
       </div>
-      <div className="flex justify-end gap-2">
-        <button
-          className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-3 py-1.5 text-sm text-gray-300 hover:bg-white/10"
-          onClick={() =>
-            onSave({
-              restricted,
-              highSecurity,
-              editGroups: splitOrNull(editGroups),
-              readGroups: splitOrNull(readGroups),
-            })
-          }
-        >
-          <Save className="h-4 w-4" />
-          Enregistrer
-        </button>
-      </div>
+      <p className="text-xs text-gray-500">
+        Pour modifier, utilisez le bouton <em>« Éditer permissions »</em> sur le dossier parent autorisé.
+      </p>
     </div>
   );
 }
 
+/* =============================================================================
+   Modal (EDIT here only)
+============================================================================= */
 function PermissionModal({
   initial,
   onClose,
@@ -802,6 +785,9 @@ function PermissionModal({
   );
 }
 
+/* =============================================================================
+   Button that opens the modal (only on top-level “library” nodes)
+============================================================================= */
 function PermissionsButton({
   node,
   onSave,
@@ -822,7 +808,7 @@ function PermissionsButton({
       </button>
       {open && (
         <PermissionModal
-          key={node.id}  // ⬅️ ensures fresh state when a different node is selected
+          key={node.id} // ensures fresh state when a different node is selected
           initial={{
             restricted: !!node.restricted,
             highSecurity: !!node.highSecurity,
@@ -840,6 +826,9 @@ function PermissionsButton({
   );
 }
 
+/* =============================================================================
+   Utils & Shared states
+============================================================================= */
 function splitOrNull(s: string): string[] | null {
   const arr = s
     .split(",")
@@ -848,15 +837,14 @@ function splitOrNull(s: string): string[] | null {
   return arr.length ? arr : null;
 }
 
-/* =============================================================================
-   Shared states
-============================================================================= */
 function LoadingState() {
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center">
       <div className="flex flex-col items-center space-y-4">
         <div className="h-16 w-16 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
-        <p className="text-lg font-normal tracking-wide text-white">Chargement…</p>
+        <p className="text-lg font-normal tracking-wide text-white">
+          Chargement…
+        </p>
       </div>
     </div>
   );
@@ -868,8 +856,9 @@ function AccessDenied() {
       <div className="max-w-lg rounded-xl border border-gray-800 bg-gray-900 p-8 text-center">
         <h3 className="mb-2 text-xl font-bold text-white">Accès restreint</h3>
         <p className="text-sm text-gray-400">
-          Vous ne disposez pas des autorisations nécessaires pour consulter ces données.
-          Veuillez contacter votre département TI pour de l&apos;aide.
+          Vous ne disposez pas des autorisations nécessaires pour consulter ces
+          données. Veuillez contacter votre département TI pour de
+          l&apos;aide.
         </p>
       </div>
     </div>
