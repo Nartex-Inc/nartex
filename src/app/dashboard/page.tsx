@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { Inter } from "next/font/google";
+import LoadingAnimation from "@/components/LoadingAnimation";
 import {
   PieChart,
   Pie,
@@ -521,7 +522,7 @@ const DashboardContent = () => {
   }, [filteredData, filteredPreviousData]);
 
   if (error) return <ErrorState message={error.message} />;
-  if (isLoading) return <LoadingState />;
+  if (isLoading) return <LoadingAnimation />;
 
   return (
     <div className="space-y-6">
@@ -542,7 +543,7 @@ const DashboardContent = () => {
                   <BarChart3 className="w-6 h-6 text-cyan-400" />
                 </div>
                 <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-white">
-                  Analyse des ventes<span className="text-cyan-400">.</span>
+                  SINTO Analytics<span className="text-cyan-400">.</span>
                 </h1>
               </div>
               <p className="text-sm ml-12" style={{ color: COLORS.label }}>
@@ -1018,7 +1019,7 @@ const DashboardContent = () => {
 export default function DashboardPage() {
   const { data: session, status } = useSession();
 
-  if (status === "loading") return <LoadingState />;
+  if (status === "loading") return <LoadingAnimation />;
   if (status === "unauthenticated" || session?.user?.role !== "ventes-exec")
     return <AccessDenied />;
 
@@ -1127,22 +1128,6 @@ function ChartCard({
     </div>
   );
 }
-
-const LoadingState = () => (
-  <div className="fixed inset-0 bg-black flex items-center justify-center">
-    <div className="flex flex-col items-center space-y-6">
-      <div className="relative">
-        <div className="w-24 h-24 border-4 border-cyan-400/10 rounded-full" />
-        <div className="absolute top-0 w-24 h-24 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin shadow-lg shadow-cyan-400/50" />
-        <div className="absolute top-2 left-2 w-20 h-20 border-4 border-violet-400 border-b-transparent rounded-full animate-spin animation-delay-200 shadow-lg shadow-violet-400/50" />
-      </div>
-      <div className="text-center">
-        <p className="text-xl font-light tracking-wider text-white mb-2">Chargement en cours</p>
-        <p className="text-sm text-zinc-500">Chargement des visuels de ventes - SINTO</p>
-      </div>
-    </div>
-  </div>
-);
 
 const ErrorState = ({ message }: { message: string }) => (
   <div className="fixed inset-0 bg-black flex items-center justify-center p-4">
