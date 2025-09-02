@@ -4,6 +4,7 @@ import * as React from "react";
 import useSWR, { mutate } from "swr";
 import { useSession } from "next-auth/react";
 import { Inter } from "next/font/google";
+import LoadingAnimation from "@/components/LoadingAnimation";
 import { Card, CardTitle } from "@/components/ui/card";
 import {
   ChevronRight,
@@ -185,7 +186,7 @@ function findParentWithPermissions(tree: NodeItem | null, node: NodeItem): NodeI
 ============================================================================= */
 export default function SharePointPage() {
   const { status } = useSession();
-  if (status === "loading") return <LoadingState />;
+  if (status === "loading") return <LoadingAnimation title="Chargement de SharePoint" subtitle="Initialisation..." />;
 
   // Allow everyone to view
   if (status === "unauthenticated") return <AccessDenied />;
@@ -606,7 +607,7 @@ function SharePointStructure() {
       </div>
     );
   }
-  if (isLoading || !tree) return <LoadingState />;
+  if (isLoading || !tree) return <LoadingAnimation title="Chargement de la structure" subtitle="Récupération des dossiers SharePoint..." />;
 
   return (
     <div className="h-full flex flex-col">
@@ -1135,19 +1136,6 @@ function splitOrNull(s: string): string[] | null {
     .map((x) => x.trim())
     .filter(Boolean);
   return arr.length ? arr : null;
-}
-
-function LoadingState() {
-  return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center">
-      <div className="flex flex-col items-center space-y-4">
-        <div className="h-16 w-16 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
-        <p className="text-lg font-normal tracking-wide text-white">
-          Chargement…
-        </p>
-      </div>
-    </div>
-  );
 }
 
 function AccessDenied() {
