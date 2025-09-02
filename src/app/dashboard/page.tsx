@@ -204,31 +204,49 @@ const YOYIndicator = ({
 /* =============================================================================
    Custom Recharts components
 ============================================================================= */
-const CustomTooltip = ({ active, payload, label, format = "currency" }: any) => {
+const CustomTooltip = ({
+  active,
+  payload,
+  label,
+  format = "currency", // "currency" | "number" | "percentage" | "auto"
+}: any) => {
   if (active && payload?.length) {
     return (
       <div className="bg-black/95 backdrop-blur-2xl border border-white/15 rounded-xl px-4 py-3 shadow-2xl">
         <p className="text-xs text-zinc-400 mb-2 font-medium">{label}</p>
-        {payload.map((entry: any, index: number) => (
-          <div key={index} className="flex items-center gap-3 mb-1">
-            <div
-              className="w-2.5 h-2.5 rounded-full shadow-lg"
-              style={{ 
-                backgroundColor: entry.color,
-                boxShadow: `0 0 10px ${entry.color}50`
-              }}
-            />
-            <p className="text-sm font-semibold text-white">
-              {entry.name}: {
-                format === "number" 
-                  ? formatNumber(entry.value)
-                  : format === "percentage"
-                  ? percentage(entry.value)
-                  : currency(entry.value)
-              }
-            </p>
-          </div>
-        ))}
+        {payload.map((entry: any, index: number) => {
+          // If format is "auto", we pick per-series:
+          // - growth (ratio 0..1) -> percentage()
+          // - otherwise fall back to currency for bars/lines
+          const fmt =
+            format === "auto"
+              ? entry.dataKey === "growth"
+                ? "percentage"
+                : "currency"
+              : format;
+
+          const valueText =
+            fmt === "number"
+              ? formatNumber(entry.value)
+              : fmt === "percentage"
+              ? percentage(entry.value)         // expects 0..1
+              : currency(entry.value);          // default
+
+          return (
+            <div key={index} className="flex items-center gap-3 mb-1">
+              <div
+                className="w-2.5 h-2.5 rounded-full shadow-lg"
+                style={{
+                  backgroundColor: entry.color,
+                  boxShadow: `0 0 10px ${entry.color}50`,
+                }}
+              />
+              <p className="text-sm font-semibold text-white">
+                {entry.name}: {valueText}
+              </p>
+            </div>
+          );
+        })}
       </div>
     );
   }
@@ -542,11 +560,11 @@ const DashboardContent = () => {
                   <BarChart3 className="w-6 h-6 text-cyan-400" />
                 </div>
                 <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-white">
-                  SINTO Analytics<span className="text-cyan-400">.</span>
+                  Analyse de performance des ventes<span className="text-cyan-400">.</span>
                 </h1>
               </div>
               <p className="text-sm ml-12" style={{ color: COLORS.label }}>
-                Intelligence d'affaires en temps réel avec analyse comparative YOY
+                Suivi en temps réel avec comparaison annuelle (YoY)
               </p>
             </div>
 
