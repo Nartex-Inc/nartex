@@ -850,12 +850,12 @@ function PermissionModal({
   const [editGroups, setEditGroups] = React.useState<string[]>(
     initial?.editGroups && initial.editGroups.length > 0 
       ? initial.editGroups 
-      : [SECURITY_GROUPS[0]]
+      : [""]
   );
   const [readGroups, setReadGroups] = React.useState<string[]>(
     initial?.readGroups && initial.readGroups.length > 0 
       ? initial.readGroups 
-      : [SECURITY_GROUPS[0]]
+      : [""]
   );
   const [restricted, setRestricted] = React.useState(!!initial?.restricted);
   const [highSecurity, setHighSecurity] = React.useState(
@@ -866,12 +866,12 @@ function PermissionModal({
     setEditGroups(
       initial?.editGroups && initial.editGroups.length > 0 
         ? initial.editGroups 
-        : [SECURITY_GROUPS[0]]
+        : [""]
     );
     setReadGroups(
       initial?.readGroups && initial.readGroups.length > 0 
         ? initial.readGroups 
-        : [SECURITY_GROUPS[0]]
+        : [""]
     );
     setRestricted(!!initial?.restricted);
     setHighSecurity(!!initial?.highSecurity);
@@ -882,12 +882,23 @@ function PermissionModal({
     initial?.highSecurity,
   ]);
 
+  // Get available security groups (excluding already selected ones)
+  const getAvailableEditGroups = (currentIndex: number) => {
+    const usedGroups = editGroups.filter((group, index) => group !== "" && index !== currentIndex);
+    return SECURITY_GROUPS.filter(group => !usedGroups.includes(group));
+  };
+
+  const getAvailableReadGroups = (currentIndex: number) => {
+    const usedGroups = readGroups.filter((group, index) => group !== "" && index !== currentIndex);
+    return SECURITY_GROUPS.filter(group => !usedGroups.includes(group));
+  };
+
   const addEditGroup = () => {
-    setEditGroups([...editGroups, SECURITY_GROUPS[0]]);
+    setEditGroups([...editGroups, ""]);
   };
 
   const addReadGroup = () => {
-    setReadGroups([...readGroups, SECURITY_GROUPS[0]]);
+    setReadGroups([...readGroups, ""]);
   };
 
   const updateEditGroup = (index: number, value: string) => {
