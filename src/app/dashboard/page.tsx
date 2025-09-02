@@ -750,7 +750,7 @@ const DashboardContent = () => {
                   stroke={COLORS.success}
                   strokeWidth={3}
                   dot={{ fill: COLORS.success, r: 5 }}
-                  activeDot={{ r: 7 }}
+                  activeDot={{ r: 7, fill: COLORS.success }}
                   name="Croissance %"
                 />
               </ComposedChart>
@@ -1138,7 +1138,7 @@ const LoadingState = () => (
       </div>
       <div className="text-center">
         <p className="text-xl font-light tracking-wider text-white mb-2">Chargement en cours</p>
-        <p className="text-sm text-zinc-500">Chargement des visuels des ventes - SINTO</p>
+        <p className="text-sm text-zinc-500">Chargement des visuels de ventes - SINTO</p>
       </div>
     </div>
   </div>
