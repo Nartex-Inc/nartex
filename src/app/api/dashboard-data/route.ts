@@ -6,18 +6,21 @@ import { pg } from "@/lib/db";
 
 const SQL_QUERY = `
 SELECT
-  sr."Name"       AS "salesRepName",
-  c."Name"        AS "customerName",
-  i."ItemCode"    AS "itemCode",
-  i."Descr"       AS "itemDescription",
-  h."InvDate"     AS "invoiceDate",
-  d."Amount"::float8 AS "salesValue"
+  sr."Name"            AS "salesRepName",
+  c."Name"             AS "customerName",
+  i."ItemCode"         AS "itemCode",
+  i."Descr"            AS "itemDescription",
+  h."InvDate"          AS "invoiceDate",
+  d."Amount"::float8   AS "salesValue"
 FROM public."InvHeader" h
 JOIN public."Salesrep"  sr ON h."srid"   = sr."SRId"
 JOIN public."Customers" c  ON h."custid" = c."CustId"
 JOIN public."InvDetail" d  ON h."invnbr" = d."invnbr" AND h."cieid" = d."cieid"
 JOIN public."Items"     i  ON d."Itemid" = i."ItemId"
-WHERE h."cieid" = $1 AND h."InvDate" BETWEEN $2 AND $3 AND d."Amount" > 0;
+WHERE h."cieid" = $1
+  AND h."InvDate" BETWEEN $2 AND $3
+  AND d."Amount" > 0
+  AND sr."Name" <> 'OTOPROTEC (004)';
 `;
 
 export async function GET(req: Request) {
