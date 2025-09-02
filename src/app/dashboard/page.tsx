@@ -17,7 +17,11 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
+  LineChart,
+  Line,
+  ComposedChart,
 } from "recharts";
+import { TrendingUp, TrendingDown, Minus, Calendar, Users, Package, DollarSign } from "lucide-react";
 
 /* =============================================================================
    Font
@@ -42,19 +46,22 @@ type FilterState = {
   customers: string[];
 };
 
-/** Brand neutrals + restrained accents (less green, more pro) */
+/** Premium color palette */
 const COLORS = {
-  bg: "#000000", // pitch-black
-  card: "rgba(8,10,12,0.72)",
-  cardBorder: "rgba(120, 120, 130, 0.12)",
+  bg: "#000000",
+  card: "rgba(8,10,12,0.85)",
+  cardBorder: "rgba(120, 120, 130, 0.15)",
   grid: "#141922",
   label: "#9aa2af",
   labelMuted: "#737a86",
-  accentPrimary: "#22d3ee", // cyan
-  accentSecondary: "#8b5cf6", // violet
+  accentPrimary: "#22d3ee",
+  accentSecondary: "#8b5cf6",
+  success: "#10b981",
+  warning: "#f59e0b",
+  danger: "#ef4444",
 };
 
-/** Categorical set for pie + bars */
+/** Fixed categorical colors for consistency */
 const PIE_COLORS = [
   "#0ea5e9", // sky
   "#8b5cf6", // violet
@@ -64,6 +71,8 @@ const PIE_COLORS = [
   "#ef4444", // red
   "#a3e635", // lime
   "#f472b6", // pink
+  "#6366f1", // indigo
+  "#14b8a6", // teal
 ];
 
 const currency = (n: number) =>
@@ -82,8 +91,15 @@ const compactCurrency = (n: number) =>
     currency: "CAD",
   }).format(n);
 
+const percentage = (n: number) =>
+  new Intl.NumberFormat("fr-CA", {
+    style: "percent",
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(n);
+
 /* =============================================================================
-   Animated number
+   Animated components
 ============================================================================= */
 const AnimatedNumber = ({
   value,
@@ -106,7 +122,7 @@ const AnimatedNumber = ({
     const animate = (timestamp: number) => {
       if (!startTime) startTime = timestamp;
       const progress = Math.min((timestamp - startTime) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+      const eased = 1 - Math.pow(1 - progress, 3);
       const currentValue = startValue + (endValue - startValue) * eased;
       setDisplayValue(currentValue);
       if (progress < 1) {
@@ -129,38 +145,87 @@ const AnimatedNumber = ({
   return <>{format(displayValue)}</>;
 };
 
+const YOYIndicator = ({ current, previous }: { current: number; previous: number }) => {
+  const change = previous > 0 ? (current - previous) / previous : 0;
+  const isPositive = change >= 0;
+  const isNeutral = Math.abs(change) < 0.001;
+
+  return (
+    <div className="flex items-center gap-2">
+      <div
+        className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold ${
+          isNeutral
+            ? "bg-zinc-800 text-zinc-400"
+            : isPositive
+            ? "bg-emerald-500/10 text-emerald-400"
+            : "bg-red-500/10 text-red-400"
+        }`}
+      >
+        {isNeutral ? (
+          <Minus className="w-3 h-3" />
+        ) : isPositive ? (
+          <TrendingUp className="w-3 h-3" />
+        ) : (
+          <TrendingDown className="w-3 h-3" />
+        )}
+        <span>{percentage(Math.abs(change))}</span>
+      </div>
+      <span className="text-xs text-zinc-500">vs année précédente</span>
+    </div>
+  );
+};
+
 /* =============================================================================
-   Recharts custom bits
+   Custom Recharts components
 ============================================================================= */
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload?.length) {
     return (
-      <div className="bg-black/90 backdrop-blur-xl border border-white/10 rounded-md px-3 py-2 shadow-2xl">
+      <div className="bg-black/95 backdrop-blur-xl border border-white/10 rounded-lg px-3 py-2 shadow-2xl">
         <p className="text-[11px] text-zinc-400 mb-1">{label}</p>
-        <p className="text-sm font-semibold text-white">{currency(payload[0].value)}</p>
+        {payload.map((entry: any, index: number) => (
+          <div key={index} className="flex items-center gap-2">
+            <div
+              className="w-2 h-2 rounded-full"
+              style={{ backgroundColor: entry.color }}
+            />
+            <p className="text-sm font-semibold text-white">
+              {entry.name}: {currency(entry.value)}
+            </p>
+          </div>
+        ))}
       </div>
     );
   }
   return null;
 };
 
-/** Legend UI (we’ll pass it the already-patched payload) */
-const CustomLegend = ({ payload, onLegendClick }: any) => {
+const CustomLegend = ({ payload, onLegendClick, selectedItems = [] }: any) => {
   return (
-    <ul className="flex flex-col space-y-1 text-[11px]">
-      {(payload || []).map((entry: any) => (
-        <li
-          key={entry.value}
-          className="flex items-center space-x-2 cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() => onLegendClick?.(entry.value)}
-        >
-          <span
-            className="w-2.5 h-2.5 rounded-[3px]"
-            style={{ backgroundColor: entry.color, boxShadow: "0 0 0 1px rgba(255,255,255,0.06) inset" }}
-          />
-          <span className="text-zinc-300">{entry.value}</span>
-        </li>
-      ))}
+    <ul className="flex flex-col space-y-1.5 text-[11px]">
+      {(payload || []).map((entry: any) => {
+        const isSelected = selectedItems.length === 0 || selectedItems.includes(entry.value);
+        return (
+          <li
+            key={entry.value}
+            className={`flex items-center space-x-2 cursor-pointer transition-all duration-200 ${
+              isSelected ? "opacity-100" : "opacity-40"
+            } hover:opacity-100`}
+            onClick={() => onLegendClick?.(entry.value)}
+          >
+            <span
+              className="w-3 h-3 rounded-[3px] transition-all duration-200"
+              style={{
+                backgroundColor: entry.color,
+                boxShadow: isSelected 
+                  ? `0 0 8px ${entry.color}40, 0 0 0 1px rgba(255,255,255,0.1) inset`
+                  : "0 0 0 1px rgba(255,255,255,0.06) inset",
+              }}
+            />
+            <span className="text-zinc-300">{entry.value}</span>
+          </li>
+        );
+      })}
     </ul>
   );
 };
@@ -179,6 +244,7 @@ const DashboardContent = () => {
   const [activeDateRange, setActiveDateRange] = useState(defaultDateRange);
   const [stagedDateRange, setStagedDateRange] = useState(defaultDateRange);
   const [stagedSelectedRep, setStagedSelectedRep] = useState<string>("");
+  const [showYOYComparison, setShowYOYComparison] = useState(true);
 
   const [filters, setFilters] = useState<FilterState>({
     salesReps: [],
@@ -187,23 +253,48 @@ const DashboardContent = () => {
   });
   const [animationKey, setAnimationKey] = useState(0);
   const [masterData, setMasterData] = useState<SalesRecord[] | null>(null);
+  const [previousYearData, setPreviousYearData] = useState<SalesRecord[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+
+  // Calculate previous year date range
+  const previousYearDateRange = useMemo(() => {
+    const startDate = new Date(activeDateRange.start);
+    const endDate = new Date(activeDateRange.end);
+    startDate.setFullYear(startDate.getFullYear() - 1);
+    endDate.setFullYear(endDate.getFullYear() - 1);
+    return {
+      start: startDate.toISOString().slice(0, 10),
+      end: endDate.toISOString().slice(0, 10),
+    };
+  }, [activeDateRange]);
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(
+        // Fetch current period data
+        const currentResponse = await fetch(
           `/api/dashboard-data?startDate=${activeDateRange.start}&endDate=${activeDateRange.end}`
         );
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `Erreur HTTP: ${response.status}`);
+        if (!currentResponse.ok) {
+          const errorData = await currentResponse.json();
+          throw new Error(errorData.error || `Erreur HTTP: ${currentResponse.status}`);
         }
-        const data = await response.json();
-        setMasterData(data);
+        const currentData = await currentResponse.json();
+        setMasterData(currentData);
+
+        // Fetch previous year data for YOY comparison
+        if (showYOYComparison) {
+          const prevResponse = await fetch(
+            `/api/dashboard-data?startDate=${previousYearDateRange.start}&endDate=${previousYearDateRange.end}`
+          );
+          if (prevResponse.ok) {
+            const prevData = await prevResponse.json();
+            setPreviousYearData(prevData);
+          }
+        }
       } catch (err) {
         setError(err as Error);
       } finally {
@@ -211,7 +302,7 @@ const DashboardContent = () => {
       }
     };
     fetchData();
-  }, [activeDateRange]);
+  }, [activeDateRange, previousYearDateRange, showYOYComparison]);
 
   const filteredData = useMemo(() => {
     if (!masterData) return [];
@@ -222,6 +313,16 @@ const DashboardContent = () => {
         (filters.customers.length === 0 || filters.customers.includes(d.customerName))
     );
   }, [masterData, filters]);
+
+  const filteredPreviousData = useMemo(() => {
+    if (!previousYearData) return [];
+    return previousYearData.filter(
+      (d) =>
+        (filters.salesReps.length === 0 || filters.salesReps.includes(d.salesRepName)) &&
+        (filters.itemCodes.length === 0 || filters.itemCodes.includes(d.itemCode)) &&
+        (filters.customers.length === 0 || filters.customers.includes(d.customerName))
+    );
+  }, [previousYearData, filters]);
 
   useEffect(() => {
     setAnimationKey((prev) => prev + 1);
@@ -276,6 +377,7 @@ const DashboardContent = () => {
     [masterData]
   );
 
+  // Current period metrics
   const totalSales = useMemo(
     () => filteredData.reduce((sum, d) => sum + d.salesValue, 0),
     [filteredData]
@@ -285,6 +387,23 @@ const DashboardContent = () => {
     () => (transactionCount > 0 ? totalSales / transactionCount : 0),
     [totalSales, transactionCount]
   );
+
+  // Previous year metrics
+  const previousTotalSales = useMemo(
+    () => filteredPreviousData.reduce((sum, d) => sum + d.salesValue, 0),
+    [filteredPreviousData]
+  );
+  const previousTransactionCount = useMemo(() => filteredPreviousData.length, [filteredPreviousData]);
+
+  // Create fixed color mapping for sales reps
+  const salesRepColorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    allSalesReps.forEach((rep, index) => {
+      map[rep] = PIE_COLORS[index % PIE_COLORS.length];
+    });
+    map["Autres"] = "#303a47";
+    return map;
+  }, [allSalesReps]);
 
   const salesByRep = useMemo(() => {
     const allReps = aggregateData(filteredData, "salesRepName");
@@ -299,42 +418,91 @@ const DashboardContent = () => {
     () => aggregateData(filteredData, "customerName", 10),
     [filteredData]
   );
-  const salesByMonth = useMemo(() => {
-    const monthly = filteredData.reduce((acc, d) => {
+
+  // Transaction count by month
+  const transactionsByMonth = useMemo(() => {
+    const current = filteredData.reduce((acc, d) => {
+      const monthKey = d.invoiceDate.slice(0, 7);
+      acc[monthKey] = (acc[monthKey] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const previous = filteredPreviousData.reduce((acc, d) => {
+      const monthKey = d.invoiceDate.slice(0, 7);
+      const adjustedMonth = monthKey.replace(/^(\d{4})/, (match, year) => 
+        String(parseInt(year) + 1)
+      );
+      acc[adjustedMonth] = (acc[adjustedMonth] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const allMonths = Array.from(new Set([...Object.keys(current), ...Object.keys(previous)])).sort();
+    
+    return allMonths.map(month => ({
+      name: month,
+      current: current[month] || 0,
+      previous: previous[month] || 0,
+    }));
+  }, [filteredData, filteredPreviousData]);
+
+  // Sales comparison by month
+  const salesComparisonByMonth = useMemo(() => {
+    const current = filteredData.reduce((acc, d) => {
       const monthKey = d.invoiceDate.slice(0, 7);
       acc[monthKey] = (acc[monthKey] || 0) + d.salesValue;
       return acc;
     }, {} as Record<string, number>);
-    return Object.entries(monthly)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([name, value]) => ({ name, value }));
-  }, [filteredData]);
+
+    const previous = filteredPreviousData.reduce((acc, d) => {
+      const monthKey = d.invoiceDate.slice(0, 7);
+      const adjustedMonth = monthKey.replace(/^(\d{4})/, (match, year) => 
+        String(parseInt(year) + 1)
+      );
+      acc[adjustedMonth] = (acc[adjustedMonth] || 0) + d.salesValue;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const allMonths = Array.from(new Set([...Object.keys(current), ...Object.keys(previous)])).sort();
+    
+    return allMonths.map(month => ({
+      name: month.slice(5),
+      current: current[month] || 0,
+      previous: previous[month] || 0,
+      growth: previous[month] > 0 ? ((current[month] || 0) - previous[month]) / previous[month] : 0,
+    }));
+  }, [filteredData, filteredPreviousData]);
 
   if (error) return <ErrorState message={error.message} />;
   if (isLoading) return <LoadingState />;
 
-  /** Color map for legend patching */
-  const colorMap: Record<string, string> = {};
-  salesByRep.forEach((d, i) => {
-    colorMap[d.name] = d.name === "Autres" ? "#303a47" : PIE_COLORS[i % PIE_COLORS.length];
-  });
-
   return (
     <div className="space-y-6">
-      {/* Top ribbon / filters  */}
+      {/* Header with filters */}
       <div className="rounded-2xl border" style={{ borderColor: COLORS.cardBorder, background: COLORS.card }}>
         <div className="px-4 md:px-6 py-4 md:py-5">
           <div className="flex flex-wrap items-center justify-between gap-6">
             <div>
               <h1 className="text-2xl md:text-3xl lg:text-4xl font-semibold tracking-tight text-white">
-                Performance commerciale<span className="text-cyan-400">.</span>
+                SINTO Performance commerciale<span className="text-cyan-400">.</span>
               </h1>
               <p className="text-sm" style={{ color: COLORS.label }}>
-                Vision unifiée de vos revenus — conçue pour l’action.
+                Tableau de bord intelligent avec analyse comparative année sur année
               </p>
             </div>
 
             <div className="flex items-center flex-wrap gap-3">
+              <button
+                onClick={() => setShowYOYComparison(!showYOYComparison)}
+                className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  showYOYComparison
+                    ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
+                    : "bg-black/60 text-zinc-400 border border-zinc-700"
+                }`}
+              >
+                <Calendar className="w-4 h-4 inline mr-2" />
+                Comparaison YOY
+              </button>
+
               <select
                 value={stagedSelectedRep}
                 onChange={(e) => setStagedSelectedRep(e.target.value)}
@@ -369,10 +537,10 @@ const DashboardContent = () => {
 
               <button
                 onClick={applyFilters}
-                className="px-4 py-2.5 rounded-lg text-sm font-semibold text-black"
+                className="px-5 py-2.5 rounded-lg text-sm font-semibold text-black hover:shadow-lg transition-all duration-300"
                 style={{
-                  background:
-                    "linear-gradient(90deg, #22d3ee 0%, #8b5cf6 100%)",
+                  background: "linear-gradient(135deg, #22d3ee 0%, #8b5cf6 100%)",
+                  boxShadow: "0 4px 15px rgba(34, 211, 238, 0.3)",
                 }}
               >
                 Appliquer
@@ -392,51 +560,140 @@ const DashboardContent = () => {
         </div>
       </div>
 
-      {/* KPI */}
+      {/* KPI Cards with YOY comparison */}
       <div className="grid grid-cols-12 gap-4">
-        <KpiCard title="Chiffre d’affaires total" className="col-span-12 lg:col-span-4">
-          <p className="text-4xl md:text-5xl font-bold tracking-tight text-white">
+        <KpiCard
+          title="Chiffre d'affaires total"
+          icon={<DollarSign className="w-5 h-5" />}
+          className="col-span-12 md:col-span-6 lg:col-span-3"
+        >
+          <p className="text-3xl font-bold tracking-tight text-white">
             <AnimatedNumber value={totalSales} format={currency} />
           </p>
-          <p className="text-sm mt-2" style={{ color: COLORS.label }}>
-            {transactionCount.toLocaleString("fr-CA")} transactions • moyenne{" "}
-            <span className="text-white font-medium">{currency(averageTransactionValue)}</span>
-          </p>
+          {showYOYComparison && previousTotalSales > 0 && (
+            <YOYIndicator current={totalSales} previous={previousTotalSales} />
+          )}
         </KpiCard>
 
-        <KpiCard title="Tendance 12 mois" className="col-span-12 lg:col-span-8">
-          <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={salesByMonth}>
-              <defs>
-                <linearGradient id="gArea" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={COLORS.accentPrimary} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={COLORS.accentPrimary} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
-              <XAxis dataKey="name" tick={{ fill: COLORS.labelMuted, fontSize: 11 }} stroke={COLORS.grid} />
-              <YAxis
-                tickFormatter={compactCurrency}
-                tick={{ fill: COLORS.labelMuted, fontSize: 11 }}
-                stroke={COLORS.grid}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke={COLORS.accentPrimary}
-                strokeWidth={2}
-                fill="url(#gArea)"
-                animationDuration={900}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+        <KpiCard
+          title="Nombre de transactions"
+          icon={<Package className="w-5 h-5" />}
+          className="col-span-12 md:col-span-6 lg:col-span-3"
+        >
+          <p className="text-3xl font-bold tracking-tight text-white">
+            <AnimatedNumber value={transactionCount} format={(n) => n.toLocaleString("fr-CA")} />
+          </p>
+          {showYOYComparison && previousTransactionCount > 0 && (
+            <YOYIndicator current={transactionCount} previous={previousTransactionCount} />
+          )}
+        </KpiCard>
+
+        <KpiCard
+          title="Valeur moyenne/transaction"
+          icon={<TrendingUp className="w-5 h-5" />}
+          className="col-span-12 md:col-span-6 lg:col-span-3"
+        >
+          <p className="text-3xl font-bold tracking-tight text-white">
+            <AnimatedNumber value={averageTransactionValue} format={currency} />
+          </p>
+          {showYOYComparison && previousTransactionCount > 0 && (
+            <YOYIndicator
+              current={averageTransactionValue}
+              previous={previousTotalSales / previousTransactionCount}
+            />
+          )}
+        </KpiCard>
+
+        <KpiCard
+          title="Experts actifs"
+          icon={<Users className="w-5 h-5" />}
+          className="col-span-12 md:col-span-6 lg:col-span-3"
+        >
+          <p className="text-3xl font-bold tracking-tight text-white">
+            {filters.salesReps.length > 0 ? filters.salesReps.length : salesByRep.filter(r => r.name !== "Autres").length}
+          </p>
+          <p className="text-sm mt-1" style={{ color: COLORS.label }}>
+            sur {allSalesReps.length} total
+          </p>
         </KpiCard>
       </div>
 
-      {/* Charts */}
+      {/* YOY Comparison Section */}
+      {showYOYComparison && (
+        <div className="grid grid-cols-12 gap-4">
+          <ChartCard
+            title="Comparaison YOY - Chiffre d'affaires"
+            className="col-span-12 lg:col-span-8"
+          >
+            <ResponsiveContainer width="100%" height={300}>
+              <ComposedChart data={salesComparisonByMonth}>
+                <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
+                <XAxis dataKey="name" tick={{ fill: COLORS.labelMuted, fontSize: 11 }} stroke={COLORS.grid} />
+                <YAxis
+                  yAxisId="left"
+                  tickFormatter={compactCurrency}
+                  tick={{ fill: COLORS.labelMuted, fontSize: 11 }}
+                  stroke={COLORS.grid}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  tickFormatter={percentage}
+                  tick={{ fill: COLORS.labelMuted, fontSize: 11 }}
+                  stroke={COLORS.grid}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Bar yAxisId="left" dataKey="previous" fill={COLORS.labelMuted} name="Année précédente" radius={[4, 4, 0, 0]} />
+                <Bar yAxisId="left" dataKey="current" fill={COLORS.accentPrimary} name="Période actuelle" radius={[4, 4, 0, 0]} />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="growth"
+                  stroke={COLORS.success}
+                  strokeWidth={2}
+                  dot={{ fill: COLORS.success, r: 4 }}
+                  name="Croissance %"
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          <ChartCard
+            title="Performance comparative"
+            className="col-span-12 lg:col-span-4"
+          >
+            <div className="space-y-4">
+              <div className="p-4 rounded-lg bg-black/40 border border-white/5">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-zinc-400">CA période actuelle</span>
+                  <span className="text-lg font-bold text-white">{currency(totalSales)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-zinc-400">CA année précédente</span>
+                  <span className="text-lg font-bold text-zinc-300">{currency(previousTotalSales)}</span>
+                </div>
+              </div>
+              
+              <div className="p-4 rounded-lg bg-gradient-to-r from-cyan-500/10 to-violet-500/10 border border-cyan-500/20">
+                <div className="text-sm text-zinc-400 mb-2">Variation YOY</div>
+                <div className="text-2xl font-bold text-white">
+                  {previousTotalSales > 0 
+                    ? percentage((totalSales - previousTotalSales) / previousTotalSales)
+                    : "N/A"}
+                </div>
+                <div className="mt-2 text-xs text-zinc-500">
+                  Différence: {currency(totalSales - previousTotalSales)}
+                </div>
+              </div>
+            </div>
+          </ChartCard>
+        </div>
+      )}
+
+      {/* Main Charts */}
       <div className="grid grid-cols-12 gap-4">
-        <ChartCard title="Répartition par expert" className="col-span-12 lg:col-span-5 xl:col-span-4">
+        <ChartCard title="Répartition par expert" className="col-span-12 lg:col-span-5">
           <ResponsiveContainer width="100%" height={350}>
             <PieChart>
               <Pie
@@ -449,8 +706,8 @@ const DashboardContent = () => {
               >
                 {salesByRep.map((entry, index) => (
                   <Cell
-                    key={`cell-${index}-${animationKey}`}
-                    fill={entry.name === "Autres" ? "#303a47" : PIE_COLORS[index % PIE_COLORS.length]}
+                    key={`cell-${entry.name}`}
+                    fill={salesRepColorMap[entry.name]}
                     onClick={(e) =>
                       entry.name !== "Autres" &&
                       handleSelect("salesReps", entry.name, (e as any).shiftKey)
@@ -470,22 +727,21 @@ const DashboardContent = () => {
                 ))}
               </Pie>
               <Tooltip content={<CustomTooltip />} />
-              {/* Use Recharts payload but patch colors in content to MATCH the pie */}
               <Legend
                 layout="vertical"
                 align="right"
                 verticalAlign="middle"
                 wrapperStyle={{ paddingLeft: 14 }}
                 content={(props: any) => {
-                  const patched =
-                    props?.payload?.map((p: any) => ({
-                      ...p,
-                      color: colorMap[p.value] ?? p.color,
-                    })) ?? [];
+                  const patchedPayload = props?.payload?.map((p: any) => ({
+                    ...p,
+                    color: salesRepColorMap[p.value] || p.color,
+                  })) ?? [];
                   return (
                     <CustomLegend
-                      payload={patched}
-                      onLegendClick={(v: string) => handleSelect("salesReps", v)}
+                      payload={patchedPayload}
+                      selectedItems={filters.salesReps}
+                      onLegendClick={(v: string) => v !== "Autres" && handleSelect("salesReps", v)}
                     />
                   );
                 }}
@@ -495,35 +751,37 @@ const DashboardContent = () => {
         </ChartCard>
 
         <ChartCard
-          title="Évolution du chiffre d’affaires"
-          className="col-span-12 lg:col-span-7 xl:col-span-8"
+          title="Évolution du nombre de transactions"
+          className="col-span-12 lg:col-span-7"
         >
           <ResponsiveContainer width="100%" height={350}>
-            <AreaChart data={salesByMonth}>
-              <defs>
-                <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={COLORS.accentSecondary} stopOpacity={0.28} />
-                  <stop offset="100%" stopColor={COLORS.accentSecondary} stopOpacity={0} />
-                </linearGradient>
-              </defs>
+            <LineChart data={transactionsByMonth}>
               <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
               <XAxis dataKey="name" tick={{ fill: COLORS.labelMuted, fontSize: 11 }} stroke={COLORS.grid} />
-              <YAxis
-                tickFormatter={compactCurrency}
-                tick={{ fill: COLORS.labelMuted, fontSize: 11 }}
-                stroke={COLORS.grid}
-              />
+              <YAxis tick={{ fill: COLORS.labelMuted, fontSize: 11 }} stroke={COLORS.grid} />
               <Tooltip content={<CustomTooltip />} />
-              <Area
+              <Legend />
+              {showYOYComparison && (
+                <Line
+                  type="monotone"
+                  dataKey="previous"
+                  stroke={COLORS.labelMuted}
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  name="Année précédente"
+                  dot={false}
+                />
+              )}
+              <Line
                 type="monotone"
-                dataKey="value"
+                dataKey="current"
                 stroke={COLORS.accentSecondary}
-                strokeWidth={2}
-                fillOpacity={1}
-                fill="url(#salesGradient)"
-                animationDuration={900}
+                strokeWidth={3}
+                name="Période actuelle"
+                dot={{ fill: COLORS.accentSecondary, r: 4 }}
+                activeDot={{ r: 6 }}
               />
-            </AreaChart>
+            </LineChart>
           </ResponsiveContainer>
         </ChartCard>
 
@@ -545,10 +803,11 @@ const DashboardContent = () => {
                 stroke="none"
               />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="value" fill={COLORS.accentPrimary} radius={[0, 6, 6, 0]} animationDuration={900}>
+              <Bar dataKey="value" radius={[0, 6, 6, 0]} animationDuration={900}>
                 {salesByItem.map((entry, index) => (
                   <Cell
                     key={`cell-${index}-${animationKey}`}
+                    fill={`${COLORS.accentPrimary}${Math.round(255 * (1 - index / 10)).toString(16).padStart(2, '0')}`}
                     onClick={(e) => handleSelect("itemCodes", entry.name, (e as any).shiftKey)}
                     className="cursor-pointer"
                     style={{
@@ -586,10 +845,11 @@ const DashboardContent = () => {
                 stroke="none"
               />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="value" fill={COLORS.accentSecondary} radius={[0, 6, 6, 0]} animationDuration={900}>
+              <Bar dataKey="value" radius={[0, 6, 6, 0]} animationDuration={900}>
                 {salesByCustomer.map((entry, index) => (
                   <Cell
                     key={`cell-${index}-${animationKey}`}
+                    fill={`${COLORS.accentSecondary}${Math.round(255 * (1 - index / 10)).toString(16).padStart(2, '0')}`}
                     onClick={(e) => handleSelect("customers", entry.name, (e as any).shiftKey)}
                     className="cursor-pointer"
                     style={{
@@ -614,7 +874,7 @@ const DashboardContent = () => {
 };
 
 /* =============================================================================
-   Page wrapper — pitch black + WIDER content
+   Page wrapper
 ============================================================================= */
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -626,7 +886,7 @@ export default function DashboardPage() {
   return (
     <main className={`min-h-screen ${inter.className}`} style={{ background: COLORS.bg, color: "#fff" }}>
       <div className="px-4 md:px-6 lg:px-8 py-6 md:py-8">
-        <div className="mx-auto w-full max-w-[1720px]">
+        <div className="mx-auto w-full max-w-[1920px]">
           <DashboardContent />
         </div>
       </div>
@@ -635,28 +895,33 @@ export default function DashboardPage() {
 }
 
 /* =============================================================================
-   UI helpers (cards, states)
+   UI components
 ============================================================================= */
 function KpiCard({
   title,
+  icon,
   children,
   className,
 }: {
   title: string;
+  icon?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
 }) {
   return (
     <div className={`group relative ${className}`}>
       <div
-        className="absolute -inset-0.5 rounded-2xl blur opacity-0 group-hover:opacity-40 transition duration-500"
-        style={{ background: "linear-gradient(90deg, rgba(34,211,238,0.25), rgba(139,92,246,0.25))" }}
+        className="absolute -inset-0.5 rounded-2xl blur opacity-0 group-hover:opacity-50 transition duration-700"
+        style={{ background: "linear-gradient(135deg, rgba(34,211,238,0.3), rgba(139,92,246,0.3))" }}
       />
       <div
-        className="relative rounded-2xl p-5 h-full"
+        className="relative rounded-2xl p-5 h-full backdrop-blur-sm"
         style={{ background: COLORS.card, border: `1px solid ${COLORS.cardBorder}` }}
       >
-        <h3 className="text-[12px] uppercase tracking-widest text-zinc-500 mb-2">{title}</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-[11px] uppercase tracking-widest text-zinc-500">{title}</h3>
+          {icon && <div className="text-zinc-600">{icon}</div>}
+        </div>
         {children}
       </div>
     </div>
@@ -675,15 +940,15 @@ function ChartCard({
   return (
     <div className={`group relative ${className}`}>
       <div
-        className="absolute -inset-0.5 rounded-2xl blur opacity-0 group-hover:opacity-35 transition duration-500"
-        style={{ background: "linear-gradient(90deg, rgba(34,211,238,0.20), rgba(139,92,246,0.20))" }}
+        className="absolute -inset-0.5 rounded-2xl blur opacity-0 group-hover:opacity-40 transition duration-700"
+        style={{ background: "linear-gradient(135deg, rgba(34,211,238,0.2), rgba(139,92,246,0.2))" }}
       />
       <div
-        className="relative rounded-2xl p-4 md:p-5 border h-full flex flex-col"
+        className="relative rounded-2xl p-4 md:p-5 border h-full flex flex-col backdrop-blur-sm"
         style={{ background: COLORS.card, borderColor: COLORS.cardBorder }}
       >
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium tracking-wide">{title}</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold tracking-wide text-white">{title}</h3>
         </div>
         <div className="flex-grow">{children}</div>
       </div>
@@ -694,20 +959,23 @@ function ChartCard({
 const LoadingState = () => (
   <div className="fixed inset-0 bg-black flex items-center justify-center">
     <div className="flex flex-col items-center space-y-4">
-      <div className="w-16 h-16 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-      <p className="text-lg font-normal tracking-wide text-white">Chargement du tableau de bord…</p>
+      <div className="relative">
+        <div className="w-20 h-20 border-4 border-cyan-400/20 rounded-full" />
+        <div className="absolute top-0 w-20 h-20 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+      <p className="text-lg font-normal tracking-wide text-white">Chargement du tableau de bord SINTO…</p>
     </div>
   </div>
 );
 
 const ErrorState = ({ message }: { message: string }) => (
   <div className="fixed inset-0 bg-black flex items-center justify-center p-4">
-    <div className="text-red-400 bg-zinc-950 rounded-xl p-8 border border-zinc-800 max-w-md text-center">
+    <div className="text-red-400 bg-zinc-950 rounded-xl p-8 border border-red-900/30 max-w-md text-center">
       <h3 className="text-lg font-semibold mb-2">Erreur de chargement</h3>
       <p className="text-sm text-zinc-400">{message}</p>
       <button
         onClick={() => window.location.reload()}
-        className="mt-6 px-4 py-2 bg-white/5 border border-white/10 text-white rounded-lg hover:bg-white/10 transition-colors"
+        className="mt-6 px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors"
       >
         Recharger la page
       </button>
@@ -721,7 +989,7 @@ const AccessDenied = () => (
       <h3 className="text-xl font-bold mb-2 text-white">Accès restreint</h3>
       <p className="text-sm text-zinc-400">
         Vous ne disposez pas des autorisations nécessaires pour consulter ces données.
-        Veuillez contacter votre département TI pour de l&apos;aide.
+        Veuillez contacter votre département TI pour de l'aide.
       </p>
     </div>
   </div>
