@@ -26,12 +26,33 @@ import {
 } from "lucide-react";
 
 /* =============================================================================
-   Font
+   Font & Security Groups
 ============================================================================= */
 const inter = Inter({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
+
+const SECURITY_GROUPS = [
+  'SG-PRESIDENT',
+  'SG-CFO', 
+  'SG-DIRECTION',
+  'SG-ADMIN-FINANCE-ALL',
+  'SG-ADMIN-FINANCE-EXÉCUTIF',
+  'SG-RH-ALL',
+  'SG-RH-EXÉCUTIF',
+  'SG-VENTES-ALL',
+  'SG-VENTES-EXÉCUTIF',
+  'SG-R&D-ALL',
+  'SG-R&D-EXÉCUTIF',
+  'SG-PROD-ALL',
+  'SG-PROD-EXÉCUTIF',
+  'SG-TI-ALL',
+  'SG-TI-EXÉCUTIF',
+  'SG-MARKETING-ALL',
+  'SG-MARKETING-EXÉCUTIF',
+  'SG-ALL'
+];
 
 /* =============================================================================
    Types
@@ -525,7 +546,7 @@ function SharePointStructure() {
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
 
-                {/* Permissions can only be edited on level 2 folders */}
+                {/* Permissions can only be edited on level 3 folders */}
                 {canEditPermissions && (
                   <PermissionsButton
                     node={node}
@@ -652,12 +673,14 @@ function SharePointStructure() {
                   {permissionBadges(selected)}
                 </div>
 
-                {/* Permission viewer - shows inherited for level 3+ */}
-                <PermissionsInlineViewer 
-                  key={selected.id} 
-                  node={selected}
-                  tree={tree}
-                />
+                {/* Permission viewer - shows only for level 3+ folders */}
+                {selected.depth && selected.depth >= 3 && (
+                  <PermissionsInlineViewer 
+                    key={selected.id} 
+                    node={selected}
+                    tree={tree}
+                  />
+                )}
               </Card>
             )}
 
@@ -716,7 +739,7 @@ function SharePointStructure() {
 }
 
 /* =============================================================================
-   Permissions viewer (READ-ONLY in right rail)
+   Permissions viewer (READ-ONLY in right rail) - ONLY FOR LEVEL 3+ FOLDERS
 ============================================================================= */
 function PermissionsInlineViewer({ 
   node, 
@@ -725,8 +748,13 @@ function PermissionsInlineViewer({
   node: NodeItem;
   tree: NodeItem;
 }) {
+  // Only show for level 3+ folders
+  if (!node.depth || node.depth < 3) {
+    return null;
+  }
+
   // For level 4+ folders, find inherited permissions from level 3 parent
-  const isInherited = node.depth && node.depth > 3;
+  const isInherited = node.depth > 3;
   const parentWithPerms = isInherited ? findParentWithPermissions(tree, node) : null;
   
   // Use parent permissions if inherited, otherwise use node's own
@@ -802,17 +830,13 @@ function PermissionsInlineViewer({
         <p className="text-xs text-gray-500">
           Les permissions sont héritées du dossier parent de niveau 3.
         </p>
-      ) : (
-        <p className="text-xs text-gray-500">
-          Les permissions peuvent être définies au niveau 3 de l'arborescence.
-        </p>
-      )}
+      ) : null}
     </div>
   );
 }
 
 /* =============================================================================
-   Modal (EDIT here only)
+   Modal with DROPDOWN selections for security groups
 ============================================================================= */
 function PermissionModal({
   initial,
@@ -826,12 +850,12 @@ function PermissionModal({
   const [editGroups, setEditGroups] = React.useState<string[]>(
     initial?.editGroups && initial.editGroups.length > 0 
       ? initial.editGroups 
-      : [""]
+      : [SECURITY_GROUPS[0]]
   );
   const [readGroups, setReadGroups] = React.useState<string[]>(
     initial?.readGroups && initial.readGroups.length > 0 
       ? initial.readGroups 
-      : [""]
+      : [SECURITY_GROUPS[0]]
   );
   const [restricted, setRestricted] = React.useState(!!initial?.restricted);
   const [highSecurity, setHighSecurity] = React.useState(
@@ -842,12 +866,12 @@ function PermissionModal({
     setEditGroups(
       initial?.editGroups && initial.editGroups.length > 0 
         ? initial.editGroups 
-        : [""]
+        : [SECURITY_GROUPS[0]]
     );
     setReadGroups(
       initial?.readGroups && initial.readGroups.length > 0 
         ? initial.readGroups 
-        : [""]
+        : [SECURITY_GROUPS[0]]
     );
     setRestricted(!!initial?.restricted);
     setHighSecurity(!!initial?.highSecurity);
@@ -859,15 +883,11 @@ function PermissionModal({
   ]);
 
   const addEditGroup = () => {
-    if (editGroups.every(g => g.trim())) {
-      setEditGroups([...editGroups, ""]);
-    }
+    setEditGroups([...editGroups, SECURITY_GROUPS[0]]);
   };
 
   const addReadGroup = () => {
-    if (readGroups.every(g => g.trim())) {
-      setReadGroups([...readGroups, ""]);
-    }
+    setReadGroups([...readGroups, SECURITY_GROUPS[0]]);
   };
 
   const updateEditGroup = (index: number, value: string) => {
@@ -916,9 +936,8 @@ function PermissionModal({
             <div className="flex items-center justify-between">
               <label className="text-xs text-gray-400">Groupes (édition)</label>
               <button
-                className="text-xs px-2 py-0.5 rounded bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="text-xs px-2 py-0.5 rounded bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 transition-colors"
                 onClick={addEditGroup}
-                disabled={!editGroups.every(g => g.trim())}
                 title="Ajouter un groupe"
               >
                 <Plus className="h-3 w-3 inline" /> Ajouter
@@ -927,12 +946,15 @@ function PermissionModal({
             <div className="space-y-2">
               {editGroups.map((group, index) => (
                 <div key={index} className="flex gap-2">
-                  <input
-                    className="flex-1 rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                  <select
+                    className="flex-1 rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500 text-white"
                     value={group}
                     onChange={(e) => updateEditGroup(index, e.target.value)}
-                    placeholder="SG-FOO-EXECUTIF"
-                  />
+                  >
+                    {SECURITY_GROUPS.map(sg => (
+                      <option key={sg} value={sg}>{sg}</option>
+                    ))}
+                  </select>
                   {editGroups.length > 1 && (
                     <button
                       className="rounded-lg p-2 text-red-400 hover:bg-red-500/10"
@@ -951,9 +973,8 @@ function PermissionModal({
             <div className="flex items-center justify-between">
               <label className="text-xs text-gray-400">Groupes (lecture)</label>
               <button
-                className="text-xs px-2 py-0.5 rounded bg-sky-600/20 text-sky-400 hover:bg-sky-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="text-xs px-2 py-0.5 rounded bg-sky-600/20 text-sky-400 hover:bg-sky-600/30 transition-colors"
                 onClick={addReadGroup}
-                disabled={!readGroups.every(g => g.trim())}
                 title="Ajouter un groupe"
               >
                 <Plus className="h-3 w-3 inline" /> Ajouter
@@ -962,12 +983,15 @@ function PermissionModal({
             <div className="space-y-2">
               {readGroups.map((group, index) => (
                 <div key={index} className="flex gap-2">
-                  <input
-                    className="flex-1 rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                  <select
+                    className="flex-1 rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500 text-white"
                     value={group}
                     onChange={(e) => updateReadGroup(index, e.target.value)}
-                    placeholder="SG-FOO-ALL"
-                  />
+                  >
+                    {SECURITY_GROUPS.map(sg => (
+                      <option key={sg} value={sg}>{sg}</option>
+                    ))}
+                  </select>
                   {readGroups.length > 1 && (
                     <button
                       className="rounded-lg p-2 text-red-400 hover:bg-red-500/10"
@@ -1018,12 +1042,8 @@ function PermissionModal({
               onSubmit({
                 restricted,
                 highSecurity,
-                editGroups: editGroups.filter(g => g.trim()).length > 0 
-                  ? editGroups.filter(g => g.trim()) 
-                  : null,
-                readGroups: readGroups.filter(g => g.trim()).length > 0 
-                  ? readGroups.filter(g => g.trim()) 
-                  : null,
+                editGroups: editGroups.length > 0 ? editGroups : null,
+                readGroups: readGroups.length > 0 ? readGroups : null,
               })
             }
           >
@@ -1037,7 +1057,7 @@ function PermissionModal({
 }
 
 /* =============================================================================
-   Button that opens the modal (only on level 2 folders)
+   Button that opens the modal (only on level 3 folders)
 ============================================================================= */
 function PermissionsButton({
   node,
