@@ -893,6 +893,10 @@ function PermissionModal({
     return SECURITY_GROUPS.filter(group => !usedGroups.includes(group));
   };
 
+  // Check if we can add more groups (prevent adding if no available groups)
+  const canAddEditGroup = editGroups.every(g => g.trim()) && getAvailableEditGroups(-1).length > 0;
+  const canAddReadGroup = readGroups.every(g => g.trim()) && getAvailableReadGroups(-1).length > 0;
+
   const addEditGroup = () => {
     setEditGroups([...editGroups, ""]);
   };
@@ -947,36 +951,41 @@ function PermissionModal({
             <div className="flex items-center justify-between">
               <label className="text-xs text-gray-400">Groupes (édition)</label>
               <button
-                className="text-xs px-2 py-0.5 rounded bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 transition-colors"
+                className="text-xs px-2 py-0.5 rounded bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 onClick={addEditGroup}
-                title="Ajouter un groupe"
+                disabled={!canAddEditGroup}
+                title={canAddEditGroup ? "Ajouter un groupe" : "Tous les groupes sont déjà sélectionnés"}
               >
                 <Plus className="h-3 w-3 inline" /> Ajouter
               </button>
             </div>
             <div className="space-y-2">
-              {editGroups.map((group, index) => (
-                <div key={index} className="flex gap-2">
-                  <select
-                    className="flex-1 rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500 text-white"
-                    value={group}
-                    onChange={(e) => updateEditGroup(index, e.target.value)}
-                  >
-                    {SECURITY_GROUPS.map(sg => (
-                      <option key={sg} value={sg}>{sg}</option>
-                    ))}
-                  </select>
-                  {editGroups.length > 1 && (
-                    <button
-                      className="rounded-lg p-2 text-red-400 hover:bg-red-500/10"
-                      onClick={() => removeEditGroup(index)}
-                      title="Supprimer"
+              {editGroups.map((group, index) => {
+                const availableGroups = getAvailableEditGroups(index);
+                return (
+                  <div key={index} className="flex gap-2">
+                    <select
+                      className="flex-1 rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500 text-white"
+                      value={group}
+                      onChange={(e) => updateEditGroup(index, e.target.value)}
                     >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
+                      <option value="" disabled>Veuillez sélectionner une option</option>
+                      {availableGroups.map(sg => (
+                        <option key={sg} value={sg}>{sg}</option>
+                      ))}
+                    </select>
+                    {editGroups.length > 1 && (
+                      <button
+                        className="rounded-lg p-2 text-red-400 hover:bg-red-500/10"
+                        onClick={() => removeEditGroup(index)}
+                        title="Supprimer"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
           
@@ -984,36 +993,41 @@ function PermissionModal({
             <div className="flex items-center justify-between">
               <label className="text-xs text-gray-400">Groupes (lecture)</label>
               <button
-                className="text-xs px-2 py-0.5 rounded bg-sky-600/20 text-sky-400 hover:bg-sky-600/30 transition-colors"
+                className="text-xs px-2 py-0.5 rounded bg-sky-600/20 text-sky-400 hover:bg-sky-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 onClick={addReadGroup}
-                title="Ajouter un groupe"
+                disabled={!canAddReadGroup}
+                title={canAddReadGroup ? "Ajouter un groupe" : "Tous les groupes sont déjà sélectionnés"}
               >
                 <Plus className="h-3 w-3 inline" /> Ajouter
               </button>
             </div>
             <div className="space-y-2">
-              {readGroups.map((group, index) => (
-                <div key={index} className="flex gap-2">
-                  <select
-                    className="flex-1 rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500 text-white"
-                    value={group}
-                    onChange={(e) => updateReadGroup(index, e.target.value)}
-                  >
-                    {SECURITY_GROUPS.map(sg => (
-                      <option key={sg} value={sg}>{sg}</option>
-                    ))}
-                  </select>
-                  {readGroups.length > 1 && (
-                    <button
-                      className="rounded-lg p-2 text-red-400 hover:bg-red-500/10"
-                      onClick={() => removeReadGroup(index)}
-                      title="Supprimer"
+              {readGroups.map((group, index) => {
+                const availableGroups = getAvailableReadGroups(index);
+                return (
+                  <div key={index} className="flex gap-2">
+                    <select
+                      className="flex-1 rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-500 text-white"
+                      value={group}
+                      onChange={(e) => updateReadGroup(index, e.target.value)}
                     >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
+                      <option value="" disabled>Veuillez sélectionner une option</option>
+                      {availableGroups.map(sg => (
+                        <option key={sg} value={sg}>{sg}</option>
+                      ))}
+                    </select>
+                    {readGroups.length > 1 && (
+                      <button
+                        className="rounded-lg p-2 text-red-400 hover:bg-red-500/10"
+                        onClick={() => removeReadGroup(index)}
+                        title="Supprimer"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
           
@@ -1053,8 +1067,12 @@ function PermissionModal({
               onSubmit({
                 restricted,
                 highSecurity,
-                editGroups: editGroups.length > 0 ? editGroups : null,
-                readGroups: readGroups.length > 0 ? readGroups : null,
+                editGroups: editGroups.filter(g => g.trim() !== "").length > 0 
+                  ? editGroups.filter(g => g.trim() !== "") 
+                  : null,
+                readGroups: readGroups.filter(g => g.trim() !== "").length > 0 
+                  ? readGroups.filter(g => g.trim() !== "") 
+                  : null,
               })
             }
           >
