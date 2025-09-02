@@ -704,7 +704,7 @@ const DashboardContent = () => {
       {showYOYComparison && (
         <div className="grid grid-cols-12 gap-4">
           <ChartCard
-            title="Comparaison YOY - Chiffre d'affaires"
+            title="Comparaison annuelle (YoY) – Chiffre d’affaires"
             className="col-span-12 lg:col-span-8"
           >
             <ResponsiveContainer width="100%" height={300}>
