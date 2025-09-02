@@ -18,6 +18,7 @@ import {
   LogOut,
   ChevronLeft,
   FolderTree,
+  LayoutDashboard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,6 +43,7 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: "GÉNÉRAL",
     items: [
+      { href: "/dashboard", title: "Mon dashboard", icon: LayoutDashboard }, // ← updated
       { href: "/dashboard/tasks", title: "Mes tâches", icon: ListChecks },
       { href: "/dashboard/projects", title: "Mes projets", icon: Briefcase },
     ],
