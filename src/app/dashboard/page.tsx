@@ -857,7 +857,10 @@ const DashboardContent = () => {
                 strokeWidth={3}
                 name="Période actuelle"
                 dot={{ fill: COLORS.accentSecondary, r: 5 }}
-                activeDot={{ r: 8, boxShadow: `0 0 20px ${COLORS.accentSecondary}` }}
+                activeDot={{
+                  r: 8,
+                  style: { filter: `drop-shadow(0 0 20px ${COLORS.accentSecondary})` },
+                }}
               />
             </LineChart>
           </ResponsiveContainer>
