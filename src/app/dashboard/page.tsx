@@ -204,49 +204,31 @@ const YOYIndicator = ({
 /* =============================================================================
    Custom Recharts components
 ============================================================================= */
-const CustomTooltip = ({
-  active,
-  payload,
-  label,
-  format = "currency", // "currency" | "number" | "percentage" | "auto"
-}: any) => {
+const CustomTooltip = ({ active, payload, label, format = "currency" }: any) => {
   if (active && payload?.length) {
     return (
       <div className="bg-black/95 backdrop-blur-2xl border border-white/15 rounded-xl px-4 py-3 shadow-2xl">
         <p className="text-xs text-zinc-400 mb-2 font-medium">{label}</p>
-        {payload.map((entry: any, index: number) => {
-          // If format is "auto", we pick per-series:
-          // - growth (ratio 0..1) -> percentage()
-          // - otherwise fall back to currency for bars/lines
-          const fmt =
-            format === "auto"
-              ? entry.dataKey === "growth"
-                ? "percentage"
-                : "currency"
-              : format;
-
-          const valueText =
-            fmt === "number"
-              ? formatNumber(entry.value)
-              : fmt === "percentage"
-              ? percentage(entry.value)         // expects 0..1
-              : currency(entry.value);          // default
-
-          return (
-            <div key={index} className="flex items-center gap-3 mb-1">
-              <div
-                className="w-2.5 h-2.5 rounded-full shadow-lg"
-                style={{
-                  backgroundColor: entry.color,
-                  boxShadow: `0 0 10px ${entry.color}50`,
-                }}
-              />
-              <p className="text-sm font-semibold text-white">
-                {entry.name}: {valueText}
-              </p>
-            </div>
-          );
-        })}
+        {payload.map((entry: any, index: number) => (
+          <div key={index} className="flex items-center gap-3 mb-1">
+            <div
+              className="w-2.5 h-2.5 rounded-full shadow-lg"
+              style={{ 
+                backgroundColor: entry.color,
+                boxShadow: `0 0 10px ${entry.color}50`
+              }}
+            />
+            <p className="text-sm font-semibold text-white">
+              {entry.name}: {
+                format === "number" 
+                  ? formatNumber(entry.value)
+                  : format === "percentage"
+                  ? percentage(entry.value)
+                  : currency(entry.value)
+              }
+            </p>
+          </div>
+        ))}
       </div>
     );
   }
@@ -560,11 +542,11 @@ const DashboardContent = () => {
                   <BarChart3 className="w-6 h-6 text-cyan-400" />
                 </div>
                 <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-white">
-                  Analyse de performance des ventes<span className="text-cyan-400">.</span>
+                  SINTO Analytics<span className="text-cyan-400">.</span>
                 </h1>
               </div>
               <p className="text-sm ml-12" style={{ color: COLORS.label }}>
-                Suivi en temps réel avec comparaison annuelle (YoY)
+                Intelligence d'affaires en temps réel avec analyse comparative YOY
               </p>
             </div>
 
@@ -595,22 +577,55 @@ const DashboardContent = () => {
                 ))}
               </select>
 
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={stagedDateRange.start}
-                  onChange={(e) => setStagedDateRange((p) => ({ ...p, start: e.target.value }))}
-                  className="bg-black/50 backdrop-blur-xl border rounded-xl px-3 py-2 text-sm text-white/90 focus:outline-none focus:border-cyan-500/60 focus:ring-2 focus:ring-cyan-500/20 transition-all"
-                  style={{ borderColor: COLORS.cardBorder }}
-                />
-                <span className="text-zinc-500 text-sm">à</span>
-                <input
-                  type="date"
-                  value={stagedDateRange.end}
-                  onChange={(e) => setStagedDateRange((p) => ({ ...p, end: e.target.value }))}
-                  className="bg-black/50 backdrop-blur-xl border rounded-xl px-3 py-2 text-sm text-white/90 focus:outline-none focus:border-cyan-500/60 focus:ring-2 focus:ring-cyan-500/20 transition-all"
-                  style={{ borderColor: COLORS.cardBorder }}
-                />
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={stagedDateRange.start}
+                    onChange={(e) => setStagedDateRange((p) => ({ ...p, start: e.target.value }))}
+                    className="bg-black/50 backdrop-blur-xl border rounded-xl px-3 py-2 text-sm text-white/90 focus:outline-none focus:border-cyan-500/60 focus:ring-2 focus:ring-cyan-500/20 transition-all"
+                    style={{ borderColor: COLORS.cardBorder }}
+                  />
+                  <span className="text-zinc-500 text-sm">à</span>
+                  <input
+                    type="date"
+                    value={stagedDateRange.end}
+                    onChange={(e) => setStagedDateRange((p) => ({ ...p, end: e.target.value }))}
+                    className="bg-black/50 backdrop-blur-xl border rounded-xl px-3 py-2 text-sm text-white/90 focus:outline-none focus:border-cyan-500/60 focus:ring-2 focus:ring-cyan-500/20 transition-all"
+                    style={{ borderColor: COLORS.cardBorder }}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const today = new Date();
+                      const yearStart = new Date(today.getFullYear(), 0, 1);
+                      setStagedDateRange({
+                        start: yearStart.toISOString().slice(0, 10),
+                        end: today.toISOString().slice(0, 10)
+                      });
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-black/50 backdrop-blur-xl border text-zinc-300 hover:text-white hover:bg-white/5 hover:border-cyan-500/30 transition-all duration-200"
+                    style={{ borderColor: COLORS.cardBorder }}
+                  >
+                    YTD
+                  </button>
+                  <button
+                    onClick={() => {
+                      const today = new Date();
+                      const yearAgo = new Date(today);
+                      yearAgo.setDate(yearAgo.getDate() - 365);
+                      setStagedDateRange({
+                        start: yearAgo.toISOString().slice(0, 10),
+                        end: today.toISOString().slice(0, 10)
+                      });
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-black/50 backdrop-blur-xl border text-zinc-300 hover:text-white hover:bg-white/5 hover:border-cyan-500/30 transition-all duration-200"
+                    style={{ borderColor: COLORS.cardBorder }}
+                  >
+                    TTM
+                  </button>
+                </div>
               </div>
 
               <button
@@ -704,7 +719,7 @@ const DashboardContent = () => {
       {showYOYComparison && (
         <div className="grid grid-cols-12 gap-4">
           <ChartCard
-            title="Comparaison annuelle (YoY) – Chiffre d’affaires"
+            title="Comparaison YOY - Chiffre d'affaires"
             className="col-span-12 lg:col-span-8"
           >
             <ResponsiveContainer width="100%" height={300}>
@@ -875,10 +890,7 @@ const DashboardContent = () => {
                 strokeWidth={3}
                 name="Période actuelle"
                 dot={{ fill: COLORS.accentSecondary, r: 5 }}
-                activeDot={{
-                  r: 8,
-                  style: { filter: `drop-shadow(0 0 20px ${COLORS.accentSecondary})` },
-                }}
+                activeDot={{ r: 8, boxShadow: `0 0 20px ${COLORS.accentSecondary}` }}
               />
             </LineChart>
           </ResponsiveContainer>
