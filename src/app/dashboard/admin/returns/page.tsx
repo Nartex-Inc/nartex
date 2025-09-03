@@ -1,581 +1,649 @@
+// src/app/dashboard/admin/returns/page.tsx
 "use client";
 
 import * as React from "react";
 import {
-  Search,
-  Filter,
   Calendar,
-  RefreshCw,
+  Filter,
+  RefreshCcw,
+  Search,
+  ChevronDown,
+  ChevronUp,
   FileDown,
-  ChevronLeft,
-  ChevronRight,
-  ExternalLink,
-  FolderOpen,
+  PackageOpen,
+  Truck,
+  Factory,
+  Wrench,
 } from "lucide-react";
-import { Card, CardTitle } from "@/components/ui/card";
 
-// -----------------------------
-// Types & Dummy Data
-// -----------------------------
+/* =====================================================================================
+   Types
+===================================================================================== */
+
+type Reporter = "expert" | "transporteur" | "autre";
+
+type Cause =
+  | "production"
+  | "transporteur"
+  | "pompe"
+  | "autre_cause"
+  | "exposition_sinto"
+  | "autre"
+  | "expert";
+
 type ReturnRow = {
-  id: string;                 // e.g., "R6492"
-  reportedAt: string;         // ISO date string "2025-08-27"
-  reporter: "expert" | "transporteur" | "autre";
-  cause:
-    | "production"
-    | "transporteur"
-    | "pompe"
-    | "autre_cause"
-    | "exposition_sinto"
-    | "autre";
-  expert: string;             // "RICHARD TESSIER (046)"
-  client: string;             // "LES MECANOS D'HAM NORD"
-  clientNo: string;           // "3442109"
-  orderNo: string;            // "82767"
-  trackingNo?: string;        // optional tracking
-  orderDate?: string;         // ISO date
-  files?: number;             // number of attachments
-  status: "brouillon" | "actif" | "finalise";
+  code_retour: string; // e.g. "R6498"
+  date_signalement: string; // ISO date
+  reporter: Reporter;
+  cause: Cause;
+  expert: string; // "RICHARD TESSIER (046)"
+  client: string; // "DISTRIBUTION RMM INC."
+  no_client: string; // "EXP-046"
+  no_commande: string; // "81716"
+  no_tracking?: string | null;
+  date_commande?: string | null; // ISO date or null
+  transporter?: string | null;
+  description?: string | null;
+  poids_total?: number | null;
 };
+
+type SortKey =
+  | "date_signalement"
+  | "code_retour"
+  | "reporter"
+  | "cause"
+  | "client"
+  | "no_commande";
+
+/* =====================================================================================
+   Label Maps (strongly typed)
+===================================================================================== */
+
+const REPORTER_LABEL: Record<Reporter, string> = {
+  expert: "Expert",
+  transporteur: "Transporteur",
+  autre: "Autre",
+};
+
+const CAUSE_LABEL = {
+  production: "Production",
+  transporteur: "Transporteur",
+  pompe: "Pompe de transfert",
+  autre_cause: "Autre cause",
+  exposition_sinto: "Exposition Sinto",
+  autre: "Autre",
+  expert: "Expert",
+} as const;
+
+type CauseKey = keyof typeof CAUSE_LABEL;
+type ReporterKey = keyof typeof REPORTER_LABEL;
+
+/* =====================================================================================
+   Dummy Data (you will replace with API later)
+===================================================================================== */
 
 const DUMMY_RETURNS: ReturnRow[] = [
   {
-    id: "R6493",
-    reportedAt: "2025-08-27",
-    reporter: "expert",
-    cause: "expert" as any, // backwards compat with your legacy labels
-    expert: "RICHARD TESSIER (046)",
-    client: "DISTRIBUTION RMM INC. (46)",
-    clientNo: "2213400",
-    orderNo: "81065",
-    trackingNo: "P76860066",
-    orderDate: "2025-07-10",
-    files: 2,
-    status: "actif",
-  },
-  {
-    id: "R6492",
-    reportedAt: "2025-08-27",
+    code_retour: "R6498",
+    date_signalement: "2025-09-02",
     reporter: "expert",
     cause: "production",
-    expert: "ROXANE BOUFFARD (011)",
-    client: "LES MECANOS D'HAM NORD",
-    clientNo: "3442109",
-    orderNo: "82767",
-    trackingNo: "P80976755",
-    orderDate: "2025-08-12",
-    files: 1,
-    status: "finalise",
+    expert: "DENIS LAVOIE (017)",
+    client: "DISTRIBUTION RMM INC. (46)",
+    no_client: "EXP-046",
+    no_commande: "81724",
+    no_tracking: "P77935962",
+    date_commande: "2025-07-17",
+    transporter: "DICOM-GLS (P)",
+    description: "L’expert s’est trompé d’adresse de livraison.",
+    poids_total: 24.96,
   },
   {
-    id: "R6494",
-    reportedAt: "2025-08-28",
+    code_retour: "R6494",
+    date_signalement: "2025-08-28",
     reporter: "expert",
     cause: "pompe",
     expert: "ROBY LECLERC (023)",
     client: "REPRESENTATION R.L. INC.",
-    clientNo: "EXP-023",
-    orderNo: "84048",
-    trackingNo: undefined,
-    orderDate: "2025-08-28",
-    files: 0,
-    status: "actif",
+    no_client: "EXP-023",
+    no_commande: "84048",
+    no_tracking: null,
+    date_commande: "2025-08-28",
+    transporter: "EXPERT PICKUP PCC (C)",
+    description: "Produit expédié en double.",
+    poids_total: 12,
   },
   {
-    id: "R6496",
-    reportedAt: "2025-08-28",
-    reporter: "autre",
-    cause: "transporteur",
-    expert: "RICHARD TESSIER (046)",
-    client: "DISTRIBUTION RMM INC. (46)",
-    clientNo: "EXP-046",
-    orderNo: "80341",
-    trackingNo: "P75312882",
-    orderDate: "2025-06-27",
-    files: 3,
-    status: "actif",
-  },
-  {
-    id: "R6499",
-    reportedAt: "2025-09-02",
+    code_retour: "R6491",
+    date_signalement: "2025-08-26",
     reporter: "transporteur",
     cause: "transporteur",
     expert: "BUDDY FORD (020)",
-    client: "GENERAL BEARING SERVICE INC (GBS)",
-    clientNo: "3782856",
-    orderNo: "82698",
-    trackingNo: "P80952712",
-    orderDate: "2025-08-11",
-    files: 1,
-    status: "actif",
+    client: "GROUPE CIRTECH INC.",
+    no_client: "2213400",
+    no_commande: "81065",
+    no_tracking: "P76860066",
+    date_commande: "2025-07-10",
+    transporter: "DICOM-GLS (P)",
+    description: "Bouteilles ont coulé dans le transport.",
+    poids_total: 0,
   },
-  // Add more rows if you want to test pagination
+  {
+    code_retour: "R6492",
+    date_signalement: "2025-08-27",
+    reporter: "expert",
+    cause: "production",
+    expert: "ROXANE BOUFFARD (011)",
+    client: "LES MECANOS D’HAM NORD",
+    no_client: "3442109",
+    no_commande: "82767",
+    no_tracking: "P80976755",
+    date_commande: "2025-08-12",
+    transporter: "DICOM-GLS (P)",
+    description: "16 bouteilles sur 8 ont coulé; elles étaient …",
+    poids_total: 0,
+  },
+  {
+    code_retour: "R6486",
+    date_signalement: "2025-08-22",
+    reporter: "expert",
+    cause: "autre_cause",
+    expert: "SYLVAIN ARVISAVIS (012)",
+    client: "BIOMASSE DU LAC TAUREAU",
+    no_client: "8700141",
+    no_commande: "83381",
+    no_tracking: "P82517515",
+    date_commande: "2025-08-20",
+    transporter: "DICOM-GLS (P)",
+    description: "L’expert dit n’avoir jamais reçu ce refill d’huile.",
+    poids_total: 0,
+  },
+  {
+    code_retour: "R6483",
+    date_signalement: "2025-08-12",
+    reporter: "autre",
+    cause: "autre",
+    expert: "MIKE ROCHE (54)",
+    client: "—",
+    no_client: "—",
+    no_commande: "—",
+    no_tracking: null,
+    date_commande: null,
+    transporter: null,
+    description: "Surplus inventaire",
+    poids_total: 0,
+  },
 ];
 
-// Human labels for filters
-const CAUSE_LABEL: Record<ReturnRow["cause"] | "expert", string> = {
-  production: "Production",
-  transporteur: "Transporteur",
-  pompe: "Pompe",
-  autre_cause: "Autre cause",
-  exposition_sinto: "Exposition Sinto",
-  autre: "Autre",
-  // legacy
-  expert: "Expert",
-};
+/* =====================================================================================
+   Helpers
+===================================================================================== */
 
-const REPORTER_LABEL: Record<ReturnRow["reporter"], string> = {
-  expert: "Expert",
-  transporteur: "Transporteur",
-  autre: "Autre",
-};
-
-// -----------------------------
-// Utilities
-// -----------------------------
-function classNames(...parts: Array<string | false | null | undefined>) {
-  return parts.filter(Boolean).join(" ");
+function cx(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
 }
 
-function formatDate(d?: string) {
-  if (!d) return "—";
-  try {
-    return new Date(d).toLocaleDateString();
-  } catch {
-    return d;
-  }
+function formatDate(iso?: string | null) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleDateString();
 }
 
-function toCSV(rows: ReturnRow[]) {
-  const header = [
-    "Code retour",
-    "Date signalement",
-    "Signalé par",
-    "Cause",
-    "Expert",
-    "Client",
-    "No. client",
-    "No. commande",
-    "No. tracking",
-    "Date commande",
-    "Fichiers",
-    "Statut",
-  ];
-  const body = rows.map((r) => [
-    r.id,
-    r.reportedAt,
-    REPORTER_LABEL[r.reporter],
-    CAUSE_LABEL[(r.cause as any) || "autre"],
-    r.expert,
-    r.client,
-    r.clientNo,
-    r.orderNo,
-    r.trackingNo ?? "",
-    r.orderDate ?? "",
-    String(r.files ?? 0),
-    r.status,
-  ]);
+/* =====================================================================================
+   Page
+===================================================================================== */
 
-  return [header, ...body]
-    .map((line) => line.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
-    .join("\n");
-}
-
-// -----------------------------
-// Page
-// -----------------------------
 export default function ReturnsPage() {
   // Filters
-  const [query, setQuery] = React.useState("");
-  const [cause, setCause] = React.useState<string>("all");
-  const [reporter, setReporter] = React.useState<string>("all");
-  const [dateFrom, setDateFrom] = React.useState<string>("");
-  const [dateTo, setDateTo] = React.useState<string>("");
+  const [q, setQ] = React.useState("");
+  const [cause, setCause] = React.useState<CauseKey | "all">("all");
+  const [reporter, setReporter] = React.useState<ReporterKey | "all">("all");
+  const [from, setFrom] = React.useState<string>("");
+  const [to, setTo] = React.useState<string>("");
 
-  // Sorting (simple: by reportedAt desc by default)
-  const [sortField, setSortField] = React.useState<keyof ReturnRow>("reportedAt");
+  // Sorting
+  const [sortKey, setSortKey] = React.useState<SortKey>("date_signalement");
   const [sortDir, setSortDir] = React.useState<"asc" | "desc">("desc");
 
-  // Pagination
-  const [page, setPage] = React.useState(1);
-  const pageSize = 12;
+  // Open/close filters panel (mobile)
+  const [openFilters, setOpenFilters] = React.useState(true);
 
-  const filtered = React.useMemo(() => {
-    let rows = [...DUMMY_RETURNS];
+  // Derived rows
+  const rows = React.useMemo(() => {
+    let r = [...DUMMY_RETURNS];
 
-    // Search in several fields
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      rows = rows.filter((r) =>
-        [
-          r.id,
-          r.expert,
-          r.client,
-          r.clientNo,
-          r.orderNo,
-          r.trackingNo ?? "",
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(q)
-      );
+    // text query (simple multi-field search)
+    const query = q.trim().toLowerCase();
+    if (query) {
+      r = r.filter((row) => {
+        const hay =
+          `${row.code_retour} ${row.expert} ${row.client} ${row.no_client} ${row.no_commande} ${row.no_tracking ?? ""} ${row.description ?? ""}`.toLowerCase();
+        return hay.includes(query);
+      });
     }
 
     if (cause !== "all") {
-      rows = rows.filter((r) => String(r.cause) === cause);
+      r = r.filter((row) => row.cause === cause);
     }
     if (reporter !== "all") {
-      rows = rows.filter((r) => r.reporter === (reporter as ReturnRow["reporter"]));
+      r = r.filter((row) => row.reporter === reporter);
     }
 
-    if (dateFrom) {
-      rows = rows.filter((r) => new Date(r.reportedAt) >= new Date(dateFrom));
+    if (from) {
+      const f = new Date(from).getTime();
+      r = r.filter((row) => new Date(row.date_signalement).getTime() >= f);
     }
-    if (dateTo) {
-      const end = new Date(dateTo);
-      end.setHours(23, 59, 59, 999);
-      rows = rows.filter((r) => new Date(r.reportedAt) <= end);
+    if (to) {
+      const t = new Date(to).getTime();
+      r = r.filter((row) => new Date(row.date_signalement).getTime() <= t);
     }
 
-    // Sort
-    rows.sort((a, b) => {
-      const av = a[sortField];
-      const bv = b[sortField];
-      let cmp = 0;
-      if (typeof av === "string" && typeof bv === "string") {
-        cmp = av.localeCompare(bv);
-      } else {
-        cmp = String(av).localeCompare(String(bv));
+    // sort
+    r.sort((a, b) => {
+      let av: string | number = "";
+      let bv: string | number = "";
+      switch (sortKey) {
+        case "date_signalement":
+          av = new Date(a.date_signalement).getTime();
+          bv = new Date(b.date_signalement).getTime();
+          break;
+        case "code_retour":
+          av = a.code_retour;
+          bv = b.code_retour;
+          break;
+        case "reporter":
+          av = a.reporter;
+          bv = b.reporter;
+          break;
+        case "cause":
+          av = a.cause;
+          bv = b.cause;
+          break;
+        case "client":
+          av = a.client;
+          bv = b.client;
+          break;
+        case "no_commande":
+          av = a.no_commande;
+          bv = b.no_commande;
+          break;
       }
-      return sortDir === "asc" ? cmp : -cmp;
+      if (av < bv) return sortDir === "asc" ? -1 : 1;
+      if (av > bv) return sortDir === "asc" ? 1 : -1;
+      return 0;
     });
 
-    return rows;
-  }, [query, cause, reporter, dateFrom, dateTo, sortField, sortDir]);
+    return r;
+  }, [q, cause, reporter, from, to, sortKey, sortDir]);
 
-  const total = filtered.length;
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  const current = filtered.slice((page - 1) * pageSize, page * pageSize);
-
-  React.useEffect(() => {
-    // reset to page 1 whenever filters change
-    setPage(1);
-  }, [query, cause, reporter, dateFrom, dateTo]);
-
-  const exportCSV = () => {
-    const csv = toCSV(filtered);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `returns_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const setSort = (key: SortKey) => {
+    if (key === sortKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
   };
 
-  const reset = () => {
-    setQuery("");
+  const resetFilters = () => {
+    setQ("");
     setCause("all");
     setReporter("all");
-    setDateFrom("");
-    setDateTo("");
+    setFrom("");
+    setTo("");
   };
 
-  const statActive = filtered.filter((r) => r.status === "actif").length;
-  const statFinal = filtered.filter((r) => r.status === "finalise").length;
-
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-white text-slate-900 dark:bg-[#050507] dark:text-white">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Gestion des retours<span className="text-blue-600 dark:text-blue-500">.</span>
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Recherchez, filtrez et exportez les retours. Données factices pour l’instant.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={reset}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Réinitialiser
-          </button>
-          <button
-            onClick={exportCSV}
-            className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-700"
-          >
-            <FileDown className="h-4 w-4" />
-            Export CSV
-          </button>
-        </div>
-      </div>
-
-      {/* Top Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="p-4">
-          <CardTitle>Retours (affichés)</CardTitle>
-          <div className="mt-2 text-2xl font-semibold">{total}</div>
-        </Card>
-        <Card className="p-4">
-          <CardTitle>Actifs</CardTitle>
-          <div className="mt-2 text-2xl font-semibold text-amber-600 dark:text-amber-400">
-            {statActive}
+      <div className="sticky top-16 z-20 border-b border-slate-200/80 bg-white/70 backdrop-blur-md dark:border-white/10 dark:bg-neutral-900/60">
+        <div className="mx-auto max-w-[1600px] px-3 sm:px-4 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                Gestion des retours
+                <span className="text-blue-600 dark:text-blue-400">.</span>
+              </h1>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Recherchez, filtrez et inspectez les retours. (Données
+                factices.)
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/10 dark:text-white"
+                onClick={() => window.alert("Export CSV – à brancher plus tard")}
+              >
+                <FileDown className="h-4 w-4" />
+                Exporter
+              </button>
+              <button
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/10 dark:text-white"
+                onClick={resetFilters}
+              >
+                <RefreshCcw className="h-4 w-4" />
+                Réinitialiser
+              </button>
+            </div>
           </div>
-        </Card>
-        <Card className="p-4">
-          <CardTitle>Finalisés</CardTitle>
-          <div className="mt-2 text-2xl font-semibold text-emerald-600 dark:text-emerald-400">
-            {statFinal}
-          </div>
-        </Card>
-      </div>
 
-      {/* Filters */}
-      <Card className="p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 flex-1">
+          {/* Toolbar */}
+          <div className="mt-4 grid gap-3 md:grid-cols-12">
             {/* Search */}
-            <div className="flex flex-col">
-              <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                Recherche
-              </label>
+            <div className="md:col-span-5">
               <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Code retour, expert, client, no commande, tracking…"
-                  className="w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Rechercher un retour, client, expert, commande, tracking…"
+                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-900 outline-none ring-0 placeholder:text-slate-400 hover:bg-slate-50 focus:border-blue-500 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-500"
                 />
               </div>
             </div>
 
-            {/* Cause */}
-            <div className="flex flex-col">
-              <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                Cause du retour
-              </label>
-              <div className="relative">
-                <Filter className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+            {/* Filters toggle (mobile) */}
+            <div className="md:hidden">
+              <button
+                onClick={() => setOpenFilters((v) => !v)}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/10 dark:text-white"
+              >
+                <Filter className="h-4 w-4" />
+                Filtres
+                {openFilters ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+
+            {/* Filters */}
+            <div
+              className={cx(
+                "md:col-span-7 grid gap-3 md:grid-cols-7",
+                openFilters ? "block" : "hidden md:grid"
+              )}
+            >
+              <div className="md:col-span-3">
+                <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+                  Cause du retour
+                </label>
                 <select
                   value={cause}
-                  onChange={(e) => setCause(e.target.value)}
-                  className="w-full appearance-none rounded-lg border border-slate-200 bg-white pl-8 pr-8 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  onChange={(e) => setCause(e.target.value as CauseKey | "all")}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
                 >
                   <option value="all">Toutes les causes</option>
-                  {Object.entries(CAUSE_LABEL).map(([val, label]) => (
-                    <option key={val} value={val}>
-                      {label}
+                  {(Object.keys(CAUSE_LABEL) as CauseKey[]).map((k) => (
+                    <option key={k} value={k}>
+                      {CAUSE_LABEL[k]}
                     </option>
                   ))}
                 </select>
               </div>
-            </div>
 
-            {/* Reporter */}
-            <div className="flex flex-col">
-              <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                Signalé par
-              </label>
-              <select
-                value={reporter}
-                onChange={(e) => setReporter(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
-              >
-                <option value="all">Tous</option>
-                {Object.entries(REPORTER_LABEL).map(([val, label]) => (
-                  <option key={val} value={val}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+                  Signalé par
+                </label>
+                <select
+                  value={reporter}
+                  onChange={(e) =>
+                    setReporter(e.target.value as ReporterKey | "all")
+                  }
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                >
+                  <option value="all">Tous</option>
+                  {(Object.keys(REPORTER_LABEL) as ReporterKey[]).map((k) => (
+                    <option key={k} value={k}>
+                      {REPORTER_LABEL[k]}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            {/* Date range */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="flex flex-col">
-                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+              <div className="md:col-span-1">
+                <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
                   Du
                 </label>
                 <div className="relative">
-                  <Calendar className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+                  <Calendar className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input
                     type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                    value={from}
+                    onChange={(e) => setFrom(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
                   />
                 </div>
               </div>
-              <div className="flex flex-col">
-                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+
+              <div className="md:col-span-1">
+                <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
                   Au
                 </label>
                 <div className="relative">
-                  <Calendar className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+                  <Calendar className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input
                     type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                    value={to}
+                    onChange={(e) => setTo(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
                   />
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Sort */}
-          <div className="grid grid-cols-2 gap-2 w-full lg:w-auto">
-            <select
-              value={sortField}
-              onChange={(e) => setSortField(e.target.value as keyof ReturnRow)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
-            >
-              <option value="reportedAt">Tri: Date de signalement</option>
-              <option value="id">Tri: Code retour</option>
-              <option value="client">Tri: Client</option>
-              <option value="orderNo">Tri: No commande</option>
-            </select>
-            <select
-              value={sortDir}
-              onChange={(e) => setSortDir(e.target.value as "asc" | "desc")}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
-            >
-              <option value="desc">Descendant</option>
-              <option value="asc">Ascendant</option>
-            </select>
-          </div>
         </div>
-      </Card>
+      </div>
 
-      {/* Table */}
-      <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-[980px] w-full border-collapse">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-white/5">
-                {[
-                  "Code retour",
-                  "Date signalement",
-                  "Signalé par",
-                  "Cause",
-                  "Expert",
-                  "Client",
-                  "No. client",
-                  "No. commande",
-                  "No. tracking",
-                  "Date commande",
-                  "Fichiers",
-                  "Actions",
-                ].map((h) => (
-                  <th key={h} className="px-4 py-3 font-semibold whitespace-nowrap border-b border-slate-200 dark:border-white/10">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {current.map((r) => (
-                <tr
-                  key={r.id}
-                  className={classNames(
-                    "text-sm border-b border-slate-100 dark:border-white/10",
-                    r.status === "finalise" && "bg-emerald-50/60 dark:bg-emerald-500/5"
-                  )}
-                >
-                  <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{r.id}</td>
-                  <td className="px-4 py-3">{formatDate(r.reportedAt)}</td>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700 dark:bg-white/10 dark:text-slate-300">
-                      {REPORTER_LABEL[r.reporter]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={classNames(
-                        "inline-flex items-center rounded-full px-2 py-0.5 text-xs",
-                        r.cause === "production" && "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300",
-                        r.cause === "transporteur" && "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
-                        r.cause === "pompe" && "bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-500/10 dark:text-fuchsia-300",
-                        (r.cause as any) === "expert" && "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
-                        r.cause !== "production" &&
-                          r.cause !== "transporteur" &&
-                          r.cause !== "pompe" &&
-                          (r.cause as any) !== "expert" &&
-                          "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300"
-                      )}
+      {/* Content */}
+      <div className="mx-auto max-w-[1600px] px-3 sm:px-4 py-6">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-neutral-900">
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="sticky top-[calc(4rem+56px)] z-[1] bg-slate-50 text-slate-600 dark:bg-neutral-800 dark:text-slate-300">
+                <tr className="[&>th]:px-4 [&>th]:py-3 [&>th]:font-semibold">
+                  <th className="w-28">
+                    <button
+                      className="inline-flex items-center gap-1"
+                      onClick={() => setSort("code_retour")}
                     >
-                      {CAUSE_LABEL[(r.cause as any) || "autre"]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">{r.expert}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">{r.client}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">{r.clientNo}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">{r.orderNo}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">{r.trackingNo ?? "—"}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">{formatDate(r.orderDate)}</td>
-                  <td className="px-4 py-3">{r.files ?? 0}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <button className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10">
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        Consulter
-                      </button>
-                      <button className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10">
-                        <FolderOpen className="h-3.5 w-3.5" />
-                        Fichiers
-                      </button>
-                    </div>
-                  </td>
+                      Code
+                      <SortIcon active={sortKey === "code_retour"} dir={sortDir} />
+                    </button>
+                  </th>
+                  <th className="w-36">
+                    <button
+                      className="inline-flex items-center gap-1"
+                      onClick={() => setSort("date_signalement")}
+                    >
+                      Date signalement
+                      <SortIcon
+                        active={sortKey === "date_signalement"}
+                        dir={sortDir}
+                      />
+                    </button>
+                  </th>
+                  <th className="w-36">Signalé par</th>
+                  <th className="w-44">Cause</th>
+                  <th className="min-w-[220px]">Expert</th>
+                  <th className="min-w-[260px]">Client</th>
+                  <th className="w-24">No client</th>
+                  <th className="w-28">
+                    <button
+                      className="inline-flex items-center gap-1"
+                      onClick={() => setSort("no_commande")}
+                    >
+                      No commande
+                      <SortIcon
+                        active={sortKey === "no_commande"}
+                        dir={sortDir}
+                      />
+                    </button>
+                  </th>
+                  <th className="w-40">No tracking</th>
                 </tr>
-              ))}
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-white/10">
+                {rows.map((r) => {
+                  const causeKey: CauseKey = r.cause as CauseKey;
+                  return (
+                    <tr
+                      key={r.code_retour}
+                      className="hover:bg-slate-50/60 dark:hover:bg-white/5"
+                    >
+                      <td className="px-4 py-3 font-medium">{r.code_retour}</td>
+                      <td className="px-4 py-3">{formatDate(r.date_signalement)}</td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          tone={
+                            r.reporter === "expert"
+                              ? "indigo"
+                              : r.reporter === "transporteur"
+                              ? "sky"
+                              : "slate"
+                          }
+                        >
+                          {REPORTER_LABEL[r.reporter]}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <CauseIcon cause={causeKey} />
+                          <Badge
+                            tone={
+                              causeKey === "production"
+                                ? "emerald"
+                                : causeKey === "transporteur"
+                                ? "sky"
+                                : causeKey === "pompe"
+                                ? "amber"
+                                : causeKey === "exposition_sinto"
+                                ? "violet"
+                                : "slate"
+                            }
+                          >
+                            {CAUSE_LABEL[causeKey]}
+                          </Badge>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">{r.expert}</td>
+                      <td className="px-4 py-3">{r.client}</td>
+                      <td className="px-4 py-3">{r.no_client}</td>
+                      <td className="px-4 py-3">{r.no_commande}</td>
+                      <td className="px-4 py-3">{r.no_tracking ?? "—"}</td>
+                    </tr>
+                  );
+                })}
 
-              {current.length === 0 && (
-                <tr>
-                  <td colSpan={12} className="px-4 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
-                    Aucun retour ne correspond aux filtres.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                {!rows.length && (
+                  <tr>
+                    <td
+                      colSpan={9}
+                      className="px-4 py-12 text-center text-slate-500 dark:text-slate-400"
+                    >
+                      Aucun résultat ne correspond à vos filtres.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
-        {/* Pagination */}
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="text-xs text-slate-500 dark:text-slate-400">
-            {total === 0 ? "0 résultat" : `${(page - 1) * pageSize + 1}–${Math.min(
-              page * pageSize,
-              total
-            )} sur ${total}`}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Précédent
-            </button>
-            <div className="text-xs tabular-nums text-slate-600 dark:text-slate-300">
-              Page {page} / {pageCount}
-            </div>
-            <button
-              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-              disabled={page >= pageCount}
-              className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
-            >
-              Suivant
-              <ChevronRight className="h-4 w-4" />
-            </button>
+          {/* Footer info */}
+          <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-xs text-slate-500 dark:border-white/10 dark:text-slate-400">
+            <div>{rows.length} retour(s)</div>
+            <div>Interface fictive — brancher à PostgreSQL / API plus tard.</div>
           </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
+}
+
+/* =====================================================================================
+   Small UI bits
+===================================================================================== */
+
+function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
+  return (
+    <span
+      className={cx(
+        "inline-block h-4 w-4 text-slate-300 dark:text-slate-500",
+        active && "text-slate-500 dark:text-slate-300"
+      )}
+      aria-hidden
+    >
+      {dir === "asc" ? "▲" : "▼"}
+    </span>
+  );
+}
+
+function Badge({
+  tone = "slate",
+  children,
+}: {
+  tone?: "slate" | "emerald" | "sky" | "indigo" | "amber" | "violet";
+  children: React.ReactNode;
+}) {
+  const toneMap: Record<
+    NonNullable<Parameters<typeof Badge>[0]["tone"]>,
+    { bg: string; text: string; ring: string }
+  > = {
+    slate: {
+      bg: "bg-slate-100 dark:bg-white/10",
+      text: "text-slate-700 dark:text-slate-200",
+      ring: "ring-slate-200/60 dark:ring-white/10",
+    },
+    emerald: {
+      bg: "bg-emerald-100/70 dark:bg-emerald-500/10",
+      text: "text-emerald-700 dark:text-emerald-300",
+      ring: "ring-emerald-200/70 dark:ring-emerald-400/20",
+    },
+    sky: {
+      bg: "bg-sky-100/70 dark:bg-sky-500/10",
+      text: "text-sky-700 dark:text-sky-300",
+      ring: "ring-sky-200/70 dark:ring-sky-400/20",
+    },
+    indigo: {
+      bg: "bg-indigo-100/70 dark:bg-indigo-500/10",
+      text: "text-indigo-700 dark:text-indigo-300",
+      ring: "ring-indigo-200/70 dark:ring-indigo-400/20",
+    },
+    amber: {
+      bg: "bg-amber-100/70 dark:bg-amber-500/10",
+      text: "text-amber-800 dark:text-amber-300",
+      ring: "ring-amber-200/70 dark:ring-amber-400/20",
+    },
+    violet: {
+      bg: "bg-violet-100/70 dark:bg-violet-500/10",
+      text: "text-violet-700 dark:text-violet-300",
+      ring: "ring-violet-200/70 dark:ring-violet-400/20",
+    },
+  };
+
+  const t = toneMap[tone];
+  return (
+    <span
+      className={cx(
+        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1",
+        t.bg,
+        t.text,
+        t.ring
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function CauseIcon({ cause }: { cause: CauseKey }) {
+  if (cause === "production") return <Factory className="h-4 w-4 text-emerald-500" />;
+  if (cause === "transporteur") return <Truck className="h-4 w-4 text-sky-500" />;
+  if (cause === "pompe") return <Wrench className="h-4 w-4 text-amber-500" />;
+  if (cause === "exposition_sinto")
+    return <PackageOpen className="h-4 w-4 text-violet-500" />;
+  return <PackageOpen className="h-4 w-4 text-slate-400" />;
 }
