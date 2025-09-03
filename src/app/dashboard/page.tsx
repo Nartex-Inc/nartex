@@ -3,7 +3,6 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { Inter } from "next/font/google";
-import LoadingAnimation from "@/components/LoadingAnimation";
 import {
   PieChart,
   Pie,
@@ -271,6 +270,29 @@ const CustomLegend = ({ payload, onLegendClick, selectedItems = [] }: any) => {
    Main dashboard content
 ============================================================================= */
 const DashboardContent = () => {
+  // Theme detection
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  
+  useEffect(() => {
+    // Check for system theme or saved preference
+    const checkTheme = () => {
+      const isDark = document.documentElement.classList.contains('dark');
+      setTheme(isDark ? 'dark' : 'light');
+    };
+    
+    checkTheme();
+    // Listen for theme changes
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+    
+    return () => observer.disconnect();
+  }, []);
+
+  const colors = theme === 'dark' ? COLORS.dark : COLORS.light;
+  const pieColors = theme === 'dark' ? PIE_COLORS_DARK : PIE_COLORS_LIGHT;
   const defaultDateRange = {
     start: new Date(new Date().setFullYear(new Date().getFullYear() - 1))
       .toISOString()
@@ -522,7 +544,7 @@ const DashboardContent = () => {
   }, [filteredData, filteredPreviousData]);
 
   if (error) return <ErrorState message={error.message} />;
-  if (isLoading) return <LoadingAnimation />;
+  if (isLoading) return <LoadingState />;
 
   return (
     <div className="space-y-6">
@@ -751,7 +773,7 @@ const DashboardContent = () => {
                   stroke={COLORS.success}
                   strokeWidth={3}
                   dot={{ fill: COLORS.success, r: 5 }}
-                  activeDot={{ r: 7, fill: COLORS.success }}
+                  activeDot={{ r: 7 }}
                   name="Croissance %"
                 />
               </ComposedChart>
@@ -1019,7 +1041,7 @@ const DashboardContent = () => {
 export default function DashboardPage() {
   const { data: session, status } = useSession();
 
-  if (status === "loading") return <LoadingAnimation />;
+  if (status === "loading") return <LoadingState />;
   if (status === "unauthenticated" || session?.user?.role !== "ventes-exec")
     return <AccessDenied />;
 
