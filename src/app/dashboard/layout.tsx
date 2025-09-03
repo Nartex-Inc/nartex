@@ -8,6 +8,8 @@ import { redirect } from "next/navigation";
 import { Header } from "@/components/dashboard/header";
 import { Sidebar } from "@/components/dashboard/sidebar";
 
+import LoadingAnimation from "@/components/LoadingAnimation";
+
 export default function DashboardLayout({
   children,
 }: {
@@ -47,15 +49,11 @@ export default function DashboardLayout({
   }, [isDesktopOpen]);
 
   if (status === "loading") {
-    return (
-      <div className="flex h-screen items-center justify-center text-muted-foreground">
-        Chargement…
-      </div>
-    );
+    return <LoadingAnimation />;
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-black">
+    <div className="flex min-h-screen flex-col bg-white dark:bg-[#050507]">
       {/* Sticky app header */}
       <Header
         onToggleMobileSidebar={() => setMobileOpen((v) => !v)}
@@ -81,7 +79,7 @@ export default function DashboardLayout({
         />
 
         {/* Main content; reserve space for the sidebar on lg+ via CSS var */}
-        <main className="relative z-0 flex-1 overflow-y-auto bg-black">
+        <main className="relative z-0 flex-1 overflow-y-auto bg-transparent">
           <div className="lg:pl-[var(--sidebar-w)]">
             <div className="mx-auto max-w-[1400px] px-3 sm:px-4 py-8">
               {children}
