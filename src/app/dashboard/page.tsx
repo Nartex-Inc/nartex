@@ -39,6 +39,9 @@ import {
 } from "lucide-react";
 import { THEME, PIE_COLORS_DARK, PIE_COLORS_LIGHT } from "@/lib/theme-tokens";
 
+// right under your THEME import
+type ThemeTokens = (typeof THEME)[keyof typeof THEME];
+
 /* =============================================================================
    Font
 ============================================================================= */
@@ -330,7 +333,7 @@ function KpiCard({
   gradient?: string;
   children: React.ReactNode;
   className?: string;
-  t: typeof THEME.dark;
+  t: ThemeTokens;
   mode: "dark" | "light";
 }) {
   return (
@@ -387,7 +390,7 @@ function ChartCard({
   title: React.ReactNode;
   children: React.ReactNode;
   className?: string;
-  t: typeof THEME.dark;
+  t: ThemeTokens;
 }) {
   return (
     <div className={`group relative ${className ?? ""}`}>
@@ -424,7 +427,7 @@ const DashboardContent = () => {
   useEffect(() => setMounted(true), []);
   const mode: "dark" | "light" = mounted && resolvedTheme === "light" ? "light" : "dark";
 
-  const t = THEME[mode];
+  const t: ThemeTokens = THEME[mode];
   const pieColors = mode === "dark" ? PIE_COLORS_DARK : PIE_COLORS_LIGHT;
 
   const defaultDateRange = {
@@ -1215,10 +1218,10 @@ export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const mode: "dark" | "light" = mounted && resolvedTheme === "light" ? "light" : "dark";
-  const t = THEME[mode];
+  const t: ThemeTokens = THEME[mode];
 
   if (!mounted || status === "loading") return <LoadingState />;
-  if (status === "unauthenticated" || session?.user?.role !== "ventes-exec") return <AccessDenied />;
+  if (status === "unauthenticated" || (session as any)?.user?.role !== "ventes-exec") return <AccessDenied />;
 
   return (
     <main
