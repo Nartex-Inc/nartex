@@ -1,5 +1,6 @@
 // src/components/LoadingAnimation.tsx
-import React from 'react';
+import React from "react";
+import { useTheme } from "next-themes";
 
 interface LoadingAnimationProps {
   title?: string;
@@ -14,25 +15,59 @@ const LoadingAnimation: React.FC<LoadingAnimationProps> = ({
   fullScreen = true,
   className = "",
 }) => {
-  const containerClasses = fullScreen 
-    ? "fixed inset-0 bg-black flex items-center justify-center"
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+
+  const containerClasses = fullScreen
+    ? `fixed inset-0 flex items-center justify-center ${
+        isDark ? "bg-black" : "bg-white"
+      }`
     : `flex items-center justify-center ${className}`;
 
   return (
     <div className={containerClasses}>
       <div className="flex flex-col items-center space-y-6">
         <div className="relative">
-          <div className="w-24 h-24 border-4 border-cyan-400/10 rounded-full" />
-          <div className="absolute top-0 w-24 h-24 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin shadow-lg shadow-cyan-400/50" />
-          <div 
-            className="absolute top-2 left-2 w-20 h-20 border-4 border-violet-400 border-b-transparent rounded-full animate-spin shadow-lg shadow-violet-400/50"
-            style={{ animationDelay: '200ms', animationDirection: 'reverse' }}
+          <div
+            className={`w-24 h-24 border-4 rounded-full ${
+              isDark
+                ? "border-cyan-400/10"
+                : "border-cyan-600/10"
+            }`}
+          />
+          <div
+            className={`absolute top-0 w-24 h-24 border-4 rounded-full animate-spin shadow-lg ${
+              isDark
+                ? "border-cyan-400 border-t-transparent shadow-cyan-400/50"
+                : "border-cyan-600 border-t-transparent shadow-cyan-600/40"
+            }`}
+          />
+          <div
+            className={`absolute top-2 left-2 w-20 h-20 border-4 rounded-full animate-spin shadow-lg`}
+            style={{ animationDelay: "200ms", animationDirection: "reverse" }}
+            className={`absolute top-2 left-2 w-20 h-20 border-4 rounded-full animate-spin shadow-lg ${
+              isDark
+                ? "border-violet-400 border-b-transparent shadow-violet-400/50"
+                : "border-violet-600 border-b-transparent shadow-violet-600/40"
+            }`}
           />
         </div>
         <div className="text-center">
-          <p className="text-xl font-light tracking-wider text-white mb-2">{title}</p>
+          <p
+            className={`text-xl font-light tracking-wider mb-2 ${
+              isDark ? "text-white" : "text-slate-900"
+            }`}
+          >
+            {title}
+          </p>
           {subtitle && (
-            <p className="text-sm text-zinc-500">{subtitle}</p>
+            <p
+              className={`text-sm ${
+                isDark ? "text-zinc-500" : "text-slate-500"
+              }`}
+            >
+              {subtitle}
+            </p>
           )}
         </div>
       </div>
