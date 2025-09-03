@@ -7,7 +7,6 @@ import { redirect } from "next/navigation";
 
 import { Header } from "@/components/dashboard/header";
 import { Sidebar } from "@/components/dashboard/sidebar";
-
 import LoadingAnimation from "@/components/LoadingAnimation";
 
 export default function DashboardLayout({
@@ -39,8 +38,8 @@ export default function DashboardLayout({
       const w = window.matchMedia("(min-width: 1024px)").matches
         ? isDesktopOpen
           ? "16rem" // expanded width (w-64)
-          : "84px" // collapsed width
-        : "0px"; // on mobile, content shouldn't be pushed
+          : "84px"  // collapsed width
+        : "0px";   // on mobile, content shouldn't be pushed
       document.documentElement.style.setProperty("--sidebar-w", w);
     };
     setVar();
@@ -81,7 +80,8 @@ export default function DashboardLayout({
         {/* Main content; reserve space for the sidebar on lg+ via CSS var */}
         <main className="relative z-0 flex-1 overflow-y-auto bg-transparent">
           <div className="lg:pl-[var(--sidebar-w)]">
-            <div className="mx-auto max-w-[1400px] px-3 sm:px-4 py-8">
+            {/* Wider container: scales up to 2000px with generous paddings */}
+            <div className="mx-auto w-full max-w-[1760px] 2xl:max-w-[2000px] px-2 sm:px-4 lg:px-6 xl:px-8 py-6 lg:py-8">
               {children}
             </div>
           </div>
