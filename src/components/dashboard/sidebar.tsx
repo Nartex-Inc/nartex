@@ -39,11 +39,16 @@ interface SidebarProps {
   closeMobileSidebar: () => void;
 }
 
-/* ---------- Premium light-mode glass tokens ---------- */
+/* ---------- Premium light/dark glass tokens ---------- */
 const LIGHT_GLASS =
   "bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/70";
+const DARK_GLASS =
+  "dark:bg-[#0b0f14]/80 dark:backdrop-blur dark:supports-[backdrop-filter]:bg-[#0b0f14]/70";
+
 const ELEVATION =
   "ring-1 ring-slate-200 shadow-[0_10px_30px_rgba(2,6,23,0.08)]";
+const DARK_ELEVATION =
+  "dark:ring-white/10 dark:shadow-[0_10px_30px_rgba(0,0,0,0.6)]";
 
 const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
@@ -98,10 +103,12 @@ function NavLink({
   const linkClasses = cn(
     "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors hover:no-underline",
     active
-      ? // Active: deep slate pill in light, keep muted in dark
-        "bg-slate-900 text-white ring-1 ring-slate-900/10 shadow-sm dark:bg-muted dark:text-foreground dark:ring-0"
-      : // Idle/hover: clear contrast in light, same feel in dark
-        "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground"
+      ? // Active
+        "bg-slate-900 text-white ring-1 ring-slate-900/10 shadow-sm " +
+        "dark:bg-white/10 dark:text-white dark:ring-white/10"
+      : // Idle + hover
+        "text-slate-600 hover:bg-slate-100 hover:text-slate-900 " +
+        "dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-white"
   );
 
   const content = (
@@ -111,7 +118,7 @@ function NavLink({
       className={linkClasses}
       aria-current={active ? "page" : undefined}
     >
-      <item.icon className="h-4 w-4 shrink-0 text-slate-500 group-hover:text-slate-800 group-aria-[current=page]:text-white dark:text-muted-foreground dark:group-hover:text-foreground" />
+      <item.icon className="h-4 w-4 shrink-0 text-slate-500 group-hover:text-slate-800 aria-[current=page]:text-white dark:text-zinc-300 dark:group-hover:text-white" />
       {expanded && <span className="truncate">{item.title}</span>}
     </Link>
   );
@@ -140,7 +147,7 @@ function NavGroup({
   return (
     <div className="space-y-1">
       {expanded && (
-        <h2 className="px-3 py-2 text-[11px] font-semibold tracking-[0.14em] text-slate-500">
+        <h2 className="px-3 py-2 text-[11px] font-semibold tracking-[0.14em] text-slate-500 dark:text-zinc-400">
           {title}
         </h2>
       )}
@@ -174,13 +181,15 @@ export function Sidebar({
 
   return (
     <TooltipProvider>
-      {/* MOBILE drawer: below sticky header */}
+      {/* MOBILE drawer */}
       <div
         className={cn(
-          "fixed left-0 top-16 z-50 h-[calc(100svh-4rem)] w-64 -translate-x-full border-r transition-transform duration-300 lg:hidden",
+          "fixed left-0 top-16 z-50 h[calc(100svh-4rem)] h-[calc(100svh-4rem)] w-64 -translate-x-full border-r transition-transform duration-300 lg:hidden",
           LIGHT_GLASS,
+          DARK_GLASS,
           ELEVATION,
-          "border-slate-200",
+          DARK_ELEVATION,
+          "border-slate-200 dark:border-white/10",
           isMobileOpen && "translate-x-0"
         )}
         role="dialog"
@@ -188,7 +197,7 @@ export function Sidebar({
       >
         <aside className="flex h-full flex-col">
           {/* Brand row (mobile) */}
-          <div className="flex h-12 flex-none items-center justify-between border-b px-4 bg-gradient-to-r from-white/70 to-slate-50/60 border-slate-200">
+          <div className="flex h-12 flex-none items-center justify-between border-b px-4 bg-gradient-to-r from-white/70 to-slate-50/60 border-slate-200 dark:from-transparent dark:to-transparent dark:bg-transparent dark:border-white/10">
             <Image
               src="/sinto-logo.svg"
               alt="Sinto"
@@ -202,6 +211,7 @@ export function Sidebar({
               size="icon"
               onClick={closeMobileSidebar}
               aria-label="Fermer"
+              className="text-slate-700 hover:bg-slate-200/60 dark:text-zinc-200 dark:hover:bg-white/10"
             >
               <ChevronLeft className="h-5 w-5 rotate-180" />
             </Button>
@@ -227,21 +237,22 @@ export function Sidebar({
           </div>
 
           {/* Pinned user strip */}
-          <div className="flex-none border-t p-3 border-slate-200">
-            <div className="flex items-center gap-3 rounded-xl bg-gradient-to-br from-white to-slate-50 p-2 ring-1 ring-slate-200 shadow-sm">
+          <div className="flex-none border-t p-3 border-slate-200 dark:border-white/10">
+            <div className="flex items-center gap-3 rounded-xl p-2 ring-1 ring-slate-200 shadow-sm bg-gradient-to-br from-white to-slate-50 dark:from-[#0b0f14] dark:to-[#111827] dark:ring-white/10">
               <Avatar className="h-8 w-8">
                 <AvatarImage src={user?.image ?? ""} alt={display} />
                 <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{display}</p>
-                <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+                <p className="truncate text-sm font-medium text-slate-900 dark:text-white">{display}</p>
+                <p className="truncate text-xs text-muted-foreground dark:text-zinc-400">{user?.email}</p>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
                 aria-label="Déconnexion"
                 onClick={() => signOut({ callbackUrl: "/" })}
+                className="text-slate-700 hover:bg-slate-200/60 dark:text-zinc-200 dark:hover:bg-white/10"
               >
                 <LogOut className="h-4 w-4" />
               </Button>
@@ -250,21 +261,22 @@ export function Sidebar({
         </aside>
       </div>
 
-      {/* DESKTOP rail: below header, with logo */}
+      {/* DESKTOP rail */}
       <aside
         aria-label="Barre latérale"
         className={cn(
           "fixed left-0 top-16 z-30 hidden h-[calc(100svh-4rem)] transition-[width] duration-300 lg:flex lg:flex-col",
           LIGHT_GLASS,
+          DARK_GLASS,
           ELEVATION,
-          "border-r border-slate-200",
+          DARK_ELEVATION,
+          "border-r border-slate-200 dark:border-white/10",
           desktopWidth
         )}
       >
         {/* Brand row (desktop) */}
-        <div className="flex h-12 flex-none items-center justify-between border-b px-3 bg-gradient-to-r from-white/70 to-slate-50/60 border-slate-200">
+        <div className="flex h-12 flex-none items-center justify-between border-b px-3 bg-gradient-to-r from-white/70 to-slate-50/60 border-slate-200 dark:from-transparent dark:to-transparent dark:bg-transparent dark:border-white/10">
           <div className="flex items-center gap-2 overflow-hidden">
-            {/* Show full logo only when expanded */}
             <Image
               src="/sinto-logo.svg"
               alt="Sinto"
@@ -282,6 +294,7 @@ export function Sidebar({
             size="icon"
             onClick={toggleSidebar}
             aria-label={isOpen ? "Réduire" : "Agrandir"}
+            className="text-slate-700 hover:bg-slate-200/60 dark:text-zinc-200 dark:hover:bg-white/10"
           >
             <ChevronLeft
               className={cn("h-5 w-5 transition-transform", !isOpen && "rotate-180")}
@@ -309,16 +322,16 @@ export function Sidebar({
         </div>
 
         {/* Pinned user strip */}
-        <div className="flex-none border-t p-2 border-slate-200">
+        <div className="flex-none border-t p-2 border-slate-200 dark:border-white/10">
           {expanded ? (
-            <div className="flex items-center gap-3 rounded-xl bg-gradient-to-br from-white to-slate-50 p-2 ring-1 ring-slate-200 shadow-sm">
+            <div className="flex items-center gap-3 rounded-xl p-2 ring-1 ring-slate-200 shadow-sm bg-gradient-to-br from-white to-slate-50 dark:from-[#0b0f14] dark:to-[#111827] dark:ring-white/10">
               <Avatar className="h-8 w-8">
                 <AvatarImage src={user?.image ?? ""} alt={display} />
                 <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{display}</p>
-                <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+                <p className="truncate text-sm font-medium text-slate-900 dark:text-white">{display}</p>
+                <p className="truncate text-xs text-muted-foreground dark:text-zinc-400">{user?.email}</p>
               </div>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -327,6 +340,7 @@ export function Sidebar({
                     size="icon"
                     aria-label="Déconnexion"
                     onClick={() => signOut({ callbackUrl: "/" })}
+                    className="text-slate-700 hover:bg-slate-200/60 dark:text-zinc-200 dark:hover:bg-white/10"
                   >
                     <LogOut className="h-4 w-4" />
                   </Button>
@@ -337,7 +351,7 @@ export function Sidebar({
           ) : (
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-white to-slate-50 ring-1 ring-slate-200 shadow-sm">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl ring-1 ring-slate-200 shadow-sm bg-gradient-to-br from-white to-slate-50 dark:from-[#0b0f14] dark:to-[#111827] dark:ring-white/10">
                   <Avatar className="h-7 w-7">
                     <AvatarImage src={user?.image ?? ""} alt={display} />
                     <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
@@ -345,9 +359,9 @@ export function Sidebar({
                 </div>
               </TooltipTrigger>
               <TooltipContent side="right" className="space-y-1">
-                <p className="text-sm font-medium">{display}</p>
+                <p className="text-sm font-medium text-slate-900 dark:text-white">{display}</p>
                 {user?.email && (
-                  <p className="text-xs text-muted-foreground">{user.email}</p>
+                  <p className="text-xs text-muted-foreground dark:text-zinc-400">{user.email}</p>
                 )}
               </TooltipContent>
             </Tooltip>
