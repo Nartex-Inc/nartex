@@ -697,7 +697,7 @@ const DashboardContent = () => {
                   className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight"
                   style={{ color: t.foreground }}
                 >
-                  SINTO Analytics<span style={{ color: t.accentPrimary }}>.</span>
+                  Analyse des performances de ventes<span style={{ color: t.accentPrimary }}>.</span>
                 </h1>
               </div>
               <p className="text-sm ml-12" style={{ color: t.label }}>
