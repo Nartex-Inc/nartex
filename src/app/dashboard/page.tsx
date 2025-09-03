@@ -4,6 +4,7 @@
 ============================================================================= */
 "use client";
 
+import LoadingAnimation from "@/components/LoadingAnimation";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
@@ -277,11 +278,7 @@ function aggregateData(data: SalesRecord[], key: keyof SalesRecord, topN?: numbe
 /* =============================================================================
    Simple loading & error states
 ============================================================================= */
-const LoadingState = () => (
-  <div className="fixed inset-0 flex items-center justify-center">
-    <div className="animate-pulse text-sm text-muted-foreground">Chargement…</div>
-  </div>
-);
+const LoadingState = () => <LoadingAnimation />;
 
 const ErrorState = ({ message }: { message: string }) => (
   <div className="fixed inset-0 flex items-center justify-center p-4">
@@ -1225,12 +1222,14 @@ export default function DashboardPage() {
 
   return (
     <main
-      className={`min-h-screen ${inter.className}`}
-      style={{
-        background: `linear-gradient(180deg, ${t.bg} 0%, ${mode === "dark" ? "#050507" : "#ffffff"} 100%)`,
-        color: t.foreground,
-      }}
-    >
+        className={`min-h-[100svh] ${inter.className} bg-white dark:bg-[#050507]`}
+        style={{
+          background: mode === "dark"
+            ? `linear-gradient(180deg, ${t.bg} 0%, #050507 100%)`
+            : undefined,
+          color: t.foreground,
+        }}
+      >
       <div className="fixed inset-0 opacity-20 pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full blur-3xl" style={{ background: t.haloCyan }} />
         <div className="absolute bottom-0 right-1/4 w-96 h-96 rounded-full blur-3xl" style={{ background: t.haloViolet }} />
