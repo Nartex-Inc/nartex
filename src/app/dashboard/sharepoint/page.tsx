@@ -179,7 +179,6 @@ export default function SharePointPage() {
   if (status === "loading" || !mounted)
     return <LoadingAnimation title="Chargement de SharePoint" subtitle="Initialisation..." />;
 
-  // Let unauthenticated view too (your original behavior kept)
   if (status === "unauthenticated") return <AccessDenied />;
 
   return (
@@ -216,7 +215,6 @@ function SharePointStructure({ t, mode }: { t: ThemeTokens; mode: "dark" | "ligh
   const [selected, setSelected] = React.useState<NodeItem | null>(null);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editingName, setEditingName] = React.useState("");
-  the:
   const [creatingInId, setCreatingInId] = React.useState<string | null>(null);
   const [newFolderName, setNewFolderName] = React.useState("");
 
@@ -433,6 +431,7 @@ function SharePointStructure({ t, mode }: { t: ThemeTokens; mode: "dark" | "ligh
     const hasChildren = !!node.children?.length;
     const isSelected = selected?.id === node.id;
     const isEditing = editingId === node.id;
+    the;
     const isCreating = creatingInId === node.id;
     const canEditPermissions = node.depth === 3 && node.id !== "root";
 
@@ -442,10 +441,7 @@ function SharePointStructure({ t, mode }: { t: ThemeTokens; mode: "dark" | "ligh
           className="group flex items-center gap-3 rounded-2xl px-4 py-2.5 transition-all border border-transparent"
           style={{
             paddingLeft: visualDepth * 22 + 16,
-            background:
-              isSelected
-                ? `linear-gradient(135deg, ${t.card} 0%, ${t.soft} 100%)`
-                : "transparent",
+            background: isSelected ? `linear-gradient(135deg, ${t.card} 0%, ${t.soft} 100%)` : "transparent",
             borderColor: isSelected ? t.cardBorder : "transparent",
             boxShadow: isSelected ? "0 8px 30px rgba(0,0,0,.25)" : "none",
           }}
@@ -540,9 +536,7 @@ function SharePointStructure({ t, mode }: { t: ThemeTokens; mode: "dark" | "ligh
                   <Trash2 className="h-4 w-4" />
                 </button>
 
-                {canEditPermissions && (
-                  <PermissionsButton node={node} onSave={(p) => updatePermissions(node, p)} />
-                )}
+                {canEditPermissions && <PermissionsButton node={node} onSave={(p) => updatePermissions(node, p)} />}
               </>
             )}
           </div>
@@ -604,7 +598,8 @@ function SharePointStructure({ t, mode }: { t: ThemeTokens; mode: "dark" | "ligh
       </div>
     );
   }
-  if (isLoading || !tree) return <LoadingAnimation title="Chargement de la structure" subtitle="Récupération des dossiers…" />;
+  if (isLoading || !tree)
+    return <LoadingAnimation title="Chargement de la structure" subtitle="Récupération des dossiers…" />;
 
   return (
     <div className="h-full flex flex-col">
@@ -613,7 +608,9 @@ function SharePointStructure({ t, mode }: { t: ThemeTokens; mode: "dark" | "ligh
         className="rounded-3xl border backdrop-blur-2xl relative overflow-hidden mb-6"
         style={{
           borderColor: t.cardBorder,
-          background: `linear-gradient(135deg, ${t.card} 0%, ${mode === "dark" ? "rgba(139,92,246,0.03)" : "rgba(124,58,237,0.05)"} 100%)`,
+          background: `linear-gradient(135deg, ${t.card} 0%, ${
+            mode === "dark" ? "rgba(139,92,246,0.03)" : "rgba(124,58,237,0.05)"
+          } 100%)`,
         }}
       >
         <div
@@ -658,7 +655,10 @@ function SharePointStructure({ t, mode }: { t: ThemeTokens; mode: "dark" | "ligh
         {/* Explorer */}
         <div className="flex-1 overflow-y-auto">
           <Card className="h-full rounded-3xl border">
-            <div style={{ background: `linear-gradient(135deg, ${t.card} 0%, ${t.soft} 100%)`, borderColor: t.cardBorder }} className="h-full rounded-3xl border">
+            <div
+              style={{ background: `linear-gradient(135deg, ${t.card} 0%, ${t.soft} 100%)`, borderColor: t.cardBorder }}
+              className="h-full rounded-3xl border"
+            >
               <div className="px-6 pt-6">
                 <div style={{ color: t.accentPrimary }}>
                   <CardTitle icon={<Folder className="h-5 w-5" />}>Arborescence des dossiers</CardTitle>
@@ -679,7 +679,10 @@ function SharePointStructure({ t, mode }: { t: ThemeTokens; mode: "dark" | "ligh
         {/* Right rail */}
         <div className="w-[440px] flex-shrink-0">
           <Card className="rounded-3xl border p-6 overflow-y-auto">
-            <div style={{ background: `linear-gradient(135deg, ${t.card} 0%, ${t.soft} 100%)`, borderColor: t.cardBorder }} className="rounded-3xl border p-0">
+            <div
+              style={{ background: `linear-gradient(135deg, ${t.card} 0%, ${t.soft} 100%)`, borderColor: t.cardBorder }}
+              className="rounded-3xl border p-0"
+            >
               <div className="space-y-4 p-6">
                 {selected && selected.id !== "root" && (
                   <Card className="rounded-2xl border">
@@ -1084,8 +1087,10 @@ function PermissionModal({
               onSubmit({
                 restricted,
                 highSecurity,
-                editGroups: editGroups.filter((g) => g.trim() !== "").length ? editGroups.filter((g) => g.trim() !== "") : null,
-                readGroups: readGroups.filter((g) => g.trim() !== "").length ? readGroups.filter((g) => g.trim() !== "") : null,
+                editGroups:
+                  editGroups.filter((g) => g.trim() !== "").length ? editGroups.filter((g) => g.trim() !== "") : null,
+                readGroups:
+                  readGroups.filter((g) => g.trim() !== "").length ? readGroups.filter((g) => g.trim() !== "") : null,
               })
             }
           >
