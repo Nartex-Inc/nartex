@@ -725,7 +725,7 @@ export default function ReturnsPage() {
                   </tr>
                 </thead>
                 <tbody className={cn(isDark ? "divide-y divide-white/8" : "divide-y divide-slate-100")}>
-                  {sorted.map((row) => {
+                  {striped.map(({ row, stripe }) => {
                     const hasFiles = (row.attachments?.length ?? 0) > 0;
                     const s = STATUS_TEXT[row.status];
                     return (
