@@ -1,3 +1,6 @@
+// src/app/dashboard/admin/returns/page.tsx
+"use client";
+
 import * as React from "react";
 import {
   Search,
@@ -14,18 +17,11 @@ import {
   X,
   Save,
   Send,
-  User,
   Calendar,
   Package,
-  AlertCircle,
-  ArrowRight,
-  Clock,
   CheckCircle,
-  XCircle,
+  Clock,
   FileText,
-  TrendingUp,
-  Zap,
-  MoreHorizontal,
 } from "lucide-react";
 
 /* =============================================================================
@@ -40,10 +36,7 @@ type Cause =
   | "transporteur"
   | "autre";
 
-type ReturnStatus =
-  | "draft"
-  | "awaiting_physical"
-  | "received_or_no_physical";
+type ReturnStatus = "draft" | "awaiting_physical" | "received_or_no_physical";
 
 type Attachment = {
   id: string;
@@ -110,7 +103,8 @@ const STATUS_CONFIG = {
     icon: FileText,
     color: "text-slate-600 dark:text-slate-400",
     bg: "bg-white dark:bg-neutral-900",
-    badge: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+    badge:
+      "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
   },
   awaiting_physical: {
     label: "En attente",
@@ -236,47 +230,51 @@ const DUMMY: ReturnRow[] = [
 ];
 
 /* =============================================================================
-   Utility function
+   Utility
 ============================================================================= */
 function cn(...classes: (string | undefined | false)[]) {
   return classes.filter(Boolean).join(" ");
 }
 
 /* =============================================================================
-   Components
+   UI atoms
 ============================================================================= */
 function StatusBadge({ status }: { status: ReturnStatus }) {
   const config = STATUS_CONFIG[status];
   const Icon = config.icon;
   return (
-    <span className={cn(
-      "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border",
-      "transition-all duration-200",
-      config.badge
-    )}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border",
+        "transition-all duration-200",
+        config.badge
+      )}
+    >
       <Icon className="h-3 w-3" />
       {config.label}
     </span>
   );
 }
 
-function MetricCard({ 
-  title, 
-  value, 
-  change, 
-  icon: Icon 
-}: { 
-  title: string; 
-  value: string | number; 
-  change?: string; 
-  icon: React.ElementType 
+function MetricCard({
+  title,
+  value,
+  change,
+  icon: Icon,
+}: {
+  title: string;
+  value: string | number;
+  change?: string;
+  icon: React.ElementType;
 }) {
   return (
     <div className="relative group">
       <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300 opacity-0 group-hover:opacity-100" />
       <div className="relative bg-white dark:bg-neutral-900 rounded-2xl p-6 border border-slate-200 dark:border-neutral-800 transition-all duration-200 hover:border-blue-500/50 dark:hover:border-blue-500/50">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-slate-500 dark:text-slate-400">{title}</span>
+          <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+            {title}
+          </span>
           <div className="p-2 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-500/10 dark:to-purple-500/10 rounded-lg">
             <Icon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           </div>
@@ -297,10 +295,9 @@ function MetricCard({
 }
 
 /* =============================================================================
-   Main Page Component - Enhanced with full functionality
+   Page
 ============================================================================= */
 export default function ReturnsPage() {
-  // State
   const [query, setQuery] = React.useState("");
   const [cause, setCause] = React.useState<"all" | Cause>("all");
   const [reporter, setReporter] = React.useState<"all" | Reporter>("all");
@@ -316,7 +313,6 @@ export default function ReturnsPage() {
     [rows, openId]
   );
 
-  // Filtered data
   const filtered = React.useMemo(() => {
     return rows.filter((r) => {
       if (cause !== "all" && r.cause !== cause) return false;
@@ -345,15 +341,17 @@ export default function ReturnsPage() {
     });
   }, [rows, cause, reporter, dateFrom, dateTo, query]);
 
-  // Stats
-  const stats = React.useMemo(() => ({
-    total: filtered.length,
-    draft: filtered.filter(r => r.status === "draft").length,
-    awaiting: filtered.filter(r => r.status === "awaiting_physical").length,
-    received: filtered.filter(r => r.status === "received_or_no_physical").length,
-  }), [filtered]);
+  const stats = React.useMemo(
+    () => ({
+      total: filtered.length,
+      draft: filtered.filter((r) => r.status === "draft").length,
+      awaiting: filtered.filter((r) => r.status === "awaiting_physical").length,
+      received: filtered.filter((r) => r.status === "received_or_no_physical")
+        .length,
+    }),
+    [filtered]
+  );
 
-  // Actions
   const onToggleStandby = (id: string) => {
     setRows((prev) =>
       prev.map((r) => (r.id === id ? { ...r, standby: !r.standby } : r))
@@ -389,9 +387,7 @@ export default function ReturnsPage() {
       descriptionRetour: "",
       quantite: 1,
     };
-    updateSelected({
-      products: [...(selected.products ?? []), next],
-    });
+    updateSelected({ products: [...(selected.products ?? []), next] });
   };
 
   const removeProduct = (pid: string) => {
@@ -423,8 +419,7 @@ export default function ReturnsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-neutral-950 dark:via-neutral-950 dark:to-blue-950/10">
       <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8 py-8">
-        
-        {/* Header Section */}
+        {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
             <div>
@@ -442,7 +437,7 @@ export default function ReturnsPage() {
           </div>
         </div>
 
-        {/* Metrics Row */}
+        {/* Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <MetricCard title="Total des retours" value={stats.total} icon={Package} />
           <MetricCard title="En attente" value={stats.awaiting} icon={Clock} />
@@ -456,7 +451,7 @@ export default function ReturnsPage() {
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 rounded-2xl blur-xl group-hover:from-blue-500/10 group-hover:to-purple-500/10 transition-all duration-300" />
             <div className="relative bg-white dark:bg-neutral-900 rounded-2xl p-4 border border-slate-200 dark:border-neutral-800 shadow-sm">
               <div className="flex flex-col lg:flex-row gap-4">
-                {/* Search Input */}
+                {/* search */}
                 <div className="flex-1 relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                   <input
@@ -467,7 +462,7 @@ export default function ReturnsPage() {
                   />
                 </div>
 
-                {/* Filter Pills */}
+                {/* filter pills */}
                 <div className="flex items-center gap-3">
                   <select
                     value={cause}
@@ -476,19 +471,27 @@ export default function ReturnsPage() {
                   >
                     <option value="all">Toutes les causes</option>
                     {CAUSES_IN_ORDER.map((c) => (
-                      <option key={c} value={c}>{CAUSE_LABEL[c]}</option>
+                      <option key={c} value={c}>
+                        {CAUSE_LABEL[c]}
+                      </option>
                     ))}
                   </select>
 
                   <select
                     value={reporter}
-                    onChange={(e) => setReporter(e.target.value as Reporter | "all")}
+                    onChange={(e) =>
+                      setReporter(e.target.value as Reporter | "all")
+                    }
                     className="px-4 py-3 bg-slate-50 dark:bg-neutral-950 rounded-xl text-sm outline-none border border-transparent focus:border-blue-500 focus:bg-white dark:focus:bg-neutral-900 transition-all duration-200 cursor-pointer"
                   >
                     <option value="all">Tous les signaleurs</option>
-                    {(["expert", "transporteur", "autre"] as Reporter[]).map((r) => (
-                      <option key={r} value={r}>{REPORTER_LABEL[r]}</option>
-                    ))}
+                    {(["expert", "transporteur", "autre"] as Reporter[]).map(
+                      (r) => (
+                        <option key={r} value={r}>
+                          {REPORTER_LABEL[r]}
+                        </option>
+                      )
+                    )}
                   </select>
 
                   <input
@@ -511,10 +514,14 @@ export default function ReturnsPage() {
                   >
                     <Filter className="h-4 w-4" />
                     Plus
-                    {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    {expanded ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
                   </button>
 
-                  <button 
+                  <button
                     onClick={() => alert("Exporter (à brancher)")}
                     className="hidden lg:inline-flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-neutral-950 rounded-xl text-sm hover:bg-slate-100 dark:hover:bg-neutral-900 transition-all duration-200"
                   >
@@ -522,7 +529,7 @@ export default function ReturnsPage() {
                     Exporter
                   </button>
 
-                  <button 
+                  <button
                     onClick={onReset}
                     className="hidden lg:inline-flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-neutral-950 rounded-xl text-sm hover:bg-slate-100 dark:hover:bg-neutral-900 transition-all duration-200"
                   >
@@ -532,12 +539,14 @@ export default function ReturnsPage() {
                 </div>
               </div>
 
-              {/* Mobile expanded filters */}
+              {/* mobile extra filters */}
               {expanded && (
                 <div className="mt-4 pt-4 border-t border-slate-200 dark:border-neutral-800 lg:hidden">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="flex items-center justify-between gap-3">
-                      <label className="text-xs text-slate-500 dark:text-slate-400">Du</label>
+                      <label className="text-xs text-slate-500 dark:text-slate-400">
+                        Du
+                      </label>
                       <input
                         type="date"
                         value={dateFrom}
@@ -546,7 +555,9 @@ export default function ReturnsPage() {
                       />
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                      <label className="text-xs text-slate-500 dark:text-slate-400">Au</label>
+                      <label className="text-xs text-slate-500 dark:text-slate-400">
+                        Au
+                      </label>
                       <input
                         type="date"
                         value={dateTo}
@@ -602,7 +613,7 @@ export default function ReturnsPage() {
                   {filtered.map((row) => {
                     const config = STATUS_CONFIG[row.status];
                     const hasFiles = (row.attachments?.length ?? 0) > 0;
-                    
+
                     return (
                       <tr
                         key={row.id}
@@ -618,65 +629,88 @@ export default function ReturnsPage() {
                       >
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className={cn(
-                              "w-1 h-8 rounded-full transition-all duration-200",
-                              row.status === "draft" && "bg-slate-400",
-                              row.status === "awaiting_physical" && "bg-black",
-                              row.status === "received_or_no_physical" && "bg-emerald-500",
-                              row.standby && "bg-amber-500"
-                            )} />
-                            <span className="font-mono font-semibold">{row.id}</span>
+                            <div
+                              className={cn(
+                                "w-1 h-8 rounded-full transition-all duration-200",
+                                row.status === "draft" && "bg-slate-400",
+                                row.status === "awaiting_physical" && "bg-black",
+                                row.status === "received_or_no_physical" &&
+                                  "bg-emerald-500",
+                                row.standby && "bg-amber-500"
+                              )}
+                            />
+                            <span className="font-mono font-semibold">
+                              {row.id}
+                            </span>
                           </div>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
                             <Calendar className="h-3.5 w-3.5 opacity-50" />
                             <span className="text-sm">
-                              {new Date(row.reportedAt).toLocaleDateString('fr-FR')}
+                              {new Date(row.reportedAt).toLocaleDateString(
+                                "fr-FR"
+                              )}
                             </span>
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={cn(
-                            "inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium",
-                            "bg-white/10 backdrop-blur border",
-                            row.status === "awaiting_physical" || row.status === "received_or_no_physical"
-                              ? "border-white/20"
-                              : "border-slate-200 dark:border-neutral-700"
-                          )}>
+                          <span
+                            className={cn(
+                              "inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium",
+                              "bg-white/10 backdrop-blur border",
+                              row.status === "awaiting_physical" ||
+                                row.status === "received_or_no_physical"
+                                ? "border-white/20"
+                                : "border-slate-200 dark:border-neutral-700"
+                            )}
+                          >
                             {REPORTER_LABEL[row.reporter]}
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={cn(
-                            "inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium",
-                            "bg-white/10 backdrop-blur border",
-                            row.status === "awaiting_physical" || row.status === "received_or_no_physical"
-                              ? "border-white/20"
-                              : "border-slate-200 dark:border-neutral-700"
-                          )}>
+                          <span
+                            className={cn(
+                              "inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium",
+                              "bg-white/10 backdrop-blur border",
+                              row.status === "awaiting_physical" ||
+                                row.status === "received_or_no_physical"
+                                ? "border-white/20"
+                                : "border-slate-200 dark:border-neutral-700"
+                            )}
+                          >
                             {CAUSE_LABEL[row.cause]}
                           </span>
                         </td>
                         <td className="px-6 py-4">
                           <div>
-                            <div className="font-medium text-sm">{row.client}</div>
+                            <div className="font-medium text-sm">
+                              {row.client}
+                            </div>
                             {row.expert && (
-                              <div className="text-xs opacity-70 mt-0.5">{row.expert}</div>
+                              <div className="text-xs opacity-70 mt-0.5">
+                                {row.expert}
+                              </div>
                             )}
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="font-mono text-sm">{row.noCommande ?? "—"}</span>
+                          <span className="font-mono text-sm">
+                            {row.noCommande ?? "—"}
+                          </span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="font-mono text-xs">{row.tracking ?? "—"}</span>
+                          <span className="font-mono text-xs">
+                            {row.tracking ?? "—"}
+                          </span>
                         </td>
                         <td className="px-6 py-4">
                           {hasFiles ? (
                             <div className="flex items-center gap-1.5">
                               <Folder className="h-4 w-4 opacity-60" />
-                              <span className="text-xs font-medium">{row.attachments!.length}</span>
+                              <span className="text-xs font-medium">
+                                {row.attachments!.length}
+                              </span>
                             </div>
                           ) : (
                             <span className="text-xs opacity-40">—</span>
@@ -689,7 +723,8 @@ export default function ReturnsPage() {
                               className={cn(
                                 "p-2 rounded-lg transition-all duration-200",
                                 "hover:bg-white/20",
-                                row.status === "draft" && "hover:bg-slate-100 dark:hover:bg-neutral-800"
+                                row.status === "draft" &&
+                                  "hover:bg-slate-100 dark:hover:bg-neutral-800"
                               )}
                               title="Consulter"
                             >
@@ -699,10 +734,17 @@ export default function ReturnsPage() {
                               onClick={() => onToggleStandby(row.id)}
                               className={cn(
                                 "p-2 rounded-lg transition-all duration-200",
-                                row.standby ? "bg-amber-500/20" : "hover:bg-white/20",
-                                row.status === "draft" && "hover:bg-slate-100 dark:hover:bg-neutral-800"
+                                row.standby
+                                  ? "bg-amber-500/20"
+                                  : "hover:bg-white/20",
+                                row.status === "draft" &&
+                                  "hover:bg-slate-100 dark:hover:bg-neutral-800"
                               )}
-                              title={row.standby ? "Retirer du standby" : "Mettre en standby"}
+                              title={
+                                row.standby
+                                  ? "Retirer du standby"
+                                  : "Mettre en standby"
+                              }
                             >
                               <Pause className="h-4 w-4" />
                             </button>
@@ -711,7 +753,8 @@ export default function ReturnsPage() {
                               className={cn(
                                 "p-2 rounded-lg transition-all duration-200",
                                 "hover:bg-red-500/20 text-red-400",
-                                row.status === "draft" && "hover:bg-red-50 dark:hover:bg-red-950/30"
+                                row.status === "draft" &&
+                                  "hover:bg-red-50 dark:hover:bg-red-950/30"
                               )}
                               title="Supprimer"
                             >
@@ -724,7 +767,7 @@ export default function ReturnsPage() {
                   })}
                 </tbody>
               </table>
-              
+
               {filtered.length === 0 && (
                 <div className="py-20 text-center">
                   <Package className="h-12 w-12 text-slate-300 dark:text-neutral-700 mx-auto mb-4" />
@@ -735,11 +778,11 @@ export default function ReturnsPage() {
               )}
             </div>
 
-            {/* Table Footer */}
+            {/* Table footer */}
             <div className="px-6 py-3 border-t border-slate-200 dark:border-neutral-800 bg-slate-50/50 dark:bg-neutral-950/50">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-slate-500 dark:text-slate-400">
-                  {filtered.length} résultat{filtered.length > 1 ? 's' : ''}
+                  {filtered.length} résultat{filtered.length > 1 ? "s" : ""}
                 </span>
                 <div className="flex items-center gap-2">
                   <StatusBadge status="draft" />
@@ -770,7 +813,7 @@ export default function ReturnsPage() {
 }
 
 /* =============================================================================
-   Detail Modal - Full functionality restored
+   Detail Modal
 ============================================================================= */
 function DetailModal({
   row,
@@ -791,7 +834,6 @@ function DetailModal({
   onSaveDraft: () => void;
   onSendForApproval: () => void;
 }) {
-  const config = STATUS_CONFIG[row.status];
   const hasFiles = (row.attachments?.length ?? 0) > 0;
 
   return (
@@ -801,25 +843,28 @@ function DetailModal({
           className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
           onClick={onClose}
         />
-        
         <div className="relative w-full max-w-6xl transform overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 shadow-2xl transition-all">
-          {/* Modal Header */}
+          {/* Header */}
           <div className="relative bg-gradient-to-br from-slate-50 to-slate-100 dark:from-neutral-900 dark:to-neutral-950 px-6 py-4 border-b border-slate-200 dark:border-neutral-800">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className={cn(
-                  "w-1 h-12 rounded-full",
-                  row.status === "draft" && "bg-slate-400",
-                  row.status === "awaiting_physical" && "bg-black",
-                  row.status === "received_or_no_physical" && "bg-emerald-500"
-                )} />
+                <div
+                  className={cn(
+                    "w-1 h-12 rounded-full",
+                    row.status === "draft" && "bg-slate-400",
+                    row.status === "awaiting_physical" && "bg-black",
+                    row.status === "received_or_no_physical" && "bg-emerald-500"
+                  )}
+                />
                 <div>
                   <h2 className="text-xl font-bold flex items-center gap-2">
                     Retour {row.id}
                     <StatusBadge status={row.status} />
                   </h2>
                   <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                    {CAUSE_LABEL[row.cause]} • Signalé le {new Date(row.reportedAt).toLocaleDateString('fr-FR')} par {REPORTER_LABEL[row.reporter]}
+                    {CAUSE_LABEL[row.cause]} • Signalé le{" "}
+                    {new Date(row.reportedAt).toLocaleDateString("fr-FR")} par{" "}
+                    {REPORTER_LABEL[row.reporter]}
                   </p>
                 </div>
               </div>
@@ -832,9 +877,9 @@ function DetailModal({
             </div>
           </div>
 
-          {/* Modal Body */}
+          {/* Body */}
           <div className="px-6 py-6 space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto">
-            {/* Created By */}
+            {/* Created by */}
             {row.createdBy && (
               <div className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-neutral-950 rounded-xl">
                 <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-medium">
@@ -843,13 +888,14 @@ function DetailModal({
                 <div className="flex-1">
                   <p className="font-medium text-sm">{row.createdBy.name}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Créé le {new Date(row.createdBy.at).toLocaleString('fr-FR')}
+                    Créé le{" "}
+                    {new Date(row.createdBy.at).toLocaleString("fr-FR")}
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Basic fields */}
+            {/* Fields */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Field
                 label="Expert"
@@ -1031,7 +1077,7 @@ function DetailModal({
             </div>
           </div>
 
-          {/* Modal Footer */}
+          {/* Footer */}
           <div className="px-6 py-4 bg-slate-50 dark:bg-neutral-950 border-t border-slate-200 dark:border-neutral-800">
             <div className="flex items-center justify-between gap-3">
               <div className="text-xs text-slate-500 dark:text-slate-400">
@@ -1047,7 +1093,7 @@ function DetailModal({
                   <Save className="h-4 w-4" />
                   Enregistrer brouillon
                 </button>
-                <button 
+                <button
                   onClick={onSendForApproval}
                   className="inline-flex items-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 text-sm font-medium transition-colors"
                 >
@@ -1063,6 +1109,9 @@ function DetailModal({
   );
 }
 
+/* =============================================================================
+   Field atom
+============================================================================= */
 function Field({
   label,
   value,
@@ -1080,7 +1129,9 @@ function Field({
 }) {
   return (
     <label className="grid gap-1">
-      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</span>
+      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+        {label}
+      </span>
       {as === "select" ? (
         <select
           className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-950 dark:border-neutral-800 outline-none focus:border-blue-500 transition-colors"
