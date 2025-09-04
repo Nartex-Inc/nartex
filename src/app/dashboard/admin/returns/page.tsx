@@ -18,7 +18,6 @@ import {
   X,
   Save,
   Send,
-  User,
   Calendar,
   Package,
   FileText,
@@ -205,47 +204,45 @@ function cn(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(" ");
 }
 
-const STATUS: Record<
+/** Unified row text + badge palette (text unaffected by new lighter gradients) */
+const STATUS_TEXT: Record<
   ReturnStatus,
-  {
-    label: string;
-    // Gradients for row backgrounds (dark + light friendly)
-    gradient: string;
-    // Fallback bg + text color
-    base: string;
-    text: string;
-    // Pill example colors
-    badge: string;
-  }
+  { label: string; text: string; badge: string }
 > = {
   draft: {
     label: "Brouillon",
-    gradient:
-      "linear-gradient(135deg, rgba(226,232,240,0.65) 0%, rgba(255,255,255,0.9) 100%)",
-    base: "bg-white",
-    text: "text-slate-900",
+    text: "text-slate-900 dark:text-white",
     badge:
       "bg-slate-100 text-slate-700 border-slate-200 dark:bg-white/10 dark:text-white dark:border-white/15",
   },
   awaiting_physical: {
     label: "En attente",
-    gradient:
-      "linear-gradient(135deg, rgba(10,11,15,0.95) 0%, rgba(18,20,25,0.95) 60%, rgba(16,185,129,0.05) 100%)",
-    base: "bg-black",
-    text: "text-white",
+    text: "text-slate-900 dark:text-white",
     badge:
-      "bg-black text-white border-white/20 dark:bg-black dark:text-white dark:border-white/30",
+      "bg-amber-500/10 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-200 dark:border-amber-400/25",
   },
   received_or_no_physical: {
     label: "Reçu",
-    gradient:
-      "linear-gradient(135deg, rgba(16,185,129,0.92) 0%, rgba(5,150,105,0.98) 70%, rgba(34,197,94,0.55) 100%)",
-    base: "bg-emerald-500",
-    text: "text-white",
+    text: "text-slate-900 dark:text-white",
     badge:
-      "bg-emerald-500 text-white border-emerald-400 dark:border-emerald-300",
+      "bg-emerald-500/10 text-emerald-700 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-200 dark:border-emerald-400/25",
   },
 };
+
+/** Softer, theme-aware gradients (light mode is gentle; dark keeps punch) */
+function rowGradient(status: ReturnStatus, isDark: boolean): string | undefined {
+  if (status === "draft") return undefined;
+
+  if (status === "awaiting_physical") {
+    return isDark
+      ? "linear-gradient(90deg, rgba(17,24,39,0.80) 0%, rgba(17,24,39,0.65) 60%, rgba(16,185,129,0.05) 100%)"
+      : "linear-gradient(90deg, rgba(2,6,23,0.02) 0%, rgba(2,6,23,0.02) 60%, rgba(16,185,129,0.06) 100%)";
+  }
+  // received_or_no_physical
+  return isDark
+    ? "linear-gradient(90deg, rgba(16,185,129,0.28) 0%, rgba(16,185,129,0.12) 40%, rgba(16,185,129,0.00) 100%)"
+    : "linear-gradient(90deg, rgba(16,185,129,0.14) 0%, rgba(16,185,129,0.06) 40%, rgba(16,185,129,0.00) 100%)";
+}
 
 function Pill({
   children,
@@ -384,17 +381,12 @@ export default function ReturnsPage() {
   };
 
   return (
-    <div
-      className={cn(
-        "min-h-[100svh]",
-        isDark ? "bg-[#050507]" : "bg-white"
-      )}
-    >
-      {/* soft halos like the sales dashboard */}
+    <div className={cn("min-h-[100svh]", isDark ? "bg-[#050507]" : "bg-white")}>
+      {/* halos (kept subtle) */}
       {isDark && (
         <div className="fixed inset-0 pointer-events-none opacity-25">
-          <div className="absolute -top-10 right-20 w-96 h-96 rounded-full blur-3xl bg-cyan-500" />
-          <div className="absolute bottom-0 left-1/3 w-[28rem] h-[28rem] rounded-full blur-[100px] bg-violet-600" />
+          <div className="absolute -top-10 right-20 w-96 h-96 rounded-full blur-3xl bg-emerald-400" />
+          <div className="absolute bottom-0 left-1/3 w-[28rem] h-[28rem] rounded-full blur-[100px] bg-emerald-700/50" />
         </div>
       )}
 
@@ -403,46 +395,33 @@ export default function ReturnsPage() {
         <div
           className={cn(
             "rounded-3xl border backdrop-blur-2xl relative overflow-hidden",
-            isDark ? "border-white/12" : "border-slate-200"
+            isDark ? "border-white/15" : "border-slate-200"
           )}
           style={{
+            // Switched to EMERALD, more subtle than blue
             background: isDark
-              ? "linear-gradient(135deg, rgba(15,16,19,0.9) 0%, rgba(15,16,19,0.7) 60%, rgba(34,211,238,0.06) 100%)"
-              : "linear-gradient(135deg, rgba(248,250,252,0.85) 0%, rgba(255,255,255,0.9) 100%)",
+              ? "linear-gradient(135deg, rgba(15,16,19,0.92) 0%, rgba(15,16,19,0.78) 60%, rgba(16,185,129,0.08) 100%)"
+              : "linear-gradient(135deg, rgba(236,253,245,0.65) 0%, rgba(255,255,255,0.92) 100%)",
           }}
         >
           <div
             className="absolute -top-10 -right-10 w-[420px] h-[420px] rounded-full blur-3xl"
             style={{
-              background: "linear-gradient(135deg, rgba(34,211,238,0.55), rgba(139,92,246,0.45))",
+              background: "linear-gradient(135deg, rgba(16,185,129,0.35), rgba(16,185,129,0.20))",
             }}
           />
           <div className="px-6 py-6 relative z-10">
             <div className="flex flex-wrap items-center justify-between gap-6">
               <div>
-                {/* title slightly smaller than last version */}
-                <h1
-                  className={cn(
-                    "font-bold tracking-tight",
-                    "text-2xl md:text-[28px]"
-                  )}
-                >
-                  <span className={isDark ? "text-white" : "text-slate-900"}>
-                    Gestion des retours
-                  </span>
-                  <span className="text-sky-400">.</span>
+                <h1 className={cn("font-bold tracking-tight", "text-2xl md:text-[28px]")}>
+                  <span className={isDark ? "text-white" : "text-slate-900"}>Gestion des retours</span>
+                  <span className="text-emerald-500">.</span>
                 </h1>
-                <p
-                  className={cn(
-                    "mt-1 text-[13px]",
-                    isDark ? "text-slate-400" : "text-slate-500"
-                  )}
-                >
+                <p className={cn("mt-1 text-[13px]", isDark ? "text-slate-400" : "text-slate-500")}>
                   Recherchez, filtrez et inspectez les retours produits.
                 </p>
               </div>
 
-              {/* Minimal “Nouveau retour” */}
               <button
                 className={cn(
                   "relative inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all",
@@ -452,11 +431,10 @@ export default function ReturnsPage() {
                     : "border-slate-300 text-slate-800 hover:border-slate-400"
                 )}
                 style={{
-                  background:
-                    "linear-gradient(135deg, rgba(34,211,238,0.12), rgba(139,92,246,0.12))",
+                  background: "linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.10))",
                   boxShadow: isDark
-                    ? "0 8px 30px rgba(34,211,238,0.12)"
-                    : "0 8px 30px rgba(8,145,178,0.08)",
+                    ? "0 8px 30px rgba(16,185,129,0.15)"
+                    : "0 8px 30px rgba(16,185,129,0.10)",
                 }}
                 onClick={() => alert("Nouveau retour (à brancher)")}
               >
@@ -465,10 +443,15 @@ export default function ReturnsPage() {
               </button>
             </div>
 
-            {/* Search + quick filters (compact) */}
+            {/* Search + quick filters */}
             <div className="mt-4 flex flex-col lg:flex-row gap-3">
               <div className="flex-1 relative">
-                <Search className={cn("absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4", isDark ? "text-slate-400" : "text-slate-400")} />
+                <Search
+                  className={cn(
+                    "absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4",
+                    isDark ? "text-slate-400" : "text-slate-400"
+                  )}
+                />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -477,8 +460,8 @@ export default function ReturnsPage() {
                     "w-full pl-11 pr-4 py-2.5 rounded-xl text-sm outline-none transition",
                     "border",
                     isDark
-                      ? "bg-[#0c0d11]/80 border-white/12 text-white placeholder:text-slate-500 focus:border-sky-400/40"
-                      : "bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-sky-400"
+                      ? "bg-[#0c0d11]/80 border-white/15 text-white placeholder:text-slate-500 focus:border-emerald-400/40"
+                      : "bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-emerald-400"
                   )}
                 />
               </div>
@@ -489,8 +472,8 @@ export default function ReturnsPage() {
                   className={cn(
                     "px-3 py-2.5 rounded-xl text-sm outline-none border transition",
                     isDark
-                      ? "bg-[#0c0d11] border-white/12 text-white focus:border-sky-400/40"
-                      : "bg-white border-slate-200 text-slate-900 focus:border-sky-400"
+                      ? "bg-[#0c0d11] border-white/15 text-white focus:border-emerald-400/40"
+                      : "bg-white border-slate-200 text-slate-900 focus:border-emerald-400"
                   )}
                 >
                   <option value="all">Toutes les causes</option>
@@ -506,8 +489,8 @@ export default function ReturnsPage() {
                   className={cn(
                     "px-3 py-2.5 rounded-xl text-sm outline-none border transition",
                     isDark
-                      ? "bg-[#0c0d11] border-white/12 text-white focus:border-sky-400/40"
-                      : "bg-white border-slate-200 text-slate-900 focus:border-sky-400"
+                      ? "bg-[#0c0d11] border-white/15 text-white focus:border-emerald-400/40"
+                      : "bg-white border-slate-200 text-slate-900 focus:border-emerald-400"
                   )}
                 >
                   <option value="all">Tous les signaleurs</option>
@@ -524,8 +507,8 @@ export default function ReturnsPage() {
                   className={cn(
                     "px-3 py-2.5 rounded-xl text-sm outline-none border transition",
                     isDark
-                      ? "bg-[#0c0d11] border-white/12 text-white focus:border-sky-400/40"
-                      : "bg-white border-slate-200 text-slate-900 focus:border-sky-400"
+                      ? "bg-[#0c0d11] border-white/15 text-white focus:border-emerald-400/40"
+                      : "bg-white border-slate-200 text-slate-900 focus:border-emerald-400"
                   )}
                 />
                 <input
@@ -535,8 +518,8 @@ export default function ReturnsPage() {
                   className={cn(
                     "px-3 py-2.5 rounded-xl text-sm outline-none border transition",
                     isDark
-                      ? "bg-[#0c0d11] border-white/12 text-white focus:border-sky-400/40"
-                      : "bg-white border-slate-200 text-slate-900 focus:border-sky-400"
+                      ? "bg-[#0c0d11] border-white/15 text-white focus:border-emerald-400/40"
+                      : "bg-white border-slate-200 text-slate-900 focus:border-emerald-400"
                   )}
                 />
                 <button
@@ -544,7 +527,7 @@ export default function ReturnsPage() {
                   className={cn(
                     "lg:hidden inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm border transition",
                     isDark
-                      ? "bg-[#0c0d11] border-white/12 text-white"
+                      ? "bg-[#0c0d11] border-white/15 text-white"
                       : "bg-white border-slate-200 text-slate-800"
                   )}
                 >
@@ -556,7 +539,7 @@ export default function ReturnsPage() {
                   className={cn(
                     "hidden lg:inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm border transition",
                     isDark
-                      ? "bg-[#0c0d11] border-white/12 text-white hover:border-white/20"
+                      ? "bg-[#0c0d11] border-white/15 text-white hover:border-white/25"
                       : "bg-white border-slate-200 text-slate-800 hover:border-slate-300"
                   )}
                 >
@@ -568,7 +551,7 @@ export default function ReturnsPage() {
                   className={cn(
                     "hidden lg:inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm border transition",
                     isDark
-                      ? "bg-[#0c0d11] border-white/12 text-white hover:border-white/20"
+                      ? "bg-[#0c0d11] border-white/15 text-white hover:border-white/25"
                       : "bg-white border-slate-200 text-slate-800 hover:border-slate-300"
                   )}
                 >
@@ -578,7 +561,7 @@ export default function ReturnsPage() {
               </div>
             </div>
 
-            {/* small metric strip (tighter than before) */}
+            {/* Metrics */}
             <div className="mt-4 grid grid-cols-12 gap-3">
               <Metric
                 className="col-span-12 sm:col-span-4"
@@ -610,7 +593,7 @@ export default function ReturnsPage() {
           <div
             className={cn(
               "rounded-2xl border overflow-hidden shadow-sm",
-              isDark ? "border-white/12 bg-neutral-950/70" : "border-slate-200 bg-white"
+              isDark ? "border-white/15 bg-neutral-950/70" : "border-slate-200 bg-white"
             )}
           >
             <div className="overflow-x-auto">
@@ -638,32 +621,23 @@ export default function ReturnsPage() {
                 <tbody className={cn(isDark ? "divide-y divide-white/8" : "divide-y divide-slate-100")}>
                   {filtered.map((row) => {
                     const hasFiles = (row.attachments?.length ?? 0) > 0;
-                    const s = STATUS[row.status];
+                    const s = STATUS_TEXT[row.status];
                     return (
                       <tr
                         key={row.id}
                         onMouseEnter={() => setHovered(row.id)}
                         onMouseLeave={() => setHovered(null)}
-                        className={cn(
-                          "relative transition-all duration-200",
-                          row.standby && "opacity-60"
-                        )}
-                        style={{
-                          background:
-                            row.status === "draft"
-                              ? undefined
-                              : s.gradient,
-                        }}
+                        className={cn("relative transition-all duration-200", row.standby && "opacity-60")}
+                        style={{ background: rowGradient(row.status, isDark) }}
                       >
-                        {/* apply readable text color by status */}
                         <td className={cn("px-5 py-4 font-semibold", s.text)}>
                           <div className="flex items-center gap-3">
                             <div
                               className={cn(
                                 "w-1.5 h-6 rounded-full",
                                 row.status === "draft" && (isDark ? "bg-white/40" : "bg-slate-300"),
-                                row.status === "awaiting_physical" && "bg-white/70",
-                                row.status === "received_or_no_physical" && "bg-white/80"
+                                row.status === "awaiting_physical" && "bg-amber-500/70",
+                                row.status === "received_or_no_physical" && "bg-emerald-500/80"
                               )}
                             />
                             <span className="font-mono">{row.id}</span>
@@ -675,10 +649,8 @@ export default function ReturnsPage() {
                             {new Date(row.reportedAt).toLocaleDateString("fr-CA")}
                           </div>
                         </td>
-                        <td className={cn("px-5 py-4")}>
-                          <Pill tone={row.status === "draft" ? "muted" : "slate"}>
-                            {REPORTER_LABEL[row.reporter]}
-                          </Pill>
+                        <td className="px-5 py-4">
+                          <Pill tone="slate">{REPORTER_LABEL[row.reporter]}</Pill>
                         </td>
                         <td className="px-5 py-4">
                           <Pill tone="green">{CAUSE_LABEL[row.cause]}</Pill>
@@ -695,9 +667,7 @@ export default function ReturnsPage() {
                           {hasFiles ? (
                             <div className="inline-flex items-center gap-1.5">
                               <Folder className="h-4 w-4 opacity-80" />
-                              <span className="text-xs font-medium">
-                                {row.attachments!.length}
-                              </span>
+                              <span className="text-xs font-medium">{row.attachments!.length}</span>
                             </div>
                           ) : (
                             <span className={cn("text-xs", isDark ? "text-slate-400" : "text-slate-500")}>—</span>
@@ -714,11 +684,7 @@ export default function ReturnsPage() {
                               onClick={() => setOpenId(row.id)}
                               className={cn(
                                 "p-2 rounded-lg",
-                                row.status === "draft"
-                                  ? isDark
-                                    ? "hover:bg-white/10 text-slate-300"
-                                    : "hover:bg-slate-100 text-slate-700"
-                                  : "hover:bg-white/20 text-white"
+                                isDark ? "hover:bg-white/10 text-white" : "hover:bg-slate-100 text-slate-700"
                               )}
                               title="Consulter"
                             >
@@ -728,11 +694,7 @@ export default function ReturnsPage() {
                               onClick={() => onToggleStandby(row.id)}
                               className={cn(
                                 "p-2 rounded-lg",
-                                row.status === "draft"
-                                  ? isDark
-                                    ? "hover:bg-white/10 text-amber-300"
-                                    : "hover:bg-amber-50 text-amber-600"
-                                  : "hover:bg-white/20 text-white"
+                                isDark ? "hover:bg-white/10 text-amber-300" : "hover:bg-amber-50 text-amber-600"
                               )}
                               title={row.standby ? "Retirer du standby" : "Mettre en standby"}
                             >
@@ -742,11 +704,7 @@ export default function ReturnsPage() {
                               onClick={() => onDelete(row.id)}
                               className={cn(
                                 "p-2 rounded-lg",
-                                row.status === "draft"
-                                  ? isDark
-                                    ? "hover:bg-red-500/10 text-red-400"
-                                    : "hover:bg-red-50 text-red-600"
-                                  : "hover:bg-white/20 text-white"
+                                isDark ? "hover:bg-red-500/10 text-red-400" : "hover:bg-red-50 text-red-600"
                               )}
                               title="Supprimer"
                             >
@@ -828,9 +786,7 @@ function Metric({
       <div
         className={cn(
           "rounded-2xl p-4 border backdrop-blur-xl",
-          isDark
-            ? "bg-neutral-950/70 border-white/12"
-            : "bg-white border-slate-200"
+          isDark ? "bg-neutral-950/70 border-white/15" : "bg-white border-slate-200"
         )}
       >
         <div className="flex items-center justify-between">
@@ -842,14 +798,8 @@ function Metric({
               {value}
             </div>
           </div>
-          <div
-            className="p-2 rounded-lg"
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(34,211,238,0.15), rgba(139,92,246,0.15))",
-            }}
-          >
-            <div className={cn(isDark ? "text-sky-300" : "text-sky-600")}>{icon}</div>
+          <div className="p-2 rounded-lg" style={{ background: "linear-gradient(135deg, rgba(16,185,129,0.18), rgba(16,185,129,0.12))" }}>
+            <div className={cn(isDark ? "text-emerald-300" : "text-emerald-600")}>{icon}</div>
           </div>
         </div>
       </div>
@@ -858,7 +808,7 @@ function Metric({
 }
 
 function StatusChip({ status }: { status: ReturnStatus }) {
-  const s = STATUS[status];
+  const s = STATUS_TEXT[status];
   const Icon = status === "draft" ? FileText : status === "awaiting_physical" ? Clock : CheckCircle;
   return (
     <span
@@ -874,7 +824,7 @@ function StatusChip({ status }: { status: ReturnStatus }) {
 }
 
 /* =============================================================================
-   Detail modal (compact header + stronger borders)
+   Detail modal (safe-area fixed; never clips behind header)
 ============================================================================= */
 function DetailModal({
   row,
@@ -897,11 +847,23 @@ function DetailModal({
 }) {
   const hasFiles = (row.attachments?.length ?? 0) > 0;
 
+  // Lock body scroll while open
+  React.useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-full items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-        <div className="relative w-full max-w-6xl overflow-hidden rounded-2xl border shadow-2xl bg-white dark:bg-neutral-900 border-slate-200 dark:border-white/15">
+    <div className="fixed inset-0 z-[70]">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Framed container inside safe areas; content handles its own scroll */}
+      <div className="absolute inset-x-4 sm:inset-x-8 lg:inset-x-12 top-[max(24px,env(safe-area-inset-top))] bottom-[max(24px,env(safe-area-inset-bottom))]">
+        <div className="h-full w-full overflow-hidden rounded-2xl border shadow-2xl bg-white dark:bg-neutral-900 border-slate-200 dark:border-white/15">
           {/* Header */}
           <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-gradient-to-br from-slate-50 to-white dark:from-neutral-900 dark:to-neutral-950">
             <div className="flex items-center justify-between">
@@ -910,7 +872,7 @@ function DetailModal({
                   className={cn(
                     "w-1.5 h-10 rounded-full",
                     row.status === "draft" && "bg-slate-400",
-                    row.status === "awaiting_physical" && "bg-black",
+                    row.status === "awaiting_physical" && "bg-amber-500",
                     row.status === "received_or_no_physical" && "bg-emerald-500"
                   )}
                 />
@@ -924,21 +886,18 @@ function DetailModal({
                   </p>
                 </div>
               </div>
-              <button
-                onClick={onClose}
-                className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10"
-              >
+              <button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10">
                 <X className="h-5 w-5" />
               </button>
             </div>
           </div>
 
-          {/* Body */}
-          <div className="px-6 py-6 space-y-6 max-h-[calc(100vh-220px)] overflow-y-auto">
+          {/* Body (scrolls) */}
+          <div className="h-[calc(100%-104px)] overflow-auto px-6 py-6 space-y-6">
             {/* Created by */}
             {row.createdBy && (
               <div className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02]">
-                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-cyan-500 to-violet-600 text-white grid place-items-center font-medium">
+                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white grid place-items-center font-medium">
                   {row.createdBy.name.charAt(0)}
                 </div>
                 <div className="text-sm">
@@ -1006,10 +965,7 @@ function DetailModal({
               {hasFiles ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {row.attachments!.map((a) => (
-                    <div
-                      key={a.id}
-                      className="rounded-lg border overflow-hidden border-slate-200 dark:border-white/10"
-                    >
+                    <div key={a.id} className="rounded-lg border overflow-hidden border-slate-200 dark:border-white/10">
                       <div className="px-3 py-2 text-sm border-b bg-slate-50/60 dark:bg-neutral-900 dark:border-white/10">
                         {a.name}
                       </div>
@@ -1031,7 +987,7 @@ function DetailModal({
                 </h4>
                 <button
                   onClick={onAddProduct}
-                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm border-slate-200 dark:border-white/12 bg-white dark:bg-neutral-900 hover:bg-slate-50 dark:hover:bg-neutral-800"
+                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm border-slate-200 dark:border-white/15 bg-white dark:bg-neutral-900 hover:bg-slate-50 dark:hover:bg-neutral-800"
                 >
                   <Plus className="h-4 w-4" />
                   Ajouter produit
@@ -1054,17 +1010,13 @@ function DetailModal({
                       className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-900 dark:border-white/10"
                       placeholder="Description du produit"
                       value={p.descriptionProduit}
-                      onChange={(e) =>
-                        onChangeProduct(p.id, { descriptionProduit: e.target.value })
-                      }
+                      onChange={(e) => onChangeProduct(p.id, { descriptionProduit: e.target.value })}
                     />
                     <input
                       className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-900 dark:border-white/10"
                       placeholder="Description du retour"
                       value={p.descriptionRetour ?? ""}
-                      onChange={(e) =>
-                        onChangeProduct(p.id, { descriptionRetour: e.target.value })
-                      }
+                      onChange={(e) => onChangeProduct(p.id, { descriptionRetour: e.target.value })}
                     />
                     <input
                       type="number"
@@ -1072,9 +1024,7 @@ function DetailModal({
                       className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-900 dark:border-white/10"
                       placeholder="Quantité"
                       value={p.quantite}
-                      onChange={(e) =>
-                        onChangeProduct(p.id, { quantite: Number(e.target.value || 0) })
-                      }
+                      onChange={(e) => onChangeProduct(p.id, { quantite: Number(e.target.value || 0) })}
                     />
                     <button
                       className="inline-flex items-center justify-center rounded-lg p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
@@ -1115,7 +1065,7 @@ function DetailModal({
               <div className="flex items-center gap-2">
                 <button
                   onClick={onSaveDraft}
-                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm border-slate-200 dark:border-white/12 bg-white dark:bg-neutral-900 hover:bg-slate-50 dark:hover:bg-neutral-800"
+                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm border-slate-200 dark:border-white/15 bg-white dark:bg-neutral-900 hover:bg-slate-50 dark:hover:bg-neutral-800"
                 >
                   <Save className="h-4 w-4" />
                   Enregistrer brouillon
@@ -1123,9 +1073,7 @@ function DetailModal({
                 <button
                   onClick={onSendForApproval}
                   className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-black"
-                  style={{
-                    background: "linear-gradient(135deg, #22d3ee 0%, #8b5cf6 100%)",
-                  }}
+                  style={{ background: "linear-gradient(135deg, #10b981 0%, #34d399 100%)" }}
                 >
                   <Send className="h-4 w-4" />
                   Envoyer pour approbation
@@ -1159,12 +1107,10 @@ function Field({
 }) {
   return (
     <label className="grid gap-1">
-      <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
-        {label}
-      </span>
+      <span className="text-xs font-medium text-slate-600 dark:text-slate-300">{label}</span>
       {as === "select" ? (
         <select
-          className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-950 dark:border-white/12 dark:text-white outline-none focus:border-sky-400/50"
+          className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-950 dark:border-white/15 dark:text-white outline-none focus:border-emerald-400/50"
           value={value}
           onChange={(e) => onChange(e.target.value)}
         >
@@ -1177,7 +1123,7 @@ function Field({
       ) : (
         <input
           type={type}
-          className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-950 dark:border-white/12 dark:text-white outline-none focus:border-sky-400/50"
+          className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-950 dark:border-white/15 dark:text-white outline-none focus:border-emerald-400/50"
           value={value}
           onChange={(e) => onChange(e.target.value)}
         />
