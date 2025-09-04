@@ -1,26 +1,32 @@
-// src/app/dashboard/admin/returns/page.tsx
-"use client";
-
 import * as React from "react";
-import { useTheme } from "next-themes";
 import {
   Search,
   Eye,
   Trash2,
-  Armchair,
+  Pause,
   Filter,
   RotateCcw,
   Download,
   ChevronDown,
   ChevronUp,
-  Folder as FolderIcon,
+  Folder,
   Plus,
   X,
   Save,
-  CheckCircle2,
-  UserCircle2,
+  Send,
+  User,
+  Calendar,
+  Package,
+  AlertCircle,
+  ArrowRight,
+  Clock,
+  CheckCircle,
+  XCircle,
+  FileText,
+  TrendingUp,
+  Zap,
+  MoreHorizontal,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 /* =============================================================================
    Types & constants
@@ -35,14 +41,14 @@ type Cause =
   | "autre";
 
 type ReturnStatus =
-  | "draft" // white row
-  | "awaiting_physical" // black row
-  | "received_or_no_physical"; // green row
+  | "draft"
+  | "awaiting_physical"
+  | "received_or_no_physical";
 
 type Attachment = {
   id: string;
   name: string;
-  url: string; // pdf/images for iframe
+  url: string;
 };
 
 type ProductLine = {
@@ -54,8 +60,8 @@ type ProductLine = {
 };
 
 type ReturnRow = {
-  id: string; // e.g. R6492
-  reportedAt: string; // ISO date
+  id: string;
+  reportedAt: string;
   reporter: Reporter;
   cause: Cause;
   expert: string;
@@ -65,14 +71,13 @@ type ReturnRow = {
   tracking?: string;
   status: ReturnStatus;
   standby?: boolean;
-  // detail fields for modal
   amount?: number | null;
-  dateCommande?: string | null; // ISO date
+  dateCommande?: string | null;
   transport?: string | null;
   attachments?: Attachment[];
   products?: ProductLine[];
   description?: string;
-  createdBy?: { name: string; avatar?: string | null; at: string }; // stamp
+  createdBy?: { name: string; avatar?: string | null; at: string };
 };
 
 const REPORTER_LABEL: Record<Reporter, string> = {
@@ -90,17 +95,32 @@ const CAUSE_LABEL: Record<Cause, string> = {
   autre: "Autre",
 };
 
-const CAUSES_IN_ORDER: Cause[] = [
-  "production",
-  "transporteur",
-  "pompe",
-  "exposition_sinto",
-  "autre_cause",
-  "autre",
-];
+const STATUS_CONFIG = {
+  draft: {
+    label: "Brouillon",
+    icon: FileText,
+    color: "text-slate-600 dark:text-slate-400",
+    bg: "bg-white dark:bg-neutral-900",
+    badge: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+  },
+  awaiting_physical: {
+    label: "En attente",
+    icon: Clock,
+    color: "text-white",
+    bg: "bg-black",
+    badge: "bg-black text-white border-black",
+  },
+  received_or_no_physical: {
+    label: "Reçu",
+    icon: CheckCircle,
+    color: "text-white",
+    bg: "bg-emerald-500 dark:bg-emerald-600",
+    badge: "bg-emerald-500 text-white border-emerald-500",
+  },
+} as const;
 
 /* =============================================================================
-   Dummy dataset (replace later with a server loader)
+   Dummy dataset
 ============================================================================= */
 const DUMMY: ReturnRow[] = [
   {
@@ -207,71 +227,89 @@ const DUMMY: ReturnRow[] = [
 ];
 
 /* =============================================================================
-   Helper styles
+   Utility function
 ============================================================================= */
-function rowColor(status: ReturnStatus, isDark: boolean) {
-  // Light follows your spec; dark gets equivalents
-  switch (status) {
-    case "draft":
-      return isDark ? "bg-neutral-800 text-white" : "bg-white text-slate-900";
-    case "awaiting_physical":
-      return "bg-black text-white";
-    case "received_or_no_physical":
-      return isDark ? "bg-emerald-700 text-white" : "bg-emerald-500 text-white";
-  }
-}
-
-function pill(
-  text: string,
-  variant: "muted" | "blue" | "green" | "yellow" | "slate" = "muted"
-) {
-  const base =
-    "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium";
-  const map = {
-    muted:
-      "bg-slate-100 text-slate-700 border-slate-200 dark:bg-white/10 dark:text-white dark:border-white/10",
-    blue:
-      "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-200 dark:border-blue-500/20",
-    green:
-      "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:border-emerald-500/20",
-    yellow:
-      "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-200 dark:border-amber-500/20",
-    slate:
-      "bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-500/20 dark:text-slate-200 dark:border-slate-600/30",
-  } as const;
-  return <span className={cn(base, map[variant])}>{text}</span>;
+function cn(...classes: (string | undefined | false)[]) {
+  return classes.filter(Boolean).join(" ");
 }
 
 /* =============================================================================
-   Page
+   Components
+============================================================================= */
+function StatusBadge({ status }: { status: ReturnStatus }) {
+  const config = STATUS_CONFIG[status];
+  const Icon = config.icon;
+  return (
+    <span className={cn(
+      "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border",
+      "transition-all duration-200",
+      config.badge
+    )}>
+      <Icon className="h-3 w-3" />
+      {config.label}
+    </span>
+  );
+}
+
+function MetricCard({ 
+  title, 
+  value, 
+  change, 
+  icon: Icon 
+}: { 
+  title: string; 
+  value: string | number; 
+  change?: string; 
+  icon: React.ElementType 
+}) {
+  return (
+    <div className="relative group">
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300 opacity-0 group-hover:opacity-100" />
+      <div className="relative bg-white dark:bg-neutral-900 rounded-2xl p-6 border border-slate-200 dark:border-neutral-800 transition-all duration-200 hover:border-blue-500/50 dark:hover:border-blue-500/50">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium text-slate-500 dark:text-slate-400">{title}</span>
+          <div className="p-2 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-500/10 dark:to-purple-500/10 rounded-lg">
+            <Icon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          </div>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <span className="text-2xl font-bold bg-gradient-to-br from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
+            {value}
+          </span>
+          {change && (
+            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+              {change}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =============================================================================
+   Main Page Component
 ============================================================================= */
 export default function ReturnsPage() {
-  const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
-
-  // local UI state
+  // State
   const [query, setQuery] = React.useState("");
   const [cause, setCause] = React.useState<"all" | Cause>("all");
   const [reporter, setReporter] = React.useState<"all" | Reporter>("all");
-  const [dateFrom, setDateFrom] = React.useState<string>("");
-  const [dateTo, setDateTo] = React.useState<string>("");
-  const [expanded, setExpanded] = React.useState(true);
-  const [rows, setRows] = React.useState<ReturnRow[]>(DUMMY);
-
-  // detail modal
+  const [expanded, setExpanded] = React.useState(false);
+  const [rows] = React.useState<ReturnRow[]>(DUMMY);
   const [openId, setOpenId] = React.useState<string | null>(null);
+  const [hoveredRow, setHoveredRow] = React.useState<string | null>(null);
+
   const selected = React.useMemo(
     () => rows.find((r) => r.id === openId) ?? null,
     [rows, openId]
   );
 
-  // filter
+  // Filtered data
   const filtered = React.useMemo(() => {
     return rows.filter((r) => {
       if (cause !== "all" && r.cause !== cause) return false;
       if (reporter !== "all" && r.reporter !== reporter) return false;
-      if (dateFrom && r.reportedAt < dateFrom) return false;
-      if (dateTo && r.reportedAt > dateTo) return false;
 
       if (query.trim()) {
         const q = query.toLowerCase();
@@ -282,8 +320,6 @@ export default function ReturnsPage() {
           r.noClient,
           r.noCommande,
           r.tracking,
-          REPORTER_LABEL[r.reporter],
-          CAUSE_LABEL[r.cause],
         ]
           .filter(Boolean)
           .join(" ")
@@ -292,764 +328,443 @@ export default function ReturnsPage() {
       }
       return true;
     });
-  }, [rows, cause, reporter, dateFrom, dateTo, query]);
+  }, [rows, cause, reporter, query]);
 
-  // actions
-  const onToggleStandby = (id: string) => {
-    setRows((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, standby: !r.standby } : r))
-    );
-  };
-
-  const onDelete = (id: string) => {
-    if (!confirm(`Supprimer le retour ${id} ?`)) return;
-    setRows((prev) => prev.filter((r) => r.id !== id));
-  };
-
-  const onReset = () => {
-    setQuery("");
-    setCause("all");
-    setReporter("all");
-    setDateFrom("");
-    setDateTo("");
-  };
-
-  const updateSelected = (patch: Partial<ReturnRow>) => {
-    if (!selected) return;
-    setRows((prev) =>
-      prev.map((r) => (r.id === selected.id ? { ...r, ...patch } : r))
-    );
-  };
-
-  const addProduct = () => {
-    if (!selected) return;
-    const next: ProductLine = {
-      id: `np-${Date.now()}`,
-      codeProduit: "",
-      descriptionProduit: "",
-      descriptionRetour: "",
-      quantite: 1,
-    };
-    updateSelected({
-      products: [...(selected.products ?? []), next],
-    });
-  };
-
-  const removeProduct = (pid: string) => {
-    if (!selected) return;
-    updateSelected({
-      products: (selected.products ?? []).filter((p) => p.id !== pid),
-    });
-  };
-
-  const changeProduct = (pid: string, patch: Partial<ProductLine>) => {
-    if (!selected) return;
-    updateSelected({
-      products: (selected.products ?? []).map((p) =>
-        p.id === pid ? { ...p, ...patch } : p
-      ),
-    });
-  };
-
-  const saveDraft = () => {
-    updateSelected({ status: "draft" });
-    alert("Brouillon enregistré (fictif).");
-  };
-
-  const sendForApproval = () => {
-    // move to green by default for demo
-    updateSelected({ status: "received_or_no_physical" });
-    alert("Envoyé pour approbation (fictif).");
-  };
+  // Stats
+  const stats = React.useMemo(() => ({
+    total: filtered.length,
+    draft: filtered.filter(r => r.status === "draft").length,
+    awaiting: filtered.filter(r => r.status === "awaiting_physical").length,
+    received: filtered.filter(r => r.status === "received_or_no_physical").length,
+  }), [filtered]);
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] xl:max-w-[1800px] py-8">
-      {/* Title block */}
-      <div className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-          Gestion des retours
-          <span className="text-blue-600 dark:text-blue-400">.</span>
-        </h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Recherchez, filtrez et inspectez les retours. (Données factices.)
-        </p>
-      </div>
-
-      {/* Controls Card */}
-      <div
-        className={cn(
-          "rounded-2xl border p-4 sm:p-5 mb-4",
-          "bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/70 border-slate-200",
-          "dark:bg-neutral-900/80 dark:border-neutral-800"
-        )}
-      >
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            {/* search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Rechercher un retour, client, expert, commande, tracking…"
-                className="w-full rounded-xl border bg-white px-9 py-2 text-sm outline-none
-                border-slate-200 text-slate-700 placeholder:text-slate-400
-                focus:border-blue-500
-                dark:bg-neutral-950 dark:border-neutral-800 dark:text-white"
-              />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-neutral-950 dark:via-neutral-950 dark:to-blue-950/10">
+      <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8 py-8">
+        
+        {/* Header Section */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-br from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
+                Gestion des retours
+              </h1>
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                Tableau de bord centralisant tous vos retours produits
+              </p>
             </div>
-          </div>
-
-          {/* filters */}
-          <div className="hidden lg:flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                Cause du retour
-              </span>
-              <select
-                value={cause}
-                onChange={(e) => setCause(e.target.value as Cause | "all")}
-                className="rounded-xl border bg-white px-3 py-2 text-sm outline-none
-                border-slate-200 text-slate-700 focus:border-blue-500
-                dark:bg-neutral-950 dark:border-neutral-800 dark:text-white"
-              >
-                <option value="all">Toutes les causes</option>
-                {CAUSES_IN_ORDER.map((c) => (
-                  <option key={c} value={c}>
-                    {CAUSE_LABEL[c]}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                Signalé par
-              </span>
-              <select
-                value={reporter}
-                onChange={(e) =>
-                  setReporter(e.target.value as Reporter | "all")
-                }
-                className="rounded-xl border bg-white px-3 py-2 text-sm outline-none
-                border-slate-200 text-slate-700 focus:border-blue-500
-                dark:bg-neutral-950 dark:border-neutral-800 dark:text-white"
-              >
-                <option value="all">Tous</option>
-                {(["expert", "transporteur", "autre"] as Reporter[]).map(
-                  (r) => (
-                    <option key={r} value={r}>
-                      {REPORTER_LABEL[r]}
-                    </option>
-                  )
-                )}
-              </select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                Du
-              </span>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="rounded-xl border bg-white px-3 py-2 text-sm outline-none
-                border-slate-200 text-slate-700 focus:border-blue-500
-                dark:bg-neutral-950 dark:border-neutral-800 dark:text-white"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                Au
-              </span>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="rounded-xl border bg-white px-3 py-2 text-sm outline-none
-                border-slate-200 text-slate-700 focus:border-blue-500
-                dark:bg-neutral-950 dark:border-neutral-800 dark:text-white"
-              />
-            </div>
-          </div>
-
-          {/* actions */}
-          <div className="hidden sm:flex items-center gap-2">
-            <button
-              className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium
-              border-slate-200 bg-white hover:bg-slate-50
-              dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
-              onClick={() => alert("Exporter (à brancher)")}
-            >
-              <Download className="h-4 w-4" />
-              Exporter
-            </button>
-            <button
-              className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium
-              border-slate-200 bg-white hover:bg-slate-50
-              dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
-              onClick={onReset}
-            >
-              <RotateCcw className="h-4 w-4" />
-              Réinitialiser
+            <button className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-medium text-sm shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-200 hover:-translate-y-0.5">
+              <Plus className="h-4 w-4" />
+              Nouveau retour
             </button>
           </div>
-
-          {/* collapse for small screens */}
-          <button
-            className="ml-3 inline-flex lg:hidden items-center gap-2 rounded-xl border px-3 py-2 text-sm
-            border-slate-200 bg-white dark:border-neutral-800 dark:bg-neutral-950"
-            onClick={() => setExpanded((v) => !v)}
-          >
-            <Filter className="h-4 w-4" />
-            Filtres{" "}
-            {expanded ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-          </button>
         </div>
 
-        {/* mobile filters */}
-        {expanded && (
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 lg:hidden">
-            <div className="flex items-center justify-between gap-3">
-              <label className="text-xs text-slate-500 dark:text-slate-400">
-                Cause
-              </label>
-              <select
-                value={cause}
-                onChange={(e) => setCause(e.target.value as Cause | "all")}
-                className="rounded-xl border bg-white px-3 py-2 text-sm outline-none
-                border-slate-200 text-slate-700 focus:border-blue-500
-                dark:bg-neutral-950 dark:border-neutral-800 dark:text-white"
-              >
-                <option value="all">Toutes les causes</option>
-                {CAUSES_IN_ORDER.map((c) => (
-                  <option key={c} value={c}>
-                    {CAUSE_LABEL[c]}
-                  </option>
-                ))}
-              </select>
-            </div>
+        {/* Metrics Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <MetricCard title="Total des retours" value={stats.total} icon={Package} />
+          <MetricCard title="En attente" value={stats.awaiting} icon={Clock} />
+          <MetricCard title="Reçus" value={stats.received} change="+12%" icon={CheckCircle} />
+          <MetricCard title="Brouillons" value={stats.draft} icon={FileText} />
+        </div>
 
-            <div className="flex items-center justify-between gap-3">
-              <label className="text-xs text-slate-500 dark:text-slate-400">
-                Signalé par
-              </label>
-              <select
-                value={reporter}
-                onChange={(e) =>
-                  setReporter(e.target.value as Reporter | "all")
-                }
-                className="rounded-xl border bg-white px-3 py-2 text-sm outline-none
-                border-slate-200 text-slate-700 focus:border-blue-500
-                dark:bg-neutral-950 dark:border-neutral-800 dark:text-white"
-              >
-                <option value="all">Tous</option>
-                {(["expert", "transporteur", "autre"] as Reporter[]).map(
-                  (r) => (
-                    <option key={r} value={r}>
-                      {REPORTER_LABEL[r]}
-                    </option>
-                  )
-                )}
-              </select>
-            </div>
+        {/* Search & Filters */}
+        <div className="mb-6 space-y-4">
+          <div className="relative group">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 rounded-2xl blur-xl group-hover:from-blue-500/10 group-hover:to-purple-500/10 transition-all duration-300" />
+            <div className="relative bg-white dark:bg-neutral-900 rounded-2xl p-4 border border-slate-200 dark:border-neutral-800 shadow-sm">
+              <div className="flex flex-col lg:flex-row gap-4">
+                {/* Search Input */}
+                <div className="flex-1 relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Rechercher par code, client, expert, commande..."
+                    className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-neutral-950 rounded-xl text-sm outline-none border border-transparent focus:border-blue-500 focus:bg-white dark:focus:bg-neutral-900 transition-all duration-200"
+                  />
+                </div>
 
-            <div className="flex items-center justify-between gap-3">
-              <label className="text-xs text-slate-500 dark:text-slate-400">
-                Du
-              </label>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="rounded-xl border bg-white px-3 py-2 text-sm outline-none
-                border-slate-200 text-slate-700 focus:border-blue-500
-                dark:bg-neutral-950 dark:border-neutral-800 dark:text-white"
-              />
-            </div>
+                {/* Filter Pills */}
+                <div className="flex items-center gap-3">
+                  <select
+                    value={cause}
+                    onChange={(e) => setCause(e.target.value as Cause | "all")}
+                    className="px-4 py-3 bg-slate-50 dark:bg-neutral-950 rounded-xl text-sm outline-none border border-transparent focus:border-blue-500 focus:bg-white dark:focus:bg-neutral-900 transition-all duration-200 cursor-pointer"
+                  >
+                    <option value="all">Toutes les causes</option>
+                    {Object.entries(CAUSE_LABEL).map(([key, label]) => (
+                      <option key={key} value={key}>{label}</option>
+                    ))}
+                  </select>
 
-            <div className="flex items-center justify-between gap-3">
-              <label className="text-xs text-slate-500 dark:text-slate-400">
-                Au
-              </label>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="rounded-xl border bg-white px-3 py-2 text-sm outline-none
-                border-slate-200 text-slate-700 focus:border-blue-500
-                dark:bg-neutral-950 dark:border-neutral-800 dark:text-white"
-              />
+                  <select
+                    value={reporter}
+                    onChange={(e) => setReporter(e.target.value as Reporter | "all")}
+                    className="px-4 py-3 bg-slate-50 dark:bg-neutral-950 rounded-xl text-sm outline-none border border-transparent focus:border-blue-500 focus:bg-white dark:focus:bg-neutral-900 transition-all duration-200 cursor-pointer"
+                  >
+                    <option value="all">Tous les signaleurs</option>
+                    {Object.entries(REPORTER_LABEL).map(([key, label]) => (
+                      <option key={key} value={key}>{label}</option>
+                    ))}
+                  </select>
+
+                  <button
+                    onClick={() => setExpanded(!expanded)}
+                    className="lg:hidden inline-flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-neutral-950 rounded-xl text-sm hover:bg-slate-100 dark:hover:bg-neutral-900 transition-all duration-200"
+                  >
+                    <Filter className="h-4 w-4" />
+                    Plus
+                    {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </button>
+
+                  <button className="hidden lg:inline-flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-neutral-950 rounded-xl text-sm hover:bg-slate-100 dark:hover:bg-neutral-900 transition-all duration-200">
+                    <Download className="h-4 w-4" />
+                    Exporter
+                  </button>
+
+                  <button 
+                    onClick={() => {
+                      setQuery("");
+                      setCause("all");
+                      setReporter("all");
+                    }}
+                    className="hidden lg:inline-flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-neutral-950 rounded-xl text-sm hover:bg-slate-100 dark:hover:bg-neutral-900 transition-all duration-200"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Réinitialiser
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* Table Card */}
-      <div
-        className={cn(
-          "rounded-2xl border overflow-hidden",
-          "bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/70 border-slate-200",
-          "dark:bg-neutral-900/70 dark:border-neutral-800"
-        )}
-      >
-        {/* Scroll area. Room for sticky header without overlap */}
-        <div
-          className="relative overflow-auto"
-          style={{ maxHeight: "calc(100vh - 280px)" }}
-        >
-          <table className="min-w-full text-sm">
-            <thead className="sticky top-0 z-10">
-              <tr
-                className={cn(
-                  "text-left text-[11px] uppercase tracking-wider",
-                  "bg-slate-50/95 backdrop-blur border-b border-slate-200",
-                  "dark:bg-neutral-950/70 dark:border-neutral-800"
-                )}
-              >
-                <th className="px-4 py-3">Code</th>
-                <th className="px-4 py-3">Date signalement</th>
-                <th className="px-4 py-3">Signalé par</th>
-                <th className="px-4 py-3">Cause</th>
-                <th className="px-4 py-3">Expert</th>
-                <th className="px-4 py-3">Client</th>
-                <th className="px-4 py-3">No client</th>
-                <th className="px-4 py-3">No commande</th>
-                <th className="px-4 py-3">No tracking</th>
-                <th className="px-4 py-3">P.J.</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((r) => {
-                const hasFiles = (r.attachments?.length ?? 0) > 0;
-                return (
-                  <tr
-                    key={r.id}
-                    className={cn(
-                      rowColor(r.status, isDark),
-                      // taller rows + divider
-                      "border-b border-slate-200/60 dark:border-white/10"
-                    )}
-                  >
-                    <td className="px-4 py-4 font-medium">{r.id}</td>
-                    <td className="px-4 py-4">
-                      {new Date(r.reportedAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-4">
-                      {pill(REPORTER_LABEL[r.reporter], "blue")}
-                    </td>
-                    <td className="px-4 py-4">{pill(CAUSE_LABEL[r.cause], "green")}</td>
-                    <td className="px-4 py-4">{r.expert}</td>
-                    <td className="px-4 py-4">{r.client}</td>
-                    <td className="px-4 py-4">{r.noClient ?? "—"}</td>
-                    <td className="px-4 py-4">{r.noCommande ?? "—"}</td>
-                    <td className="px-4 py-4">{r.tracking ?? "—"}</td>
-                    <td className="px-4 py-4">
-                      {hasFiles ? (
-                        <span
-                          className="inline-flex items-center gap-1 rounded-md bg-white/90 px-2 py-1 text-xs text-slate-700 ring-1 ring-slate-200 dark:bg-white/10 dark:text-white dark:ring-white/10"
-                          title={`${r.attachments!.length} pièce(s) jointe(s)`}
-                        >
-                          <FolderIcon className="h-4 w-4" />
-                          {r.attachments!.length}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-4 py-4">
-                      <div className="flex justify-end items-center gap-2">
-                        {/* Consulter */}
-                        <button
-                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium
-                          bg-white/90 text-slate-800 ring-1 ring-slate-200 hover:bg-white
-                          dark:bg-white/10 dark:text-white dark:ring-white/10 dark:hover:bg-white/15"
-                          onClick={() => setOpenId(r.id)}
-                          title="Consulter"
-                        >
-                          <Eye className="h-4 w-4" />
-                          <span className="hidden sm:inline">Consulter</span>
-                        </button>
-
-                        {/* Standby toggle */}
-                        <button
-                          className={cn(
-                            "inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium ring-1",
-                            r.standby
-                              ? "bg-amber-100 text-amber-800 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-500/20"
-                              : "bg-white/90 text-slate-800 ring-slate-200 hover:bg-white dark:bg-white/10 dark:text-white dark:ring-white/10 dark:hover:bg-white/15"
-                          )}
-                          onClick={() => onToggleStandby(r.id)}
-                          title={r.standby ? "Retirer du standby" : "Mettre en standby"}
-                        >
-                          <Armchair className="h-4 w-4" />
-                          <span className="hidden sm:inline">Standby</span>
-                        </button>
-
-                        {/* Delete */}
-                        <button
-                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium
-                          bg-red-600 text-white hover:bg-red-700"
-                          onClick={() => onDelete(r.id)}
-                          title="Supprimer"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          <span className="hidden sm:inline">Supprimer</span>
-                        </button>
-                      </div>
-                    </td>
+        {/* Table */}
+        <div className="relative group">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 rounded-2xl blur-2xl" />
+          <div className="relative bg-white dark:bg-neutral-900 rounded-2xl border border-slate-200 dark:border-neutral-800 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-neutral-800">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Code
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Signalé par
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Cause
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Client
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      No Commande
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Tracking
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      P.J.
+                    </th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                );
-              })}
-
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-neutral-800">
+                  {filtered.map((row) => {
+                    const config = STATUS_CONFIG[row.status];
+                    const hasFiles = (row.attachments?.length ?? 0) > 0;
+                    
+                    return (
+                      <tr
+                        key={row.id}
+                        className={cn(
+                          "transition-all duration-200 relative group/row",
+                          config.bg,
+                          config.color,
+                          hoveredRow === row.id && "shadow-lg z-10"
+                        )}
+                        onMouseEnter={() => setHoveredRow(row.id)}
+                        onMouseLeave={() => setHoveredRow(null)}
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "w-1 h-8 rounded-full",
+                              row.status === "draft" && "bg-slate-400",
+                              row.status === "awaiting_physical" && "bg-black",
+                              row.status === "received_or_no_physical" && "bg-emerald-500"
+                            )} />
+                            <span className="font-mono font-semibold">{row.id}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-3.5 w-3.5 opacity-50" />
+                            <span className="text-sm">
+                              {new Date(row.reportedAt).toLocaleDateString('fr-FR')}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={cn(
+                            "inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium",
+                            "bg-white/10 backdrop-blur border",
+                            row.status === "awaiting_physical" || row.status === "received_or_no_physical"
+                              ? "border-white/20"
+                              : "border-slate-200 dark:border-neutral-700"
+                          )}>
+                            {REPORTER_LABEL[row.reporter]}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={cn(
+                            "inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium",
+                            "bg-white/10 backdrop-blur border",
+                            row.status === "awaiting_physical" || row.status === "received_or_no_physical"
+                              ? "border-white/20"
+                              : "border-slate-200 dark:border-neutral-700"
+                          )}>
+                            {CAUSE_LABEL[row.cause]}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div>
+                            <div className="font-medium text-sm">{row.client}</div>
+                            {row.expert && (
+                              <div className="text-xs opacity-70 mt-0.5">{row.expert}</div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="font-mono text-sm">{row.noCommande ?? "—"}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="font-mono text-xs">{row.tracking ?? "—"}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          {hasFiles ? (
+                            <div className="flex items-center gap-1.5">
+                              <Folder className="h-4 w-4 opacity-60" />
+                              <span className="text-xs font-medium">{row.attachments!.length}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs opacity-40">—</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover/row:opacity-100 transition-all duration-200">
+                            <button
+                              onClick={() => setOpenId(row.id)}
+                              className={cn(
+                                "p-2 rounded-lg transition-all duration-200",
+                                "hover:bg-white/20",
+                                row.status === "draft" && "hover:bg-slate-100 dark:hover:bg-neutral-800"
+                              )}
+                              title="Consulter"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <button
+                              className={cn(
+                                "p-2 rounded-lg transition-all duration-200",
+                                "hover:bg-white/20",
+                                row.status === "draft" && "hover:bg-slate-100 dark:hover:bg-neutral-800"
+                              )}
+                              title="Standby"
+                            >
+                              <Pause className="h-4 w-4" />
+                            </button>
+                            <button
+                              className={cn(
+                                "p-2 rounded-lg transition-all duration-200",
+                                "hover:bg-red-500/20 text-red-400",
+                                row.status === "draft" && "hover:bg-red-50 dark:hover:bg-red-950/30"
+                              )}
+                              title="Supprimer"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              
               {filtered.length === 0 && (
-                <tr>
-                  <td
-                    className="px-4 py-10 text-center text-slate-500 dark:text-slate-400"
-                    colSpan={11}
-                  >
-                    Aucun retour ne correspond aux filtres.
-                  </td>
-                </tr>
+                <div className="py-20 text-center">
+                  <Package className="h-12 w-12 text-slate-300 dark:text-neutral-700 mx-auto mb-4" />
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Aucun retour ne correspond à vos filtres
+                  </p>
+                </div>
               )}
-            </tbody>
-          </table>
+            </div>
+
+            {/* Table Footer */}
+            <div className="px-6 py-3 border-t border-slate-200 dark:border-neutral-800 bg-slate-50/50 dark:bg-neutral-950/50">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {filtered.length} résultat{filtered.length > 1 ? 's' : ''}
+                </span>
+                <div className="flex items-center gap-2">
+                  <StatusBadge status="draft" />
+                  <StatusBadge status="awaiting_physical" />
+                  <StatusBadge status="received_or_no_physical" />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Footer */}
-        <div
-          className={cn(
-            "flex items-center justify-between px-4 py-2 text-xs",
-            "border-t border-slate-200 bg-slate-50/60",
-            "dark:border-neutral-800 dark:bg-neutral-950/50"
-          )}
-        >
-          <span className="text-slate-500 dark:text-slate-400">
-            {filtered.length} retour(s)
-          </span>
-          <span className="text-slate-400 dark:text-slate-500">
-            Interface fictive — brancher à PostgreSQL / API plus tard.
-          </span>
-        </div>
+        {/* Detail Modal */}
+        {selected && (
+          <DetailModal row={selected} onClose={() => setOpenId(null)} />
+        )}
       </div>
-
-      {/* Detail Modal */}
-      {selected && (
-        <DetailModal
-          row={selected}
-          onClose={() => setOpenId(null)}
-          onPatch={updateSelected}
-          onAddProduct={addProduct}
-          onRemoveProduct={removeProduct}
-          onChangeProduct={changeProduct}
-          onSaveDraft={saveDraft}
-          onSendForApproval={sendForApproval}
-        />
-      )}
     </div>
   );
 }
 
 /* =============================================================================
-   Detail Modal component (in-page)
+   Detail Modal
 ============================================================================= */
 function DetailModal({
   row,
   onClose,
-  onPatch,
-  onAddProduct,
-  onRemoveProduct,
-  onChangeProduct,
-  onSaveDraft,
-  onSendForApproval,
 }: {
   row: ReturnRow;
   onClose: () => void;
-  onPatch: (patch: Partial<ReturnRow>) => void;
-  onAddProduct: () => void;
-  onRemoveProduct: (pid: string) => void;
-  onChangeProduct: (pid: string, patch: Partial<ProductLine>) => void;
-  onSaveDraft: () => void;
-  onSendForApproval: () => void;
 }) {
-  const hasFiles = (row.attachments?.length ?? 0) > 0;
+  const config = STATUS_CONFIG[row.status];
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-start sm:items-center justify-center p-4">
-      {/* backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      {/* panel */}
-      <div className="relative z-[71] w-full max-w-6xl max-h-[90vh] overflow-auto rounded-2xl border bg-white text-slate-900 border-slate-200 dark:bg-neutral-950 dark:text-white dark:border-neutral-800">
-        {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b bg-white/80 backdrop-blur border-slate-200 dark:bg-neutral-950/80 dark:border-neutral-800">
-          <div>
-            <h3 className="text-lg font-semibold">
-              Retour {row.id} — {CAUSE_LABEL[row.cause]}
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Signalé le {new Date(row.reportedAt).toLocaleDateString()} par{" "}
-              {REPORTER_LABEL[row.reporter]}
-            </p>
-          </div>
-          <button
-            className="inline-flex items-center gap-1 rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10"
-            onClick={onClose}
-            title="Fermer"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-5 space-y-6">
-          {/* Stamp of approval / created info */}
-          {row.createdBy && (
-            <div className="rounded-xl border p-3 flex items-center gap-3 border-slate-200 dark:border-neutral-800">
-              {row.createdBy.avatar ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={row.createdBy.avatar}
-                  alt={row.createdBy.name}
-                  className="h-8 w-8 rounded-full"
-                />
-              ) : (
-                <UserCircle2 className="h-8 w-8 text-slate-400" />
-              )}
-              <div className="text-sm">
-                <div className="font-medium">{row.createdBy.name}</div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">
-                  Créé le{" "}
-                  {new Date(row.createdBy.at).toLocaleString(undefined, {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex min-h-full items-center justify-center p-4">
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+          onClick={onClose}
+        />
+        
+        <div className="relative w-full max-w-4xl transform overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 shadow-2xl transition-all">
+          {/* Modal Header */}
+          <div className="relative bg-gradient-to-br from-slate-50 to-slate-100 dark:from-neutral-900 dark:to-neutral-950 px-6 py-4 border-b border-slate-200 dark:border-neutral-800">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className={cn(
+                  "w-1 h-12 rounded-full",
+                  row.status === "draft" && "bg-slate-400",
+                  row.status === "awaiting_physical" && "bg-black",
+                  row.status === "received_or_no_physical" && "bg-emerald-500"
+                )} />
+                <div>
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    Retour {row.id}
+                    <StatusBadge status={row.status} />
+                  </h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    {CAUSE_LABEL[row.cause]} • Signalé le {new Date(row.reportedAt).toLocaleDateString('fr-FR')}
+                  </p>
                 </div>
               </div>
-              <div className="ml-auto">
-                {pill(
-                  row.status === "draft"
-                    ? "Brouillon"
-                    : row.status === "awaiting_physical"
-                    ? "Attente retour physique"
-                    : "Reçu / sans retour physique",
-                  row.status === "draft"
-                    ? "muted"
-                    : row.status === "awaiting_physical"
-                    ? "slate"
-                    : "green"
-                )}
-              </div>
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-slate-200 dark:hover:bg-neutral-800 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
-          )}
-
-          {/* Basic fields */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Field
-              label="Expert"
-              value={row.expert}
-              onChange={(v) => onPatch({ expert: v })}
-            />
-            <Field
-              label="Client"
-              value={row.client}
-              onChange={(v) => onPatch({ client: v })}
-            />
-            <Field
-              label="No. client"
-              value={row.noClient ?? ""}
-              onChange={(v) => onPatch({ noClient: v || undefined })}
-            />
-            <Field
-              label="No. commande"
-              value={row.noCommande ?? ""}
-              onChange={(v) => onPatch({ noCommande: v || undefined })}
-            />
-            <Field
-              label="No. tracking"
-              value={row.tracking ?? ""}
-              onChange={(v) => onPatch({ tracking: v || undefined })}
-            />
-            <Field
-              label="Transport"
-              value={row.transport ?? ""}
-              onChange={(v) => onPatch({ transport: v || null })}
-            />
-            <Field
-              label="Montant"
-              value={row.amount?.toString() ?? ""}
-              onChange={(v) => onPatch({ amount: v ? Number(v) : null })}
-            />
-            <Field
-              label="Date commande"
-              type="date"
-              value={row.dateCommande ?? ""}
-              onChange={(v) => onPatch({ dateCommande: v || null })}
-            />
-            <Field
-              label="Cause"
-              as="select"
-              value={row.cause}
-              onChange={(v) => onPatch({ cause: v as Cause })}
-              options={CAUSES_IN_ORDER.map((c) => ({
-                value: c,
-                label: CAUSE_LABEL[c],
-              }))}
-            />
           </div>
 
-          {/* Attachments */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <FolderIcon className="h-5 w-5 text-slate-500 dark:text-slate-400" />
-              <h4 className="font-semibold">Fichiers joints</h4>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                ({row.attachments?.length ?? 0})
-              </span>
-            </div>
-            {hasFiles ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {row.attachments!.map((a) => (
-                  <div
-                    key={a.id}
-                    className="rounded-lg border overflow-hidden border-slate-200 dark:border-neutral-800"
-                  >
-                    <div className="px-3 py-2 text-sm border-b bg-slate-50/70 dark:bg-neutral-900 dark:border-neutral-800">
-                      {a.name}
-                    </div>
-                    <iframe title={a.name} src={a.url} className="w-full h-72" />
-                  </div>
-                ))}
+          {/* Modal Body */}
+          <div className="px-6 py-6 space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto">
+            {/* Created By */}
+            {row.createdBy && (
+              <div className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-neutral-950 rounded-xl">
+                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-medium">
+                  {row.createdBy.name.charAt(0)}
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-sm">{row.createdBy.name}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Créé le {new Date(row.createdBy.at).toLocaleString('fr-FR')}
+                  </p>
+                </div>
               </div>
-            ) : (
-              <div className="text-sm text-slate-500 dark:text-slate-400">
-                Aucune pièce jointe.
+            )}
+
+            {/* Details Grid */}
+            <div className="grid grid-cols-2 gap-4">
+              <DetailField label="Client" value={row.client} />
+              <DetailField label="Expert" value={row.expert} />
+              <DetailField label="No. Client" value={row.noClient} />
+              <DetailField label="No. Commande" value={row.noCommande} />
+              <DetailField label="Tracking" value={row.tracking} />
+              <DetailField label="Transport" value={row.transport} />
+            </div>
+
+            {/* Products */}
+            {row.products && row.products.length > 0 && (
+              <div>
+                <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Produits
+                </h3>
+                <div className="space-y-2">
+                  {row.products.map((product) => (
+                    <div key={product.id} className="p-3 bg-slate-50 dark:bg-neutral-950 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-mono font-medium text-sm">{product.codeProduit}</span>
+                          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                            {product.descriptionProduit}
+                          </p>
+                        </div>
+                        <span className="text-sm font-medium">Qté: {product.quantite}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Description */}
+            {row.description && (
+              <div>
+                <h3 className="font-semibold text-sm mb-2 flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Description
+                </h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  {row.description}
+                </p>
               </div>
             )}
           </div>
 
-          {/* Products */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="font-semibold">Produits (RMA)</h4>
+          {/* Modal Footer */}
+          <div className="px-6 py-4 bg-slate-50 dark:bg-neutral-950 border-t border-slate-200 dark:border-neutral-800">
+            <div className="flex items-center justify-end gap-3">
               <button
-                className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm
-                border-slate-200 bg-white hover:bg-slate-50
-                dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800"
-                onClick={onAddProduct}
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-neutral-800 rounded-lg transition-colors"
               >
-                <Plus className="h-4 w-4" />
-                Ajouter produit
+                Fermer
+              </button>
+              <button className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2">
+                <Send className="h-4 w-4" />
+                Envoyer pour approbation
               </button>
             </div>
-
-            <div className="space-y-2">
-              {(row.products ?? []).map((p) => (
-                <div
-                  key={p.id}
-                  className="grid grid-cols-1 md:grid-cols-[140px_1fr_1fr_110px_40px] gap-2 items-center"
-                >
-                  <input
-                    className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-950 dark:border-neutral-800"
-                    placeholder="Code de produit"
-                    value={p.codeProduit}
-                    onChange={(e) =>
-                      onChangeProduct(p.id, { codeProduit: e.target.value })
-                    }
-                  />
-                  <input
-                    className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-950 dark:border-neutral-800"
-                    placeholder="Description du produit"
-                    value={p.descriptionProduit}
-                    onChange={(e) =>
-                      onChangeProduct(p.id, {
-                        descriptionProduit: e.target.value,
-                      })
-                    }
-                  />
-                  <input
-                    className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-950 dark:border-neutral-800"
-                    placeholder="Description du retour"
-                    value={p.descriptionRetour ?? ""}
-                    onChange={(e) =>
-                      onChangeProduct(p.id, {
-                        descriptionRetour: e.target.value,
-                      })
-                    }
-                  />
-                  <input
-                    type="number"
-                    className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-950 dark:border-neutral-800"
-                    placeholder="Quantité"
-                    min={0}
-                    value={p.quantite}
-                    onChange={(e) =>
-                      onChangeProduct(p.id, {
-                        quantite: Number(e.target.value || 0),
-                      })
-                    }
-                  />
-                  <button
-                    className="inline-flex items-center justify-center rounded-lg p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
-                    onClick={() => onRemoveProduct(p.id)}
-                    title="Retirer"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-              {(row.products?.length ?? 0) === 0 && (
-                <div className="text-sm text-slate-500 dark:text-slate-400">
-                  Aucun produit. Ajoutez des lignes à l’aide du bouton ci-haut.
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Description */}
-          <div className="space-y-2">
-            <h4 className="font-semibold">Description</h4>
-            <textarea
-              className="w-full rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-950 dark:border-neutral-800"
-              rows={4}
-              placeholder="Notes internes, contexte, instructions…"
-              value={row.description ?? ""}
-              onChange={(e) => onPatch({ description: e.target.value })}
-            />
-          </div>
-        </div>
-
-        {/* Footer actions */}
-        <div className="sticky bottom-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-t bg-white/80 backdrop-blur border-slate-200 dark:bg-neutral-950/80 dark:border-neutral-800">
-          <div className="text-xs text-slate-500 dark:text-slate-400">
-            Les changements sont locaux (demo). Connecter au backend
-            PostgreSQL plus tard.
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm
-              border-slate-200 bg-white hover:bg-slate-50
-              dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800"
-              onClick={onSaveDraft}
-            >
-              <Save className="h-4 w-4" />
-              Enregistrer brouillon
-            </button>
-            <button
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-              onClick={onSendForApproval}
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              Envoyer pour approbation
-            </button>
           </div>
         </div>
       </div>
@@ -1057,47 +772,11 @@ function DetailModal({
   );
 }
 
-/* =============================================================================
-   Small input helper
-============================================================================= */
-function Field({
-  label,
-  value,
-  onChange,
-  type = "text",
-  as,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-  as?: "select";
-  options?: { value: string; label: string }[];
-}) {
+function DetailField({ label, value }: { label: string; value?: string | null }) {
   return (
-    <label className="grid gap-1">
-      <span className="text-xs text-slate-500 dark:text-slate-400">{label}</span>
-      {as === "select" ? (
-        <select
-          className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-950 dark:border-neutral-800"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        >
-          {options?.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <input
-          type={type}
-          className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-950 dark:border-neutral-800"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      )}
-    </label>
+    <div>
+      <dt className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">{label}</dt>
+      <dd className="text-sm font-medium">{value || "—"}</dd>
+    </div>
   );
 }
