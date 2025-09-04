@@ -231,24 +231,41 @@ const STATUS_TEXT: Record<
 };
 
 /** Keep vivid base color; overlay a very subtle sheen so gradient is toned down */
-function rowStyle(status: ReturnStatus): React.CSSProperties | undefined {
+// Tweak these to your exact brand shades:
+const ROW_SHADES = {
+  // Green (received)
+  greenPrimary:  "#22c55e", // vivid success green
+  greenAlternate:"#16a34a", // slightly darker for zebra
+  // Black (awaiting physical)
+  blackPrimary:  "#000000",
+  blackAlternate:"#0b0b0b",
+  // White (draft)
+  whitePrimary:  "#ffffff",
+  whiteAlternate:"#fafafa",
+};
+
+/** Keep vivid base color but allow subtle zebra alternance via `stripe`. */
+function rowStyle(status: ReturnStatus, stripe = false): React.CSSProperties | undefined {
   if (status === "draft") {
+    const base = stripe ? ROW_SHADES.whiteAlternate : ROW_SHADES.whitePrimary;
     return {
-      backgroundColor: "#ffffff",
+      backgroundColor: base,
       backgroundImage:
         "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(0,0,0,0.04) 100%)",
     };
   }
   if (status === "awaiting_physical") {
+    const base = stripe ? ROW_SHADES.blackAlternate : ROW_SHADES.blackPrimary;
     return {
-      backgroundColor: "#000000",
+      backgroundColor: base,
       backgroundImage:
-        "linear-gradient(90deg, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0.20) 100%)",
+        "linear-gradient(90deg, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0.10) 100%)",
     };
   }
-  // received_or_no_physical – vivid success green
+  // received_or_no_physical — success green with zebra alternance
+  const base = stripe ? ROW_SHADES.greenAlternate : ROW_SHADES.greenPrimary;
   return {
-    backgroundColor: "#10b981", // emerald-500
+    backgroundColor: base,
     backgroundImage:
       "linear-gradient(90deg, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0.10) 100%)",
   };
@@ -455,6 +472,21 @@ export default function ReturnsPage() {
       return key;
     });
   };
+
+  // Build a "striped" array so identical consecutive statuses alternate (pale / darker).
+  const striped = React.useMemo(() => {
+    let last: ReturnStatus | null = null;
+    let toggle = false;
+    return sorted.map((r) => {
+      if (r.status === last) {
+        toggle = !toggle;      // flip when same status continues
+      } else {
+        toggle = false;        // reset when status changes
+        last = r.status;
+      }
+      return { row: r, stripe: toggle };
+    });
+  }, [sorted]);
 
   return (
     <div className={cn("min-h-[100svh]", isDark ? "bg-[#050507]" : "bg-white")}>
@@ -702,7 +734,7 @@ export default function ReturnsPage() {
                         onMouseEnter={() => setHovered(row.id)}
                         onMouseLeave={() => setHovered(null)}
                         className={cn("relative transition-all duration-200", row.standby && "opacity-60")}
-                        style={rowStyle(row.status)}
+                        style={rowStyle(row.status, stripe)}
                       >
                         <td className={cn("px-5 py-4 font-semibold", s.text)}>
                           <div className="flex items-center gap-3">
