@@ -216,6 +216,7 @@ function SharePointStructure({ t, mode }: { t: ThemeTokens; mode: "dark" | "ligh
   const [selected, setSelected] = React.useState<NodeItem | null>(null);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editingName, setEditingName] = React.useState("");
+  the:
   const [creatingInId, setCreatingInId] = React.useState<string | null>(null);
   const [newFolderName, setNewFolderName] = React.useState("");
 
@@ -656,104 +657,110 @@ function SharePointStructure({ t, mode }: { t: ThemeTokens; mode: "dark" | "ligh
       <div className="flex-1 overflow-hidden flex gap-6">
         {/* Explorer */}
         <div className="flex-1 overflow-y-auto">
-          <Card
-            className="h-full rounded-3xl border"
-            style={{ background: `linear-gradient(135deg, ${t.card} 0%, ${t.soft} 100%)`, borderColor: t.cardBorder }}
-          >
-            <div className="px-6 pt-6">
-              <CardTitle icon={<Folder className="h-5 w-5" style={{ color: t.accentPrimary }} />}>
-                Arborescence des dossiers
-              </CardTitle>
-              <p className="mt-2 text-sm" style={{ color: t.label }}>
-                Double-cliquez (ou F2) pour renommer · Permissions éditables au niveau 3
-              </p>
-            </div>
-            <div className="px-4 pb-6">
-              <div className="overflow-y-auto pr-2 pt-4" style={{ maxHeight: "calc(100vh - 340px)" }}>
-                {tree.children?.map((c) => renderNode(c, 0))}
+          <Card className="h-full rounded-3xl border">
+            <div style={{ background: `linear-gradient(135deg, ${t.card} 0%, ${t.soft} 100%)`, borderColor: t.cardBorder }} className="h-full rounded-3xl border">
+              <div className="px-6 pt-6">
+                <div style={{ color: t.accentPrimary }}>
+                  <CardTitle icon={<Folder className="h-5 w-5" />}>Arborescence des dossiers</CardTitle>
+                </div>
+                <p className="mt-2 text-sm" style={{ color: t.label }}>
+                  Double-cliquez (ou F2) pour renommer · Permissions éditables au niveau 3
+                </p>
+              </div>
+              <div className="px-4 pb-6">
+                <div className="overflow-y-auto pr-2 pt-4" style={{ maxHeight: "calc(100vh - 340px)" }}>
+                  {tree.children?.map((c) => renderNode(c, 0))}
+                </div>
               </div>
             </div>
           </Card>
         </div>
 
         {/* Right rail */}
-        <div
-          className="w-[440px] flex-shrink-0 rounded-3xl border p-6 overflow-y-auto"
-          style={{ background: `linear-gradient(135deg, ${t.card} 0%, ${t.soft} 100%)`, borderColor: t.cardBorder }}
-        >
-          <div className="space-y-4">
-            {selected && selected.id !== "root" && (
-              <Card
-                className="space-y-4 rounded-2xl border"
-                style={{ background: t.cardSoft, borderColor: t.cardBorder }}
-              >
-                <CardTitle icon={<Settings2 className="h-5 w-5" style={{ color: t.accentSecondary }} />}>
-                  Détails du dossier
-                </CardTitle>
-                <div className="text-base space-y-2" style={{ color: t.foreground }}>
-                  <div className="flex items-center gap-2">
-                    <span className="opacity-70">Nom :</span>
-                    <span className="font-semibold">{selected.name}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="opacity-70">Type :</span>
-                    <span className="font-mono text-sm">{selected.type ?? "folder"}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="opacity-70">Niveau :</span>
-                    <span className="font-mono text-sm">{selected.depth}</span>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">{permissionBadges(selected)}</div>
+        <div className="w-[440px] flex-shrink-0">
+          <Card className="rounded-3xl border p-6 overflow-y-auto">
+            <div style={{ background: `linear-gradient(135deg, ${t.card} 0%, ${t.soft} 100%)`, borderColor: t.cardBorder }} className="rounded-3xl border p-0">
+              <div className="space-y-4 p-6">
+                {selected && selected.id !== "root" && (
+                  <Card className="rounded-2xl border">
+                    <div className="rounded-2xl border p-4" style={{ background: t.cardSoft, borderColor: t.cardBorder }}>
+                      <CardTitle icon={<Settings2 className="h-5 w-5" style={{ color: t.accentSecondary }} />}>
+                        Détails du dossier
+                      </CardTitle>
+                      <div className="text-base space-y-2 mt-3" style={{ color: t.foreground }}>
+                        <div className="flex items-center gap-2">
+                          <span className="opacity-70">Nom :</span>
+                          <span className="font-semibold">{selected.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="opacity-70">Type :</span>
+                          <span className="font-mono text-sm">{selected.type ?? "folder"}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="opacity-70">Niveau :</span>
+                          <span className="font-mono text-sm">{selected.depth}</span>
+                        </div>
+                      </div>
 
-                {selected.depth && selected.depth >= 3 && <PermissionsInlineViewer key={selected.id} node={selected} tree={tree} t={t} mode={mode} />}
-              </Card>
-            )}
+                      <div className="flex flex-wrap gap-2 mt-3">{permissionBadges(selected)}</div>
 
-            <Card className="rounded-2xl border" style={{ background: t.cardSoft, borderColor: t.cardBorder }}>
-              <CardTitle icon={<Star className="h-5 w-5" style={{ color: "#fbbf24" }} />}>Légende</CardTitle>
-              <div className="mt-4 space-y-3 text-sm" style={{ color: t.foreground }}>
-                <div className="flex items-center gap-3">
-                  <Lock className="h-4 w-4" style={{ color: "#f59e0b" }} />
-                  <span>Accès restreint</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Shield className="h-4 w-4" style={{ color: "#ef4444" }} />
-                  <span>Haute sécurité</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Edit className="h-4 w-4" style={{ color: "#34d399" }} />
-                  <span>Groupes ayant l&apos;édition</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Eye className="h-4 w-4" style={{ color: "#38bdf8" }} />
-                  <span>Groupes en lecture</span>
-                </div>
+                      {selected.depth && selected.depth >= 3 && (
+                        <PermissionsInlineViewer key={selected.id} node={selected} tree={tree} t={t} mode={mode} />
+                      )}
+                    </div>
+                  </Card>
+                )}
+
+                <Card className="rounded-2xl border">
+                  <div className="rounded-2xl border p-4" style={{ background: t.cardSoft, borderColor: t.cardBorder }}>
+                    <CardTitle icon={<Star className="h-5 w-5" style={{ color: "#fbbf24" }} />}>Légende</CardTitle>
+                    <div className="mt-4 space-y-3 text-sm" style={{ color: t.foreground }}>
+                      <div className="flex items-center gap-3">
+                        <Lock className="h-4 w-4" style={{ color: "#f59e0b" }} />
+                        <span>Accès restreint</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Shield className="h-4 w-4" style={{ color: "#ef4444" }} />
+                        <span>Haute sécurité</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Edit className="h-4 w-4" style={{ color: "#34d399" }} />
+                        <span>Groupes ayant l&apos;édition</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Eye className="h-4 w-4" style={{ color: "#38bdf8" }} />
+                        <span>Groupes en lecture</span>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="rounded-2xl border">
+                  <div className="rounded-2xl border p-4" style={{ background: t.cardSoft, borderColor: t.cardBorder }}>
+                    <CardTitle icon={<Users className="h-5 w-5" style={{ color: t.accentPrimary }} />}>
+                      Groupes de sécurité
+                    </CardTitle>
+                    <div className="mt-4 space-y-2 text-sm" style={{ color: t.foreground }}>
+                      <div>
+                        <span className="font-semibold">Standard :</span>
+                        <p className="opacity-80">SG-[DEPT]-ALL</p>
+                      </div>
+                      <div>
+                        <span className="font-semibold">Exécutif :</span>
+                        <p className="opacity-80">SG-[DEPT]-EXECUTIF</p>
+                      </div>
+                      <div className="pt-2" style={{ borderTop: `1px solid ${t.cardBorder}` }}>
+                        <span className="font-semibold">Spéciaux :</span>
+                        <p className="opacity-80">SG-CFO, SG-PRESIDENT</p>
+                        <p className="opacity-80">SG-DIRECTION-ALL</p>
+                        <p className="opacity-80">SG-DIRECTION-EXECUTIF</p>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
               </div>
-            </Card>
-
-            <Card className="rounded-2xl border" style={{ background: t.cardSoft, borderColor: t.cardBorder }}>
-              <CardTitle icon={<Users className="h-5 w-5" style={{ color: t.accentPrimary }} />}>
-                Groupes de sécurité
-              </CardTitle>
-              <div className="mt-4 space-y-2 text-sm" style={{ color: t.foreground }}>
-                <div>
-                  <span className="font-semibold">Standard :</span>
-                  <p className="opacity-80">SG-[DEPT]-ALL</p>
-                </div>
-                <div>
-                  <span className="font-semibold">Exécutif :</span>
-                  <p className="opacity-80">SG-[DEPT]-EXECUTIF</p>
-                </div>
-                <div className="pt-2" style={{ borderTop: `1px solid ${t.cardBorder}` }}>
-                  <span className="font-semibold">Spéciaux :</span>
-                  <p className="opacity-80">SG-CFO, SG-PRESIDENT</p>
-                  <p className="opacity-80">SG-DIRECTION-ALL</p>
-                  <p className="opacity-80">SG-DIRECTION-EXECUTIF</p>
-                </div>
-              </div>
-            </Card>
-          </div>
+            </div>
+          </Card>
         </div>
       </div>
     </div>
@@ -786,10 +793,7 @@ function PermissionsInlineViewer({
   const highSecurity = !!effectiveNode.highSecurity;
 
   return (
-    <div
-      className="rounded-2xl p-4 space-y-4"
-      style={{ background: t.card, border: `1px solid ${t.cardBorder}` }}
-    >
+    <div className="rounded-2xl p-4 space-y-4" style={{ background: t.card, border: `1px solid ${t.cardBorder}` }}>
       {isInherited && (
         <div
           className="text-xs rounded-lg px-2 py-1"
@@ -923,12 +927,7 @@ function PermissionModal({
             <Shield className="h-5 w-5" style={{ color: t.accentPrimary }} />
             Éditer les permissions (Niveau 3)
           </h3>
-          <button
-            className="rounded-md p-1 hover:bg-white/10"
-            style={{ color: t.label }}
-            onClick={onClose}
-            title="Fermer"
-          >
+          <button className="rounded-md p-1 hover:bg-white/10" style={{ color: t.label }} onClick={onClose} title="Fermer">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -941,10 +940,7 @@ function PermissionModal({
               </label>
               <button
                 className="text-xs px-2 py-1 rounded font-semibold transition"
-                style={{
-                  background: "rgba(16,185,129,.15)",
-                  color: mode === "dark" ? "#34d399" : "#047857",
-                }}
+                style={{ background: "rgba(16,185,129,.15)", color: mode === "dark" ? "#34d399" : "#047857" }}
                 onClick={() => setEditGroups([...editGroups, ""])}
                 disabled={!canAddEditGroup}
                 title={canAddEditGroup ? "Ajouter un groupe" : "Tous les groupes sont déjà sélectionnés"}
@@ -999,10 +995,7 @@ function PermissionModal({
               </label>
               <button
                 className="text-xs px-2 py-1 rounded font-semibold transition"
-                style={{
-                  background: "rgba(14,165,233,.15)",
-                  color: mode === "dark" ? "#38bdf8" : "#0369a1",
-                }}
+                style={{ background: "rgba(14,165,233,.15)", color: mode === "dark" ? "#38bdf8" : "#0369a1" }}
                 onClick={() => setReadGroups([...readGroups, ""])}
                 disabled={!canAddReadGroup}
                 title={canAddReadGroup ? "Ajouter un groupe" : "Tous les groupes sont déjà sélectionnés"}
