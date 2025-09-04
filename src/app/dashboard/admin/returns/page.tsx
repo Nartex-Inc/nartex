@@ -212,7 +212,7 @@ const STATUS_TEXT: Record<
 > = {
   draft: {
     label: "Brouillon",
-    text: "text-slate-900 dark:text-white",
+    text: "text-slate-900 dark:text-slate-900",
     badge:
       "bg-slate-100 text-slate-700 border-slate-200 dark:bg-white/10 dark:text-white dark:border-white/15",
   },
@@ -977,10 +977,10 @@ function DetailModal({
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[70]">
+    <div className="fixed inset-0 z-[200]">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="absolute inset-x-4 sm:inset-x-8 lg:inset-x-12 top-[max(24px,env(safe-area-inset-top))] bottom-[max(24px,env(safe-area-inset-bottom))]">
-        <div className="h-full w-full overflow-hidden rounded-2xl border shadow-2xl bg-white dark:bg-neutral-900 border-slate-200 dark:border-white/15">
+      <div className="absolute inset-0 flex items-start justify-center p-4 sm:p-8">
+        <div className="w-full max-w-[min(100vw-64px,1100px)] overflow-hidden rounded-2xl border shadow-2xl bg-white dark:bg-neutral-900 border-slate-200 dark:border-white/15 mt-[max(24px,env(safe-area-inset-top))] mb-[max(24px,env(safe-area-inset-bottom))]">
           {/* Header */}
           <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-gradient-to-br from-slate-50 to-white dark:from-neutral-900 dark:to-neutral-950">
             <div className="flex items-center justify-between">
@@ -1010,7 +1010,7 @@ function DetailModal({
           </div>
 
           {/* Body */}
-          <div className="h-[calc(100%-104px)] overflow-auto px-6 py-6 space-y-6">
+          <div className="max-h-[calc(100vh-220px)] overflow-auto px-6 py-6 space-y-6">
             {row.createdBy && (
               <div className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02]">
                 <div className="h-9 w-9 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white grid place-items-center font-medium">
