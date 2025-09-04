@@ -23,6 +23,8 @@ import {
   FileText,
   CheckCircle,
   Clock,
+  ArrowUpNarrowWide,
+  ArrowDownNarrowWide,
 } from "lucide-react";
 
 /* =============================================================================
@@ -91,7 +93,7 @@ const CAUSES_IN_ORDER: Cause[] = [
 ];
 
 /* =============================================================================
-   Demo data (unchanged)
+   Demo data
 ============================================================================= */
 const DUMMY: ReturnRow[] = [
   {
@@ -198,13 +200,12 @@ const DUMMY: ReturnRow[] = [
 ];
 
 /* =============================================================================
-   Design helpers
+   Helpers & design tokens
 ============================================================================= */
 function cn(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(" ");
 }
 
-/** Unified row text + badge palette (text unaffected by new lighter gradients) */
 const STATUS_TEXT: Record<
   ReturnStatus,
   { label: string; text: string; badge: string }
@@ -217,31 +218,40 @@ const STATUS_TEXT: Record<
   },
   awaiting_physical: {
     label: "En attente",
-    text: "text-slate-900 dark:text-white",
+    text: "text-white",
     badge:
-      "bg-amber-500/10 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-200 dark:border-amber-400/25",
+      "bg-black text-white border-white/20 dark:bg-black dark:text-white dark:border-white/30",
   },
   received_or_no_physical: {
     label: "Reçu",
-    text: "text-slate-900 dark:text-white",
+    text: "text-white",
     badge:
-      "bg-emerald-500/10 text-emerald-700 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-200 dark:border-emerald-400/25",
+      "bg-emerald-500 text-white border-emerald-400 dark:border-emerald-300",
   },
 };
 
-/** Softer, theme-aware gradients (light mode is gentle; dark keeps punch) */
-function rowGradient(status: ReturnStatus, isDark: boolean): string | undefined {
-  if (status === "draft") return undefined;
-
-  if (status === "awaiting_physical") {
-    return isDark
-      ? "linear-gradient(90deg, rgba(17,24,39,0.80) 0%, rgba(17,24,39,0.65) 60%, rgba(16,185,129,0.05) 100%)"
-      : "linear-gradient(90deg, rgba(2,6,23,0.02) 0%, rgba(2,6,23,0.02) 60%, rgba(16,185,129,0.06) 100%)";
+/** Keep vivid base color; overlay a very subtle sheen so gradient is toned down */
+function rowStyle(status: ReturnStatus): React.CSSProperties | undefined {
+  if (status === "draft") {
+    return {
+      backgroundColor: "#ffffff",
+      backgroundImage:
+        "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(0,0,0,0.04) 100%)",
+    };
   }
-  // received_or_no_physical
-  return isDark
-    ? "linear-gradient(90deg, rgba(16,185,129,0.28) 0%, rgba(16,185,129,0.12) 40%, rgba(16,185,129,0.00) 100%)"
-    : "linear-gradient(90deg, rgba(16,185,129,0.14) 0%, rgba(16,185,129,0.06) 40%, rgba(16,185,129,0.00) 100%)";
+  if (status === "awaiting_physical") {
+    return {
+      backgroundColor: "#000000",
+      backgroundImage:
+        "linear-gradient(90deg, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0.20) 100%)",
+    };
+  }
+  // received_or_no_physical – vivid success green
+  return {
+    backgroundColor: "#10b981", // emerald-500
+    backgroundImage:
+      "linear-gradient(90deg, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0.10) 100%)",
+  };
 }
 
 function Pill({
@@ -276,6 +286,18 @@ function Pill({
 /* =============================================================================
    Page
 ============================================================================= */
+type SortKey =
+  | "id"
+  | "reportedAt"
+  | "reporter"
+  | "cause"
+  | "client"
+  | "noCommande"
+  | "tracking"
+  | "attachments";
+
+type SortDir = "asc" | "desc";
+
 export default function ReturnsPage() {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
@@ -291,11 +313,15 @@ export default function ReturnsPage() {
   const [openId, setOpenId] = React.useState<string | null>(null);
   const [hovered, setHovered] = React.useState<string | null>(null);
 
+  const [sortKey, setSortKey] = React.useState<SortKey>("reportedAt");
+  const [sortDir, setSortDir] = React.useState<SortDir>("desc");
+
   const selected = React.useMemo(
     () => rows.find((r) => r.id === openId) ?? null,
     [rows, openId]
   );
 
+  // filtering
   const filtered = React.useMemo(() => {
     return rows.filter((r) => {
       if (cause !== "all" && r.cause !== cause) return false;
@@ -323,14 +349,52 @@ export default function ReturnsPage() {
     });
   }, [rows, cause, reporter, dateFrom, dateTo, query]);
 
+  // sorting
+  const sorted = React.useMemo(() => {
+    const get = (r: ReturnRow) => {
+      switch (sortKey) {
+        case "id":
+          return r.id;
+        case "reportedAt":
+          return r.reportedAt;
+        case "reporter":
+          return REPORTER_LABEL[r.reporter];
+        case "cause":
+          return CAUSE_LABEL[r.cause];
+        case "client":
+          return `${r.client} ${r.expert}`;
+        case "noCommande":
+          return r.noCommande ?? "";
+        case "tracking":
+          return r.tracking ?? "";
+        case "attachments":
+          return r.attachments?.length ?? 0;
+      }
+    };
+    const copy = [...filtered];
+    copy.sort((a, b) => {
+      const va = get(a);
+      const vb = get(b);
+      if (typeof va === "number" && typeof vb === "number") {
+        return sortDir === "asc" ? va - vb : vb - va;
+      }
+      // treat as strings otherwise
+      const sa = String(va ?? "");
+      const sb = String(vb ?? "");
+      const res = sa.localeCompare(sb, "fr", { numeric: true, sensitivity: "base" });
+      return sortDir === "asc" ? res : -res;
+    });
+    return copy;
+  }, [filtered, sortKey, sortDir]);
+
   const stats = React.useMemo(
     () => ({
-      total: filtered.length,
-      draft: filtered.filter((r) => r.status === "draft").length,
-      awaiting: filtered.filter((r) => r.status === "awaiting_physical").length,
-      received: filtered.filter((r) => r.status === "received_or_no_physical").length,
+      total: sorted.length,
+      draft: sorted.filter((r) => r.status === "draft").length,
+      awaiting: sorted.filter((r) => r.status === "awaiting_physical").length,
+      received: sorted.filter((r) => r.status === "received_or_no_physical").length,
     }),
-    [filtered]
+    [sorted]
   );
 
   // actions
@@ -380,9 +444,21 @@ export default function ReturnsPage() {
     alert("Envoyé pour approbation (fictif).");
   };
 
+  // header sort handler
+  const toggleSort = (key: SortKey) => {
+    setSortKey((prevKey) => {
+      if (prevKey === key) {
+        setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+        return prevKey;
+      }
+      setSortDir("asc");
+      return key;
+    });
+  };
+
   return (
     <div className={cn("min-h-[100svh]", isDark ? "bg-[#050507]" : "bg-white")}>
-      {/* halos (kept subtle) */}
+      {/* emerald halos, subtle */}
       {isDark && (
         <div className="fixed inset-0 pointer-events-none opacity-25">
           <div className="absolute -top-10 right-20 w-96 h-96 rounded-full blur-3xl bg-emerald-400" />
@@ -391,14 +467,13 @@ export default function ReturnsPage() {
       )}
 
       <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8 py-7 relative z-10">
-        {/* Header */}
+        {/* Header card (emerald accent) */}
         <div
           className={cn(
             "rounded-3xl border backdrop-blur-2xl relative overflow-hidden",
             isDark ? "border-white/15" : "border-slate-200"
           )}
           style={{
-            // Switched to EMERALD, more subtle than blue
             background: isDark
               ? "linear-gradient(135deg, rgba(15,16,19,0.92) 0%, rgba(15,16,19,0.78) 60%, rgba(16,185,129,0.08) 100%)"
               : "linear-gradient(135deg, rgba(236,253,245,0.65) 0%, rgba(255,255,255,0.92) 100%)",
@@ -407,14 +482,17 @@ export default function ReturnsPage() {
           <div
             className="absolute -top-10 -right-10 w-[420px] h-[420px] rounded-full blur-3xl"
             style={{
-              background: "linear-gradient(135deg, rgba(16,185,129,0.35), rgba(16,185,129,0.20))",
+              background:
+                "linear-gradient(135deg, rgba(16,185,129,0.35), rgba(16,185,129,0.20))",
             }}
           />
           <div className="px-6 py-6 relative z-10">
             <div className="flex flex-wrap items-center justify-between gap-6">
               <div>
                 <h1 className={cn("font-bold tracking-tight", "text-2xl md:text-[28px]")}>
-                  <span className={isDark ? "text-white" : "text-slate-900"}>Gestion des retours</span>
+                  <span className={isDark ? "text-white" : "text-slate-900"}>
+                    Gestion des retours
+                  </span>
                   <span className="text-emerald-500">.</span>
                 </h1>
                 <p className={cn("mt-1 text-[13px]", isDark ? "text-slate-400" : "text-slate-500")}>
@@ -431,7 +509,8 @@ export default function ReturnsPage() {
                     : "border-slate-300 text-slate-800 hover:border-slate-400"
                 )}
                 style={{
-                  background: "linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.10))",
+                  background:
+                    "linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.10))",
                   boxShadow: isDark
                     ? "0 8px 30px rgba(16,185,129,0.15)"
                     : "0 8px 30px rgba(16,185,129,0.10)",
@@ -443,15 +522,10 @@ export default function ReturnsPage() {
               </button>
             </div>
 
-            {/* Search + quick filters */}
+            {/* Search + filters */}
             <div className="mt-4 flex flex-col lg:flex-row gap-3">
               <div className="flex-1 relative">
-                <Search
-                  className={cn(
-                    "absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4",
-                    isDark ? "text-slate-400" : "text-slate-400"
-                  )}
-                />
+                <Search className={cn("absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4", isDark ? "text-slate-400" : "text-slate-400")} />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -607,19 +681,19 @@ export default function ReturnsPage() {
                   )}
                 >
                   <tr className={cn(isDark ? "border-b border-white/10" : "border-b border-slate-200")}>
-                    <th className="px-5 py-3 text-left">Code</th>
-                    <th className="px-5 py-3 text-left">Date</th>
-                    <th className="px-5 py-3 text-left">Signalé par</th>
-                    <th className="px-5 py-3 text-left">Cause</th>
-                    <th className="px-5 py-3 text-left">Client / Expert</th>
-                    <th className="px-5 py-3 text-left">No commande</th>
-                    <th className="px-5 py-3 text-left">Tracking</th>
-                    <th className="px-5 py-3 text-left">P.J.</th>
+                    <SortTh label="Code" active={sortKey === "id"} dir={sortDir} onClick={() => toggleSort("id")} />
+                    <SortTh label="Date" active={sortKey === "reportedAt"} dir={sortDir} onClick={() => toggleSort("reportedAt")} />
+                    <SortTh label="Signalé par" active={sortKey === "reporter"} dir={sortDir} onClick={() => toggleSort("reporter")} />
+                    <SortTh label="Cause" active={sortKey === "cause"} dir={sortDir} onClick={() => toggleSort("cause")} />
+                    <SortTh label="Client / Expert" active={sortKey === "client"} dir={sortDir} onClick={() => toggleSort("client")} />
+                    <SortTh label="No commande" active={sortKey === "noCommande"} dir={sortDir} onClick={() => toggleSort("noCommande")} />
+                    <SortTh label="Tracking" active={sortKey === "tracking"} dir={sortDir} onClick={() => toggleSort("tracking")} />
+                    <SortTh label="P.J." active={sortKey === "attachments"} dir={sortDir} onClick={() => toggleSort("attachments")} />
                     <th className="px-5 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className={cn(isDark ? "divide-y divide-white/8" : "divide-y divide-slate-100")}>
-                  {filtered.map((row) => {
+                  {sorted.map((row) => {
                     const hasFiles = (row.attachments?.length ?? 0) > 0;
                     const s = STATUS_TEXT[row.status];
                     return (
@@ -628,16 +702,16 @@ export default function ReturnsPage() {
                         onMouseEnter={() => setHovered(row.id)}
                         onMouseLeave={() => setHovered(null)}
                         className={cn("relative transition-all duration-200", row.standby && "opacity-60")}
-                        style={{ background: rowGradient(row.status, isDark) }}
+                        style={rowStyle(row.status)}
                       >
                         <td className={cn("px-5 py-4 font-semibold", s.text)}>
                           <div className="flex items-center gap-3">
                             <div
                               className={cn(
                                 "w-1.5 h-6 rounded-full",
-                                row.status === "draft" && (isDark ? "bg-white/40" : "bg-slate-300"),
-                                row.status === "awaiting_physical" && "bg-amber-500/70",
-                                row.status === "received_or_no_physical" && "bg-emerald-500/80"
+                                row.status === "draft" && "bg-slate-300",
+                                row.status === "awaiting_physical" && "bg-white/80",
+                                row.status === "received_or_no_physical" && "bg-white/80"
                               )}
                             />
                             <span className="font-mono">{row.id}</span>
@@ -670,7 +744,7 @@ export default function ReturnsPage() {
                               <span className="text-xs font-medium">{row.attachments!.length}</span>
                             </div>
                           ) : (
-                            <span className={cn("text-xs", isDark ? "text-slate-400" : "text-slate-500")}>—</span>
+                            <span className={cn("text-xs", isDark ? "text-slate-300" : "text-slate-500")}>—</span>
                           )}
                         </td>
                         <td className="px-5 py-3">
@@ -684,7 +758,11 @@ export default function ReturnsPage() {
                               onClick={() => setOpenId(row.id)}
                               className={cn(
                                 "p-2 rounded-lg",
-                                isDark ? "hover:bg-white/10 text-white" : "hover:bg-slate-100 text-slate-700"
+                                row.status === "draft"
+                                  ? isDark
+                                    ? "hover:bg-white/10 text-slate-300"
+                                    : "hover:bg-slate-100 text-slate-700"
+                                  : "hover:bg-white/20 text-white"
                               )}
                               title="Consulter"
                             >
@@ -694,7 +772,11 @@ export default function ReturnsPage() {
                               onClick={() => onToggleStandby(row.id)}
                               className={cn(
                                 "p-2 rounded-lg",
-                                isDark ? "hover:bg-white/10 text-amber-300" : "hover:bg-amber-50 text-amber-600"
+                                row.status === "draft"
+                                  ? isDark
+                                    ? "hover:bg-white/10 text-amber-300"
+                                    : "hover:bg-amber-50 text-amber-600"
+                                  : "hover:bg-white/20 text-white"
                               )}
                               title={row.standby ? "Retirer du standby" : "Mettre en standby"}
                             >
@@ -704,7 +786,11 @@ export default function ReturnsPage() {
                               onClick={() => onDelete(row.id)}
                               className={cn(
                                 "p-2 rounded-lg",
-                                isDark ? "hover:bg-red-500/10 text-red-400" : "hover:bg-red-50 text-red-600"
+                                row.status === "draft"
+                                  ? isDark
+                                    ? "hover:bg-red-500/10 text-red-400"
+                                    : "hover:bg-red-50 text-red-600"
+                                  : "hover:bg-white/20 text-white"
                               )}
                               title="Supprimer"
                             >
@@ -718,7 +804,7 @@ export default function ReturnsPage() {
                 </tbody>
               </table>
 
-              {filtered.length === 0 && (
+              {sorted.length === 0 && (
                 <div className="py-16 text-center">
                   <Package className={cn("h-10 w-10 mx-auto mb-3", isDark ? "text-slate-600" : "text-slate-300")} />
                   <p className={cn(isDark ? "text-slate-400" : "text-slate-500", "text-sm")}>
@@ -736,7 +822,7 @@ export default function ReturnsPage() {
               )}
             >
               <span className={cn("text-xs", isDark ? "text-slate-400" : "text-slate-500")}>
-                {filtered.length} résultat{filtered.length > 1 ? "s" : ""}
+                {sorted.length} résultat{sorted.length > 1 ? "s" : ""}
               </span>
               <div className="flex items-center gap-2">
                 <StatusChip status="draft" />
@@ -823,8 +909,43 @@ function StatusChip({ status }: { status: ReturnStatus }) {
   );
 }
 
+/** Sortable table header cell with arrows */
+function SortTh({
+  label,
+  active,
+  dir,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  dir: SortDir;
+  onClick: () => void;
+}) {
+  return (
+    <th className="px-5 py-3 text-left">
+      <button
+        type="button"
+        onClick={onClick}
+        className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider"
+        title="Trier"
+      >
+        <span>{label}</span>
+        {active ? (
+          dir === "asc" ? (
+            <ArrowUpNarrowWide className="h-3.5 w-3.5" />
+          ) : (
+            <ArrowDownNarrowWide className="h-3.5 w-3.5" />
+          )
+        ) : (
+          <ChevronUp className="h-3.5 w-3.5 opacity-40" />
+        )}
+      </button>
+    </th>
+  );
+}
+
 /* =============================================================================
-   Detail modal (safe-area fixed; never clips behind header)
+   Detail modal (safe-area fixed, internal scroll)
 ============================================================================= */
 function DetailModal({
   row,
@@ -847,7 +968,6 @@ function DetailModal({
 }) {
   const hasFiles = (row.attachments?.length ?? 0) > 0;
 
-  // Lock body scroll while open
   React.useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -858,10 +978,7 @@ function DetailModal({
 
   return (
     <div className="fixed inset-0 z-[70]">
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Framed container inside safe areas; content handles its own scroll */}
       <div className="absolute inset-x-4 sm:inset-x-8 lg:inset-x-12 top-[max(24px,env(safe-area-inset-top))] bottom-[max(24px,env(safe-area-inset-bottom))]">
         <div className="h-full w-full overflow-hidden rounded-2xl border shadow-2xl bg-white dark:bg-neutral-900 border-slate-200 dark:border-white/15">
           {/* Header */}
@@ -872,7 +989,7 @@ function DetailModal({
                   className={cn(
                     "w-1.5 h-10 rounded-full",
                     row.status === "draft" && "bg-slate-400",
-                    row.status === "awaiting_physical" && "bg-amber-500",
+                    row.status === "awaiting_physical" && "bg-black",
                     row.status === "received_or_no_physical" && "bg-emerald-500"
                   )}
                 />
@@ -892,9 +1009,8 @@ function DetailModal({
             </div>
           </div>
 
-          {/* Body (scrolls) */}
+          {/* Body */}
           <div className="h-[calc(100%-104px)] overflow-auto px-6 py-6 space-y-6">
-            {/* Created by */}
             {row.createdBy && (
               <div className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02]">
                 <div className="h-9 w-9 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white grid place-items-center font-medium">
@@ -913,37 +1029,12 @@ function DetailModal({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Field label="Expert" value={row.expert} onChange={(v) => onPatch({ expert: v })} />
               <Field label="Client" value={row.client} onChange={(v) => onPatch({ client: v })} />
-              <Field
-                label="No. client"
-                value={row.noClient ?? ""}
-                onChange={(v) => onPatch({ noClient: v || undefined })}
-              />
-              <Field
-                label="No. commande"
-                value={row.noCommande ?? ""}
-                onChange={(v) => onPatch({ noCommande: v || undefined })}
-              />
-              <Field
-                label="No. tracking"
-                value={row.tracking ?? ""}
-                onChange={(v) => onPatch({ tracking: v || undefined })}
-              />
-              <Field
-                label="Transport"
-                value={row.transport ?? ""}
-                onChange={(v) => onPatch({ transport: v || null })}
-              />
-              <Field
-                label="Montant"
-                value={row.amount?.toString() ?? ""}
-                onChange={(v) => onPatch({ amount: v ? Number(v) : null })}
-              />
-              <Field
-                label="Date commande"
-                type="date"
-                value={row.dateCommande ?? ""}
-                onChange={(v) => onPatch({ dateCommande: v || null })}
-              />
+              <Field label="No. client" value={row.noClient ?? ""} onChange={(v) => onPatch({ noClient: v || undefined })} />
+              <Field label="No. commande" value={row.noCommande ?? ""} onChange={(v) => onPatch({ noCommande: v || undefined })} />
+              <Field label="No. tracking" value={row.tracking ?? ""} onChange={(v) => onPatch({ tracking: v || undefined })} />
+              <Field label="Transport" value={row.transport ?? ""} onChange={(v) => onPatch({ transport: v || null })} />
+              <Field label="Montant" value={row.amount?.toString() ?? ""} onChange={(v) => onPatch({ amount: v ? Number(v) : null })} />
+              <Field label="Date commande" type="date" value={row.dateCommande ?? ""} onChange={(v) => onPatch({ dateCommande: v || null })} />
               <Field
                 label="Cause"
                 as="select"
