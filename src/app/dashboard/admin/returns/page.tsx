@@ -95,6 +95,15 @@ const CAUSE_LABEL: Record<Cause, string> = {
   autre: "Autre",
 };
 
+const CAUSES_IN_ORDER: Cause[] = [
+  "production",
+  "transporteur",
+  "pompe",
+  "exposition_sinto",
+  "autre_cause",
+  "autre",
+];
+
 const STATUS_CONFIG = {
   draft: {
     label: "Brouillon",
@@ -241,7 +250,7 @@ function StatusBadge({ status }: { status: ReturnStatus }) {
   const Icon = config.icon;
   return (
     <span className={cn(
-      "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border",
+      "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border",
       "transition-all duration-200",
       config.badge
     )}>
@@ -288,15 +297,17 @@ function MetricCard({
 }
 
 /* =============================================================================
-   Main Page Component
+   Main Page Component - Enhanced with full functionality
 ============================================================================= */
 export default function ReturnsPage() {
   // State
   const [query, setQuery] = React.useState("");
   const [cause, setCause] = React.useState<"all" | Cause>("all");
   const [reporter, setReporter] = React.useState<"all" | Reporter>("all");
+  const [dateFrom, setDateFrom] = React.useState<string>("");
+  const [dateTo, setDateTo] = React.useState<string>("");
   const [expanded, setExpanded] = React.useState(false);
-  const [rows] = React.useState<ReturnRow[]>(DUMMY);
+  const [rows, setRows] = React.useState<ReturnRow[]>(DUMMY);
   const [openId, setOpenId] = React.useState<string | null>(null);
   const [hoveredRow, setHoveredRow] = React.useState<string | null>(null);
 
@@ -310,6 +321,8 @@ export default function ReturnsPage() {
     return rows.filter((r) => {
       if (cause !== "all" && r.cause !== cause) return false;
       if (reporter !== "all" && r.reporter !== reporter) return false;
+      if (dateFrom && r.reportedAt < dateFrom) return false;
+      if (dateTo && r.reportedAt > dateTo) return false;
 
       if (query.trim()) {
         const q = query.toLowerCase();
@@ -320,6 +333,8 @@ export default function ReturnsPage() {
           r.noClient,
           r.noCommande,
           r.tracking,
+          REPORTER_LABEL[r.reporter],
+          CAUSE_LABEL[r.cause],
         ]
           .filter(Boolean)
           .join(" ")
@@ -328,7 +343,7 @@ export default function ReturnsPage() {
       }
       return true;
     });
-  }, [rows, cause, reporter, query]);
+  }, [rows, cause, reporter, dateFrom, dateTo, query]);
 
   // Stats
   const stats = React.useMemo(() => ({
@@ -337,6 +352,73 @@ export default function ReturnsPage() {
     awaiting: filtered.filter(r => r.status === "awaiting_physical").length,
     received: filtered.filter(r => r.status === "received_or_no_physical").length,
   }), [filtered]);
+
+  // Actions
+  const onToggleStandby = (id: string) => {
+    setRows((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, standby: !r.standby } : r))
+    );
+  };
+
+  const onDelete = (id: string) => {
+    if (!confirm(`Supprimer le retour ${id} ?`)) return;
+    setRows((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const onReset = () => {
+    setQuery("");
+    setCause("all");
+    setReporter("all");
+    setDateFrom("");
+    setDateTo("");
+  };
+
+  const updateSelected = (patch: Partial<ReturnRow>) => {
+    if (!selected) return;
+    setRows((prev) =>
+      prev.map((r) => (r.id === selected.id ? { ...r, ...patch } : r))
+    );
+  };
+
+  const addProduct = () => {
+    if (!selected) return;
+    const next: ProductLine = {
+      id: `np-${Date.now()}`,
+      codeProduit: "",
+      descriptionProduit: "",
+      descriptionRetour: "",
+      quantite: 1,
+    };
+    updateSelected({
+      products: [...(selected.products ?? []), next],
+    });
+  };
+
+  const removeProduct = (pid: string) => {
+    if (!selected) return;
+    updateSelected({
+      products: (selected.products ?? []).filter((p) => p.id !== pid),
+    });
+  };
+
+  const changeProduct = (pid: string, patch: Partial<ProductLine>) => {
+    if (!selected) return;
+    updateSelected({
+      products: (selected.products ?? []).map((p) =>
+        p.id === pid ? { ...p, ...patch } : p
+      ),
+    });
+  };
+
+  const saveDraft = () => {
+    updateSelected({ status: "draft" });
+    alert("Brouillon enregistré (fictif).");
+  };
+
+  const sendForApproval = () => {
+    updateSelected({ status: "received_or_no_physical" });
+    alert("Envoyé pour approbation (fictif).");
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-neutral-950 dark:via-neutral-950 dark:to-blue-950/10">
@@ -393,8 +475,8 @@ export default function ReturnsPage() {
                     className="px-4 py-3 bg-slate-50 dark:bg-neutral-950 rounded-xl text-sm outline-none border border-transparent focus:border-blue-500 focus:bg-white dark:focus:bg-neutral-900 transition-all duration-200 cursor-pointer"
                   >
                     <option value="all">Toutes les causes</option>
-                    {Object.entries(CAUSE_LABEL).map(([key, label]) => (
-                      <option key={key} value={key}>{label}</option>
+                    {CAUSES_IN_ORDER.map((c) => (
+                      <option key={c} value={c}>{CAUSE_LABEL[c]}</option>
                     ))}
                   </select>
 
@@ -404,10 +486,24 @@ export default function ReturnsPage() {
                     className="px-4 py-3 bg-slate-50 dark:bg-neutral-950 rounded-xl text-sm outline-none border border-transparent focus:border-blue-500 focus:bg-white dark:focus:bg-neutral-900 transition-all duration-200 cursor-pointer"
                   >
                     <option value="all">Tous les signaleurs</option>
-                    {Object.entries(REPORTER_LABEL).map(([key, label]) => (
-                      <option key={key} value={key}>{label}</option>
+                    {(["expert", "transporteur", "autre"] as Reporter[]).map((r) => (
+                      <option key={r} value={r}>{REPORTER_LABEL[r]}</option>
                     ))}
                   </select>
+
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="px-4 py-3 bg-slate-50 dark:bg-neutral-950 rounded-xl text-sm outline-none border border-transparent focus:border-blue-500 focus:bg-white dark:focus:bg-neutral-900 transition-all duration-200"
+                  />
+
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="px-4 py-3 bg-slate-50 dark:bg-neutral-950 rounded-xl text-sm outline-none border border-transparent focus:border-blue-500 focus:bg-white dark:focus:bg-neutral-900 transition-all duration-200"
+                  />
 
                   <button
                     onClick={() => setExpanded(!expanded)}
@@ -418,17 +514,16 @@ export default function ReturnsPage() {
                     {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </button>
 
-                  <button className="hidden lg:inline-flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-neutral-950 rounded-xl text-sm hover:bg-slate-100 dark:hover:bg-neutral-900 transition-all duration-200">
+                  <button 
+                    onClick={() => alert("Exporter (à brancher)")}
+                    className="hidden lg:inline-flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-neutral-950 rounded-xl text-sm hover:bg-slate-100 dark:hover:bg-neutral-900 transition-all duration-200"
+                  >
                     <Download className="h-4 w-4" />
                     Exporter
                   </button>
 
                   <button 
-                    onClick={() => {
-                      setQuery("");
-                      setCause("all");
-                      setReporter("all");
-                    }}
+                    onClick={onReset}
                     className="hidden lg:inline-flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-neutral-950 rounded-xl text-sm hover:bg-slate-100 dark:hover:bg-neutral-900 transition-all duration-200"
                   >
                     <RotateCcw className="h-4 w-4" />
@@ -436,6 +531,32 @@ export default function ReturnsPage() {
                   </button>
                 </div>
               </div>
+
+              {/* Mobile expanded filters */}
+              {expanded && (
+                <div className="mt-4 pt-4 border-t border-slate-200 dark:border-neutral-800 lg:hidden">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <label className="text-xs text-slate-500 dark:text-slate-400">Du</label>
+                      <input
+                        type="date"
+                        value={dateFrom}
+                        onChange={(e) => setDateFrom(e.target.value)}
+                        className="flex-1 px-3 py-2 bg-slate-50 dark:bg-neutral-950 rounded-xl text-sm outline-none border border-transparent focus:border-blue-500"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <label className="text-xs text-slate-500 dark:text-slate-400">Au</label>
+                      <input
+                        type="date"
+                        value={dateTo}
+                        onChange={(e) => setDateTo(e.target.value)}
+                        className="flex-1 px-3 py-2 bg-slate-50 dark:bg-neutral-950 rounded-xl text-sm outline-none border border-transparent focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -489,7 +610,8 @@ export default function ReturnsPage() {
                           "transition-all duration-200 relative group/row",
                           config.bg,
                           config.color,
-                          hoveredRow === row.id && "shadow-lg z-10"
+                          hoveredRow === row.id && "shadow-lg z-10",
+                          row.standby && "opacity-50"
                         )}
                         onMouseEnter={() => setHoveredRow(row.id)}
                         onMouseLeave={() => setHoveredRow(null)}
@@ -497,10 +619,11 @@ export default function ReturnsPage() {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <div className={cn(
-                              "w-1 h-8 rounded-full",
+                              "w-1 h-8 rounded-full transition-all duration-200",
                               row.status === "draft" && "bg-slate-400",
                               row.status === "awaiting_physical" && "bg-black",
-                              row.status === "received_or_no_physical" && "bg-emerald-500"
+                              row.status === "received_or_no_physical" && "bg-emerald-500",
+                              row.standby && "bg-amber-500"
                             )} />
                             <span className="font-mono font-semibold">{row.id}</span>
                           </div>
@@ -573,16 +696,18 @@ export default function ReturnsPage() {
                               <Eye className="h-4 w-4" />
                             </button>
                             <button
+                              onClick={() => onToggleStandby(row.id)}
                               className={cn(
                                 "p-2 rounded-lg transition-all duration-200",
-                                "hover:bg-white/20",
+                                row.standby ? "bg-amber-500/20" : "hover:bg-white/20",
                                 row.status === "draft" && "hover:bg-slate-100 dark:hover:bg-neutral-800"
                               )}
-                              title="Standby"
+                              title={row.standby ? "Retirer du standby" : "Mettre en standby"}
                             >
                               <Pause className="h-4 w-4" />
                             </button>
                             <button
+                              onClick={() => onDelete(row.id)}
                               className={cn(
                                 "p-2 rounded-lg transition-all duration-200",
                                 "hover:bg-red-500/20 text-red-400",
@@ -628,7 +753,16 @@ export default function ReturnsPage() {
 
         {/* Detail Modal */}
         {selected && (
-          <DetailModal row={selected} onClose={() => setOpenId(null)} />
+          <DetailModal
+            row={selected}
+            onClose={() => setOpenId(null)}
+            onPatch={updateSelected}
+            onAddProduct={addProduct}
+            onRemoveProduct={removeProduct}
+            onChangeProduct={changeProduct}
+            onSaveDraft={saveDraft}
+            onSendForApproval={sendForApproval}
+          />
         )}
       </div>
     </div>
@@ -636,16 +770,29 @@ export default function ReturnsPage() {
 }
 
 /* =============================================================================
-   Detail Modal
+   Detail Modal - Full functionality restored
 ============================================================================= */
 function DetailModal({
   row,
   onClose,
+  onPatch,
+  onAddProduct,
+  onRemoveProduct,
+  onChangeProduct,
+  onSaveDraft,
+  onSendForApproval,
 }: {
   row: ReturnRow;
   onClose: () => void;
+  onPatch: (patch: Partial<ReturnRow>) => void;
+  onAddProduct: () => void;
+  onRemoveProduct: (pid: string) => void;
+  onChangeProduct: (pid: string, patch: Partial<ProductLine>) => void;
+  onSaveDraft: () => void;
+  onSendForApproval: () => void;
 }) {
   const config = STATUS_CONFIG[row.status];
+  const hasFiles = (row.attachments?.length ?? 0) > 0;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -655,7 +802,7 @@ function DetailModal({
           onClick={onClose}
         />
         
-        <div className="relative w-full max-w-4xl transform overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 shadow-2xl transition-all">
+        <div className="relative w-full max-w-6xl transform overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 shadow-2xl transition-all">
           {/* Modal Header */}
           <div className="relative bg-gradient-to-br from-slate-50 to-slate-100 dark:from-neutral-900 dark:to-neutral-950 px-6 py-4 border-b border-slate-200 dark:border-neutral-800">
             <div className="flex items-center justify-between">
@@ -672,7 +819,7 @@ function DetailModal({
                     <StatusBadge status={row.status} />
                   </h2>
                   <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                    {CAUSE_LABEL[row.cause]} • Signalé le {new Date(row.reportedAt).toLocaleDateString('fr-FR')}
+                    {CAUSE_LABEL[row.cause]} • Signalé le {new Date(row.reportedAt).toLocaleDateString('fr-FR')} par {REPORTER_LABEL[row.reporter]}
                   </p>
                 </div>
               </div>
@@ -702,68 +849,212 @@ function DetailModal({
               </div>
             )}
 
-            {/* Details Grid */}
-            <div className="grid grid-cols-2 gap-4">
-              <DetailField label="Client" value={row.client} />
-              <DetailField label="Expert" value={row.expert} />
-              <DetailField label="No. Client" value={row.noClient} />
-              <DetailField label="No. Commande" value={row.noCommande} />
-              <DetailField label="Tracking" value={row.tracking} />
-              <DetailField label="Transport" value={row.transport} />
+            {/* Basic fields */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Field
+                label="Expert"
+                value={row.expert}
+                onChange={(v) => onPatch({ expert: v })}
+              />
+              <Field
+                label="Client"
+                value={row.client}
+                onChange={(v) => onPatch({ client: v })}
+              />
+              <Field
+                label="No. client"
+                value={row.noClient ?? ""}
+                onChange={(v) => onPatch({ noClient: v || undefined })}
+              />
+              <Field
+                label="No. commande"
+                value={row.noCommande ?? ""}
+                onChange={(v) => onPatch({ noCommande: v || undefined })}
+              />
+              <Field
+                label="No. tracking"
+                value={row.tracking ?? ""}
+                onChange={(v) => onPatch({ tracking: v || undefined })}
+              />
+              <Field
+                label="Transport"
+                value={row.transport ?? ""}
+                onChange={(v) => onPatch({ transport: v || null })}
+              />
+              <Field
+                label="Montant"
+                value={row.amount?.toString() ?? ""}
+                onChange={(v) => onPatch({ amount: v ? Number(v) : null })}
+              />
+              <Field
+                label="Date commande"
+                type="date"
+                value={row.dateCommande ?? ""}
+                onChange={(v) => onPatch({ dateCommande: v || null })}
+              />
+              <Field
+                label="Cause"
+                as="select"
+                value={row.cause}
+                onChange={(v) => onPatch({ cause: v as Cause })}
+                options={CAUSES_IN_ORDER.map((c) => ({
+                  value: c,
+                  label: CAUSE_LABEL[c],
+                }))}
+              />
             </div>
 
-            {/* Products */}
-            {row.products && row.products.length > 0 && (
-              <div>
-                <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
-                  <Package className="h-4 w-4" />
-                  Produits
-                </h3>
-                <div className="space-y-2">
-                  {row.products.map((product) => (
-                    <div key={product.id} className="p-3 bg-slate-50 dark:bg-neutral-950 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="font-mono font-medium text-sm">{product.codeProduit}</span>
-                          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                            {product.descriptionProduit}
-                          </p>
-                        </div>
-                        <span className="text-sm font-medium">Qté: {product.quantite}</span>
+            {/* Attachments */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Folder className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                <h4 className="font-semibold">Fichiers joints</h4>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  ({row.attachments?.length ?? 0})
+                </span>
+              </div>
+              {hasFiles ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {row.attachments!.map((a) => (
+                    <div
+                      key={a.id}
+                      className="rounded-lg border overflow-hidden border-slate-200 dark:border-neutral-800"
+                    >
+                      <div className="px-3 py-2 text-sm border-b bg-slate-50/70 dark:bg-neutral-900 dark:border-neutral-800">
+                        {a.name}
                       </div>
+                      <iframe title={a.name} src={a.url} className="w-full h-72" />
                     </div>
                   ))}
                 </div>
+              ) : (
+                <div className="text-sm text-slate-500 dark:text-slate-400">
+                  Aucune pièce jointe.
+                </div>
+              )}
+            </div>
+
+            {/* Products */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Produits (RMA)
+                </h4>
+                <button
+                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm
+                  border-slate-200 bg-white hover:bg-slate-50
+                  dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800"
+                  onClick={onAddProduct}
+                >
+                  <Plus className="h-4 w-4" />
+                  Ajouter produit
+                </button>
               </div>
-            )}
+
+              <div className="space-y-2">
+                {(row.products ?? []).map((p) => (
+                  <div
+                    key={p.id}
+                    className="grid grid-cols-1 md:grid-cols-[140px_1fr_1fr_110px_40px] gap-2 items-center p-3 bg-slate-50 dark:bg-neutral-950 rounded-lg"
+                  >
+                    <input
+                      className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-900 dark:border-neutral-800"
+                      placeholder="Code de produit"
+                      value={p.codeProduit}
+                      onChange={(e) =>
+                        onChangeProduct(p.id, { codeProduit: e.target.value })
+                      }
+                    />
+                    <input
+                      className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-900 dark:border-neutral-800"
+                      placeholder="Description du produit"
+                      value={p.descriptionProduit}
+                      onChange={(e) =>
+                        onChangeProduct(p.id, {
+                          descriptionProduit: e.target.value,
+                        })
+                      }
+                    />
+                    <input
+                      className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-900 dark:border-neutral-800"
+                      placeholder="Description du retour"
+                      value={p.descriptionRetour ?? ""}
+                      onChange={(e) =>
+                        onChangeProduct(p.id, {
+                          descriptionRetour: e.target.value,
+                        })
+                      }
+                    />
+                    <input
+                      type="number"
+                      className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-900 dark:border-neutral-800"
+                      placeholder="Quantité"
+                      min={0}
+                      value={p.quantite}
+                      onChange={(e) =>
+                        onChangeProduct(p.id, {
+                          quantite: Number(e.target.value || 0),
+                        })
+                      }
+                    />
+                    <button
+                      className="inline-flex items-center justify-center rounded-lg p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
+                      onClick={() => onRemoveProduct(p.id)}
+                      title="Retirer"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+                {(row.products?.length ?? 0) === 0 && (
+                  <div className="text-sm text-slate-500 dark:text-slate-400 py-8 text-center">
+                    Aucun produit. Ajoutez des lignes à l'aide du bouton ci-haut.
+                  </div>
+                )}
+              </div>
+            </div>
 
             {/* Description */}
-            {row.description && (
-              <div>
-                <h3 className="font-semibold text-sm mb-2 flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  Description
-                </h3>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  {row.description}
-                </p>
-              </div>
-            )}
+            <div className="space-y-2">
+              <h4 className="font-semibold flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Description
+              </h4>
+              <textarea
+                className="w-full rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-950 dark:border-neutral-800"
+                rows={4}
+                placeholder="Notes internes, contexte, instructions…"
+                value={row.description ?? ""}
+                onChange={(e) => onPatch({ description: e.target.value })}
+              />
+            </div>
           </div>
 
           {/* Modal Footer */}
           <div className="px-6 py-4 bg-slate-50 dark:bg-neutral-950 border-t border-slate-200 dark:border-neutral-800">
-            <div className="flex items-center justify-end gap-3">
-              <button
-                onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-neutral-800 rounded-lg transition-colors"
-              >
-                Fermer
-              </button>
-              <button className="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2">
-                <Send className="h-4 w-4" />
-                Envoyer pour approbation
-              </button>
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                Les changements sont locaux (demo). Connecter au backend PostgreSQL plus tard.
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={onSaveDraft}
+                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm
+                  border-slate-200 bg-white hover:bg-slate-50
+                  dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800"
+                >
+                  <Save className="h-4 w-4" />
+                  Enregistrer brouillon
+                </button>
+                <button 
+                  onClick={onSendForApproval}
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 text-sm font-medium transition-colors"
+                >
+                  <Send className="h-4 w-4" />
+                  Envoyer pour approbation
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -772,11 +1063,44 @@ function DetailModal({
   );
 }
 
-function DetailField({ label, value }: { label: string; value?: string | null }) {
+function Field({
+  label,
+  value,
+  onChange,
+  type = "text",
+  as,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  as?: "select";
+  options?: { value: string; label: string }[];
+}) {
   return (
-    <div>
-      <dt className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">{label}</dt>
-      <dd className="text-sm font-medium">{value || "—"}</dd>
-    </div>
+    <label className="grid gap-1">
+      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</span>
+      {as === "select" ? (
+        <select
+          className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-950 dark:border-neutral-800 outline-none focus:border-blue-500 transition-colors"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          {options?.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <input
+          type={type}
+          className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-950 dark:border-neutral-800 outline-none focus:border-blue-500 transition-colors"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+    </label>
   );
 }
