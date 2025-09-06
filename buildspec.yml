@@ -191,27 +191,29 @@ phases:
         SH
       - chmod +x ci-prebuild.sh
       - bash ci-prebuild.sh
-
+      
   build:
     commands:
-      # Pull decisions from pre_build
       - |
         set -e
         [ -f /tmp/cb_env ] && . /tmp/cb_env || true
         echo "BUILD_TYPE=${BUILD_TYPE:-full}"
         echo "NEEDS_MIGRATE=${NEEDS_MIGRATE:-true}"
-
+  
       # Prisma: migrate conditionally; generate always
+      - npx prisma -v
       - |
         if [ "${NEEDS_MIGRATE:-true}" = "true" ]; then
           echo "🚀 BUILD – applying prisma migrations (migrate deploy)"
           npx prisma migrate deploy --schema=prisma/schema.prisma
-          npx prisma db execute --schema=prisma/schema.prisma --sql="SELECT 1;" || exit 1
+          set -o pipefail
+          echo "SELECT 1;" | npx prisma db execute --schema=prisma/schema.prisma --stdin
         else
           echo "⏩ BUILD – skipping migrate deploy"
         fi
       - echo "⚙️ BUILD – generate prisma client"
       - npx prisma generate --schema=prisma/schema.prisma
+
 
       - echo "🏗 BUILD – resolve commit hash"
       - COMMIT_HASH=$(git rev-parse --short HEAD)
