@@ -26,10 +26,13 @@ env:
 phases:
   install:
     runtime-versions:
-      nodejs: 18
+      nodejs: 20
     commands:
-      - echo "📦 INSTALL – clean cache and install deps"
+      - echo "📦 INSTALL – clean cache and prep lockfile"
       - npm cache clean --force
+      # IMPORTANT: bring package-lock.json in sync with package.json (adds zod 4.1.5)
+      - npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - echo "📦 INSTALL – install from clean lockfile"
       - npm ci
       - node -e "console.log('prisma:',require('./node_modules/prisma/package.json').version,'| @prisma/client:',require('./node_modules/@prisma/client/package.json').version)"
 
@@ -42,13 +45,10 @@ phases:
       - |
         /usr/bin/env bash -c '
         set -e
-
-        # Find a safe base commit (works for shallow clones)
         BASE_COMMIT=$(git rev-parse HEAD^ 2>/dev/null || true)
         if [ -z "${BASE_COMMIT:-}" ]; then
           BASE_COMMIT=$(git rev-list --max-parents=0 HEAD)
         fi
-
         CHANGED_FILES=$(git diff --name-only "$BASE_COMMIT"...HEAD || git show --pretty="" --name-only)
         echo "Changed files:"
         echo "$CHANGED_FILES"
@@ -71,7 +71,6 @@ phases:
           NEEDS_MIGRATE=false
         fi
 
-        # Persist across phases
         echo BUILD_TYPE=$BUILD_TYPE       >  /tmp/cb_env
         echo NEEDS_MIGRATE=$NEEDS_MIGRATE >> /tmp/cb_env
         '
@@ -83,25 +82,11 @@ phases:
         # Remove legacy file if present to avoid conflicts
         rm -f src/lib/auth.ts || true
 
-        
-        # Ensure runtime & dev deps (idempotent)
+        # (Optional) Pin/add deps here if you choose to manage versions in CI
         # npm pkg set dependencies.recharts="^2.12.7"
         # npm pkg set dependencies.lucide-react="^0.452.0"
-        # npm pkg set dependencies.class-variance-authority="^0.7.0"
-        # npm pkg set dependencies.clsx="^2.1.1"
-        # npm pkg set dependencies.tailwind-merge="^2.5.2"
-        # npm pkg set dependencies.tailwindcss-animate="^1.0.7"
-        # npm pkg set dependencies.pg="^8.11.3"
-        # npm pkg set dependencies.swr="^2.3.0"
-        # npm pkg set dependencies.next-auth="^4.24.5"
-        # npm pkg set dependencies.@next-auth/prisma-adapter="^1.0.7"
         # npm pkg set devDependencies.prisma="6.8.2"
         # npm pkg set dependencies.@prisma/client="6.8.2"
-        # npm pkg set dependencies.@auth/prisma-adapter="^2.4.2"
-        # npm pkg set dependencies.googleapis="^122.0.0"
-        # npm pkg set dependencies.@aws-sdk/client-s3="^3.642.0"
-        # npm pkg set devDependencies.@types/node="^18.19.0"
-        # npm pkg set devDependencies.@types/pg="^8.11.7"
 
         # shadcn config (safe if already exists)
         node <<'NODE'
@@ -141,7 +126,6 @@ phases:
         export default Card;
         TSX
 
-        # Minimal dashboard stubs if absent (safe no-ops)
         [ -f src/components/nartex-logo.tsx ] || cat > src/components/nartex-logo.tsx << 'TSX'
         export default function NartexLogo({ className="" }: { className?: string }) {
           return <span className={className} style={{ fontWeight: 600, letterSpacing: ".05em" }}>nartex</span>;
@@ -163,37 +147,10 @@ phases:
         [ -f src/components/product-requests-table.tsx ] || cat > src/components/product-requests-table.tsx << 'TSX'
         export default function ProductRequestsTable(){ return <div className="p-4 text sm text-muted-foreground">Product requests (stub)</div>; }
         TSX
-
-        # 🔧 Auto-insert missing import in the SharePoint page if needed
-        node <<'NODE'
-        const fs = require('fs');
-        const p = 'src/app/dashboard/sharepoint/page.tsx';
-        if (fs.existsSync(p)) {
-          let s = fs.readFileSync(p, 'utf8');
-          if (!/components\/ui\/card/.test(s)) {
-            const importLine = 'import { Card, CardTitle } from "@/components/ui/card";\n';
-            if (s.startsWith('"use client"') || s.startsWith("'use client'")) {
-              const i = s.indexOf('\n');
-              s = s.slice(0, i + 1) + importLine + s.slice(i + 1);
-            } else {
-              s = importLine + s;
-            }
-            fs.writeFileSync(p, s);
-            console.log("✅ Injected Card/CardTitle import in", p);
-          } else {
-            console.log("ℹ️ Card/CardTitle import already present in", p);
-          }
-        } else {
-          console.log("ℹ️ SharePoint page not found:", p);
-        }
-        NODE
-
-        # Refresh lockfile for better Docker cache hits
-        npm install --package-lock-only --ignore-scripts --no-audit --no-fund
         SH
       - chmod +x ci-prebuild.sh
       - bash ci-prebuild.sh
-      
+
   build:
     commands:
       - |
@@ -202,7 +159,6 @@ phases:
         echo "BUILD_TYPE=${BUILD_TYPE:-full}"
         echo "NEEDS_MIGRATE=${NEEDS_MIGRATE:-true}"
 
-      # Prisma: migrate conditionally; generate always
       - npx prisma -v
       - |
         if [ "${NEEDS_MIGRATE:-true}" = "true" ]; then
