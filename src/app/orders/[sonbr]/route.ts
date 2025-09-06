@@ -1,11 +1,14 @@
+// src/app/orders/[sonbr]/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import prisma from "@/lib/prisma"; // ✅ default import
 
 // Keep the context untyped to satisfy Next's validator across versions.
 export async function GET(_req: Request, context: any) {
   const { sonbr } = context.params as { sonbr: string };
+  const decoded = decodeURIComponent(sonbr);
+
   const so = await prisma.sOHeader.findUnique({
-    where: { sonbr: decodeURIComponent(sonbr) },
+    where: { sonbr: decoded },
     select: {
       sonbr: true,
       orderdate: true,
