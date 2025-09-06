@@ -199,20 +199,22 @@ phases:
         [ -f /tmp/cb_env ] && . /tmp/cb_env || true
         echo "BUILD_TYPE=${BUILD_TYPE:-full}"
         echo "NEEDS_MIGRATE=${NEEDS_MIGRATE:-true}"
-  
+
       # Prisma: migrate conditionally; generate always
       - npx prisma -v
       - |
         if [ "${NEEDS_MIGRATE:-true}" = "true" ]; then
           echo "🚀 BUILD – applying prisma migrations (migrate deploy)"
           npx prisma migrate deploy --schema=prisma/schema.prisma
-          set -o pipefail
-          echo "SELECT 1;" | npx prisma db execute --schema=prisma/schema.prisma --stdin
+          # 👇 run the health check in bash (pipefail supported)
+          /usr/bin/env bash -c 'set -euo pipefail; echo "SELECT 1;" | npx prisma db execute --schema=prisma/schema.prisma --stdin'
         else
           echo "⏩ BUILD – skipping migrate deploy"
         fi
+
       - echo "⚙️ BUILD – generate prisma client"
       - npx prisma generate --schema=prisma/schema.prisma
+
 
 
       - echo "🏗 BUILD – resolve commit hash"
