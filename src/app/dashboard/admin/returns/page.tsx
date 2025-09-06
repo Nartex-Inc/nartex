@@ -93,113 +93,6 @@ const CAUSES_IN_ORDER: Cause[] = [
 ];
 
 /* =============================================================================
-   Demo data
-============================================================================= */
-const DUMMY: ReturnRow[] = [
-  {
-    id: "R6498",
-    reportedAt: "2025-09-01",
-    reporter: "expert",
-    cause: "production",
-    expert: "DENIS LAVOIE (017)",
-    client: "DISTRIBUTION RMM INC. (46)",
-    noClient: "EXP-046",
-    noCommande: "81724",
-    tracking: "P77935962",
-    status: "received_or_no_physical",
-    amount: 0.0,
-    dateCommande: "2025-09-01",
-    transport: "DICOM-GLS (P)",
-    attachments: [
-      {
-        id: "a1",
-        name: "Facture 81724.pdf",
-        url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-      },
-    ],
-    products: [
-      {
-        id: "p1",
-        codeProduit: "IP200",
-        descriptionProduit: "PERFORMA: HUILE 2 TEMPS SYN 200ML",
-        descriptionRetour: "BOUTEILLE VIDE",
-        quantite: 1,
-      },
-    ],
-    description:
-      "Client a reçu une bouteille vide. Interaction avec support documentée dans le ticket #12345.",
-    createdBy: {
-      name: "Roxane Bouffard",
-      avatar: null,
-      at: "2025-09-01T10:31:00-04:00",
-    },
-  },
-  {
-    id: "R6492",
-    reportedAt: "2025-08-26",
-    reporter: "expert",
-    cause: "production",
-    expert: "ROXANE BOUFFARD (011)",
-    client: "LES MECANOS D'HAM NORD",
-    noClient: "3442109",
-    noCommande: "82767",
-    tracking: "P80976755",
-    status: "awaiting_physical",
-    attachments: [],
-    products: [],
-    createdBy: { name: "Suzie Boutin", avatar: null, at: "2025-08-26T10:31:00-04:00" },
-  },
-  {
-    id: "R6491",
-    reportedAt: "2025-08-25",
-    reporter: "transporteur",
-    cause: "transporteur",
-    expert: "BUDDY FORD (020)",
-    client: "GROUPE CIRTECH INC.",
-    noClient: "2213400",
-    noCommande: "81065",
-    tracking: "P76860066",
-    status: "awaiting_physical",
-    attachments: [
-      {
-        id: "a2",
-        name: "BOL 81065.pdf",
-        url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-      },
-    ],
-    products: [],
-    createdBy: { name: "Hugo Fortin", avatar: null, at: "2025-08-25T09:47:00-04:00" },
-  },
-  {
-    id: "R6486",
-    reportedAt: "2025-08-22",
-    reporter: "expert",
-    cause: "autre_cause",
-    expert: "SYLVAIN ARVISAVIS (012)",
-    client: "BIOMASSE DU LAC TAUREAU",
-    noClient: "8700141",
-    noCommande: "83381",
-    tracking: "P82517515",
-    status: "received_or_no_physical",
-    attachments: [],
-    products: [],
-    createdBy: { name: "Anick Poulin", avatar: null, at: "2025-08-22T11:37:00-04:00" },
-  },
-  {
-    id: "R6483",
-    reportedAt: "2025-08-11",
-    reporter: "autre",
-    cause: "autre",
-    expert: "MIKE ROCHE (54)",
-    client: "—",
-    status: "draft",
-    attachments: [],
-    products: [],
-    createdBy: { name: "Nicolas Labranches", avatar: null, at: "2025-08-11T13:05:00-04:00" },
-  },
-];
-
-/* =============================================================================
    Helpers & design tokens
 ============================================================================= */
 function cn(...c: (string | false | null | undefined)[]) {
@@ -230,22 +123,19 @@ const STATUS_TEXT: Record<
   },
 };
 
-/** Keep vivid base color; overlay a very subtle sheen so gradient is toned down */
-// Tweak these to your exact brand shades:
 const ROW_SHADES = {
-  // Green (received)
-  greenPrimary:  "#22c55e", // vivid success green
-  greenAlternate:"#16a34a", // slightly darker for zebra
-  // Black (awaiting physical)
-  blackPrimary:  "#000000",
-  blackAlternate:"#0b0b0b",
-  // White (draft)
-  whitePrimary:  "#ffffff",
-  whiteAlternate:"#fafafa",
+  greenPrimary: "#22c55e",
+  greenAlternate: "#16a34a",
+  blackPrimary: "#000000",
+  blackAlternate: "#0b0b0b",
+  whitePrimary: "#ffffff",
+  whiteAlternate: "#fafafa",
 };
 
-/** Keep vivid base color but allow subtle zebra alternance via `stripe`. */
-function rowStyle(status: ReturnStatus, stripe = false): React.CSSProperties | undefined {
+function rowStyle(
+  status: ReturnStatus,
+  stripe = false
+): React.CSSProperties | undefined {
   if (status === "draft") {
     const base = stripe ? ROW_SHADES.whiteAlternate : ROW_SHADES.whitePrimary;
     return {
@@ -262,7 +152,6 @@ function rowStyle(status: ReturnStatus, stripe = false): React.CSSProperties | u
         "linear-gradient(90deg, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0.10) 100%)",
     };
   }
-  // received_or_no_physical — success green with zebra alternance
   const base = stripe ? ROW_SHADES.greenAlternate : ROW_SHADES.greenPrimary;
   return {
     backgroundColor: base,
@@ -271,33 +160,119 @@ function rowStyle(status: ReturnStatus, stripe = false): React.CSSProperties | u
   };
 }
 
-function Pill({
-  children,
-  tone = "muted",
-}: {
-  children: React.ReactNode;
-  tone?: "muted" | "blue" | "green" | "slate";
+/* =============================================================================
+   Fetch utils (simple, no SWR)
+============================================================================= */
+async function fetchReturns(params: {
+  q?: string;
+  cause?: string;
+  reporter?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  take?: number;
+}): Promise<ReturnRow[]> {
+  const usp = new URLSearchParams();
+  if (params.q) usp.set("q", params.q);
+  if (params.cause && params.cause !== "all") usp.set("cause", params.cause);
+  if (params.reporter && params.reporter !== "all")
+    usp.set("reporter", params.reporter);
+  if (params.dateFrom) usp.set("dateFrom", params.dateFrom);
+  if (params.dateTo) usp.set("dateTo", params.dateTo);
+  usp.set("take", String(params.take ?? 200));
+
+  const res = await fetch(`/api/returns?${usp.toString()}`, {
+    credentials: "include",
+    cache: "no-store",
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error("Erreur de chargement des retours");
+  return json.rows as ReturnRow[];
+}
+
+async function createReturn(payload: {
+  reporter: Reporter;
+  cause: Cause;
+  expert: string;
+  client: string;
+  noClient?: string | null;
+  noCommande?: string | null;
+  tracking?: string | null;
+  amount?: number | null;
+  dateCommande?: string | null;
+  transport?: string | null;
+  description?: string | null;
+  products?: {
+    codeProduit: string;
+    descriptionProduit: string;
+    descriptionRetour?: string;
+    quantite: number;
+  }[];
 }) {
-  const map = {
-    muted:
-      "bg-slate-100 text-slate-700 border-slate-200 dark:bg-white/10 dark:text-white dark:border-white/15",
-    blue:
-      "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-500/15 dark:text-sky-200 dark:border-sky-500/25",
-    green:
-      "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:border-emerald-500/20",
-    slate:
-      "bg-slate-200 text-slate-700 border-slate-300 dark:bg-white/10 dark:text-slate-100 dark:border-white/20",
-  } as const;
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium",
-        map[tone]
-      )}
-    >
-      {children}
-    </span>
+  const res = await fetch(`/api/returns`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error("Création échouée");
+  return json.return;
+}
+
+type OrderLookup = {
+  sonbr: string;
+  orderDate: string; // ISO
+  totalamt: number | null;
+  customerName?: string | null;
+  carrierName?: string | null;
+  salesrepName?: string | null;
+  tracking?: string | null;
+};
+
+async function lookupOrder(noCommande: string): Promise<OrderLookup | null> {
+  if (!noCommande.trim()) return null;
+  const res = await fetch(
+    `/api/prextra/order?no_commande=${encodeURIComponent(noCommande.trim())}`,
+    { cache: "no-store", credentials: "include" }
   );
+  if (!res.ok) return null;
+  const json = await res.json();
+  if (!json || json.exists === false) return null;
+  // normalize legacy keys if your API returns PascalCase:
+  return {
+    sonbr: json.sonbr ?? json.sonNbr ?? noCommande,
+    orderDate: json.orderDate || json.OrderDate,
+    totalamt: json.totalamt ?? json.totalAmt ?? null,
+    customerName: json.customerName ?? json.CustomerName ?? null,
+    carrierName: json.carrierName ?? json.CarrierName ?? null,
+    salesrepName: json.salesrepName ?? json.SalesrepName ?? null,
+    tracking: json.tracking ?? json.TrackingNumber ?? null,
+  };
+}
+
+type ItemSuggestion = {
+  code: string;
+  descr?: string | null;
+};
+
+async function searchItems(q: string): Promise<ItemSuggestion[]> {
+  if (!q.trim()) return [];
+  const res = await fetch(`/api/items?q=${encodeURIComponent(q)}&take=10`, {
+    cache: "no-store",
+    credentials: "include",
+  });
+  if (!res.ok) return [];
+  const json = await res.json();
+  return (json.items ?? []) as ItemSuggestion[];
+}
+
+function useDebounced<T>(value: T, delay = 300) {
+  const [v, setV] = React.useState(value);
+  React.useEffect(() => {
+    const id = setTimeout(() => setV(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return v;
 }
 
 /* =============================================================================
@@ -319,54 +294,59 @@ export default function ReturnsPage() {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
-  // state
+  // filters
   const [query, setQuery] = React.useState("");
   const [cause, setCause] = React.useState<"all" | Cause>("all");
   const [reporter, setReporter] = React.useState<"all" | Reporter>("all");
   const [dateFrom, setDateFrom] = React.useState<string>("");
   const [dateTo, setDateTo] = React.useState<string>("");
-  const [expanded, setExpanded] = React.useState(false);
-  const [rows, setRows] = React.useState<ReturnRow[]>(DUMMY);
+
+  // data
+  const [rows, setRows] = React.useState<ReturnRow[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  // selection
   const [openId, setOpenId] = React.useState<string | null>(null);
-  const [hovered, setHovered] = React.useState<string | null>(null);
-
-  const [sortKey, setSortKey] = React.useState<SortKey>("reportedAt");
-  const [sortDir, setSortDir] = React.useState<SortDir>("desc");
-
   const selected = React.useMemo(
     () => rows.find((r) => r.id === openId) ?? null,
     [rows, openId]
   );
+  const [hovered, setHovered] = React.useState<string | null>(null);
 
-  // filtering
-  const filtered = React.useMemo(() => {
-    return rows.filter((r) => {
-      if (cause !== "all" && r.cause !== cause) return false;
-      if (reporter !== "all" && r.reporter !== reporter) return false;
-      if (dateFrom && r.reportedAt < dateFrom) return false;
-      if (dateTo && r.reportedAt > dateTo) return false;
-      if (query.trim()) {
-        const q = query.toLowerCase();
-        const hay = [
-          r.id,
-          r.client,
-          r.expert,
-          r.noClient,
-          r.noCommande,
-          r.tracking,
-          REPORTER_LABEL[r.reporter],
-          CAUSE_LABEL[r.cause],
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [rows, cause, reporter, dateFrom, dateTo, query]);
+  // sort
+  const [sortKey, setSortKey] = React.useState<SortKey>("reportedAt");
+  const [sortDir, setSortDir] = React.useState<SortDir>("desc");
 
-  // sorting
+  // new return modal
+  const [openNew, setOpenNew] = React.useState(false);
+
+  // load
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchReturns({
+        q: query,
+        cause,
+        reporter,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        take: 200,
+      });
+      setRows(data);
+    } catch (e: any) {
+      setError(e?.message || "Erreur");
+    } finally {
+      setLoading(false);
+    }
+  }, [query, cause, reporter, dateFrom, dateTo]);
+
+  React.useEffect(() => {
+    load();
+  }, [load]);
+
+  // filtering already applied server-side, but we keep a light client sort
   const sorted = React.useMemo(() => {
     const get = (r: ReturnRow) => {
       switch (sortKey) {
@@ -388,30 +368,29 @@ export default function ReturnsPage() {
           return r.attachments?.length ?? 0;
       }
     };
-    const copy = [...filtered];
+    const copy = [...rows];
     copy.sort((a, b) => {
       const va = get(a);
       const vb = get(b);
       if (typeof va === "number" && typeof vb === "number") {
         return sortDir === "asc" ? va - vb : vb - va;
       }
-      // treat as strings otherwise
       const sa = String(va ?? "");
       const sb = String(vb ?? "");
       const res = sa.localeCompare(sb, "fr", { numeric: true, sensitivity: "base" });
       return sortDir === "asc" ? res : -res;
     });
     return copy;
-  }, [filtered, sortKey, sortDir]);
+  }, [rows, sortKey, sortDir]);
 
   const stats = React.useMemo(
     () => ({
-      total: sorted.length,
-      draft: sorted.filter((r) => r.status === "draft").length,
-      awaiting: sorted.filter((r) => r.status === "awaiting_physical").length,
-      received: sorted.filter((r) => r.status === "received_or_no_physical").length,
+      total: rows.length,
+      draft: rows.filter((r) => r.status === "draft").length,
+      awaiting: rows.filter((r) => r.status === "awaiting_physical").length,
+      received: rows.filter((r) => r.status === "received_or_no_physical").length,
     }),
-    [sorted]
+    [rows]
   );
 
   // actions
@@ -419,6 +398,7 @@ export default function ReturnsPage() {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, standby: !r.standby } : r)));
   const onDelete = (id: string) => {
     if (!confirm(`Supprimer le retour ${id} ?`)) return;
+    // TODO: hook /api/returns/[code] DELETE when ready
     setRows((prev) => prev.filter((r) => r.id !== id));
   };
   const onReset = () => {
@@ -428,40 +408,6 @@ export default function ReturnsPage() {
     setDateFrom("");
     setDateTo("");
   };
-
-  const updateSelected = (patch: Partial<ReturnRow>) => {
-    if (!selected) return;
-    setRows((prev) => prev.map((r) => (r.id === selected.id ? { ...r, ...patch } : r)));
-  };
-  const addProduct = () => {
-    if (!selected) return;
-    const next: ProductLine = {
-      id: `np-${Date.now()}`,
-      codeProduit: "",
-      descriptionProduit: "",
-      descriptionRetour: "",
-      quantite: 1,
-    };
-    updateSelected({ products: [...(selected.products ?? []), next] });
-  };
-  const removeProduct = (pid: string) =>
-    selected && updateSelected({ products: (selected.products ?? []).filter((p) => p.id !== pid) });
-  const changeProduct = (pid: string, patch: Partial<ProductLine>) =>
-    selected &&
-    updateSelected({
-      products: (selected.products ?? []).map((p) => (p.id === pid ? { ...p, ...patch } : p)),
-    });
-
-  const saveDraft = () => {
-    updateSelected({ status: "draft" });
-    alert("Brouillon enregistré (fictif).");
-  };
-  const sendForApproval = () => {
-    updateSelected({ status: "received_or_no_physical" });
-    alert("Envoyé pour approbation (fictif).");
-  };
-
-  // header sort handler
   const toggleSort = (key: SortKey) => {
     setSortKey((prevKey) => {
       if (prevKey === key) {
@@ -473,24 +419,26 @@ export default function ReturnsPage() {
     });
   };
 
-  // Build a "striped" array so identical consecutive statuses alternate (pale / darker).
+  // zebra by status
   const striped = React.useMemo(() => {
     let last: ReturnStatus | null = null;
     let toggle = false;
     return sorted.map((r) => {
       if (r.status === last) {
-        toggle = !toggle;      // flip when same status continues
+        toggle = !toggle;
       } else {
-        toggle = false;        // reset when status changes
+        toggle = false;
         last = r.status;
       }
       return { row: r, stripe: toggle };
     });
   }, [sorted]);
 
+  const { resolvedTheme: _t } = useTheme();
+  const isDark = _t === "dark";
+
   return (
     <div className={cn("min-h-[100svh]", isDark ? "bg-[#050507]" : "bg-white")}>
-      {/* emerald halos, subtle */}
       {isDark && (
         <div className="fixed inset-0 pointer-events-none opacity-25">
           <div className="absolute -top-10 right-20 w-96 h-96 rounded-full blur-3xl bg-emerald-400" />
@@ -499,7 +447,7 @@ export default function ReturnsPage() {
       )}
 
       <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8 py-7 relative z-10">
-        {/* Header card (emerald accent) */}
+        {/* Header */}
         <div
           className={cn(
             "rounded-3xl border backdrop-blur-2xl relative overflow-hidden",
@@ -547,7 +495,7 @@ export default function ReturnsPage() {
                     ? "0 8px 30px rgba(16,185,129,0.15)"
                     : "0 8px 30px rgba(16,185,129,0.10)",
                 }}
-                onClick={() => alert("Nouveau retour (à brancher)")}
+                onClick={() => setOpenNew(true)}
               >
                 <Plus className="h-4 w-4" />
                 Nouveau retour
@@ -561,6 +509,7 @@ export default function ReturnsPage() {
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && load()}
                   placeholder="Rechercher par code, client, expert, commande…"
                   className={cn(
                     "w-full pl-11 pr-4 py-2.5 rounded-xl text-sm outline-none transition",
@@ -629,7 +578,7 @@ export default function ReturnsPage() {
                   )}
                 />
                 <button
-                  onClick={() => setExpanded((v) => !v)}
+                  onClick={() => setOpenNew(true)}
                   className={cn(
                     "lg:hidden inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm border transition",
                     isDark
@@ -637,11 +586,11 @@ export default function ReturnsPage() {
                       : "bg-white border-slate-200 text-slate-800"
                   )}
                 >
-                  <Filter className="h-4 w-4" />
-                  Plus {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  <Plus className="h-4 w-4" />
+                  Nouveau
                 </button>
                 <button
-                  onClick={() => alert("Exporter (à brancher)")}
+                  onClick={() => load()}
                   className={cn(
                     "hidden lg:inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm border transition",
                     isDark
@@ -650,7 +599,7 @@ export default function ReturnsPage() {
                   )}
                 >
                   <Download className="h-4 w-4" />
-                  Exporter
+                  Rafraîchir
                 </button>
                 <button
                   onClick={onReset}
@@ -702,180 +651,299 @@ export default function ReturnsPage() {
               isDark ? "border-white/15 bg-neutral-950/70" : "border-slate-200 bg-white"
             )}
           >
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead
+            {loading && (
+              <div className="py-10 text-center text-sm">
+                Chargement des retours…
+              </div>
+            )}
+            {error && (
+              <div className="py-10 text-center text-sm text-red-600">
+                {error}
+              </div>
+            )}
+
+            {!loading && !error && (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead
+                      className={cn(
+                        "text-[11px] uppercase tracking-wider",
+                        isDark
+                          ? "bg-neutral-950/80 text-slate-400"
+                          : "bg-slate-50 text-slate-500"
+                      )}
+                    >
+                      <tr
+                        className={cn(
+                          isDark ? "border-b border-white/10" : "border-b border-slate-200"
+                        )}
+                      >
+                        <SortTh
+                          label="Code"
+                          active={sortKey === "id"}
+                          dir={sortDir}
+                          onClick={() => toggleSort("id")}
+                        />
+                        <SortTh
+                          label="Date"
+                          active={sortKey === "reportedAt"}
+                          dir={sortDir}
+                          onClick={() => toggleSort("reportedAt")}
+                        />
+                        <SortTh
+                          label="Signalé par"
+                          active={sortKey === "reporter"}
+                          dir={sortDir}
+                          onClick={() => toggleSort("reporter")}
+                        />
+                        <SortTh
+                          label="Cause"
+                          active={sortKey === "cause"}
+                          dir={sortDir}
+                          onClick={() => toggleSort("cause")}
+                        />
+                        <SortTh
+                          label="Client / Expert"
+                          active={sortKey === "client"}
+                          dir={sortDir}
+                          onClick={() => toggleSort("client")}
+                        />
+                        <SortTh
+                          label="No commande"
+                          active={sortKey === "noCommande"}
+                          dir={sortDir}
+                          onClick={() => toggleSort("noCommande")}
+                        />
+                        <SortTh
+                          label="Tracking"
+                          active={sortKey === "tracking"}
+                          dir={sortDir}
+                          onClick={() => toggleSort("tracking")}
+                        />
+                        <SortTh
+                          label="P.J."
+                          active={sortKey === "attachments"}
+                          dir={sortDir}
+                          onClick={() => toggleSort("attachments")}
+                        />
+                        <th className="px-5 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+
+                    <tbody
+                      className={cn(
+                        isDark ? "divide-y divide-white/8" : "divide-y divide-slate-100"
+                      )}
+                    >
+                      {striped.map(({ row, stripe }) => {
+                        const hasFiles = (row.attachments?.length ?? 0) > 0;
+                        const s = STATUS_TEXT[row.status];
+                        return (
+                          <tr
+                            key={row.id}
+                            onMouseEnter={() => setHovered(row.id)}
+                            onMouseLeave={() => setHovered(null)}
+                            className={cn(
+                              "relative transition-all duration-200",
+                              row.standby && "opacity-60"
+                            )}
+                            style={rowStyle(row.status, stripe)}
+                          >
+                            <td className={cn("px-5 py-4 font-semibold", s.text)}>
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className={cn(
+                                    "w-1.5 h-6 rounded-full",
+                                    row.status === "draft" && "bg-slate-300",
+                                    row.status === "awaiting_physical" &&
+                                      "bg-white/80",
+                                    row.status === "received_or_no_physical" &&
+                                      "bg-white/80"
+                                  )}
+                                />
+                                <span className="font-mono">{row.id}</span>
+                              </div>
+                            </td>
+                            <td className={cn("px-5 py-4", s.text)}>
+                              <div className="flex items-center gap-2">
+                                <Calendar className="h-3.5 w-3.5 opacity-70" />
+                                {new Date(row.reportedAt).toLocaleDateString("fr-CA")}
+                              </div>
+                            </td>
+                            <td className="px-5 py-4">
+                              <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium bg-slate-200 text-slate-700 border-slate-300 dark:bg-white/10 dark:text-slate-100 dark:border-white/20">
+                                {REPORTER_LABEL[row.reporter]}
+                              </span>
+                            </td>
+                            <td className="px-5 py-4">
+                              <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:border-emerald-500/20">
+                                {CAUSE_LABEL[row.cause]}
+                              </span>
+                            </td>
+                            <td className={cn("px-5 py-4", s.text)}>
+                              <div>
+                                <div className="font-medium">{row.client}</div>
+                                <div className={cn("text-[11px] opacity-80")}>
+                                  {row.expert}
+                                </div>
+                              </div>
+                            </td>
+                            <td className={cn("px-5 py-4", s.text)}>
+                              {row.noCommande ?? "—"}
+                            </td>
+                            <td className={cn("px-5 py-4", s.text)}>
+                              {row.tracking ?? "—"}
+                            </td>
+                            <td className={cn("px-5 py-4", s.text)}>
+                              {hasFiles ? (
+                                <div className="inline-flex items-center gap-1.5">
+                                  <Folder className="h-4 w-4 opacity-80" />
+                                  <span className="text-xs font-medium">
+                                    {row.attachments!.length}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span
+                                  className={cn(
+                                    "text-xs",
+                                    isDark ? "text-slate-300" : "text-slate-500"
+                                  )}
+                                >
+                                  —
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-5 py-3">
+                              <div
+                                className={cn(
+                                  "flex items-center justify-end gap-1 transition-opacity",
+                                  hovered === row.id ? "opacity-100" : "opacity-0"
+                                )}
+                              >
+                                <button
+                                  onClick={() => setOpenId(row.id)}
+                                  className={cn(
+                                    "p-2 rounded-lg",
+                                    row.status === "draft"
+                                      ? isDark
+                                        ? "hover:bg-white/10 text-slate-300"
+                                        : "hover:bg-slate-100 text-slate-700"
+                                      : "hover:bg-white/20 text-white"
+                                  )}
+                                  title="Consulter"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => onToggleStandby(row.id)}
+                                  className={cn(
+                                    "p-2 rounded-lg",
+                                    row.status === "draft"
+                                      ? isDark
+                                        ? "hover:bg-white/10 text-amber-300"
+                                        : "hover:bg-amber-50 text-amber-600"
+                                      : "hover:bg-white/20 text-white"
+                                  )}
+                                  title={
+                                    row.standby
+                                      ? "Retirer du standby"
+                                      : "Mettre en standby"
+                                  }
+                                >
+                                  <Pause className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => onDelete(row.id)}
+                                  className={cn(
+                                    "p-2 rounded-lg",
+                                    row.status === "draft"
+                                      ? isDark
+                                        ? "hover:bg-red-500/10 text-red-400"
+                                        : "hover:bg-red-50 text-red-600"
+                                      : "hover:bg-white/20 text-white"
+                                  )}
+                                  title="Supprimer"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+
+                  {sorted.length === 0 && (
+                    <div className="py-16 text-center">
+                      <Package
+                        className={cn(
+                          "h-10 w-10 mx-auto mb-3",
+                          isDark ? "text-slate-600" : "text-slate-300"
+                        )}
+                      />
+                      <p
+                        className={cn(
+                          isDark ? "text-slate-400" : "text-slate-500",
+                          "text-sm"
+                        )}
+                      >
+                        Aucun retour ne correspond à vos filtres
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Table footer */}
+                <div
                   className={cn(
-                    "text-[11px] uppercase tracking-wider",
+                    "px-5 py-2 flex items-center justify-between",
                     isDark
-                      ? "bg-neutral-950/80 text-slate-400"
-                      : "bg-slate-50 text-slate-500"
+                      ? "border-t border-white/10 bg-neutral-950/60"
+                      : "border-t border-slate-200 bg-slate-50"
                   )}
                 >
-                  <tr className={cn(isDark ? "border-b border-white/10" : "border-b border-slate-200")}>
-                    <SortTh label="Code" active={sortKey === "id"} dir={sortDir} onClick={() => toggleSort("id")} />
-                    <SortTh label="Date" active={sortKey === "reportedAt"} dir={sortDir} onClick={() => toggleSort("reportedAt")} />
-                    <SortTh label="Signalé par" active={sortKey === "reporter"} dir={sortDir} onClick={() => toggleSort("reporter")} />
-                    <SortTh label="Cause" active={sortKey === "cause"} dir={sortDir} onClick={() => toggleSort("cause")} />
-                    <SortTh label="Client / Expert" active={sortKey === "client"} dir={sortDir} onClick={() => toggleSort("client")} />
-                    <SortTh label="No commande" active={sortKey === "noCommande"} dir={sortDir} onClick={() => toggleSort("noCommande")} />
-                    <SortTh label="Tracking" active={sortKey === "tracking"} dir={sortDir} onClick={() => toggleSort("tracking")} />
-                    <SortTh label="P.J." active={sortKey === "attachments"} dir={sortDir} onClick={() => toggleSort("attachments")} />
-                    <th className="px-5 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className={cn(isDark ? "divide-y divide-white/8" : "divide-y divide-slate-100")}>
-                  {striped.map(({ row, stripe }) => {
-                    const hasFiles = (row.attachments?.length ?? 0) > 0;
-                    const s = STATUS_TEXT[row.status];
-                    return (
-                      <tr
-                        key={row.id}
-                        onMouseEnter={() => setHovered(row.id)}
-                        onMouseLeave={() => setHovered(null)}
-                        className={cn("relative transition-all duration-200", row.standby && "opacity-60")}
-                        style={rowStyle(row.status, stripe)}
-                      >
-                        <td className={cn("px-5 py-4 font-semibold", s.text)}>
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={cn(
-                                "w-1.5 h-6 rounded-full",
-                                row.status === "draft" && "bg-slate-300",
-                                row.status === "awaiting_physical" && "bg-white/80",
-                                row.status === "received_or_no_physical" && "bg-white/80"
-                              )}
-                            />
-                            <span className="font-mono">{row.id}</span>
-                          </div>
-                        </td>
-                        <td className={cn("px-5 py-4", s.text)}>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-3.5 w-3.5 opacity-70" />
-                            {new Date(row.reportedAt).toLocaleDateString("fr-CA")}
-                          </div>
-                        </td>
-                        <td className="px-5 py-4">
-                          <Pill tone="slate">{REPORTER_LABEL[row.reporter]}</Pill>
-                        </td>
-                        <td className="px-5 py-4">
-                          <Pill tone="green">{CAUSE_LABEL[row.cause]}</Pill>
-                        </td>
-                        <td className={cn("px-5 py-4", s.text)}>
-                          <div>
-                            <div className="font-medium">{row.client}</div>
-                            <div className={cn("text-[11px] opacity-80")}>{row.expert}</div>
-                          </div>
-                        </td>
-                        <td className={cn("px-5 py-4", s.text)}>{row.noCommande ?? "—"}</td>
-                        <td className={cn("px-5 py-4", s.text)}>{row.tracking ?? "—"}</td>
-                        <td className={cn("px-5 py-4", s.text)}>
-                          {hasFiles ? (
-                            <div className="inline-flex items-center gap-1.5">
-                              <Folder className="h-4 w-4 opacity-80" />
-                              <span className="text-xs font-medium">{row.attachments!.length}</span>
-                            </div>
-                          ) : (
-                            <span className={cn("text-xs", isDark ? "text-slate-300" : "text-slate-500")}>—</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3">
-                          <div
-                            className={cn(
-                              "flex items-center justify-end gap-1 transition-opacity",
-                              hovered === row.id ? "opacity-100" : "opacity-0"
-                            )}
-                          >
-                            <button
-                              onClick={() => setOpenId(row.id)}
-                              className={cn(
-                                "p-2 rounded-lg",
-                                row.status === "draft"
-                                  ? isDark
-                                    ? "hover:bg-white/10 text-slate-300"
-                                    : "hover:bg-slate-100 text-slate-700"
-                                  : "hover:bg-white/20 text-white"
-                              )}
-                              title="Consulter"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => onToggleStandby(row.id)}
-                              className={cn(
-                                "p-2 rounded-lg",
-                                row.status === "draft"
-                                  ? isDark
-                                    ? "hover:bg-white/10 text-amber-300"
-                                    : "hover:bg-amber-50 text-amber-600"
-                                  : "hover:bg-white/20 text-white"
-                              )}
-                              title={row.standby ? "Retirer du standby" : "Mettre en standby"}
-                            >
-                              <Pause className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => onDelete(row.id)}
-                              className={cn(
-                                "p-2 rounded-lg",
-                                row.status === "draft"
-                                  ? isDark
-                                    ? "hover:bg-red-500/10 text-red-400"
-                                    : "hover:bg-red-50 text-red-600"
-                                  : "hover:bg-white/20 text-white"
-                              )}
-                              title="Supprimer"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-
-              {sorted.length === 0 && (
-                <div className="py-16 text-center">
-                  <Package className={cn("h-10 w-10 mx-auto mb-3", isDark ? "text-slate-600" : "text-slate-300")} />
-                  <p className={cn(isDark ? "text-slate-400" : "text-slate-500", "text-sm")}>
-                    Aucun retour ne correspond à vos filtres
-                  </p>
+                  <span
+                    className={cn(
+                      "text-xs",
+                      isDark ? "text-slate-400" : "text-slate-500"
+                    )}
+                  >
+                    {sorted.length} résultat{sorted.length > 1 ? "s" : ""}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <StatusChip status="draft" />
+                    <StatusChip status="awaiting_physical" />
+                    <StatusChip status="received_or_no_physical" />
+                  </div>
                 </div>
-              )}
-            </div>
-
-            {/* Table footer */}
-            <div
-              className={cn(
-                "px-5 py-2 flex items-center justify-between",
-                isDark ? "border-t border-white/10 bg-neutral-950/60" : "border-t border-slate-200 bg-slate-50"
-              )}
-            >
-              <span className={cn("text-xs", isDark ? "text-slate-400" : "text-slate-500")}>
-                {sorted.length} résultat{sorted.length > 1 ? "s" : ""}
-              </span>
-              <div className="flex items-center gap-2">
-                <StatusChip status="draft" />
-                <StatusChip status="awaiting_physical" />
-                <StatusChip status="received_or_no_physical" />
-              </div>
-            </div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Detail modal */}
+        {/* Detail modal (existing) */}
         {selected && (
           <DetailModal
             row={selected}
             onClose={() => setOpenId(null)}
-            onPatch={updateSelected}
-            onAddProduct={addProduct}
-            onRemoveProduct={removeProduct}
-            onChangeProduct={changeProduct}
-            onSaveDraft={saveDraft}
-            onSendForApproval={sendForApproval}
+            onPatched={(patch) =>
+              setRows((prev) =>
+                prev.map((r) => (r.id === selected.id ? { ...r, ...patch } : r))
+              )
+            }
+          />
+        )}
+
+        {/* New return modal */}
+        {openNew && (
+          <NewReturnModal
+            onClose={() => setOpenNew(false)}
+            onCreated={async () => {
+              setOpenNew(false);
+              await load();
+            }}
           />
         )}
       </div>
@@ -927,7 +995,8 @@ function Metric({
 
 function StatusChip({ status }: { status: ReturnStatus }) {
   const s = STATUS_TEXT[status];
-  const Icon = status === "draft" ? FileText : status === "awaiting_physical" ? Clock : CheckCircle;
+  const Icon =
+    status === "draft" ? FileText : status === "awaiting_physical" ? Clock : CheckCircle;
   return (
     <span
       className={cn(
@@ -941,7 +1010,6 @@ function StatusChip({ status }: { status: ReturnStatus }) {
   );
 }
 
-/** Sortable table header cell with arrows */
 function SortTh({
   label,
   active,
@@ -977,28 +1045,22 @@ function SortTh({
 }
 
 /* =============================================================================
-   Detail modal (safe-area fixed, internal scroll)
+   Detail modal (read-only editing demo)
+   - You can wire PATCH /api/returns/[code] later if needed.
 ============================================================================= */
 function DetailModal({
   row,
   onClose,
-  onPatch,
-  onAddProduct,
-  onRemoveProduct,
-  onChangeProduct,
-  onSaveDraft,
-  onSendForApproval,
+  onPatched,
 }: {
   row: ReturnRow;
   onClose: () => void;
-  onPatch: (patch: Partial<ReturnRow>) => void;
-  onAddProduct: () => void;
-  onRemoveProduct: (pid: string) => void;
-  onChangeProduct: (pid: string, patch: Partial<ProductLine>) => void;
-  onSaveDraft: () => void;
-  onSendForApproval: () => void;
+  onPatched: (patch: Partial<ReturnRow>) => void;
 }) {
-  const hasFiles = (row.attachments?.length ?? 0) > 0;
+  const [draft, setDraft] = React.useState<ReturnRow>(row);
+  React.useEffect(() => setDraft(row), [row]);
+
+  const hasFiles = (draft.attachments?.length ?? 0) > 0;
 
   React.useEffect(() => {
     const prev = document.body.style.overflow;
@@ -1020,18 +1082,18 @@ function DetailModal({
                 <div
                   className={cn(
                     "w-1.5 h-10 rounded-full",
-                    row.status === "draft" && "bg-slate-400",
-                    row.status === "awaiting_physical" && "bg-black",
-                    row.status === "received_or_no_physical" && "bg-emerald-500"
+                    draft.status === "draft" && "bg-slate-400",
+                    draft.status === "awaiting_physical" && "bg-black",
+                    draft.status === "received_or_no_physical" && "bg-emerald-500"
                   )}
                 />
                 <div>
                   <h2 className="text-lg font-bold">
-                    Retour {row.id} — {CAUSE_LABEL[row.cause]}
+                    Retour {draft.id} — {CAUSE_LABEL[draft.cause]}
                   </h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Signalé le {new Date(row.reportedAt).toLocaleDateString("fr-CA")} par{" "}
-                    {REPORTER_LABEL[row.reporter]}
+                    Signalé le {new Date(draft.reportedAt).toLocaleDateString("fr-CA")} par{" "}
+                    {REPORTER_LABEL[draft.reporter]}
                   </p>
                 </div>
               </div>
@@ -1043,15 +1105,15 @@ function DetailModal({
 
           {/* Body */}
           <div className="max-h-[calc(100vh-220px)] overflow-auto px-6 py-6 space-y-6">
-            {row.createdBy && (
+            {draft.createdBy && (
               <div className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02]">
                 <div className="h-9 w-9 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white grid place-items-center font-medium">
-                  {row.createdBy.name.charAt(0)}
+                  {draft.createdBy.name.charAt(0)}
                 </div>
                 <div className="text-sm">
-                  <div className="font-medium">{row.createdBy.name}</div>
+                  <div className="font-medium">{draft.createdBy.name}</div>
                   <div className="text-xs text-slate-500 dark:text-slate-400">
-                    {new Date(row.createdBy.at).toLocaleString("fr-CA")}
+                    {new Date(draft.createdBy.at).toLocaleString("fr-CA")}
                   </div>
                 </div>
               </div>
@@ -1059,19 +1121,19 @@ function DetailModal({
 
             {/* Fields */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Field label="Expert" value={row.expert} onChange={(v) => onPatch({ expert: v })} />
-              <Field label="Client" value={row.client} onChange={(v) => onPatch({ client: v })} />
-              <Field label="No. client" value={row.noClient ?? ""} onChange={(v) => onPatch({ noClient: v || undefined })} />
-              <Field label="No. commande" value={row.noCommande ?? ""} onChange={(v) => onPatch({ noCommande: v || undefined })} />
-              <Field label="No. tracking" value={row.tracking ?? ""} onChange={(v) => onPatch({ tracking: v || undefined })} />
-              <Field label="Transport" value={row.transport ?? ""} onChange={(v) => onPatch({ transport: v || null })} />
-              <Field label="Montant" value={row.amount?.toString() ?? ""} onChange={(v) => onPatch({ amount: v ? Number(v) : null })} />
-              <Field label="Date commande" type="date" value={row.dateCommande ?? ""} onChange={(v) => onPatch({ dateCommande: v || null })} />
+              <Field label="Expert" value={draft.expert} onChange={(v) => setDraft({ ...draft, expert: v })} />
+              <Field label="Client" value={draft.client} onChange={(v) => setDraft({ ...draft, client: v })} />
+              <Field label="No. client" value={draft.noClient ?? ""} onChange={(v) => setDraft({ ...draft, noClient: v || undefined })} />
+              <Field label="No. commande" value={draft.noCommande ?? ""} onChange={(v) => setDraft({ ...draft, noCommande: v || undefined })} />
+              <Field label="No. tracking" value={draft.tracking ?? ""} onChange={(v) => setDraft({ ...draft, tracking: v || undefined })} />
+              <Field label="Transport" value={draft.transport ?? ""} onChange={(v) => setDraft({ ...draft, transport: v || null })} />
+              <Field label="Montant" value={draft.amount?.toString() ?? ""} onChange={(v) => setDraft({ ...draft, amount: v ? Number(v) : null })} />
+              <Field label="Date commande" type="date" value={draft.dateCommande ?? ""} onChange={(v) => setDraft({ ...draft, dateCommande: v || null })} />
               <Field
                 label="Cause"
                 as="select"
-                value={row.cause}
-                onChange={(v) => onPatch({ cause: v as Cause })}
+                value={draft.cause}
+                onChange={(v) => setDraft({ ...draft, cause: v as Cause })}
                 options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))}
               />
             </div>
@@ -1082,12 +1144,12 @@ function DetailModal({
                 <Folder className="h-5 w-5 text-slate-500 dark:text-slate-400" />
                 <h4 className="font-semibold">Fichiers joints</h4>
                 <span className="text-xs text-slate-500 dark:text-slate-400">
-                  ({row.attachments?.length ?? 0})
+                  ({draft.attachments?.length ?? 0})
                 </span>
               </div>
               {hasFiles ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {row.attachments!.map((a) => (
+                  {draft.attachments!.map((a) => (
                     <div key={a.id} className="rounded-lg border overflow-hidden border-slate-200 dark:border-white/10">
                       <div className="px-3 py-2 text-sm border-b bg-slate-50/60 dark:bg-neutral-900 dark:border-white/10">
                         {a.name}
@@ -1108,38 +1170,51 @@ function DetailModal({
                   <Package className="h-4 w-4" />
                   Produits (RMA)
                 </h4>
-                <button
-                  onClick={onAddProduct}
-                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm border-slate-200 dark:border-white/15 bg-white dark:bg-neutral-900 hover:bg-slate-50 dark:hover:bg-neutral-800"
-                >
-                  <Plus className="h-4 w-4" />
-                  Ajouter produit
-                </button>
               </div>
 
               <div className="space-y-2">
-                {(row.products ?? []).map((p) => (
+                {(draft.products ?? []).map((p, idx) => (
                   <div
                     key={p.id}
-                    className="grid grid-cols-1 md:grid-cols-[140px_1fr_1fr_110px_40px] gap-2 items-center p-3 rounded-lg bg-slate-50 dark:bg-neutral-950 border border-slate-200 dark:border-white/10"
+                    className="grid grid-cols-1 md:grid-cols-[220px_1fr_1fr_110px_40px] gap-2 items-center p-3 rounded-lg bg-slate-50 dark:bg-neutral-950 border border-slate-200 dark:border-white/10"
                   >
-                    <input
-                      className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-900 dark:border-white/10"
-                      placeholder="Code de produit"
+                    <ProductCodeField
                       value={p.codeProduit}
-                      onChange={(e) => onChangeProduct(p.id, { codeProduit: e.target.value })}
+                      onSelect={(code, descr) => {
+                        const arr = (draft.products ?? []).slice();
+                        arr[idx] = {
+                          ...arr[idx],
+                          codeProduit: code,
+                          descriptionProduit:
+                            arr[idx].descriptionProduit || descr || "",
+                        };
+                        setDraft({ ...draft, products: arr });
+                      }}
+                      onChange={(code) => {
+                        const arr = (draft.products ?? []).slice();
+                        arr[idx] = { ...arr[idx], codeProduit: code };
+                        setDraft({ ...draft, products: arr });
+                      }}
                     />
                     <input
                       className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-900 dark:border-white/10"
                       placeholder="Description du produit"
                       value={p.descriptionProduit}
-                      onChange={(e) => onChangeProduct(p.id, { descriptionProduit: e.target.value })}
+                      onChange={(e) => {
+                        const arr = (draft.products ?? []).slice();
+                        arr[idx] = { ...arr[idx], descriptionProduit: e.target.value };
+                        setDraft({ ...draft, products: arr });
+                      }}
                     />
                     <input
                       className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-900 dark:border-white/10"
                       placeholder="Description du retour"
                       value={p.descriptionRetour ?? ""}
-                      onChange={(e) => onChangeProduct(p.id, { descriptionRetour: e.target.value })}
+                      onChange={(e) => {
+                        const arr = (draft.products ?? []).slice();
+                        arr[idx] = { ...arr[idx], descriptionRetour: e.target.value };
+                        setDraft({ ...draft, products: arr });
+                      }}
                     />
                     <input
                       type="number"
@@ -1147,20 +1222,30 @@ function DetailModal({
                       className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-900 dark:border-white/10"
                       placeholder="Quantité"
                       value={p.quantite}
-                      onChange={(e) => onChangeProduct(p.id, { quantite: Number(e.target.value || 0) })}
+                      onChange={(e) => {
+                        const arr = (draft.products ?? []).slice();
+                        arr[idx] = {
+                          ...arr[idx],
+                          quantite: Number(e.target.value || 0),
+                        };
+                        setDraft({ ...draft, products: arr });
+                      }}
                     />
                     <button
                       className="inline-flex items-center justify-center rounded-lg p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
-                      onClick={() => onRemoveProduct(p.id)}
+                      onClick={() => {
+                        const arr = (draft.products ?? []).filter((x) => x.id !== p.id);
+                        setDraft({ ...draft, products: arr });
+                      }}
                       title="Retirer"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 ))}
-                {(row.products?.length ?? 0) === 0 && (
+                {(draft.products?.length ?? 0) === 0 && (
                   <div className="text-sm text-slate-500 dark:text-slate-400 py-6 text-center">
-                    Aucun produit. Ajoutez des lignes à l'aide du bouton ci-haut.
+                    Aucun produit.
                   </div>
                 )}
               </div>
@@ -1173,8 +1258,8 @@ function DetailModal({
                 className="w-full rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-950 dark:border-white/10"
                 rows={4}
                 placeholder="Notes internes, contexte, instructions…"
-                value={row.description ?? ""}
-                onChange={(e) => onPatch({ description: e.target.value })}
+                value={draft.description ?? ""}
+                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
               />
             </div>
           </div>
@@ -1183,18 +1268,24 @@ function DetailModal({
           <div className="px-6 py-4 border-t border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-neutral-950/70">
             <div className="flex items-center justify-between">
               <div className="text-xs text-slate-500 dark:text-slate-400">
-                Les changements sont locaux (demo). Connecter au backend PostgreSQL plus tard.
+                Lecture/édition locale pour l’instant.
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={onSaveDraft}
+                  onClick={() => {
+                    onPatched(draft);
+                    alert("Brouillon enregistré (local).");
+                  }}
                   className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm border-slate-200 dark:border-white/15 bg-white dark:bg-neutral-900 hover:bg-slate-50 dark:hover:bg-neutral-800"
                 >
                   <Save className="h-4 w-4" />
-                  Enregistrer brouillon
+                  Enregistrer
                 </button>
                 <button
-                  onClick={onSendForApproval}
+                  onClick={() => {
+                    onPatched({ status: "received_or_no_physical" });
+                    alert("Envoyé pour approbation (local).");
+                  }}
                   className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-black"
                   style={{ background: "linear-gradient(135deg, #10b981 0%, #34d399 100%)" }}
                 >
@@ -1211,7 +1302,293 @@ function DetailModal({
 }
 
 /* =============================================================================
-   Small input component
+   New Return modal (real POST + order auto-fill + item autocomplete)
+============================================================================= */
+function NewReturnModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: () => Promise<void> | void;
+}) {
+  const [reporter, setReporter] = React.useState<Reporter>("expert");
+  const [cause, setCause] = React.useState<Cause>("production");
+  const [expert, setExpert] = React.useState("");
+  const [client, setClient] = React.useState("");
+  const [noClient, setNoClient] = React.useState("");
+  const [noCommande, setNoCommande] = React.useState("");
+  const [tracking, setTracking] = React.useState("");
+  const [transport, setTransport] = React.useState("");
+  const [amount, setAmount] = React.useState<string>("");
+  const [dateCommande, setDateCommande] = React.useState<string>("");
+  const [description, setDescription] = React.useState("");
+  const [products, setProducts] = React.useState<ProductLine[]>([]);
+  const [busy, setBusy] = React.useState(false);
+
+  const addProduct = () =>
+    setProducts((p) => [
+      ...p,
+      {
+        id: `np-${Date.now()}`,
+        codeProduit: "",
+        descriptionProduit: "",
+        descriptionRetour: "",
+        quantite: 1,
+      },
+    ]);
+  const removeProduct = (pid: string) =>
+    setProducts((p) => p.filter((x) => x.id !== pid));
+  const patchProduct = (pid: string, patch: Partial<ProductLine>) =>
+    setProducts((p) => p.map((x) => (x.id === pid ? { ...x, ...patch } : x)));
+
+  const onBlurCommande = async () => {
+    const data = await lookupOrder(noCommande);
+    if (!data) return;
+    if (data.customerName) setClient(data.customerName);
+    if (data.salesrepName) setExpert(data.salesrepName);
+    if (data.carrierName) setTransport(data.carrierName);
+    if (data.tracking) setTracking(data.tracking);
+    if (data.orderDate) setDateCommande(data.orderDate.slice(0, 10));
+    if (data.totalamt != null) setAmount(String(data.totalamt));
+  };
+
+  const submit = async () => {
+    if (!expert.trim() || !client.trim()) {
+      alert("Expert et client sont requis.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await createReturn({
+        reporter,
+        cause,
+        expert: expert.trim(),
+        client: client.trim(),
+        noClient: noClient.trim() || null,
+        noCommande: noCommande.trim() || null,
+        tracking: tracking.trim() || null,
+        amount: amount ? Number(amount) : null,
+        dateCommande: dateCommande || null,
+        transport: transport.trim() || null,
+        description: description.trim() || null,
+        products: products.map((p) => ({
+          codeProduit: p.codeProduit.trim(),
+          descriptionProduit: p.descriptionProduit.trim(),
+          descriptionRetour: p.descriptionRetour?.trim(),
+          quantite: p.quantite,
+        })),
+      });
+      await onCreated();
+    } catch (e: any) {
+      alert(e?.message || "Erreur à la création");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  React.useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-[210]">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 flex items-start justify-center p-4 sm:p-8">
+        <div className="w-full max-w-[min(100vw-64px,1100px)] overflow-hidden rounded-2xl border shadow-2xl bg-white dark:bg-neutral-900 border-slate-200 dark:border-white/15 mt-[max(24px,env(safe-area-inset-top))] mb-[max(24px,env(safe-area-inset-bottom))]">
+          <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-gradient-to-br from-slate-50 to-white dark:from-neutral-900 dark:to-neutral-950">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold">Nouveau retour</h2>
+              <button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="max-h-[calc(100vh-220px)] overflow-auto px-6 py-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Field
+                label="Signalé par"
+                as="select"
+                value={reporter}
+                onChange={(v) => setReporter(v as Reporter)}
+                options={[
+                  { value: "expert", label: "Expert" },
+                  { value: "transporteur", label: "Transporteur" },
+                  { value: "autre", label: "Autre" },
+                ]}
+              />
+              <Field
+                label="Cause"
+                as="select"
+                value={cause}
+                onChange={(v) => setCause(v as Cause)}
+                options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))}
+              />
+              <Field label="Expert" value={expert} onChange={setExpert} />
+              <Field label="Client" value={client} onChange={setClient} />
+              <Field label="No. client" value={noClient} onChange={setNoClient} />
+              <Field
+                label="No. commande"
+                value={noCommande}
+                onChange={setNoCommande}
+                // Autofill on blur
+                type="text"
+              />
+              <button
+                onClick={onBlurCommande}
+                className="self-end h-[38px] rounded-lg border px-3 text-sm border-slate-200 dark:border-white/15 bg-white dark:bg-neutral-900 hover:bg-slate-50 dark:hover:bg-neutral-800"
+                title="Autoremplir à partir du no_commande"
+              >
+                Remplir depuis commande
+              </button>
+              <Field label="No. tracking" value={tracking} onChange={setTracking} />
+              <Field label="Transport" value={transport} onChange={setTransport} />
+              <Field label="Montant" value={amount} onChange={setAmount} />
+              <Field label="Date commande" type="date" value={dateCommande} onChange={setDateCommande} />
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="font-semibold">Produits</h4>
+              <div className="space-y-2">
+                {products.map((p, idx) => (
+                  <div
+                    key={p.id}
+                    className="grid grid-cols-1 md:grid-cols-[220px_1fr_1fr_110px_40px] gap-2 items-center p-3 rounded-lg bg-slate-50 dark:bg-neutral-950 border border-slate-200 dark:border-white/10"
+                  >
+                    <ProductCodeField
+                      value={p.codeProduit}
+                      onSelect={(code, descr) => {
+                        const arr = products.slice();
+                        arr[idx] = {
+                          ...arr[idx],
+                          codeProduit: code,
+                          descriptionProduit:
+                            arr[idx].descriptionProduit || descr || "",
+                        };
+                        setProducts(arr);
+                      }}
+                      onChange={(code) => {
+                        const arr = products.slice();
+                        arr[idx] = { ...arr[idx], codeProduit: code };
+                        setProducts(arr);
+                      }}
+                    />
+                    <input
+                      className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-900 dark:border-white/10"
+                      placeholder="Description du produit"
+                      value={p.descriptionProduit}
+                      onChange={(e) => {
+                        const arr = products.slice();
+                        arr[idx] = { ...arr[idx], descriptionProduit: e.target.value };
+                        setProducts(arr);
+                      }}
+                    />
+                    <input
+                      className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-900 dark:border-white/10"
+                      placeholder="Description du retour"
+                      value={p.descriptionRetour ?? ""}
+                      onChange={(e) => {
+                        const arr = products.slice();
+                        arr[idx] = { ...arr[idx], descriptionRetour: e.target.value };
+                        setProducts(arr);
+                      }}
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-900 dark:border-white/10"
+                      placeholder="Quantité"
+                      value={p.quantite}
+                      onChange={(e) => {
+                        const arr = products.slice();
+                        arr[idx] = {
+                          ...arr[idx],
+                          quantite: Number(e.target.value || 0),
+                        };
+                        setProducts(arr);
+                      }}
+                    />
+                    <button
+                      className="inline-flex items-center justify-center rounded-lg p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+                      onClick={() => removeProduct(p.id)}
+                      title="Retirer"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+                {products.length === 0 && (
+                  <div className="text-sm text-slate-500 dark:text-slate-400 py-6 text-center">
+                    Aucun produit. Ajoutez des lignes ci-dessous.
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={addProduct}
+                className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm border-slate-200 dark:border-white/15 bg-white dark:bg-neutral-900 hover:bg-slate-50 dark:hover:bg-neutral-800"
+              >
+                <Plus className="h-4 w-4" />
+                Ajouter produit
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="font-semibold">Description</h4>
+              <textarea
+                className="w-full rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-950 dark:border-white/10"
+                rows={4}
+                placeholder="Notes internes, contexte, instructions…"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="px-6 py-4 border-t border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-neutral-950/70">
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                Le code retour sera généré automatiquement (R{idPlaceholder()}).
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={onClose}
+                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm border-slate-200 dark:border-white/15 bg-white dark:bg-neutral-900 hover:bg-slate-50 dark:hover:bg-neutral-800"
+                >
+                  <X className="h-4 w-4" />
+                  Annuler
+                </button>
+                <button
+                  disabled={busy}
+                  onClick={submit}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-black",
+                    busy && "opacity-70 pointer-events-none"
+                  )}
+                  style={{ background: "linear-gradient(135deg, #10b981 0%, #34d399 100%)" }}
+                >
+                  <Send className="h-4 w-4" />
+                  Créer le retour
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function idPlaceholder() {
+  // purely cosmetic; server will assign
+  return "xxxx";
+}
+
+/* =============================================================================
+   Small input components
 ============================================================================= */
 function Field({
   label,
@@ -1252,5 +1629,92 @@ function Field({
         />
       )}
     </label>
+  );
+}
+
+/* =============================================================================
+   Product code autocomplete field
+   - Debounced search to /api/items?q=...
+============================================================================= */
+function ProductCodeField({
+  value,
+  onChange,
+  onSelect,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onSelect: (code: string, descr?: string | null) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [q, setQ] = React.useState(value);
+  const debounced = useDebounced(q, 250);
+  const [items, setItems] = React.useState<ItemSuggestion[]>([]);
+  const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    setQ(value);
+  }, [value]);
+
+  React.useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!debounced.trim()) {
+        setItems([]);
+        return;
+      }
+      setLoading(true);
+      const res = await searchItems(debounced);
+      if (!alive) return;
+      setItems(res);
+      setLoading(false);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [debounced]);
+
+  return (
+    <div className="relative">
+      <input
+        className="w-full rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-900 dark:border-white/10"
+        placeholder="Code de produit"
+        value={q}
+        onChange={(e) => {
+          setQ(e.target.value);
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+      />
+      {open && (items.length > 0 || loading) && (
+        <div className="absolute z-10 mt-1 w-full rounded-lg border bg-white dark:bg-neutral-900 text-sm shadow-lg border-slate-200 dark:border-white/10 max-h-64 overflow-auto">
+          {loading && <div className="px-3 py-2 text-slate-500">Recherche…</div>}
+          {!loading &&
+            items.map((it) => (
+              <button
+                key={it.code}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onSelect(it.code, it.descr ?? null);
+                  setQ(it.code);
+                  setOpen(false);
+                }}
+                className="w-full text-left px-3 py-2 hover:bg-slate-50 dark:hover:bg-white/10"
+                title={it.descr ?? ""}
+              >
+                <div className="font-mono">{it.code}</div>
+                {it.descr && (
+                  <div className="text-[11px] opacity-70 line-clamp-1">{it.descr}</div>
+                )}
+              </button>
+            ))}
+          {!loading && items.length === 0 && (
+            <div className="px-3 py-2 text-slate-500">Aucun résultat</div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
