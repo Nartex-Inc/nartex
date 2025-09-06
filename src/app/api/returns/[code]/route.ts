@@ -1,8 +1,8 @@
 // src/app/api/returns/[code]/route.ts
-// ✅ Compile-safe Next 15 route handler with Zod validation and Prisma updates
+// ✅ Next 15–safe route handler with Zod validation + Prisma (default import)
 
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import prisma from "@/lib/prisma";            // <-- default import (fixes build)
 import { z, ZodError } from "zod";
 
 const PatchReturn = z.object({
@@ -28,11 +28,10 @@ const PatchReturn = z.object({
   description: z.string().nullable().optional(),
   status: z.enum(["draft", "awaiting_physical", "received_or_no_physical"]).optional(),
   standby: z.boolean().optional(),
-
   products: z
     .array(
       z.object({
-        id: z.number().optional(), // existing if present
+        id: z.number().optional(),          // existing if present
         codeProduit: z.string(),
         descriptionProduit: z.string(),
         descriptionRetour: z.string().optional().nullable(),
@@ -43,25 +42,24 @@ const PatchReturn = z.object({
     .optional(),
 });
 
-// Keep context untyped to satisfy Next's validator across versions.
+// Keep context untyped to satisfy Next’s validator across versions.
 export async function PATCH(req: Request, context: any) {
   const { code } = (context?.params ?? {}) as { code: string };
 
   // Validate payload
   let data: z.infer<typeof PatchReturn>;
   try {
-    const body = await req.json();
-    data = PatchReturn.parse(body);
+    data = PatchReturn.parse(await req.json());
   } catch (err) {
     if (err instanceof ZodError) {
       return NextResponse.json(
         { ok: false, error: "Invalid payload", issues: err.issues },
-        { status: 400 }
+        { status: 400 },
       );
     }
     return NextResponse.json(
-      { ok: false, error: "Malformed JSON body" },
-      { status: 400 }
+        { ok: false, error: "Malformed JSON body" },
+        { status: 400 },
     );
   }
 
@@ -71,13 +69,12 @@ export async function PATCH(req: Request, context: any) {
     where: { code: decoded },
     select: { id: true },
   });
-
   if (!ret) {
     return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
   }
 
   const updated = await prisma.$transaction(async (tx) => {
-    // 1) Patch header (conditionally apply only provided fields)
+    // 1) Patch header (apply only provided fields)
     const hdr = await tx.return.update({
       where: { id: ret.id },
       data: {
