@@ -1,10 +1,20 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+// src/app/api/returns/route.ts
+// ✅ Next 15–safe route handlers (default-import prisma; Web Request type)
+
+import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
 import { z } from "zod";
 
 const CreateReturn = z.object({
-  reporter: z.enum(["expert","transporteur","autre"]),
-  cause: z.enum(["production","pompe","autre_cause","exposition_sinto","transporteur","autre"]),
+  reporter: z.enum(["expert", "transporteur", "autre"]),
+  cause: z.enum([
+    "production",
+    "pompe",
+    "autre_cause",
+    "exposition_sinto",
+    "transporteur",
+    "autre",
+  ]),
   expert: z.string().min(1),
   client: z.string().min(1),
   noClient: z.string().optional().nullable(),
@@ -14,19 +24,25 @@ const CreateReturn = z.object({
   dateCommande: z.string().optional().nullable(), // ISO
   transport: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
-  products: z.array(z.object({
-    codeProduit: z.string().min(1),
-    descriptionProduit: z.string().default(""),
-    descriptionRetour: z.string().optional(),
-    quantite: z.number().int().nonnegative().default(1),
-  })).optional().default([]),
+  products: z
+    .array(
+      z.object({
+        codeProduit: z.string().min(1),
+        descriptionProduit: z.string().default(""),
+        descriptionRetour: z.string().optional(),
+        quantite: z.number().int().nonnegative().default(1),
+      })
+    )
+    .optional()
+    .default([]),
 });
 
-export async function GET(req: NextRequest) {
+// GET /api/returns
+export async function GET(req: Request) {
   const sp = new URL(req.url).searchParams;
 
   const q = sp.get("q")?.trim() || "";
-  const cause = sp.get("cause");            // exact enum string or null
+  const cause = sp.get("cause"); // exact enum string or "all"
   const reporter = sp.get("reporter");
   const dateFrom = sp.get("dateFrom");
   const dateTo = sp.get("dateTo");
@@ -58,10 +74,9 @@ export async function GET(req: NextRequest) {
     orderBy: { reportedAt: "desc" },
   });
 
-  // map to your UI shape
-  const data = rows.map(r => ({
+  const data = rows.map((r) => ({
     id: r.code,
-    reportedAt: r.reportedAt.toISOString().slice(0,10),
+    reportedAt: r.reportedAt.toISOString().slice(0, 10),
     reporter: r.reporter,
     cause: r.cause,
     expert: r.expert,
@@ -72,10 +87,14 @@ export async function GET(req: NextRequest) {
     status: r.status,
     standby: r.standby,
     amount: r.amount ? Number(r.amount) : null,
-    dateCommande: r.dateCommande?.toISOString().slice(0,10) ?? null,
+    dateCommande: r.dateCommande?.toISOString().slice(0, 10) ?? null,
     transport: r.transport ?? null,
-    attachments: r.attachments.map(a => ({ id: String(a.id), name: a.name, url: a.url })),
-    products: r.products.map(p => ({
+    attachments: r.attachments.map((a) => ({
+      id: String(a.id),
+      name: a.name,
+      url: a.url,
+    })),
+    products: r.products.map((p) => ({
       id: String(p.id),
       codeProduit: p.codeProduit,
       descriptionProduit: p.descriptionProduit,
@@ -83,13 +102,16 @@ export async function GET(req: NextRequest) {
       quantite: p.quantite,
     })),
     description: r.description ?? undefined,
-    createdBy: r.createdByName ? { name: r.createdByName, avatar: null, at: r.createdAt.toISOString() } : undefined,
+    createdBy: r.createdByName
+      ? { name: r.createdByName, avatar: null, at: r.createdAt.toISOString() }
+      : undefined,
   }));
 
   return NextResponse.json({ ok: true, rows: data });
 }
 
-export async function POST(req: NextRequest) {
+// POST /api/returns
+export async function POST(req: Request) {
   const payload = await req.json();
   const data = CreateReturn.parse(payload);
 
@@ -109,20 +131,20 @@ export async function POST(req: NextRequest) {
         transport: data.transport ?? null,
         description: data.description ?? null,
         status: "draft",
-        createdByName: "current_user", // plug your auth user here
+        createdByName: "current_user", // TODO: plug authenticated user
       },
       select: { id: true },
     });
 
     const code = `R${shell.id}`;
 
-    // Step 2: patch code & add products
+    // Step 2: set code & add products
     const withProducts = await tx.return.update({
       where: { id: shell.id },
       data: {
         code,
         products: {
-          create: data.products.map(p => ({
+          create: data.products.map((p) => ({
             codeProduit: p.codeProduit,
             descriptionProduit: p.descriptionProduit,
             descriptionRetour: p.descriptionRetour ?? null,
