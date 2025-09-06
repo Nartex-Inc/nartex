@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// Keep the context untyped to satisfy Next's validator across versions.
+// Same compile-safe signature here if you keep the /api/ path variant.
 export async function GET(_req: Request, context: any) {
   const { sonbr } = context.params as { sonbr: string };
   const so = await prisma.sOHeader.findUnique({
