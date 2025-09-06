@@ -10,41 +10,76 @@ datasource db {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 1. USER                                                                    ///
+// 0. ENUMS                                                                   //
+////////////////////////////////////////////////////////////////////////////////
+
+enum ProductLifecycleStage {
+  DEMANDE_IDEATION
+  EVALUATION_COUT_POTENTIEL
+  PROTOTYPAGE
+  MISE_EN_FONCTION_DEVELOPPEMENT
+  PLANIFICATION_PRODUIT_FINI
+  MISE_EN_MARCHE
+  VIE_DU_PRODUIT
+}
+
+enum Reporter {
+  expert
+  transporteur
+  autre
+}
+
+enum Cause {
+  production
+  pompe
+  autre_cause
+  exposition_sinto
+  transporteur
+  autre
+}
+
+enum ReturnStatus {
+  draft
+  awaiting_physical
+  received_or_no_physical
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// 1. USER                                                                    //
 ////////////////////////////////////////////////////////////////////////////////
 model User {
   // ─── Core identity ────────────────────────────────────────────────────────
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   name              String?
-  firstName         String?  @map("first_name")
-  lastName          String?  @map("last_name")
-  email             String?  @unique
-  emailVerified     DateTime?@map("email_verified")
+  firstName         String?   @map("first_name")
+  lastName          String?   @map("last_name")
+  email             String?   @unique
+  emailVerified     DateTime? @map("email_verified")
   image             String?
 
   // ─── Authentication & authorisation ───────────────────────────────────────
   password          String?
-  role              String   @default("user")
+  role              String    @default("user")
 
   // ─── Custom flows ─────────────────────────────────────────────────────────
-  verificationToken   String?  @unique @map("verification_token")
-  passwordResetToken  String?  @unique @map("password_reset_token")
+  verificationToken    String?   @unique @map("verification_token")
+  passwordResetToken   String?   @unique @map("password_reset_token")
   passwordResetExpires DateTime? @map("password_reset_expires")
 
   // ─── Book-keeping ─────────────────────────────────────────────────────────
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt      @map("updated_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt      @map("updated_at")
 
   // ─── Relations ────────────────────────────────────────────────────────────
   accounts          Account[]
   sessions          Session[]
-  tenants           UserTenant[] // Added for multi-tenancy support
+  tenants           UserTenant[] // multi-tenancy link
 
   @@map("users")
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 2. ACCOUNT  (OAuth accounts)                                               //
+// 2. ACCOUNT (OAuth accounts)                                                //
 ////////////////////////////////////////////////////////////////////////////////
 model Account {
   id                 String  @id @default(cuid())
@@ -52,7 +87,7 @@ model Account {
 
   type               String
   provider           String
-  providerAccountId  String  @map("provider_account_id")  // Stores 'sub' from Azure AD
+  providerAccountId  String  @map("provider_account_id")  // 'sub' from Azure AD
 
   refresh_token      String? @db.Text
   access_token       String? @db.Text
@@ -62,19 +97,19 @@ model Account {
   id_token           String? @db.Text
   session_state      String?
 
-  // THIS IS THE NEWLY ADDED FIELD
+  // Newly added field
   ext_expires_in     Int?
 
   // ─── Relations ────────────────────────────────────────────────────────────
   user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
-  @@index([providerAccountId])  // Added for faster Azure AD lookups
+  @@index([providerAccountId])
   @@map("accounts")
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 3. SESSION  (NextAuth sessions)                                            //
+// 3. SESSION (NextAuth sessions)                                             //
 ////////////////////////////////////////////////////////////////////////////////
 model Session {
   id           String   @id @default(cuid())
@@ -88,7 +123,7 @@ model Session {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 4. VERIFICATION TOKEN  (NextAuth tokens)                                   //
+// 4. VERIFICATION TOKEN (NextAuth tokens)                                    //
 ////////////////////////////////////////////////////////////////////////////////
 model VerificationToken {
   identifier String
@@ -100,13 +135,13 @@ model VerificationToken {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 5. TENANT (New model for multi-tenancy)                                    //
+// 5. TENANT                                                                  //
 ////////////////////////////////////////////////////////////////////////////////
 model Tenant {
-  id        String      @id @default(uuid())
-  name      String      // e.g., company name like "Nartex" or "Sinto"
-  createdAt DateTime    @default(now()) @map("created_at")
-  updatedAt DateTime    @updatedAt      @map("updated_at")
+  id        String         @id @default(uuid())
+  name      String
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt      @map("updated_at")
 
   // ─── Relations ────────────────────────────────────────────────────────────
   users           UserTenant[]
@@ -117,52 +152,39 @@ model Tenant {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 6. USER_TENANT (Join model for many-to-many User-Tenant relation)          //
+// 6. USER_TENANT (Join model)                                                //
 ////////////////////////////////////////////////////////////////////////////////
 model UserTenant {
   userId    String
   tenantId  String
-  role      String?     // Optional: e.g., "ADMIN", "MEMBER" for per-tenant permissions
-  createdAt DateTime    @default(now()) @map("created_at")
+  role      String?
+  createdAt DateTime @default(now()) @map("created_at")
 
-  // ─── Relations ────────────────────────────────────────────────────────────
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@id([userId, tenantId])
   @@map("user_tenants")
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 7. PROJECT (Example tenant-scoped model; adapt or add others as needed)    //
+// 7. PROJECT                                                                 //
 ////////////////////////////////////////////////////////////////////////////////
 model Project {
-  id        String               @id @default(uuid())
+  id        String                 @id @default(uuid())
   name      String
   stage     ProductLifecycleStage
   tenantId  String
-  createdAt DateTime             @default(now()) @map("created_at")
-  updatedAt DateTime             @updatedAt      @map("updated_at")
+  createdAt DateTime               @default(now()) @map("created_at")
+  updatedAt DateTime               @updatedAt      @map("updated_at")
 
-  // ─── Relations ────────────────────────────────────────────────────────────
-  tenant    Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("projects")
 }
 
-// Example enum for Project stage (based on your earlier code; define as needed)
-enum ProductLifecycleStage {
-  DEMANDE_IDEATION
-  EVALUATION_COUT_POTENTIEL
-  PROTOTYPAGE
-  MISE_EN_FONCTION_DEVELOPPEMENT
-  PLANIFICATION_PRODUIT_FINI
-  MISE_EN_MARCHE
-  VIE_DU_PRODUIT
-}
-
 ////////////////////////////////////////////////////////////////////////////////
-// 8. SHAREPOINT NODE (UPDATED MODEL FOR THE EDITABLE STRUCTURE)              //
+// 8. SHAREPOINT NODE                                                         //
 ////////////////////////////////////////////////////////////////////////////////
 model SharePointNode {
   id           String   @id @default(cuid())
@@ -175,7 +197,7 @@ model SharePointNode {
   restricted   Boolean  @default(false)
   highSecurity Boolean  @default(false)
 
-  // ✅ arrays (never null), empty [] means “inherit”
+  // Arrays (never null), empty [] means “inherit”
   editGroups   String[] @default([])
   readGroups   String[] @default([])
 
@@ -189,4 +211,152 @@ model SharePointNode {
   @@index([tenantId])
   @@index([tenantId, parentId])
   @@map("sharepoint_nodes")
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// 9. RETURNS DOMAIN (new)                                                    //
+////////////////////////////////////////////////////////////////////////////////
+
+model Return {
+  id            Int           @id @default(autoincrement())
+  code          String        @unique                                // "R" + id
+  reportedAt    DateTime      @default(now())
+  reporter      Reporter
+  cause         Cause
+  expert        String
+  client        String
+  noClient      String?
+  noCommande    String?
+  tracking      String?
+  status        ReturnStatus  @default(draft)
+  standby       Boolean       @default(false)
+  amount        Decimal?      @db.Numeric(12, 2)
+  dateCommande  DateTime?
+  transport     String?
+  description   String?
+
+  createdByName String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  products      ReturnProduct[]
+  attachments   Upload[]
+
+  @@index([reportedAt])
+  @@index([status])
+  @@index([noCommande])
+  @@map("returns")
+}
+
+model ReturnProduct {
+  id                 Int     @id @default(autoincrement())
+  returnId           Int
+  codeProduit        String
+  descriptionProduit String
+  descriptionRetour  String?
+  quantite           Int     @default(1)
+
+  return             Return  @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  @@index([returnId])
+  @@index([codeProduit])
+  @@map("return_products")
+}
+
+model Upload {
+  id        Int      @id @default(autoincrement())
+  returnId  Int
+  name      String
+  url       String
+  createdAt DateTime @default(now())
+
+  return    Return   @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  @@index([returnId])
+  @@map("uploads")
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// 10. PREXTRA REPLICAS (read-only; managed by your ETL)                      //
+//     Names are mapped to snake_case tables commonly used on Postgres.       //
+////////////////////////////////////////////////////////////////////////////////
+
+model Items {
+  itemid   Int     @id
+  itemcode String  @db.VarChar(64)
+  descr    String? @db.VarChar(255)
+  // ... add columns you need
+
+  @@index([itemcode])
+  @@map("items")
+}
+
+model Itemsite {
+  itemsiteid Int  @id
+  itemid     Int
+  siteid     Int
+  qtyonhand  Int?
+  locid      Int?
+  // ... add columns you need
+
+  @@index([itemid, siteid])
+  @@map("itemsite")
+}
+
+model Locations {
+  locid Int    @id
+  name  String @db.VarChar(128)
+
+  @@map("locations")
+}
+
+model SOHeader {
+  id        Int       @id @default(autoincrement())
+  sonbr     String    @unique
+  orderdate DateTime
+  totalamt  Decimal?  @db.Numeric(12, 2)
+  custid    Int?
+  carrid    Int?
+  srid      Int?
+
+  @@map("soheader")
+}
+
+model Customers {
+  custid   Int    @id
+  custcode String @db.VarChar(64)
+  name     String @db.VarChar(255)
+
+  @@map("customers")
+}
+
+model Carriers {
+  carrid Int    @id
+  name   String @db.VarChar(255)
+
+  @@map("carriers")
+}
+
+model Salesrep {
+  srid Int    @id
+  name String @db.VarChar(255)
+
+  @@map("salesrep")
+}
+
+model ShipmentHdr {
+  id      Int    @id @default(autoincrement())
+  sonbr   String
+  waybill String?
+
+  @@index([sonbr])
+  @@map("shipmenthdr")
+}
+
+model Sites {
+  id   Int    @id @default(autoincrement())
+  name String @db.VarChar(255)
+
+  @@map("sites")
 }
