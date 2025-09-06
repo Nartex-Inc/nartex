@@ -434,9 +434,6 @@ export default function ReturnsPage() {
     });
   }, [sorted]);
 
-  const { resolvedTheme: _t } = useTheme();
-  const isDark = _t === "dark";
-
   return (
     <div className={cn("min-h-[100svh]", isDark ? "bg-[#050507]" : "bg-white")}>
       {isDark && (
