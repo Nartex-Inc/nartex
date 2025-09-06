@@ -1,15 +1,11 @@
-// src/app/orders/[sonbr]/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: { sonbr: string } }
-) {
-  const sonbr = decodeURIComponent(params.sonbr);
-
+// Keep the context untyped to satisfy Next's validator across versions.
+export async function GET(_req: Request, context: any) {
+  const { sonbr } = context.params as { sonbr: string };
   const so = await prisma.sOHeader.findUnique({
-    where: { sonbr },
+    where: { sonbr: decodeURIComponent(sonbr) },
     select: {
       sonbr: true,
       orderdate: true,
@@ -32,7 +28,7 @@ export async function GET(
     so.custid ? prisma.customers.findUnique({ where: { custid: so.custid } }) : null,
     so.carrid ? prisma.carriers.findUnique({ where: { carrid: so.carrid } }) : null,
     so.srid ? prisma.salesrep.findUnique({ where: { srid: so.srid } }) : null,
-    prisma.shipmentHdr.findFirst({ where: { sonbr }, orderBy: { id: "desc" } }),
+    prisma.shipmentHdr.findFirst({ where: { sonbr: so.sonbr }, orderBy: { id: "desc" } }),
   ]);
 
   return NextResponse.json({
