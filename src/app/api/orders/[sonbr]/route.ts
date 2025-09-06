@@ -1,11 +1,15 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+// src/app/api/orders/[sonbr]/route.ts
+// ✅ Compile-safe Next 15 route handler (default-import prisma)
 
-// Same compile-safe signature here if you keep the /api/ path variant.
+import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma"; // <-- default import (your prisma helper exports default)
+
 export async function GET(_req: Request, context: any) {
   const { sonbr } = context.params as { sonbr: string };
+  const decoded = decodeURIComponent(sonbr);
+
   const so = await prisma.sOHeader.findUnique({
-    where: { sonbr: decodeURIComponent(sonbr) },
+    where: { sonbr: decoded },
     select: {
       sonbr: true,
       orderdate: true,
