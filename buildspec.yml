@@ -5,7 +5,6 @@ env:
     AWS_DEFAULT_REGION: "ca-central-1"
     AWS_ACCOUNT_ID: "586359898361"
     IMAGE_REPO_NAME: "nartex-next"
-    # Must match the "name" field in your Task Definition container.
     CONTAINER_NAME: "nextjs"
     NEXTAUTH_URL: "https://app.nartex.ca"
     EMAIL_SERVER_HOST: "smtp.gmail.com"
@@ -35,13 +34,15 @@ phases:
 
   pre_build:
     commands:
-      # =================================================================
-      # CHANGE DETECTION (safe defaults to full + migrate if unknown)
-      # =================================================================
+      # ================================================================
+      # CHANGE DETECTION (run in bash; no pipefail/unbound-var traps)
+      # ================================================================
       - echo "🔎 PRE_BUILD – detecting changes"
       - |
-        set -euo pipefail
-        # Determine a base commit safely (works on shallow clones too)
+        /usr/bin/env bash -c '
+        set -e
+
+        # Find a safe base commit (works for shallow clones)
         BASE_COMMIT=$(git rev-parse HEAD^ 2>/dev/null || true)
         if [ -z "${BASE_COMMIT:-}" ]; then
           BASE_COMMIT=$(git rev-list --max-parents=0 HEAD)
@@ -51,38 +52,33 @@ phases:
         echo "Changed files:"
         echo "$CHANGED_FILES"
 
-        BUILD_TYPE="full"  # default
-        # Any file NOT matching these frontend patterns triggers a full build
+        BUILD_TYPE=full
         NON_FRONTEND_CHANGES=$(echo "$CHANGED_FILES" | grep -vE "\.(tsx|ts|css|json|md)$|/app/|/components/|/lib/|/public/|tailwind\.config\.ts|next\.config\.ts|package-lock\.json" || true)
         if [ -z "$NON_FRONTEND_CHANGES" ] && [ -n "$CHANGED_FILES" ]; then
           echo "✅ Frontend-only changes detected. Fast build."
-          BUILD_TYPE="frontend"
+          BUILD_TYPE=frontend
         else
           echo "⚠️ Backend/infrastructure changes detected or no diff; full build."
         fi
 
-        # Prisma change detection
         PRISMA_CHANGES=$(echo "$CHANGED_FILES" | grep -E "^prisma/schema\.prisma|^prisma/migrations/" || true)
         if [ -n "$PRISMA_CHANGES" ] || [ "$BUILD_TYPE" = "full" ]; then
           echo "🛡️ Prisma changes or full build: will run migrate deploy."
-          NEEDS_MIGRATE="true"
+          NEEDS_MIGRATE=true
         else
           echo "⏩ No Prisma changes: skipping migrate deploy."
-          NEEDS_MIGRATE="false"
+          NEEDS_MIGRATE=false
         fi
 
-        # Persist for next phase
-        {
-          echo "BUILD_TYPE=$BUILD_TYPE"
-          echo "NEEDS_MIGRATE=$NEEDS_MIGRATE"
-        } > /tmp/cb_env
+        # Persist across phases
+        echo BUILD_TYPE=$BUILD_TYPE       >  /tmp/cb_env
+        echo NEEDS_MIGRATE=$NEEDS_MIGRATE >> /tmp/cb_env
+        '
 
       - echo "📜 PRE_BUILD – preparing workspace"
       - |
         cat > ci-prebuild.sh << 'SH'
-        set -euo pipefail
-        set -x
-
+        set -e
         # Remove legacy file if present to avoid conflicts
         rm -f src/lib/auth.ts || true
 
@@ -163,7 +159,7 @@ phases:
         TSX
 
         [ -f src/components/product-requests-table.tsx ] || cat > src/components/product-requests-table.tsx << 'TSX'
-        export default function ProductRequestsTable(){ return <div className="p-4 text-sm text-muted-foreground">Product requests (stub)</div>; }
+        export default function ProductRequestsTable(){ return <div className="p-4 text sm text-muted-foreground">Product requests (stub)</div>; }
         TSX
 
         # 🔧 Auto-insert missing import in the SharePoint page if needed
@@ -181,12 +177,12 @@ phases:
               s = importLine + s;
             }
             fs.writeFileSync(p, s);
-            console.log('✅ Injected Card/CardTitle import in', p);
+            console.log("✅ Injected Card/CardTitle import in", p);
           } else {
-            console.log('ℹ️ Card/CardTitle import already present in', p);
+            console.log("ℹ️ Card/CardTitle import already present in", p);
           }
         } else {
-          console.log('ℹ️ SharePoint page not found:', p);
+          console.log("ℹ️ SharePoint page not found:", p);
         }
         NODE
 
@@ -198,22 +194,18 @@ phases:
 
   build:
     commands:
-      # Bring forward the decisions from pre_build
+      # Pull decisions from pre_build
       - |
-        set -a
-        [ -f /tmp/cb_env ] && source /tmp/cb_env || true
-        set +a
-        echo "BUILD_TYPE=$BUILD_TYPE"
-        echo "NEEDS_MIGRATE=$NEEDS_MIGRATE"
+        set -e
+        [ -f /tmp/cb_env ] && . /tmp/cb_env || true
+        echo "BUILD_TYPE=${BUILD_TYPE:-full}"
+        echo "NEEDS_MIGRATE=${NEEDS_MIGRATE:-true}"
 
-      # =================================================================
-      # PRISMA: migrate (conditionally) + generate (always)
-      # =================================================================
+      # Prisma: migrate conditionally; generate always
       - |
         if [ "${NEEDS_MIGRATE:-true}" = "true" ]; then
           echo "🚀 BUILD – applying prisma migrations (migrate deploy)"
           npx prisma migrate deploy --schema=prisma/schema.prisma
-          # Optional quick sanity ping
           npx prisma db execute --schema=prisma/schema.prisma --sql="SELECT 1;" || exit 1
         else
           echo "⏩ BUILD – skipping migrate deploy"
@@ -269,6 +261,7 @@ phases:
           --service nartex-next-service \
           --force-new-deployment \
           --region "$AWS_DEFAULT_REGION"
+
 artifacts:
   files:
     - imagedefinitions.json
