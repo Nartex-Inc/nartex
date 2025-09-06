@@ -230,7 +230,7 @@ model Return {
   tracking      String?
   status        ReturnStatus  @default(draft)
   standby       Boolean       @default(false)
-  amount        Decimal?      @db.Numeric(12, 2)
+  amount        Decimal?      @db.Decimal(12, 2)
   dateCommande  DateTime?
   transport     String?
   description   String?
@@ -315,7 +315,7 @@ model SOHeader {
   id        Int       @id @default(autoincrement())
   sonbr     String    @unique
   orderdate DateTime
-  totalamt  Decimal?  @db.Numeric(12, 2)
+  totalamt  Decimal?  @db.Decimal(12, 2)
   custid    Int?
   carrid    Int?
   srid      Int?
