@@ -115,10 +115,15 @@ export async function POST(req: Request) {
   const payload = await req.json();
   const data = CreateReturn.parse(payload);
 
+  // Unique placeholder to satisfy Prisma's required `code`
+  const tmpCode =
+    "R_TMP_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+
   const created = await prisma.$transaction(async (tx) => {
-    // Step 1: create shell (draft)
+    // 1) create shell with a unique temporary code
     const shell = await tx.return.create({
       data: {
+        code: tmpCode, // ✅ required by schema
         reporter: data.reporter,
         cause: data.cause,
         expert: data.expert,
@@ -136,13 +141,13 @@ export async function POST(req: Request) {
       select: { id: true },
     });
 
-    const code = `R${shell.id}`;
+    const finalCode = `R${shell.id}`;
 
-    // Step 2: set code & add products
+    // 2) set final code & add products
     const withProducts = await tx.return.update({
       where: { id: shell.id },
       data: {
-        code,
+        code: finalCode,
         products: {
           create: data.products.map((p) => ({
             codeProduit: p.codeProduit,
