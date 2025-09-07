@@ -2,15 +2,15 @@
 // ✅ Next 15 route: fetch order + joined details for autofill
 //    GET /api/orders/:sonbr
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-// Keep context loose to satisfy Next runtime validator across versions
-type Context = { params?: { sonbr?: string } };
+// Next expects the second arg to be `{ params: { … } }`
+type Params = { params: { sonbr: string } };
 
-export async function GET(_req: Request, context: Context) {
+export async function GET(_req: NextRequest, { params }: Params) {
   try {
-    const raw = context?.params?.sonbr ?? "";
+    const raw = params?.sonbr ?? "";
     const sonbr = Number(decodeURIComponent(raw).trim());
 
     if (!Number.isFinite(sonbr) || !Number.isInteger(sonbr)) {
@@ -46,11 +46,11 @@ export async function GET(_req: Request, context: Context) {
     const [cust, carr, rep, ship] = await Promise.all([
       so.custid ? prisma.customers.findUnique({ where: { custid: so.custid } }) : null,
       so.carrid ? prisma.carriers.findUnique({ where: { carrid: so.carrid } }) : null,
-      so.srid   ? prisma.salesrep.findUnique({ where: { srid: so.srid } })       : null,
-      // ⬇️ FIX: order by the actual Prisma field on ShipmentHdr
+      so.srid   ? prisma.salesrep.findUnique({ where: { srid: so.srid } })     : null,
       prisma.shipmentHdr.findFirst({
-        where: { sonbr: so.sonbr },
-        orderBy: { shipmentid: "desc" },
+        where: { sonbr: so.sonbr },           // add { cieid: so.cieid } too if that column exists in ShipmentHdr
+        orderBy: { shipmentid: "desc" },      // uses ShipmentHdr.shipmentid
+        select: { waybill: true },
       }),
     ]);
 
@@ -58,8 +58,8 @@ export async function GET(_req: Request, context: Context) {
       ok: true,
       exists: true,
       sonbr: so.sonbr,
-      OrderDate: so.orderdate ? new Date(so.orderdate).toISOString() : null,
-      totalamt: so.totalamt != null ? Number(so.totalamt) : null,
+      OrderDate: so.orderdate ?? null,                            // serializes as ISO
+      totalamt: so.totalamt != null ? Number(so.totalamt) : null, // Decimal -> number
       CustCode: cust?.custcode ?? "",
       CustomerName: cust?.name ?? "",
       CarrierName: carr?.name ?? "",
