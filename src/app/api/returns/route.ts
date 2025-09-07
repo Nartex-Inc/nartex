@@ -1,54 +1,36 @@
 // src/app/api/returns/route.ts
-// Fully updated drop-in route: robust validation, proper caching headers,
-// safe Prisma usage, and creation of returns + product rows with code "R{id}"
+// ✅ Drop-in: GET list + POST create with “R#” that reuses the LOWEST free number (R1, R2, …)
 
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { Prisma, Reporter, Cause, ReturnStatus } from "@prisma/client";
-import { z, ZodError } from "zod";
+import {
+  Prisma,
+  PrismaClient,
+  Reporter,
+  Cause,
+  ReturnStatus,
+} from "@prisma/client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-/* ========================================================================== */
-/* Zod validation                                                             */
-/* ========================================================================== */
-const CreateReturn = z.object({
-  reporter: z.enum(["expert", "transporteur", "autre"]),
-  cause: z.enum([
-    "production",
-    "pompe",
-    "autre_cause",
-    "exposition_sinto",
-    "transporteur",
-    "autre",
-  ]),
-  expert: z.string().min(1),
-  client: z.string().min(1),
-  noClient: z.string().optional().nullable(),
-  noCommande: z.string().optional().nullable(),
-  tracking: z.string().optional().nullable(),
-  amount: z.number().optional().nullable(),
-  dateCommande: z.string().optional().nullable(), // "YYYY-MM-DD"
-  transport: z.string().optional().nullable(),
-  description: z.string().optional().nullable(),
-  products: z
-    .array(
-      z.object({
-        codeProduit: z.string().min(1),
-        descriptionProduit: z.string().default(""),
-        descriptionRetour: z.string().optional().nullable(),
-        quantite: z.number().int().nonnegative().default(1),
-      })
-    )
-    .optional()
-    .default([]),
-});
+declare global {
+  // eslint-disable-next-line no-var
+  var _prisma: PrismaClient | undefined;
+}
+const prisma =
+  global._prisma ??
+  new PrismaClient({
+    log:
+      process.env.NODE_ENV === "development"
+        ? ["query", "error", "warn"]
+        : ["error"],
+  });
+if (process.env.NODE_ENV !== "production") global._prisma = prisma;
 
-/* ========================================================================== */
-/* Types for the frontend mapping                                             */
-/* ========================================================================== */
+/* -----------------------------------------------------------------------------
+   Types expected by the frontend page
+----------------------------------------------------------------------------- */
 type Attachment = { id: string; name: string; url: string };
 type ProductLine = {
   id: string;
@@ -56,11 +38,12 @@ type ProductLine = {
   descriptionProduit: string;
   descriptionRetour?: string;
   quantite: number;
+  // optional (not persisted)
   poidsUnitaire?: number | null;
   poidsTotal?: number | null;
 };
 type ReturnRow = {
-  id: string; // human code "R{id}"
+  id: string; // human code "R#"
   reportedAt: string;
   reporter: Reporter;
   cause: Cause;
@@ -80,13 +63,12 @@ type ReturnRow = {
   createdBy?: { name: string; avatar?: string | null; at: string };
 };
 
-/* ========================================================================== */
-/* Helpers                                                                    */
-/* ========================================================================== */
+/* -----------------------------------------------------------------------------
+   Helpers
+----------------------------------------------------------------------------- */
 const num = (v: unknown) => (v == null ? null : Number(v));
 const parseDate = (v?: string | null) => (v ? new Date(v) : null);
 
-// Narrow include we always use, double-duty for typing in toReturnRow
 async function fetchOneReturnDB(id: number) {
   return prisma.return.findUniqueOrThrow({
     where: { id },
@@ -94,6 +76,7 @@ async function fetchOneReturnDB(id: number) {
   });
 }
 
+// Map DB → API row the table expects
 function toReturnRow(
   r: Awaited<ReturnType<typeof fetchOneReturnDB>>
 ): ReturnRow {
@@ -110,7 +93,9 @@ function toReturnRow(
     status: r.status,
     standby: r.standby ?? undefined,
     amount: r.amount == null ? null : Number(r.amount),
-    dateCommande: r.dateCommande ? r.dateCommande.toISOString().slice(0, 10) : null,
+    dateCommande: r.dateCommande
+      ? r.dateCommande.toISOString().slice(0, 10)
+      : null,
     transport: r.transport ?? null,
     description: r.description ?? undefined,
     createdBy: r.createdByName
@@ -127,25 +112,50 @@ function toReturnRow(
       descriptionProduit: p.descriptionProduit,
       descriptionRetour: p.descriptionRetour ?? undefined,
       quantite: p.quantite,
-      // optional UI fields not persisted yet
+      // optional weights (not persisted)
       poidsUnitaire: null,
       poidsTotal: null,
     })),
   };
 }
 
-/* ========================================================================== */
-/* GET /api/returns                                                            */
-/* ========================================================================== */
+/**
+ * Compute the smallest available positive integer N such that no row uses code "RN".
+ * This lets codes restart at R1 when all rows are deleted, and also fills gaps (R1, R3 → next is R2).
+ * Run inside a transaction to reduce the chance of races; on rare conflict, the caller retries.
+ */
+async function nextReturnCode(tx: Prisma.TransactionClient): Promise<string> {
+  const rows = await tx.return.findMany({ select: { code: true } });
+  const used = new Set<number>();
+  for (const r of rows) {
+    const m = /^R(\d+)$/.exec(r.code ?? "");
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (Number.isFinite(n) && n > 0) used.add(n);
+    }
+  }
+  let n = 1;
+  while (used.has(n)) n++;
+  return `R${n}`;
+}
+
+/* -----------------------------------------------------------------------------
+   GET /api/returns  (list)
+----------------------------------------------------------------------------- */
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
     const q = url.searchParams.get("q") ?? undefined;
-    const cause = (url.searchParams.get("cause") ?? undefined) as Cause | "all" | undefined;
-    const reporter = (url.searchParams.get("reporter") ?? undefined) as Reporter | "all" | undefined;
+    const cause = (url.searchParams.get("cause") ??
+      undefined) as Cause | "all" | undefined;
+    const reporter = (url.searchParams.get("reporter") ??
+      undefined) as Reporter | "all" | undefined;
     const dateFrom = url.searchParams.get("dateFrom") ?? undefined;
     const dateTo = url.searchParams.get("dateTo") ?? undefined;
-    const take = Math.min(Number(url.searchParams.get("take") ?? 200) || 200, 500);
+    const take = Math.min(
+      Number(url.searchParams.get("take") ?? 200) || 200,
+      500
+    );
 
     const where: Prisma.ReturnWhereInput = {};
 
@@ -165,8 +175,10 @@ export async function GET(req: NextRequest) {
 
     if (dateFrom || dateTo) {
       const gte = dateFrom ? new Date(dateFrom) : undefined;
-      // include entire end day
-      const lte = dateTo ? new Date(new Date(dateTo).setHours(23, 59, 59, 999)) : undefined;
+      // include the entire end day
+      const lte = dateTo
+        ? new Date(new Date(dateTo).setHours(23, 59, 59, 999))
+        : undefined;
       where.reportedAt = { gte, lte };
     }
 
@@ -180,97 +192,115 @@ export async function GET(req: NextRequest) {
     const rows: ReturnRow[] = data.map((r) =>
       toReturnRow(r as Awaited<ReturnType<typeof fetchOneReturnDB>>)
     );
-
     return NextResponse.json(
       { ok: true, rows },
       { headers: { "cache-control": "no-store, must-revalidate" } }
     );
   } catch (err: any) {
-    console.error("GET /api/returns failed:", err);
+    console.error(err);
     return NextResponse.json(
       { ok: false, error: err?.message ?? "Erreur" },
-      { status: 500, headers: { "cache-control": "no-store" } }
+      { status: 500 }
     );
   }
 }
 
-/* ========================================================================== */
-/* POST /api/returns                                                           */
-/* ========================================================================== */
+/* -----------------------------------------------------------------------------
+   POST /api/returns  (create)
+   - Generates a human code "R#" that reuses the LOWEST FREE number
+   - Does not depend on autoincrement id (so after deleting all rows, next is R1)
+----------------------------------------------------------------------------- */
+type CreatePayload = {
+  reporter: Reporter;
+  cause: Cause;
+  expert: string;
+  client: string;
+  noClient?: string | null;
+  noCommande?: string | null;
+  tracking?: string | null;
+  amount?: number | null;
+  dateCommande?: string | null; // "YYYY-MM-DD"
+  transport?: string | null;
+  description?: string | null;
+  products?: {
+    codeProduit: string;
+    descriptionProduit: string;
+    descriptionRetour?: string | null;
+    quantite: number;
+  }[];
+};
+
 export async function POST(req: NextRequest) {
   try {
-    const payload = await req.json();
-    const data = CreateReturn.parse(payload);
+    const body = (await req.json()) as CreatePayload;
 
-    // Because `Return.code` is required + unique, we create with a unique temp code
-    const tmpCode =
-      "R_TMP_" +
-      Date.now().toString(36) +
-      "_" +
-      Math.random().toString(36).slice(2, 8);
-
-    const created = await prisma.$transaction(async (tx) => {
-      // 1) create the return (shell)
-      const shell = await tx.return.create({
-        data: {
-          code: tmpCode, // required placeholder
-          reporter: data.reporter,
-          cause: data.cause,
-          expert: data.expert.trim(),
-          client: data.client.trim(),
-          noClient: data.noClient?.trim() || null,
-          noCommande: data.noCommande?.trim() || null,
-          tracking: data.tracking?.trim() || null,
-          amount:
-            data.amount == null ? null : new Prisma.Decimal(num(data.amount) ?? 0),
-          dateCommande: data.dateCommande ? new Date(data.dateCommande) : null,
-          transport: data.transport?.trim() || null,
-          description: data.description?.trim() || null,
-          status: "draft",
-          createdByName: "current_user", // TODO: replace with real user when auth is wired
-        },
-        select: { id: true },
-      });
-
-      const finalCode = `R${shell.id}`;
-
-      // 2) set final code & create product rows
-      const withProducts = await tx.return.update({
-        where: { id: shell.id },
-        data: {
-          code: finalCode,
-          products: {
-            create: (data.products ?? []).map((p) => ({
-              codeProduit: p.codeProduit.trim(),
-              descriptionProduit: p.descriptionProduit?.trim() ?? "",
-              descriptionRetour: p.descriptionRetour?.trim() || null,
-              quantite: p.quantite ?? 0,
-            })),
-          },
-        },
-        include: { products: true, attachments: true },
-      });
-
-      return withProducts;
-    });
-
-    const row = toReturnRow(created as Awaited<ReturnType<typeof fetchOneReturnDB>>);
-
-    return NextResponse.json(
-      { ok: true, return: row },
-      { headers: { "cache-control": "no-store" } }
-    );
-  } catch (err: any) {
-    if (err instanceof ZodError) {
+    if (!body.expert?.trim() || !body.client?.trim()) {
       return NextResponse.json(
-        { ok: false, error: "Invalid payload", issues: err.issues },
-        { status: 400, headers: { "cache-control": "no-store" } }
+        { ok: false, error: "Expert et client sont requis." },
+        { status: 400 }
       );
     }
-    console.error("POST /api/returns failed:", err);
+
+    // Try a couple of times in case two users race for the same "R#"
+    let attempts = 0;
+    while (true) {
+      attempts++;
+      try {
+        const created = await prisma.$transaction(async (tx) => {
+          const code = await nextReturnCode(tx);
+
+          const base = await tx.return.create({
+            data: {
+              code, // ✅ independent from autoincrement id
+              reporter: body.reporter,
+              cause: body.cause,
+              expert: body.expert.trim(),
+              client: body.client.trim(),
+              noClient: body.noClient?.trim() || null,
+              noCommande: body.noCommande?.trim() || null,
+              tracking: body.tracking?.trim() || null,
+              amount:
+                body.amount == null
+                  ? null
+                  : new Prisma.Decimal(num(body.amount) ?? 0),
+              dateCommande: parseDate(body.dateCommande),
+              transport: body.transport?.trim() || null,
+              description: body.description?.trim() || null,
+              products: {
+                create:
+                  (body.products ?? []).map((p) => ({
+                    codeProduit: p.codeProduit.trim(),
+                    descriptionProduit: p.descriptionProduit.trim(),
+                    descriptionRetour: p.descriptionRetour?.trim() || null,
+                    quantite: p.quantite || 0,
+                  })) ?? [],
+              },
+              createdByName: "current_user",
+            },
+            include: { products: true, attachments: true },
+          });
+
+          return base;
+        });
+
+        const row = toReturnRow(
+            created as Awaited<ReturnType<typeof fetchOneReturnDB>>
+        );
+        return NextResponse.json(
+          { ok: true, return: row },
+          { headers: { "cache-control": "no-store" } }
+        );
+      } catch (e: any) {
+        // Unique constraint on `code` might trip in a rare race; retry quickly.
+        if (e?.code === "P2002" && attempts < 3) continue;
+        throw e;
+      }
+    }
+  } catch (err: any) {
+    console.error(err);
     return NextResponse.json(
       { ok: false, error: err?.message ?? "Création échouée" },
-      { status: 500, headers: { "cache-control": "no-store" } }
+      { status: 500 }
     );
   }
 }
