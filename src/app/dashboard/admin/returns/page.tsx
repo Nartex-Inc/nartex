@@ -8,10 +8,8 @@ import {
   Eye,
   Trash2,
   Pause,
-  Filter,
   RotateCcw,
   Download,
-  ChevronDown,
   ChevronUp,
   Folder,
   Plus,
@@ -221,13 +219,13 @@ async function createReturn(payload: {
 
 type OrderLookup = {
   sonbr: string;
-  orderDate: string; // ISO
+  orderDate?: string | null; // ISO
   totalamt: number | null;
   customerName?: string | null;
   carrierName?: string | null;
   salesrepName?: string | null;
   tracking?: string | null;
-  noClient? string | null;
+  noClient?: string | null; // <-- fixed type (with colon) and optional
 };
 
 async function lookupOrder(noCommande: string): Promise<OrderLookup | null> {
@@ -240,15 +238,16 @@ async function lookupOrder(noCommande: string): Promise<OrderLookup | null> {
   const json = await res.json();
   if (!json || json.exists === false) return null;
 
+  // normalize legacy/mixed keys
   return {
     sonbr: json.sonbr ?? json.sonNbr ?? noCommande,
-    orderDate: json.orderDate || json.OrderDate,
+    orderDate: json.orderDate ?? json.OrderDate ?? null,
     totalamt: json.totalamt ?? json.totalAmt ?? null,
     customerName: json.customerName ?? json.CustomerName ?? null,
     carrierName: json.carrierName ?? json.CarrierName ?? null,
     salesrepName: json.salesrepName ?? json.SalesrepName ?? null,
     tracking: json.tracking ?? json.TrackingNumber ?? null,
-    noClient: json.noClient ?? json.CustCode ?? null,   // ⬅️ add this line
+    noClient: json.noClient ?? json.CustCode ?? null,
   };
 }
 
@@ -1044,8 +1043,7 @@ function SortTh({
 }
 
 /* =============================================================================
-   Detail modal (read-only editing demo)
-   - You can wire PATCH /api/returns/[code] later if needed.
+   Detail modal
 ============================================================================= */
 function DetailModal({
   row,
@@ -1337,20 +1335,18 @@ function NewReturnModal({
     ]);
   const removeProduct = (pid: string) =>
     setProducts((p) => p.filter((x) => x.id !== pid));
-  const patchProduct = (pid: string, patch: Partial<ProductLine>) =>
-    setProducts((p) => p.map((x) => (x.id === pid ? { ...x, ...patch } : x)));
 
-  const onBlurCommande = async () => {
-  const data = await lookupOrder(noCommande);
-  if (!data) return;
-  if (data.customerName) setClient(data.customerName);
-  if (data.salesrepName) setExpert(data.salesrepName);
-  if (data.carrierName) setTransport(data.carrierName);
-  if (data.tracking) setTracking(data.tracking);
-  if (data.orderDate) setDateCommande(data.orderDate.slice(0, 10));
-  if (data.totalamt != null) setAmount(String(data.totalamt));
-  if (data.noClient) setNoClient(data.noClient);   // ⬅️ add this
-};
+  const onFetchFromOrder = async () => {
+    const data = await lookupOrder(noCommande);
+    if (!data) return;
+    if (data.customerName) setClient(data.customerName);
+    if (data.salesrepName) setExpert(data.salesrepName);
+    if (data.carrierName) setTransport(data.carrierName);
+    if (data.tracking) setTracking(data.tracking);
+    if (data.orderDate) setDateCommande(data.orderDate.slice(0, 10));
+    if (data.totalamt != null) setAmount(String(data.totalamt));
+    if (data.noClient) setNoClient(data.noClient);
+  };
 
   const submit = async () => {
     if (!expert.trim() || !client.trim()) {
@@ -1431,20 +1427,24 @@ function NewReturnModal({
               <Field label="Expert" value={expert} onChange={setExpert} />
               <Field label="Client" value={client} onChange={setClient} />
               <Field label="No. client" value={noClient} onChange={setNoClient} />
+
+              {/* No. commande: triggers auto-fill on blur */}
               <Field
                 label="No. commande"
                 value={noCommande}
                 onChange={setNoCommande}
-                // Autofill on blur
+                onBlur={onFetchFromOrder}
                 type="text"
               />
+              {/* Manual button too */}
               <button
-                onClick={onBlurCommande}
+                onClick={onFetchFromOrder}
                 className="self-end h-[38px] rounded-lg border px-3 text-sm border-slate-200 dark:border-white/15 bg-white dark:bg-neutral-900 hover:bg-slate-50 dark:hover:bg-neutral-800"
                 title="Autoremplir à partir du no_commande"
               >
                 Remplir depuis commande
               </button>
+
               <Field label="No. tracking" value={tracking} onChange={setTracking} />
               <Field label="Transport" value={transport} onChange={setTransport} />
               <Field label="Montant" value={amount} onChange={setAmount} />
@@ -1597,6 +1597,7 @@ function Field({
   type = "text",
   as,
   options,
+  onBlur,
 }: {
   label: string;
   value: string;
@@ -1604,6 +1605,7 @@ function Field({
   type?: string;
   as?: "select";
   options?: { value: string; label: string }[];
+  onBlur?: () => void;
 }) {
   return (
     <label className="grid gap-1">
@@ -1625,6 +1627,7 @@ function Field({
           type={type}
           className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-950 dark:border-white/15 dark:text-white outline-none focus:border-emerald-400/50"
           value={value}
+          onBlur={onBlur}
           onChange={(e) => onChange(e.target.value)}
         />
       )}
@@ -1634,7 +1637,6 @@ function Field({
 
 /* =============================================================================
    Product code autocomplete field
-   - Debounced search to /api/items?q=...
 ============================================================================= */
 function ProductCodeField({
   value,
