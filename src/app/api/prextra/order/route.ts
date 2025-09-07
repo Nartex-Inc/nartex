@@ -50,7 +50,7 @@ export async function GET(req: Request) {
       so.srid ? prisma.salesrep.findUnique({ where: { srid: so.srid } }) : null,
       // Use shipmentid for ordering; also filter by cieid so we don't mix companies
       prisma.shipmentHdr.findFirst({
-        where: { sonbr: so.sonbr, cieid: so.cieid },
+        where: { sonbr: so.sonbr, cieid: so.cieid }, // ensure ShipmentHdr has cieid mapped
         orderBy: { shipmentid: "desc" },
         select: { waybill: true },
       }),
@@ -61,11 +61,11 @@ export async function GET(req: Request) {
       ok: true,
       exists: true,
       sonbr: so.sonbr,
-      // Dates become ISO strings in JSON automatically
-      OrderDate: so.orderdate ?? null,
-      // Prisma Decimal -> number (or null)
-      totalamt: so.totalamt != null ? Number(so.totalamt) : null,
+      OrderDate: so.orderdate ?? null,                         // Dates -> ISO in JSON
+      totalamt: so.totalamt != null ? Number(so.totalamt) : null, // Decimal -> number
+      // Provide both for maximum compatibility:
       noClient: cust?.custcode ?? "",
+      CustCode: cust?.custcode ?? "",
       CustomerName: cust?.name ?? "",
       CarrierName: carr?.name ?? "",
       SalesrepName: rep?.name ?? "",
