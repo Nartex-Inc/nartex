@@ -1,27 +1,24 @@
-// src/app/api/orders/[sonbr]/route.ts
 // ✅ Next 15–safe route: fetch order + joined details for autofill
 //    GET /api/orders/:sonbr
 
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-type Context = any; // keep loose for Next's runtime validator across versions
+type Context = any; // keep loose for Next runtime validator across versions
 
 export async function GET(_req: Request, context: Context) {
   try {
     const raw = (context?.params?.sonbr ?? "") as string;
+    const sonbr = Number(decodeURIComponent(raw).trim());
 
-    // sonbr is INT in Prisma -> coerce & validate
-    const parsed = decodeURIComponent(String(raw)).trim();
-    const sonbr = Number(parsed);
-    if (!Number.isFinite(sonbr) || !Number.isInteger(sonbr)) {
+    if (!Number.isFinite(sonbr)) {
       return NextResponse.json(
         { ok: false, exists: false, error: "Missing or invalid order number." },
         { status: 400 }
       );
     }
 
-    // sonbr isn't unique in your schema -> use findFirst
+    // sonbr not unique -> use findFirst
     const so = await prisma.sOHeader.findFirst({
       where: { sonbr },
       select: {
@@ -53,8 +50,7 @@ export async function GET(_req: Request, context: Context) {
       ok: true,
       exists: true,
       sonbr: so.sonbr,
-      // Make sure values are JSON-safe & consistent
-      OrderDate: so.orderdate ? new Date(so.orderdate).toISOString() : null,
+      OrderDate: so.orderdate,                           // keep as Date/ISO
       totalamt: so.totalamt != null ? Number(so.totalamt) : null,
       CustCode: cust?.custcode ?? "",
       CustomerName: cust?.name ?? "",
@@ -65,8 +61,8 @@ export async function GET(_req: Request, context: Context) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unexpected server error.";
     return NextResponse.json(
-      { ok: false, exists: false, error: message },
-      { status: 500 }
+        { ok: false, exists: false, error: message },
+        { status: 500 }
     );
   }
 }
