@@ -16,7 +16,7 @@ export async function GET(req: Request) {
     if (!Number.isFinite(sonbr) || !Number.isInteger(sonbr)) {
       return NextResponse.json(
         { ok: false, exists: false, error: "Missing or invalid 'no_commande'." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -45,18 +45,12 @@ export async function GET(req: Request) {
 
     // Parallel lookups (all null-safe)
     const [cust, carr, rep, ship] = await Promise.all([
-      so.custid
-        ? prisma.customers.findUnique({ where: { custid: so.custid } })
-        : null,
-      so.carrid
-        ? prisma.carriers.findUnique({ where: { carrid: so.carrid } })
-        : null,
-      so.srid
-        ? prisma.salesrep.findUnique({ where: { srid: so.srid } })
-        : null,
-      // ShipmentHdr now uses `shipmentid` as PK, so order by that
+      so.custid ? prisma.customers.findUnique({ where: { custid: so.custid } }) : null,
+      so.carrid ? prisma.carriers.findUnique({ where: { carrid: so.carrid } }) : null,
+      so.srid ? prisma.salesrep.findUnique({ where: { srid: so.srid } }) : null,
+      // Use shipmentid for ordering; also filter by cieid so we don't mix companies
       prisma.shipmentHdr.findFirst({
-        where: { sonbr: so.sonbr },
+        where: { sonbr: so.sonbr, cieid: so.cieid },
         orderBy: { shipmentid: "desc" },
         select: { waybill: true },
       }),
@@ -67,7 +61,7 @@ export async function GET(req: Request) {
       ok: true,
       exists: true,
       sonbr: so.sonbr,
-      // Dates serialize to ISO automatically; null when absent
+      // Dates become ISO strings in JSON automatically
       OrderDate: so.orderdate ?? null,
       // Prisma Decimal -> number (or null)
       totalamt: so.totalamt != null ? Number(so.totalamt) : null,
@@ -78,11 +72,10 @@ export async function GET(req: Request) {
       TrackingNumber: ship?.waybill ?? "",
     });
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Unexpected server error.";
+    const message = err instanceof Error ? err.message : "Unexpected server error.";
     return NextResponse.json(
       { ok: false, exists: false, error: message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
