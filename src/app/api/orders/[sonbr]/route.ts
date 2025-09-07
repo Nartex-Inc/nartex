@@ -1,15 +1,12 @@
 // src/app/api/orders/[sonbr]/route.ts
 // GET /api/orders/:sonbr
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { sonbr: string } }  // <- inline type required by Next
-) {
+export async function GET(_req: Request, context: any) {
   try {
-    const raw = params?.sonbr ?? "";
+    const raw = context?.params?.sonbr ?? "";
     const sonbr = Number(decodeURIComponent(raw).trim());
 
     if (!Number.isFinite(sonbr) || !Number.isInteger(sonbr)) {
@@ -47,8 +44,8 @@ export async function GET(
       so.carrid ? prisma.carriers.findUnique({ where: { carrid: so.carrid } }) : null,
       so.srid   ? prisma.salesrep.findUnique({ where: { srid: so.srid } })     : null,
       prisma.shipmentHdr.findFirst({
-        where: { sonbr: so.sonbr },          // add { cieid: so.cieid } too if ShipmentHdr has it
-        orderBy: { shipmentid: "desc" },
+        where: { sonbr: so.sonbr },
+        orderBy: { shipmentid: "desc" }, // uses ShipmentHdr.shipmentid as PK
         select: { waybill: true },
       }),
     ]);
