@@ -282,7 +282,7 @@ model SOHeader {
   totalamt  Decimal?  @db.Decimal(18, 2) @map("totalamt")
 
   // These exist in your legacy query; map to likely-cased columns.
-  custid Int? @map("CustId")
+  custid Int? @map("custid")
   carrid Int? @map("Carrid")
   srid   Int? @map("SRid")
 
@@ -292,7 +292,7 @@ model SOHeader {
 
 /// Customers replicated as "Customers"
 model Customers {
-  custid   Int    @id          @map("CustId")
+  custid   Int    @id          @map("custid")
   custcode String @map("CustCode")
   name     String @map("Name")
 
