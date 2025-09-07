@@ -273,10 +273,10 @@ model Locations {
 }
 
 /// Sales orders header replicated as "SOHeader"
-/// NOTE: In your DB, primary key is composite (cteid, sonbr).
+/// NOTE: In your DB, primary key is composite (cieid, sonbr).
 ///       Order date is "OrderDate" (quoted, mixed case).
 model SOHeader {
-  cteid     Int     @map("cteid")
+  cieid     Int     @map("cieid")
   sonbr     Int     @map("sonbr")
   orderdate DateTime? @map("OrderDate")
   totalamt  Decimal?  @db.Decimal(18, 2) @map("totalamt")
@@ -286,7 +286,7 @@ model SOHeader {
   carrid Int? @map("Carrid")
   srid   Int? @map("SRid")
 
-  @@id([cteid, sonbr])
+  @@id([cieid, sonbr])
   @@map("SOHeader")
 }
 
