@@ -231,6 +231,18 @@ type OrderLookup = {
   noClient?: string | null;
 };
 
+async function deleteReturn(code: string): Promise<void> {
+  const res = await fetch(`/api/returns/${encodeURIComponent(code)}`, {
+    method: "DELETE",
+    credentials: "include",
+    cache: "no-store",
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok || !json?.ok) {
+    throw new Error(json?.error || "Suppression échouée");
+  }
+}
+
 async function lookupOrder(noCommande: string): Promise<OrderLookup | null> {
   if (!noCommande.trim()) return null;
   const res = await fetch(
@@ -419,10 +431,18 @@ export default function ReturnsPage() {
   // actions
   const onToggleStandby = (id: string) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, standby: !r.standby } : r)));
-  const onDelete = (id: string) => {
-    if (!confirm(`Supprimer le retour ${id} ?`)) return;
-    // TODO: hook /api/returns/[code] DELETE when ready
-    setRows((prev) => prev.filter((r) => r.id !== id));
+  const onDelete = async (code: string) => {
+    if (!confirm(`Supprimer le retour ${code} ?`)) return;
+  
+    const prev = rows; // keep for rollback
+    setRows((r) => r.filter((x) => x.id !== code)); // optimistic remove
+  
+    try {
+      await deleteReturn(code); // <- persist in DB
+    } catch (e: any) {
+      alert(e?.message || "La suppression a échoué. Restauration de la ligne.");
+      setRows(prev); // rollback if API failed
+    }
   };
   const onReset = () => {
     setQuery("");
