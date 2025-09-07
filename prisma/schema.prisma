@@ -10,7 +10,7 @@ datasource db {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 0. ENUMS
+// 0) ENUMS
 ////////////////////////////////////////////////////////////////////////////////
 
 enum ProductLifecycleStage {
@@ -45,7 +45,7 @@ enum ReturnStatus {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 1. AUTH / USERS  (schema: public)
+// 1) AUTH / USERS  (schema: public)
 ////////////////////////////////////////////////////////////////////////////////
 
 model User {
@@ -74,9 +74,11 @@ model User {
 model Account {
   id                String  @id @default(cuid())
   userId            String  @map("user_id")
+
   type              String
   provider          String
   providerAccountId String  @map("provider_account_id")
+
   refresh_token     String? @db.Text
   access_token      String? @db.Text
   expires_at        Int?
@@ -114,7 +116,7 @@ model VerificationToken {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 2. MULTI-TENANCY  (schema: public)
+// 2) MULTI-TENANCY  (schema: public)
 ////////////////////////////////////////////////////////////////////////////////
 
 model Tenant {
@@ -163,15 +165,19 @@ model SharePointNode {
   name         String
   type         String   @default("folder")
   icon         String?
+
   restricted   Boolean  @default(false)
   highSecurity Boolean  @default(false)
+
+  // Arrays (never null); empty arrays mean “inherit”
   editGroups   String[] @default([])
   readGroups   String[] @default([])
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  parent   SharePointNode? @relation("SPChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent   SharePointNode?  @relation("SPChildren", fields: [parentId], references: [id], onDelete: Cascade)
   children SharePointNode[] @relation("SPChildren")
 
   @@index([tenantId])
@@ -180,12 +186,12 @@ model SharePointNode {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 3. RETURNS DOMAIN  (schema: public)
+// 3) RETURNS DOMAIN  (schema: public)
 ////////////////////////////////////////////////////////////////////////////////
 
 model Return {
   id            Int           @id @default(autoincrement())
-  code          String        @unique
+  code          String        @unique                               // “R” + id
   reportedAt    DateTime      @default(now())
   reporter      Reporter
   cause         Cause
@@ -243,83 +249,98 @@ model Upload {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 4. PREXTRA REPLICAS (READ-ONLY)  (schema: public)
+// 4) PREXTRA REPLICAS (READ ONLY)  (schema: public)
+//    IMPORTANT: DMS created QUOTED CamelCase tables/columns.
+//    We map them exactly with @@map / @map so Prisma generates the right SQL.
 ////////////////////////////////////////////////////////////////////////////////
-// If your DMS created different names (quoted MixedCase), adjust @@map.
 
+/// Items table replicated as "Items"
 model Items {
-  itemid   Int     @id
-  itemcode String  @db.VarChar(64)
-  descr    String? @db.VarChar(255)
+  itemid   Int     @id        @map("ItemId")
+  itemcode String  @map("ItemCode")
+  descr    String? @map("Descr")
 
   @@index([itemcode])
-  @@map("items")
+  @@map("Items")
 }
 
-model Itemsite {
-  itemsiteid Int  @id
-  itemid     Int
-  siteid     Int
-  qtyonhand  Int?
-  locid      Int?
-
-  @@index([itemid, siteid])
-  @@map("itemsite")
-}
-
+/// Locations table replicated as "Locations"
 model Locations {
-  locid Int    @id
-  name  String @db.VarChar(128)
+  locid Int    @id   @map("LocId")
+  name  String @map("Name")
 
-  @@map("locations")
+  @@map("Locations")
 }
 
+/// Sales orders header replicated as "SOHeader"
+/// NOTE: In your DB, primary key is composite (cteid, sonbr).
+///       Order date is "OrderDate" (quoted, mixed case).
 model SOHeader {
-  id        Int       @id @default(autoincrement())
-  sonbr     String    @unique
-  orderdate DateTime
-  totalamt  Decimal?  @db.Decimal(12, 2)
-  custid    Int?
-  carrid    Int?
-  srid      Int?
+  cteid     Int     @map("cteid")
+  sonbr     Int     @map("sonbr")
+  orderdate DateTime? @map("OrderDate")
+  totalamt  Decimal?  @db.Decimal(18, 2) @map("totalamt")
 
-  @@map("soheader")
+  // These exist in your legacy query; map to likely-cased columns.
+  custid Int? @map("CustId")
+  carrid Int? @map("Carrid")
+  srid   Int? @map("SRid")
+
+  @@id([cteid, sonbr])
+  @@map("SOHeader")
 }
 
+/// Customers replicated as "Customers"
 model Customers {
-  custid   Int    @id
-  custcode String @db.VarChar(64)
-  name     String @db.VarChar(255)
+  custid   Int    @id          @map("CustId")
+  custcode String @map("CustCode")
+  name     String @map("Name")
 
-  @@map("customers")
+  @@map("Customers")
 }
 
+/// Carriers replicated as "carriers" (lowercase table/columns)
 model Carriers {
   carrid Int    @id
-  name   String @db.VarChar(255)
+  name   String
 
   @@map("carriers")
 }
 
+/// Sales reps replicated as "Salesrep"
 model Salesrep {
-  srid Int    @id
-  name String @db.VarChar(255)
+  srid Int    @id   @map("SRId")
+  name String @map("Name")
 
-  @@map("salesrep")
+  @@map("Salesrep")
 }
 
+/// Shipments header replicated as "ShipmentHdr"
 model ShipmentHdr {
-  id      Int    @id @default(autoincrement())
-  sonbr   String
-  waybill String?
+  id      Int     @id @default(autoincrement())
+  sonbr   Int     @map("sonbr")
+  waybill String? @map("WayBill")
 
   @@index([sonbr])
-  @@map("shipmenthdr")
+  @@map("ShipmentHdr")
+}
+
+// If you don’t actually replicate these, you can remove them later.
+// Keeping them mapped prevents accidental lower/upper-case mismatches.
+model Itemsite {
+  itemsiteid Int  @id          @map("ItemSiteId")
+  itemid     Int  @map("ItemId")
+  siteid     Int  @map("SiteId")
+  qtyonhand  Int? @map("QtyOnHand")
+  locid      Int? @map("LocId")
+
+  @@index([itemid, siteid])
+  @@map("Itemsite")
 }
 
 model Sites {
-  id   Int    @id @default(autoincrement())
-  name String @db.VarChar(255)
+  id   Int    @id @default(autoincrement()) @map("Id")
+  name String @map("Name")
 
-  @@map("sites")
+  @@map("Sites")
 }
