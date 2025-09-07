@@ -274,7 +274,19 @@ async function searchItems(q: string): Promise<ItemSuggestion[]> {
   });
   if (!res.ok) return [];
   const json = await res.json();
+  // normalize
   return (json.items ?? []) as ItemSuggestion[];
+}
+
+async function getItem(code: string): Promise<{ code: string; descr?: string | null; weight?: number | null } | null> {
+  if (!code.trim()) return null;
+  const res = await fetch(`/api/items?code=${encodeURIComponent(code.trim())}`, {
+    cache: "no-store",
+    credentials: "include",
+  });
+  if (!res.ok) return null;
+  const json = await res.json();
+  return (json.item as { code: string; descr?: string | null; weight?: number | null } | null) ?? null;
 }
 
 function useDebounced<T>(value: T, delay = 300) {
