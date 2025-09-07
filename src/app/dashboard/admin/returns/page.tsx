@@ -46,6 +46,9 @@ type ProductLine = {
   descriptionProduit: string;
   descriptionRetour?: string;
   quantite: number;
+  // optional weight info
+  poidsUnitaire?: number | null;
+  poidsTotal?: number | null;
 };
 type ReturnRow = {
   id: string;
