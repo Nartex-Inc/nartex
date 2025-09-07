@@ -15,7 +15,7 @@ export async function GET(req: Request) {
       );
     }
 
-    // sonbr is an INT in the DB -> coerce and validate
+    // sonbr is INT -> coerce & validate
     const sonbr = Number(decodeURIComponent(raw).trim());
     if (!Number.isFinite(sonbr)) {
       return NextResponse.json(
@@ -24,7 +24,6 @@ export async function GET(req: Request) {
       );
     }
 
-    // Use findFirst because sonbr is not unique (composite PK on the table)
     const so = await prisma.sOHeader.findFirst({
       where: { sonbr },
       select: {
@@ -56,9 +55,8 @@ export async function GET(req: Request) {
       ok: true,
       exists: true,
       sonbr: so.sonbr,
-      // You can new Date(OrderDate) on the client
-      OrderDate: so.orderdate,
-      totalamt: so.totalamt,
+      OrderDate: so.orderdate,                // client can new Date(OrderDate)
+      totalamt: so.totalamt,                  // Decimal -> will be serialized
       CustCode: cust?.custcode ?? "",
       CustomerName: cust?.name ?? "",
       CarrierName: carr?.name ?? "",
