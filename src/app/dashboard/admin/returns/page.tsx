@@ -218,14 +218,14 @@ async function createReturn(payload: {
 }
 
 type OrderLookup = {
-  sonbr: string;
+  sonbr: string | number;
   orderDate?: string | null; // ISO
   totalamt: number | null;
   customerName?: string | null;
   carrierName?: string | null;
   salesrepName?: string | null;
   tracking?: string | null;
-  noClient?: string | null; // <-- fixed type (with colon) and optional
+  noClient?: string | null;
 };
 
 async function lookupOrder(noCommande: string): Promise<OrderLookup | null> {
@@ -238,7 +238,14 @@ async function lookupOrder(noCommande: string): Promise<OrderLookup | null> {
   const json = await res.json();
   if (!json || json.exists === false) return null;
 
-  // normalize legacy/mixed keys
+  // normalize + be permissive with key variants
+  const normalizedNoClient =
+    json.noClient ??
+    json.custCode ??
+    json.CustCode ??
+    json.customerCode ??
+    null;
+
   return {
     sonbr: json.sonbr ?? json.sonNbr ?? noCommande,
     orderDate: json.orderDate ?? json.OrderDate ?? null,
@@ -247,7 +254,7 @@ async function lookupOrder(noCommande: string): Promise<OrderLookup | null> {
     carrierName: json.carrierName ?? json.CarrierName ?? null,
     salesrepName: json.salesrepName ?? json.SalesrepName ?? null,
     tracking: json.tracking ?? json.TrackingNumber ?? null,
-    noClient: json.noClient ?? json.CustCode ?? null,
+    noClient: normalizedNoClient,
   };
 }
 
@@ -677,63 +684,19 @@ export default function ReturnsPage() {
                           isDark ? "border-b border-white/10" : "border-b border-slate-200"
                         )}
                       >
-                        <SortTh
-                          label="Code"
-                          active={sortKey === "id"}
-                          dir={sortDir}
-                          onClick={() => toggleSort("id")}
-                        />
-                        <SortTh
-                          label="Date"
-                          active={sortKey === "reportedAt"}
-                          dir={sortDir}
-                          onClick={() => toggleSort("reportedAt")}
-                        />
-                        <SortTh
-                          label="Signalé par"
-                          active={sortKey === "reporter"}
-                          dir={sortDir}
-                          onClick={() => toggleSort("reporter")}
-                        />
-                        <SortTh
-                          label="Cause"
-                          active={sortKey === "cause"}
-                          dir={sortDir}
-                          onClick={() => toggleSort("cause")}
-                        />
-                        <SortTh
-                          label="Client / Expert"
-                          active={sortKey === "client"}
-                          dir={sortDir}
-                          onClick={() => toggleSort("client")}
-                        />
-                        <SortTh
-                          label="No commande"
-                          active={sortKey === "noCommande"}
-                          dir={sortDir}
-                          onClick={() => toggleSort("noCommande")}
-                        />
-                        <SortTh
-                          label="Tracking"
-                          active={sortKey === "tracking"}
-                          dir={sortDir}
-                          onClick={() => toggleSort("tracking")}
-                        />
-                        <SortTh
-                          label="P.J."
-                          active={sortKey === "attachments"}
-                          dir={sortDir}
-                          onClick={() => toggleSort("attachments")}
-                        />
+                        <SortTh label="Code" active={sortKey === "id"} dir={sortDir} onClick={() => toggleSort("id")} />
+                        <SortTh label="Date" active={sortKey === "reportedAt"} dir={sortDir} onClick={() => toggleSort("reportedAt")} />
+                        <SortTh label="Signalé par" active={sortKey === "reporter"} dir={sortDir} onClick={() => toggleSort("reporter")} />
+                        <SortTh label="Cause" active={sortKey === "cause"} dir={sortDir} onClick={() => toggleSort("cause")} />
+                        <SortTh label="Client / Expert" active={sortKey === "client"} dir={sortDir} onClick={() => toggleSort("client")} />
+                        <SortTh label="No commande" active={sortKey === "noCommande"} dir={sortDir} onClick={() => toggleSort("noCommande")} />
+                        <SortTh label="Tracking" active={sortKey === "tracking"} dir={sortDir} onClick={() => toggleSort("tracking")} />
+                        <SortTh label="P.J." active={sortKey === "attachments"} dir={sortDir} onClick={() => toggleSort("attachments")} />
                         <th className="px-5 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
 
-                    <tbody
-                      className={cn(
-                        isDark ? "divide-y divide-white/8" : "divide-y divide-slate-100"
-                      )}
-                    >
+                    <tbody className={cn(isDark ? "divide-y divide-white/8" : "divide-y divide-slate-100")}>
                       {striped.map(({ row, stripe }) => {
                         const hasFiles = (row.attachments?.length ?? 0) > 0;
                         const s = STATUS_TEXT[row.status];
@@ -742,10 +705,7 @@ export default function ReturnsPage() {
                             key={row.id}
                             onMouseEnter={() => setHovered(row.id)}
                             onMouseLeave={() => setHovered(null)}
-                            className={cn(
-                              "relative transition-all duration-200",
-                              row.standby && "opacity-60"
-                            )}
+                            className={cn("relative transition-all duration-200", row.standby && "opacity-60")}
                             style={rowStyle(row.status, stripe)}
                           >
                             <td className={cn("px-5 py-4 font-semibold", s.text)}>
@@ -754,10 +714,8 @@ export default function ReturnsPage() {
                                   className={cn(
                                     "w-1.5 h-6 rounded-full",
                                     row.status === "draft" && "bg-slate-300",
-                                    row.status === "awaiting_physical" &&
-                                      "bg-white/80",
-                                    row.status === "received_or_no_physical" &&
-                                      "bg-white/80"
+                                    row.status === "awaiting_physical" && "bg-white/80",
+                                    row.status === "received_or_no_physical" && "bg-white/80"
                                   )}
                                 />
                                 <span className="font-mono">{row.id}</span>
@@ -782,85 +740,40 @@ export default function ReturnsPage() {
                             <td className={cn("px-5 py-4", s.text)}>
                               <div>
                                 <div className="font-medium">{row.client}</div>
-                                <div className={cn("text-[11px] opacity-80")}>
-                                  {row.expert}
-                                </div>
+                                <div className={cn("text-[11px] opacity-80")}>{row.expert}</div>
                               </div>
                             </td>
-                            <td className={cn("px-5 py-4", s.text)}>
-                              {row.noCommande ?? "—"}
-                            </td>
-                            <td className={cn("px-5 py-4", s.text)}>
-                              {row.tracking ?? "—"}
-                            </td>
+                            <td className={cn("px-5 py-4", s.text)}>{row.noCommande ?? "—"}</td>
+                            <td className={cn("px-5 py-4", s.text)}>{row.tracking ?? "—"}</td>
                             <td className={cn("px-5 py-4", s.text)}>
                               {hasFiles ? (
                                 <div className="inline-flex items-center gap-1.5">
                                   <Folder className="h-4 w-4 opacity-80" />
-                                  <span className="text-xs font-medium">
-                                    {row.attachments!.length}
-                                  </span>
+                                  <span className="text-xs font-medium">{row.attachments!.length}</span>
                                 </div>
                               ) : (
-                                <span
-                                  className={cn(
-                                    "text-xs",
-                                    isDark ? "text-slate-300" : "text-slate-500"
-                                  )}
-                                >
-                                  —
-                                </span>
+                                <span className={cn("text-xs", isDark ? "text-slate-300" : "text-slate-500")}>—</span>
                               )}
                             </td>
                             <td className="px-5 py-3">
-                              <div
-                                className={cn(
-                                  "flex items-center justify-end gap-1 transition-opacity",
-                                  hovered === row.id ? "opacity-100" : "opacity-0"
-                                )}
-                              >
+                              <div className={cn("flex items-center justify-end gap-1 transition-opacity", hovered === row.id ? "opacity-100" : "opacity-0")}>
                                 <button
                                   onClick={() => setOpenId(row.id)}
-                                  className={cn(
-                                    "p-2 rounded-lg",
-                                    row.status === "draft"
-                                      ? isDark
-                                        ? "hover:bg-white/10 text-slate-300"
-                                        : "hover:bg-slate-100 text-slate-700"
-                                      : "hover:bg-white/20 text-white"
-                                  )}
+                                  className={cn("p-2 rounded-lg", row.status === "draft" ? (isDark ? "hover:bg-white/10 text-slate-300" : "hover:bg-slate-100 text-slate-700") : "hover:bg-white/20 text-white")}
                                   title="Consulter"
                                 >
                                   <Eye className="h-4 w-4" />
                                 </button>
                                 <button
                                   onClick={() => onToggleStandby(row.id)}
-                                  className={cn(
-                                    "p-2 rounded-lg",
-                                    row.status === "draft"
-                                      ? isDark
-                                        ? "hover:bg-white/10 text-amber-300"
-                                        : "hover:bg-amber-50 text-amber-600"
-                                      : "hover:bg-white/20 text-white"
-                                  )}
-                                  title={
-                                    row.standby
-                                      ? "Retirer du standby"
-                                      : "Mettre en standby"
-                                  }
+                                  className={cn("p-2 rounded-lg", row.status === "draft" ? (isDark ? "hover:bg-white/10 text-amber-300" : "hover:bg-amber-50 text-amber-600") : "hover:bg-white/20 text-white")}
+                                  title={row.standby ? "Retirer du standby" : "Mettre en standby"}
                                 >
                                   <Pause className="h-4 w-4" />
                                 </button>
                                 <button
                                   onClick={() => onDelete(row.id)}
-                                  className={cn(
-                                    "p-2 rounded-lg",
-                                    row.status === "draft"
-                                      ? isDark
-                                        ? "hover:bg-red-500/10 text-red-400"
-                                        : "hover:bg-red-50 text-red-600"
-                                      : "hover:bg-white/20 text-white"
-                                  )}
+                                  className={cn("p-2 rounded-lg", row.status === "draft" ? (isDark ? "hover:bg-red-500/10 text-red-400" : "hover:bg-red-50 text-red-600") : "hover:bg-white/20 text-white")}
                                   title="Supprimer"
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -875,18 +788,8 @@ export default function ReturnsPage() {
 
                   {sorted.length === 0 && (
                     <div className="py-16 text-center">
-                      <Package
-                        className={cn(
-                          "h-10 w-10 mx-auto mb-3",
-                          isDark ? "text-slate-600" : "text-slate-300"
-                        )}
-                      />
-                      <p
-                        className={cn(
-                          isDark ? "text-slate-400" : "text-slate-500",
-                          "text-sm"
-                        )}
-                      >
+                      <Package className={cn("h-10 w-10 mx-auto mb-3", isDark ? "text-slate-600" : "text-slate-300")} />
+                      <p className={cn(isDark ? "text-slate-400" : "text-slate-500", "text-sm")}>
                         Aucun retour ne correspond à vos filtres
                       </p>
                     </div>
@@ -894,20 +797,8 @@ export default function ReturnsPage() {
                 </div>
 
                 {/* Table footer */}
-                <div
-                  className={cn(
-                    "px-5 py-2 flex items-center justify-between",
-                    isDark
-                      ? "border-t border-white/10 bg-neutral-950/60"
-                      : "border-t border-slate-200 bg-slate-50"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "text-xs",
-                      isDark ? "text-slate-400" : "text-slate-500"
-                    )}
-                  >
+                <div className={cn("px-5 py-2 flex items-center justify-between", isDark ? "border-t border-white/10 bg-neutral-950/60" : "border-t border-slate-200 bg-slate-50")}>
+                  <span className={cn("text-xs", isDark ? "text-slate-400" : "text-slate-500")}>
                     {sorted.length} résultat{sorted.length > 1 ? "s" : ""}
                   </span>
                   <div className="flex items-center gap-2">
@@ -921,7 +812,7 @@ export default function ReturnsPage() {
           </div>
         </div>
 
-        {/* Detail modal (existing) */}
+        {/* Detail modal (read-only editing demo) */}
         {selected && (
           <DetailModal
             row={selected}
@@ -967,20 +858,11 @@ function Metric({
 }) {
   return (
     <div className={cn("relative", className)}>
-      <div
-        className={cn(
-          "rounded-2xl p-4 border backdrop-blur-xl",
-          isDark ? "bg-neutral-950/70 border-white/15" : "bg-white border-slate-200"
-        )}
-      >
+      <div className={cn("rounded-2xl p-4 border backdrop-blur-xl", isDark ? "bg-neutral-950/70 border-white/15" : "bg-white border-slate-200")}>
         <div className="flex items-center justify-between">
           <div>
-            <div className={cn("text-[11px] uppercase tracking-wider", isDark ? "text-slate-400" : "text-slate-500")}>
-              {title}
-            </div>
-            <div className={cn("mt-1 text-xl font-bold", isDark ? "text-white" : "text-slate-900")}>
-              {value}
-            </div>
+            <div className={cn("text-[11px] uppercase tracking-wider", isDark ? "text-slate-400" : "text-slate-500")}>{title}</div>
+            <div className={cn("mt-1 text-xl font-bold", isDark ? "text-white" : "text-slate-900")}>{value}</div>
           </div>
           <div className="p-2 rounded-lg" style={{ background: "linear-gradient(135deg, rgba(16,185,129,0.18), rgba(16,185,129,0.12))" }}>
             <div className={cn(isDark ? "text-emerald-300" : "text-emerald-600")}>{icon}</div>
@@ -993,15 +875,9 @@ function Metric({
 
 function StatusChip({ status }: { status: ReturnStatus }) {
   const s = STATUS_TEXT[status];
-  const Icon =
-    status === "draft" ? FileText : status === "awaiting_physical" ? Clock : CheckCircle;
+  const Icon = status === "draft" ? FileText : status === "awaiting_physical" ? Clock : CheckCircle;
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border",
-        s.badge
-      )}
-    >
+    <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border", s.badge)}>
       <Icon className="h-3.5 w-3.5" />
       {s.label}
     </span>
@@ -1021,29 +897,16 @@ function SortTh({
 }) {
   return (
     <th className="px-5 py-3 text-left">
-      <button
-        type="button"
-        onClick={onClick}
-        className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider"
-        title="Trier"
-      >
+      <button type="button" onClick={onClick} className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider" title="Trier">
         <span>{label}</span>
-        {active ? (
-          dir === "asc" ? (
-            <ArrowUpNarrowWide className="h-3.5 w-3.5" />
-          ) : (
-            <ArrowDownNarrowWide className="h-3.5 w-3.5" />
-          )
-        ) : (
-          <ChevronUp className="h-3.5 w-3.5 opacity-40" />
-        )}
+        {active ? (dir === "asc" ? <ArrowUpNarrowWide className="h-3.5 w-3.5" /> : <ArrowDownNarrowWide className="h-3.5 w-3.5" />) : <ChevronUp className="h-3.5 w-3.5 opacity-40" />}
       </button>
     </th>
   );
 }
 
 /* =============================================================================
-   Detail modal
+   Detail modal (read/edit locally)
 ============================================================================= */
 function DetailModal({
   row,
@@ -1089,8 +952,7 @@ function DetailModal({
                     Retour {draft.id} — {CAUSE_LABEL[draft.cause]}
                   </h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Signalé le {new Date(draft.reportedAt).toLocaleDateString("fr-CA")} par{" "}
-                    {REPORTER_LABEL[draft.reporter]}
+                    Signalé le {new Date(draft.reportedAt).toLocaleDateString("fr-CA")} par {REPORTER_LABEL[draft.reporter]}
                   </p>
                 </div>
               </div>
@@ -1140,17 +1002,13 @@ function DetailModal({
               <div className="flex items-center gap-2">
                 <Folder className="h-5 w-5 text-slate-500 dark:text-slate-400" />
                 <h4 className="font-semibold">Fichiers joints</h4>
-                <span className="text-xs text-slate-500 dark:text-slate-400">
-                  ({draft.attachments?.length ?? 0})
-                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">({draft.attachments?.length ?? 0})</span>
               </div>
               {hasFiles ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {draft.attachments!.map((a) => (
                     <div key={a.id} className="rounded-lg border overflow-hidden border-slate-200 dark:border-white/10">
-                      <div className="px-3 py-2 text-sm border-b bg-slate-50/60 dark:bg-neutral-900 dark:border-white/10">
-                        {a.name}
-                      </div>
+                      <div className="px-3 py-2 text-sm border-b bg-slate-50/60 dark:bg-neutral-900 dark:border-white/10">{a.name}</div>
                       <iframe title={a.name} src={a.url} className="w-full h-72" />
                     </div>
                   ))}
@@ -1182,8 +1040,7 @@ function DetailModal({
                         arr[idx] = {
                           ...arr[idx],
                           codeProduit: code,
-                          descriptionProduit:
-                            arr[idx].descriptionProduit || descr || "",
+                          descriptionProduit: arr[idx].descriptionProduit || descr || "",
                         };
                         setDraft({ ...draft, products: arr });
                       }}
@@ -1221,10 +1078,7 @@ function DetailModal({
                       value={p.quantite}
                       onChange={(e) => {
                         const arr = (draft.products ?? []).slice();
-                        arr[idx] = {
-                          ...arr[idx],
-                          quantite: Number(e.target.value || 0),
-                        };
+                        arr[idx] = { ...arr[idx], quantite: Number(e.target.value || 0) };
                         setDraft({ ...draft, products: arr });
                       }}
                     />
@@ -1241,9 +1095,7 @@ function DetailModal({
                   </div>
                 ))}
                 {(draft.products?.length ?? 0) === 0 && (
-                  <div className="text-sm text-slate-500 dark:text-slate-400 py-6 text-center">
-                    Aucun produit.
-                  </div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400 py-6 text-center">Aucun produit.</div>
                 )}
               </div>
             </div>
@@ -1264,9 +1116,7 @@ function DetailModal({
           {/* Footer */}
           <div className="px-6 py-4 border-t border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-neutral-950/70">
             <div className="flex items-center justify-between">
-              <div className="text-xs text-slate-500 dark:text-slate-400">
-                Lecture/édition locale pour l’instant.
-              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">Lecture/édition locale pour l’instant.</div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
@@ -1325,16 +1175,9 @@ function NewReturnModal({
   const addProduct = () =>
     setProducts((p) => [
       ...p,
-      {
-        id: `np-${Date.now()}`,
-        codeProduit: "",
-        descriptionProduit: "",
-        descriptionRetour: "",
-        quantite: 1,
-      },
+      { id: `np-${Date.now()}`, codeProduit: "", descriptionProduit: "", descriptionRetour: "", quantite: 1 },
     ]);
-  const removeProduct = (pid: string) =>
-    setProducts((p) => p.filter((x) => x.id !== pid));
+  const removeProduct = (pid: string) => setProducts((p) => p.filter((x) => x.id !== pid));
 
   const onFetchFromOrder = async () => {
     const data = await lookupOrder(noCommande);
@@ -1343,9 +1186,12 @@ function NewReturnModal({
     if (data.salesrepName) setExpert(data.salesrepName);
     if (data.carrierName) setTransport(data.carrierName);
     if (data.tracking) setTracking(data.tracking);
-    if (data.orderDate) setDateCommande(data.orderDate.slice(0, 10));
+    if (data.orderDate) setDateCommande(String(data.orderDate).slice(0, 10));
     if (data.totalamt != null) setAmount(String(data.totalamt));
-    if (data.noClient) setNoClient(data.noClient);
+
+    // Always set, and coerce to string (handles null/number/undefined safely)
+    const customerCode = (data.noClient ?? "") as string | number;
+    setNoClient(String(customerCode));
   };
 
   const submit = async () => {
@@ -1406,36 +1252,19 @@ function NewReturnModal({
 
           <div className="max-h-[calc(100vh-220px)] overflow-auto px-6 py-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Field
-                label="Signalé par"
-                as="select"
-                value={reporter}
-                onChange={(v) => setReporter(v as Reporter)}
-                options={[
-                  { value: "expert", label: "Expert" },
-                  { value: "transporteur", label: "Transporteur" },
-                  { value: "autre", label: "Autre" },
-                ]}
-              />
-              <Field
-                label="Cause"
-                as="select"
-                value={cause}
-                onChange={(v) => setCause(v as Cause)}
-                options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))}
-              />
+              <Field label="Signalé par" as="select" value={reporter} onChange={(v) => setReporter(v as Reporter)} options={[
+                { value: "expert", label: "Expert" },
+                { value: "transporteur", label: "Transporteur" },
+                { value: "autre", label: "Autre" },
+              ]} />
+              <Field label="Cause" as="select" value={cause} onChange={(v) => setCause(v as Cause)} options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))} />
               <Field label="Expert" value={expert} onChange={setExpert} />
               <Field label="Client" value={client} onChange={setClient} />
               <Field label="No. client" value={noClient} onChange={setNoClient} />
 
               {/* No. commande: triggers auto-fill on blur */}
-              <Field
-                label="No. commande"
-                value={noCommande}
-                onChange={setNoCommande}
-                onBlur={onFetchFromOrder}
-                type="text"
-              />
+              <Field label="No. commande" value={noCommande} onChange={setNoCommande} onBlur={onFetchFromOrder} type="text" />
+
               {/* Manual button too */}
               <button
                 onClick={onFetchFromOrder}
@@ -1466,8 +1295,7 @@ function NewReturnModal({
                         arr[idx] = {
                           ...arr[idx],
                           codeProduit: code,
-                          descriptionProduit:
-                            arr[idx].descriptionProduit || descr || "",
+                          descriptionProduit: arr[idx].descriptionProduit || descr || "",
                         };
                         setProducts(arr);
                       }}
@@ -1505,10 +1333,7 @@ function NewReturnModal({
                       value={p.quantite}
                       onChange={(e) => {
                         const arr = products.slice();
-                        arr[idx] = {
-                          ...arr[idx],
-                          quantite: Number(e.target.value || 0),
-                        };
+                        arr[idx] = { ...arr[idx], quantite: Number(e.target.value || 0) };
                         setProducts(arr);
                       }}
                     />
@@ -1615,6 +1440,7 @@ function Field({
           className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-950 dark:border-white/15 dark:text-white outline-none focus:border-emerald-400/50"
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
         >
           {options?.map((o) => (
             <option key={o.value} value={o.value}>
@@ -1629,6 +1455,7 @@ function Field({
           value={value}
           onBlur={onBlur}
           onChange={(e) => onChange(e.target.value)}
+          autoComplete="off"
         />
       )}
     </label>
@@ -1707,14 +1534,10 @@ function ProductCodeField({
                 title={it.descr ?? ""}
               >
                 <div className="font-mono">{it.code}</div>
-                {it.descr && (
-                  <div className="text-[11px] opacity-70 line-clamp-1">{it.descr}</div>
-                )}
+                {it.descr && <div className="text-[11px] opacity-70 line-clamp-1">{it.descr}</div>}
               </button>
             ))}
-          {!loading && items.length === 0 && (
-            <div className="px-3 py-2 text-slate-500">Aucun résultat</div>
-          )}
+          {!loading && items.length === 0 && <div className="px-3 py-2 text-slate-500">Aucun résultat</div>}
         </div>
       )}
     </div>
