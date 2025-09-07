@@ -273,18 +273,16 @@ model Locations {
 }
 
 /// Sales orders header replicated as "SOHeader"
-/// NOTE: In your DB, primary key is composite (cieid, sonbr).
-///       Order date is "OrderDate" (quoted, mixed case).
+/// NOTE: PK is composite (cieid, sonbr). Mixed casing on several columns.
 model SOHeader {
-  cieid     Int     @map("cieid")
-  sonbr     Int     @map("sonbr")
+  cieid     Int       @map("cieid")
+  sonbr     Int       @map("sonbr")
   orderdate DateTime? @map("OrderDate")
   totalamt  Decimal?  @db.Decimal(18, 2) @map("totalamt")
 
-  // These exist in your legacy query; map to likely-cased columns.
   custid Int? @map("custid")
   carrid Int? @map("Carrid")
-  srid   Int? @map("SRid")
+  srid   Int? @map("SRId")
 
   @@id([cieid, sonbr])
   @@map("SOHeader")
@@ -292,9 +290,9 @@ model SOHeader {
 
 /// Customers replicated as "Customers"
 model Customers {
-  custid   Int    @id          @map("custid")
-  custcode String @map("CustCode")
-  name     String @map("Name")
+  custid   Int     @id            @map("CustId")   // <-- corrected: CustId
+  custcode String? @map("CustCode")
+  name     String? @map("Name")
 
   @@map("Customers")
 }
@@ -309,15 +307,15 @@ model Carriers {
 
 /// Sales reps replicated as "Salesrep"
 model Salesrep {
-  srid Int    @id   @map("SRId")
-  name String @map("Name")
+  srid Int     @id   @map("SRId")
+  name String? @map("Name")
 
   @@map("Salesrep")
 }
 
 /// Shipments header replicated as "ShipmentHdr"
 model ShipmentHdr {
-  id      Int     @id @default(autoincrement())
+  id      Int     @id @default(autoincrement()) @map("Id") // use "Id"; change to "id" if needed
   sonbr   Int     @map("sonbr")
   waybill String? @map("WayBill")
 
@@ -325,8 +323,8 @@ model ShipmentHdr {
   @@map("ShipmentHdr")
 }
 
-// If you don’t actually replicate these, you can remove them later.
-// Keeping them mapped prevents accidental lower/upper-case mismatches.
+// If you don’t actually replicate these, remove later.
+// Keeping them mapped prevents accidental case mismatches.
 model Itemsite {
   itemsiteid Int  @id          @map("ItemSiteId")
   itemid     Int  @map("ItemId")
