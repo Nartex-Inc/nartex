@@ -227,6 +227,7 @@ type OrderLookup = {
   carrierName?: string | null;
   salesrepName?: string | null;
   tracking?: string | null;
+  noClient? string | null;
 };
 
 async function lookupOrder(noCommande: string): Promise<OrderLookup | null> {
