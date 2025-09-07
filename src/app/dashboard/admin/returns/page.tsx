@@ -1051,8 +1051,8 @@ function DetailModal({
                     <ProductCodeField
                       value={p.codeProduit}
                       onSelect={(code, descr, weight) => {
-                        const arr = (draft.products ?? []).slice();
-                        const current = arr[idx] ?? p;
+                        const arr = products.slice();
+                        const current = arr[idx];
                         const unit = weight ?? current.poidsUnitaire ?? null;
                     
                         arr[idx] = {
@@ -1063,12 +1063,12 @@ function DetailModal({
                           poidsTotal: unit != null ? unit * (current.quantite || 0) : current.poidsTotal ?? null,
                         };
                     
-                        setDraft({ ...draft, products: arr });
+                        setProducts(arr);
                       }}
                       onChange={(code) => {
-                        const arr = (draft.products ?? []).slice();
+                        const arr = products.slice();
                         arr[idx] = { ...arr[idx], codeProduit: code };
-                        setDraft({ ...draft, products: arr });
+                        setProducts(arr);
                       }}
                     />
                     <input
