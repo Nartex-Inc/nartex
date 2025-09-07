@@ -65,7 +65,7 @@ export async function GET(req: Request) {
       OrderDate: so.orderdate ?? null,
       // Prisma Decimal -> number (or null)
       totalamt: so.totalamt != null ? Number(so.totalamt) : null,
-      CustCode: cust?.custcode ?? "",
+      noClient: cust?.custcode ?? "",
       CustomerName: cust?.name ?? "",
       CarrierName: carr?.name ?? "",
       SalesrepName: rep?.name ?? "",
