@@ -6,11 +6,11 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 // Keep context loose to satisfy Next runtime validator across versions
-type Context = any;
+type Context = { params?: { sonbr?: string } };
 
 export async function GET(_req: Request, context: Context) {
   try {
-    const raw = (context?.params?.sonbr ?? "") as string;
+    const raw = context?.params?.sonbr ?? "";
     const sonbr = Number(decodeURIComponent(raw).trim());
 
     if (!Number.isFinite(sonbr) || !Number.isInteger(sonbr)) {
@@ -47,7 +47,11 @@ export async function GET(_req: Request, context: Context) {
       so.custid ? prisma.customers.findUnique({ where: { custid: so.custid } }) : null,
       so.carrid ? prisma.carriers.findUnique({ where: { carrid: so.carrid } }) : null,
       so.srid   ? prisma.salesrep.findUnique({ where: { srid: so.srid } })       : null,
-      prisma.shipmentHdr.findFirst({ where: { sonbr: so.sonbr }, orderBy: { id: "desc" } }),
+      // ⬇️ FIX: order by the actual Prisma field on ShipmentHdr
+      prisma.shipmentHdr.findFirst({
+        where: { sonbr: so.sonbr },
+        orderBy: { shipmentid: "desc" },
+      }),
     ]);
 
     return NextResponse.json({
