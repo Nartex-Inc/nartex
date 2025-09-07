@@ -1051,10 +1051,10 @@ function DetailModal({
                     <ProductCodeField
                       value={p.codeProduit}
                       onSelect={(code, descr, weight) => {
-                        const arr = products.slice();
-                        const current = arr[idx];
+                        const arr = (draft.products ?? []).slice();
+                        const current = arr[idx] ?? p;
                         const unit = weight ?? current.poidsUnitaire ?? null;
-                    
+
                         arr[idx] = {
                           ...current,
                           codeProduit: code,
@@ -1062,15 +1062,16 @@ function DetailModal({
                           poidsUnitaire: unit,
                           poidsTotal: unit != null ? unit * (current.quantite || 0) : current.poidsTotal ?? null,
                         };
-                    
-                        setProducts(arr);
+
+                        setDraft({ ...draft, products: arr });
                       }}
                       onChange={(code) => {
-                        const arr = products.slice();
+                        const arr = (draft.products ?? []).slice();
                         arr[idx] = { ...arr[idx], codeProduit: code };
-                        setProducts(arr);
+                        setDraft({ ...draft, products: arr });
                       }}
                     />
+
                     <input
                       className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-900 dark:border-white/10"
                       placeholder="Description du produit"
@@ -1081,6 +1082,7 @@ function DetailModal({
                         setDraft({ ...draft, products: arr });
                       }}
                     />
+
                     <input
                       className="rounded-lg border px-3 py-2 text-sm bg-white border-slate-200 dark:bg-neutral-900 dark:border-white/10"
                       placeholder="Description du retour"
@@ -1091,6 +1093,7 @@ function DetailModal({
                         setDraft({ ...draft, products: arr });
                       }}
                     />
+
                     <input
                       type="number"
                       min={0}
@@ -1098,11 +1101,18 @@ function DetailModal({
                       placeholder="Quantité"
                       value={p.quantite}
                       onChange={(e) => {
+                        const qte = Number(e.target.value || 0);
                         const arr = (draft.products ?? []).slice();
-                        arr[idx] = { ...arr[idx], quantite: Number(e.target.value || 0) };
+                        const unit = arr[idx]?.poidsUnitaire ?? null;
+                        arr[idx] = {
+                          ...arr[idx],
+                          quantite: qte,
+                          poidsTotal: unit != null ? unit * qte : null,
+                        };
                         setDraft({ ...draft, products: arr });
                       }}
                     />
+
                     <button
                       className="inline-flex items-center justify-center rounded-lg p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
                       onClick={() => {
@@ -1311,13 +1321,19 @@ function NewReturnModal({
                   >
                     <ProductCodeField
                       value={p.codeProduit}
-                      onSelect={(code, descr) => {
+                      onSelect={(code, descr, weight) => {
                         const arr = products.slice();
+                        const current = arr[idx];
+                        const unit = weight ?? current.poidsUnitaire ?? null;
+
                         arr[idx] = {
-                          ...arr[idx],
+                          ...current,
                           codeProduit: code,
-                          descriptionProduit: arr[idx].descriptionProduit || descr || "",
+                          descriptionProduit: current.descriptionProduit || descr || "",
+                          poidsUnitaire: unit,
+                          poidsTotal: unit != null ? unit * (current.quantite || 0) : current.poidsTotal ?? null,
                         };
+
                         setProducts(arr);
                       }}
                       onChange={(code) => {
@@ -1354,14 +1370,14 @@ function NewReturnModal({
                       value={p.quantite}
                       onChange={(e) => {
                         const qte = Number(e.target.value || 0);
-                        const arr = (draft.products ?? []).slice();
+                        const arr = products.slice();
                         const unit = arr[idx]?.poidsUnitaire ?? null;
                         arr[idx] = {
                           ...arr[idx],
                           quantite: qte,
-                          poidsTotal: unit != null ? unit * qte : null,
+                          poidsTotal: unit != null ? unit * qte : arr[idx].poidsTotal ?? null,
                         };
-                        setDraft({ ...draft, products: arr });
+                        setProducts(arr);
                       }}
                     />
                     <button
