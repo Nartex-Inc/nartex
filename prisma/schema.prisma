@@ -10,7 +10,7 @@ datasource db {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 0. ENUMS                                                                   //
+// 0. ENUMS
 ////////////////////////////////////////////////////////////////////////////////
 
 enum ProductLifecycleStage {
@@ -45,86 +45,65 @@ enum ReturnStatus {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 1. USER                                                                    //
+// 1. AUTH / USERS  (schema: public)
 ////////////////////////////////////////////////////////////////////////////////
+
 model User {
-  // ─── Core identity ────────────────────────────────────────────────────────
-  id                String    @id @default(cuid())
-  name              String?
-  firstName         String?   @map("first_name")
-  lastName          String?   @map("last_name")
-  email             String?   @unique
-  emailVerified     DateTime? @map("email_verified")
-  image             String?
-
-  // ─── Authentication & authorisation ───────────────────────────────────────
-  password          String?
-  role              String    @default("user")
-
-  // ─── Custom flows ─────────────────────────────────────────────────────────
+  id                   String    @id @default(cuid())
+  name                 String?
+  firstName            String?   @map("first_name")
+  lastName             String?   @map("last_name")
+  email                String?   @unique
+  emailVerified        DateTime? @map("email_verified")
+  image                String?
+  password             String?
+  role                 String    @default("user")
   verificationToken    String?   @unique @map("verification_token")
   passwordResetToken   String?   @unique @map("password_reset_token")
   passwordResetExpires DateTime? @map("password_reset_expires")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt      @map("updated_at")
 
-  // ─── Book-keeping ─────────────────────────────────────────────────────────
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt      @map("updated_at")
-
-  // ─── Relations ────────────────────────────────────────────────────────────
-  accounts          Account[]
-  sessions          Session[]
-  tenants           UserTenant[] // multi-tenancy link
+  accounts Account[]
+  sessions Session[]
+  tenants  UserTenant[]
 
   @@map("users")
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// 2. ACCOUNT (OAuth accounts)                                                //
-////////////////////////////////////////////////////////////////////////////////
 model Account {
-  id                 String  @id @default(cuid())
-  userId             String  @map("user_id")
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  ext_expires_in    Int?
 
-  type               String
-  provider           String
-  providerAccountId  String  @map("provider_account_id")
-
-  refresh_token      String? @db.Text
-  access_token       String? @db.Text
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String? @db.Text
-  session_state      String?
-
-  // Newly added field
-  ext_expires_in     Int?
-
-  // ─── Relations ────────────────────────────────────────────────────────────
-  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@index([providerAccountId])
   @@map("accounts")
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// 3. SESSION (NextAuth sessions)                                             //
-////////////////////////////////////////////////////////////////////////////////
 model Session {
   id           String   @id @default(cuid())
   sessionToken String   @unique @map("session_token")
   userId       String   @map("user_id")
   expires      DateTime
 
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("sessions")
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// 4. VERIFICATION TOKEN (NextAuth tokens)                                    //
-////////////////////////////////////////////////////////////////////////////////
 model VerificationToken {
   identifier String
   token      String   @unique
@@ -135,15 +114,15 @@ model VerificationToken {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 5. TENANT                                                                  //
+// 2. MULTI-TENANCY  (schema: public)
 ////////////////////////////////////////////////////////////////////////////////
-model Tenant {
-  id        String         @id @default(uuid())
-  name      String
-  createdAt DateTime       @default(now()) @map("created_at")
-  updatedAt DateTime       @updatedAt      @map("updated_at")
 
-  // ─── Relations ────────────────────────────────────────────────────────────
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
   users           UserTenant[]
   projects        Project[]
   sharePointNodes SharePointNode[]
@@ -151,25 +130,19 @@ model Tenant {
   @@map("tenants")
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// 6. USER_TENANT (Join model)                                                //
-////////////////////////////////////////////////////////////////////////////////
 model UserTenant {
   userId    String
   tenantId  String
   role      String?
   createdAt DateTime @default(now()) @map("created_at")
 
-  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@id([userId, tenantId])
   @@map("user_tenants")
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// 7. PROJECT                                                                 //
-////////////////////////////////////////////////////////////////////////////////
 model Project {
   id        String                 @id @default(uuid())
   name      String
@@ -178,14 +151,11 @@ model Project {
   createdAt DateTime               @default(now()) @map("created_at")
   updatedAt DateTime               @updatedAt      @map("updated_at")
 
-  tenant    Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("projects")
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// 8. SHAREPOINT NODE                                                         //
-////////////////////////////////////////////////////////////////////////////////
 model SharePointNode {
   id           String   @id @default(cuid())
   tenantId     String
@@ -193,20 +163,16 @@ model SharePointNode {
   name         String
   type         String   @default("folder")
   icon         String?
-
   restricted   Boolean  @default(false)
   highSecurity Boolean  @default(false)
-
-  // Arrays (never null), empty [] means “inherit”
   editGroups   String[] @default([])
   readGroups   String[] @default([])
-
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  parent       SharePointNode?  @relation("SPChildren", fields: [parentId], references: [id], onDelete: Cascade)
-  children     SharePointNode[] @relation("SPChildren")
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent   SharePointNode? @relation("SPChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children SharePointNode[] @relation("SPChildren")
 
   @@index([tenantId])
   @@index([tenantId, parentId])
@@ -214,12 +180,12 @@ model SharePointNode {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 9. RETURNS DOMAIN (new)                                                    //
+// 3. RETURNS DOMAIN  (schema: public)
 ////////////////////////////////////////////////////////////////////////////////
 
 model Return {
   id            Int           @id @default(autoincrement())
-  code          String        @unique                                // "R" + id
+  code          String        @unique
   reportedAt    DateTime      @default(now())
   reporter      Reporter
   cause         Cause
@@ -239,9 +205,8 @@ model Return {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  // Relations
-  products      ReturnProduct[]
-  attachments   Upload[]
+  products    ReturnProduct[]
+  attachments Upload[]
 
   @@index([reportedAt])
   @@index([status])
@@ -257,7 +222,7 @@ model ReturnProduct {
   descriptionRetour  String?
   quantite           Int     @default(1)
 
-  return             Return  @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  return Return @relation(fields: [returnId], references: [id], onDelete: Cascade)
 
   @@index([returnId])
   @@index([codeProduit])
@@ -271,27 +236,24 @@ model Upload {
   url       String
   createdAt DateTime @default(now())
 
-  return    Return   @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  return Return @relation(fields: [returnId], references: [id], onDelete: Cascade)
 
   @@index([returnId])
   @@map("uploads")
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 10. PREXTRA REPLICAS (read-only; managed by your ETL)                      //
-//     Mapped to the replicated SQL Server tables in Postgres schema "dbo".   //
-//     If a table name in your DB uses different casing, adjust @@map(...).   //
+// 4. PREXTRA REPLICAS (READ-ONLY)  (schema: public)
 ////////////////////////////////////////////////////////////////////////////////
+// If your DMS created different names (quoted MixedCase), adjust @@map.
 
 model Items {
   itemid   Int     @id
   itemcode String  @db.VarChar(64)
   descr    String? @db.VarChar(255)
-  // ... add columns you need
 
   @@index([itemcode])
-  @@schema("dbo")
-  @@map("Items")
+  @@map("items")
 }
 
 model Itemsite {
@@ -300,19 +262,16 @@ model Itemsite {
   siteid     Int
   qtyonhand  Int?
   locid      Int?
-  // ... add columns you need
 
   @@index([itemid, siteid])
-  @@schema("dbo")
-  @@map("Itemsite") // change to "ItemSite" if that matches your replica
+  @@map("itemsite")
 }
 
 model Locations {
   locid Int    @id
   name  String @db.VarChar(128)
 
-  @@schema("dbo")
-  @@map("Locations")
+  @@map("locations")
 }
 
 model SOHeader {
@@ -324,8 +283,7 @@ model SOHeader {
   carrid    Int?
   srid      Int?
 
-  @@schema("dbo")
-  @@map("SOHeader")
+  @@map("soheader")
 }
 
 model Customers {
@@ -333,24 +291,21 @@ model Customers {
   custcode String @db.VarChar(64)
   name     String @db.VarChar(255)
 
-  @@schema("dbo")
-  @@map("Customers")
+  @@map("customers")
 }
 
 model Carriers {
   carrid Int    @id
   name   String @db.VarChar(255)
 
-  @@schema("dbo")
-  @@map("carriers") // change to "Carriers" if your replica used CamelCase
+  @@map("carriers")
 }
 
 model Salesrep {
   srid Int    @id
   name String @db.VarChar(255)
 
-  @@schema("dbo")
-  @@map("Salesrep")
+  @@map("salesrep")
 }
 
 model ShipmentHdr {
@@ -359,14 +314,12 @@ model ShipmentHdr {
   waybill String?
 
   @@index([sonbr])
-  @@schema("dbo")
-  @@map("ShipmentHdr")
+  @@map("shipmenthdr")
 }
 
 model Sites {
   id   Int    @id @default(autoincrement())
   name String @db.VarChar(255)
 
-  @@schema("dbo")
-  @@map("Sites")
+  @@map("sites")
 }
