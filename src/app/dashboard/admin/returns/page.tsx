@@ -1574,8 +1574,13 @@ function ProductCodeField({
                 key={it.code}
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
-                  onSelect(it.code, it.descr ?? null, null);
+                onClick={async () => {
+                  const exact = await getItem(it.code); // fetch full record (descr + weight)
+                  onSelect(
+                    it.code,
+                    it.descr ?? exact?.descr ?? null,
+                    exact?.weight ?? null
+                  );
                   setQ(it.code);
                   setOpen(false);
                 }}
