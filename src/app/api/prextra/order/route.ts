@@ -1,4 +1,3 @@
-// src/app/api/prextra/order/route.ts
 // GET /api/prextra/order?no_commande=XXXX
 
 import { NextResponse } from "next/server";
@@ -8,16 +7,24 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const raw = url.searchParams.get("no_commande");
-    const sonbr = raw ? decodeURIComponent(raw).trim() : "";
 
-    if (!sonbr) {
+    if (!raw) {
       return NextResponse.json(
         { ok: false, error: "Missing query param 'no_commande'." },
         { status: 400 }
       );
     }
 
-    // Use findFirst (safe even if 'sonbr' is not unique in your Prisma schema)
+    // sonbr is an INT in the DB -> coerce and validate
+    const sonbr = Number(decodeURIComponent(raw).trim());
+    if (!Number.isFinite(sonbr)) {
+      return NextResponse.json(
+        { ok: false, error: "Query param 'no_commande' must be a number." },
+        { status: 400 }
+      );
+    }
+
+    // Use findFirst because sonbr is not unique (composite PK on the table)
     const so = await prisma.sOHeader.findFirst({
       where: { sonbr },
       select: {
@@ -39,24 +46,18 @@ export async function GET(req: Request) {
     }
 
     const [cust, carr, rep, ship] = await Promise.all([
-      so.custid
-        ? prisma.customers.findUnique({ where: { custid: so.custid } })
-        : null,
-      so.carrid
-        ? prisma.carriers.findUnique({ where: { carrid: so.carrid } })
-        : null,
+      so.custid ? prisma.customers.findUnique({ where: { custid: so.custid } }) : null,
+      so.carrid ? prisma.carriers.findUnique({ where: { carrid: so.carrid } }) : null,
       so.srid ? prisma.salesrep.findUnique({ where: { srid: so.srid } }) : null,
-      prisma.shipmentHdr.findFirst({
-        where: { sonbr: so.sonbr },
-        orderBy: { id: "desc" },
-      }),
+      prisma.shipmentHdr.findFirst({ where: { sonbr: so.sonbr }, orderBy: { id: "desc" } }),
     ]);
 
     return NextResponse.json({
       ok: true,
       exists: true,
       sonbr: so.sonbr,
-      OrderDate: so.orderdate, // client can do new Date(OrderDate)
+      // You can new Date(OrderDate) on the client
+      OrderDate: so.orderdate,
       totalamt: so.totalamt,
       CustCode: cust?.custcode ?? "",
       CustomerName: cust?.name ?? "",
