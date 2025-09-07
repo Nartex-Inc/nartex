@@ -1493,11 +1493,11 @@ function Field({
 function ProductCodeField({
   value,
   onChange,
-  onSelect,
+  onSelect, // (code, descr?, weight?)
 }: {
   value: string;
   onChange: (v: string) => void;
-  onSelect: (code: string, descr?: string | null) => void;
+  onSelect: (code: string, descr?: string | null, weight?: number | null) => void;
 }) {
   const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState(value);
@@ -1527,6 +1527,15 @@ function ProductCodeField({
     };
   }, [debounced]);
 
+  const resolveExact = React.useCallback(async () => {
+    const code = q.trim();
+    if (!code) return;
+    const item = await getItem(code);
+    if (item) {
+      onSelect(item.code, item.descr ?? null, item.weight ?? null);
+    }
+  }, [q, onSelect]);
+
   return (
     <div className="relative">
       <input
@@ -1539,8 +1548,21 @@ function ProductCodeField({
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onBlur={() => {
+          // Let clicks on the dropdown register first
+          setTimeout(() => setOpen(false), 150);
+          // Try to resolve an exact code when the field loses focus
+          resolveExact();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            resolveExact();
+            setOpen(false);
+          }
+        }}
       />
+
       {open && (items.length > 0 || loading) && (
         <div className="absolute z-10 mt-1 w-full rounded-lg border bg-white dark:bg-neutral-900 text-sm shadow-lg border-slate-200 dark:border-white/10 max-h-64 overflow-auto">
           {loading && <div className="px-3 py-2 text-slate-500">Recherche…</div>}
@@ -1551,7 +1573,7 @@ function ProductCodeField({
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
-                  onSelect(it.code, it.descr ?? null);
+                  onSelect(it.code, it.descr ?? null, null);
                   setQ(it.code);
                   setOpen(false);
                 }}
@@ -1559,10 +1581,14 @@ function ProductCodeField({
                 title={it.descr ?? ""}
               >
                 <div className="font-mono">{it.code}</div>
-                {it.descr && <div className="text-[11px] opacity-70 line-clamp-1">{it.descr}</div>}
+                {it.descr && (
+                  <div className="text-[11px] opacity-70 line-clamp-1">{it.descr}</div>
+                )}
               </button>
             ))}
-          {!loading && items.length === 0 && <div className="px-3 py-2 text-slate-500">Aucun résultat</div>}
+          {!loading && items.length === 0 && (
+            <div className="px-3 py-2 text-slate-500">Aucun résultat</div>
+          )}
         </div>
       )}
     </div>
