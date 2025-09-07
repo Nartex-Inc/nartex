@@ -1354,14 +1354,14 @@ function NewReturnModal({
                       value={p.quantite}
                       onChange={(e) => {
                         const qte = Number(e.target.value || 0);
-                        const arr = products.slice();                // use draft.products in DetailModal
-                        const unit = arr[idx].poidsUnitaire ?? null;
+                        const arr = (draft.products ?? []).slice();
+                        const unit = arr[idx]?.poidsUnitaire ?? null;
                         arr[idx] = {
                           ...arr[idx],
                           quantite: qte,
-                          poidsTotal: unit != null ? unit * qte : arr[idx].poidsTotal ?? null,
+                          poidsTotal: unit != null ? unit * qte : null,
                         };
-                        setProducts(arr);                            // setDraft(...) in DetailModal
+                        setDraft({ ...draft, products: arr });
                       }}
                     />
                     <button
