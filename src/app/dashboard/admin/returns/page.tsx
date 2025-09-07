@@ -1050,19 +1050,23 @@ function DetailModal({
                   >
                     <ProductCodeField
                       value={p.codeProduit}
-                      onSelect={(code, descr) => {
-                        const arr = (draft.products ?? []).slice();
+                      onSelect={(code, descr, weight) => {
+                        const arr = products.slice();               // use draft.products in DetailModal
+                        const current = arr[idx];
+                        const unit = weight ?? current.poidsUnitaire ?? null;
                         arr[idx] = {
-                          ...arr[idx],
+                          ...current,
                           codeProduit: code,
-                          descriptionProduit: arr[idx].descriptionProduit || descr || "",
+                          descriptionProduit: current.descriptionProduit || descr || "",
+                          poidsUnitaire: unit,
+                          poidsTotal: unit != null ? unit * (current.quantite || 0) : current.poidsTotal ?? null,
                         };
-                        setDraft({ ...draft, products: arr });
+                        setProducts(arr);                            // setDraft(...) in DetailModal
                       }}
                       onChange={(code) => {
-                        const arr = (draft.products ?? []).slice();
+                        const arr = products.slice();                // use draft.products in DetailModal
                         arr[idx] = { ...arr[idx], codeProduit: code };
-                        setDraft({ ...draft, products: arr });
+                        setProducts(arr);                            // setDraft(...) in DetailModal
                       }}
                     />
                     <input
@@ -1347,9 +1351,15 @@ function NewReturnModal({
                       placeholder="Quantité"
                       value={p.quantite}
                       onChange={(e) => {
-                        const arr = products.slice();
-                        arr[idx] = { ...arr[idx], quantite: Number(e.target.value || 0) };
-                        setProducts(arr);
+                        const qte = Number(e.target.value || 0);
+                        const arr = products.slice();                // use draft.products in DetailModal
+                        const unit = arr[idx].poidsUnitaire ?? null;
+                        arr[idx] = {
+                          ...arr[idx],
+                          quantite: qte,
+                          poidsTotal: unit != null ? unit * qte : arr[idx].poidsTotal ?? null,
+                        };
+                        setProducts(arr);                            // setDraft(...) in DetailModal
                       }}
                     />
                     <button
