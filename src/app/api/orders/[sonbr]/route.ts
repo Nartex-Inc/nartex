@@ -1,14 +1,13 @@
 // src/app/api/orders/[sonbr]/route.ts
-// ✅ Next 15 route: fetch order + joined details for autofill
-//    GET /api/orders/:sonbr
+// GET /api/orders/:sonbr
 
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-// Next expects the second arg to be `{ params: { … } }`
-type Params = { params: { sonbr: string } };
-
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: { sonbr: string } }  // <- inline type required by Next
+) {
   try {
     const raw = params?.sonbr ?? "";
     const sonbr = Number(decodeURIComponent(raw).trim());
@@ -48,8 +47,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
       so.carrid ? prisma.carriers.findUnique({ where: { carrid: so.carrid } }) : null,
       so.srid   ? prisma.salesrep.findUnique({ where: { srid: so.srid } })     : null,
       prisma.shipmentHdr.findFirst({
-        where: { sonbr: so.sonbr },           // add { cieid: so.cieid } too if that column exists in ShipmentHdr
-        orderBy: { shipmentid: "desc" },      // uses ShipmentHdr.shipmentid
+        where: { sonbr: so.sonbr },          // add { cieid: so.cieid } too if ShipmentHdr has it
+        orderBy: { shipmentid: "desc" },
         select: { waybill: true },
       }),
     ]);
@@ -58,8 +57,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
       ok: true,
       exists: true,
       sonbr: so.sonbr,
-      OrderDate: so.orderdate ?? null,                            // serializes as ISO
-      totalamt: so.totalamt != null ? Number(so.totalamt) : null, // Decimal -> number
+      OrderDate: so.orderdate ?? null,
+      totalamt: so.totalamt != null ? Number(so.totalamt) : null,
       CustCode: cust?.custcode ?? "",
       CustomerName: cust?.name ?? "",
       CarrierName: carr?.name ?? "",
