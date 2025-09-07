@@ -8,18 +8,18 @@ type Context = any; // keep loose to satisfy Next's runtime validator across ver
 export async function GET(_req: Request, context: Context) {
   try {
     const sonbrRaw = (context?.params?.sonbr ?? "") as string;
-    const sonbr = decodeURIComponent(sonbrRaw).trim();
+    const parsed = Number(decodeURIComponent(sonbrRaw).trim());
 
-    if (!sonbr) {
+    if (!Number.isFinite(parsed)) {
       return NextResponse.json(
-        { ok: false, exists: false, error: "Missing order number." },
+        { ok: false, exists: false, error: "Missing or invalid order number." },
         { status: 400 }
       );
     }
 
-    // 1) header (minimal columns we need for follow-ups)
-    const so = await prisma.sOHeader.findUnique({
-      where: { sonbr },
+    // sonbr is NOT unique -> use findFirst
+    const so = await prisma.sOHeader.findFirst({
+      where: { sonbr: parsed },
       select: {
         sonbr: true,
         orderdate: true,
@@ -31,7 +31,6 @@ export async function GET(_req: Request, context: Context) {
     });
 
     if (!so) {
-      // Same shape as your legacy script when nothing is found
       return NextResponse.json({
         ok: true,
         exists: false,
@@ -39,20 +38,19 @@ export async function GET(_req: Request, context: Context) {
       });
     }
 
-    // 2) parallel lookups (null-safe)
     const [cust, carr, rep, ship] = await Promise.all([
       so.custid ? prisma.customers.findUnique({ where: { custid: so.custid } }) : null,
       so.carrid ? prisma.carriers.findUnique({ where: { carrid: so.carrid } }) : null,
-      so.srid   ? prisma.salesrep.findUnique({ where: { srid: so.srid } }) : null,
+      so.srid ? prisma.salesrep.findUnique({ where: { srid: so.srid } }) : null,
       prisma.shipmentHdr.findFirst({ where: { sonbr: so.sonbr }, orderBy: { id: "desc" } }),
     ]);
 
-    // 3) serialize to your front-end’s expected keys
     return NextResponse.json({
       ok: true,
       exists: true,
       sonbr: so.sonbr,
-      OrderDate: so.orderdate ? new Date(so.orderdate).toISOString() : null,
+      // Keep as Date; the client can new Date(OrderDate)
+      OrderDate: so.orderdate,
       totalamt: so.totalamt != null ? Number(so.totalamt) : null,
       CustCode: cust?.custcode ?? "",
       CustomerName: cust?.name ?? "",
@@ -61,9 +59,7 @@ export async function GET(_req: Request, context: Context) {
       TrackingNumber: ship?.waybill ?? "",
     });
   } catch (err) {
-    // Never leak raw errors; always return JSON so the UI can .json() safely
-    const message =
-      err instanceof Error ? err.message : "Unexpected server error.";
+    const message = err instanceof Error ? err.message : "Unexpected server error.";
     return NextResponse.json(
       { ok: false, exists: false, error: message },
       { status: 500 }
