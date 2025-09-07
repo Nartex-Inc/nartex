@@ -239,7 +239,7 @@ async function lookupOrder(noCommande: string): Promise<OrderLookup | null> {
   if (!res.ok) return null;
   const json = await res.json();
   if (!json || json.exists === false) return null;
-  // normalize legacy keys if your API returns PascalCase:
+
   return {
     sonbr: json.sonbr ?? json.sonNbr ?? noCommande,
     orderDate: json.orderDate || json.OrderDate,
@@ -248,6 +248,7 @@ async function lookupOrder(noCommande: string): Promise<OrderLookup | null> {
     carrierName: json.carrierName ?? json.CarrierName ?? null,
     salesrepName: json.salesrepName ?? json.SalesrepName ?? null,
     tracking: json.tracking ?? json.TrackingNumber ?? null,
+    noClient: json.noClient ?? json.CustCode ?? null,   // ⬅️ add this line
   };
 }
 
@@ -1340,15 +1341,16 @@ function NewReturnModal({
     setProducts((p) => p.map((x) => (x.id === pid ? { ...x, ...patch } : x)));
 
   const onBlurCommande = async () => {
-    const data = await lookupOrder(noCommande);
-    if (!data) return;
-    if (data.customerName) setClient(data.customerName);
-    if (data.salesrepName) setExpert(data.salesrepName);
-    if (data.carrierName) setTransport(data.carrierName);
-    if (data.tracking) setTracking(data.tracking);
-    if (data.orderDate) setDateCommande(data.orderDate.slice(0, 10));
-    if (data.totalamt != null) setAmount(String(data.totalamt));
-  };
+  const data = await lookupOrder(noCommande);
+  if (!data) return;
+  if (data.customerName) setClient(data.customerName);
+  if (data.salesrepName) setExpert(data.salesrepName);
+  if (data.carrierName) setTransport(data.carrierName);
+  if (data.tracking) setTracking(data.tracking);
+  if (data.orderDate) setDateCommande(data.orderDate.slice(0, 10));
+  if (data.totalamt != null) setAmount(String(data.totalamt));
+  if (data.noClient) setNoClient(data.noClient);   // ⬅️ add this
+};
 
   const submit = async () => {
     if (!expert.trim() || !client.trim()) {
