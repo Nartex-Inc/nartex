@@ -1,24 +1,28 @@
-// ✅ Next 15–safe route: fetch order + joined details for autofill
+// ✅ Next 15 route: fetch order + joined details for autofill
 //    GET /api/orders/:sonbr
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-type Context = any; // keep loose to satisfy Next's runtime validator across versions
+// Keep the context loose to satisfy Next runtime validator across versions
+type Context = any;
 
 export async function GET(_req: Request, context: Context) {
   try {
-    const sonbrRaw = (context?.params?.sonbr ?? "") as string;
-    const sonbr = decodeURIComponent(sonbrRaw).trim();
+    const raw = (context?.params?.sonbr ?? "") as string;
 
-    if (!sonbr) {
+    // sonbr is INT in your DB → coerce & validate
+    const parsed = decodeURIComponent(String(raw)).trim();
+    const sonbr = Number(parsed);
+
+    if (!Number.isFinite(sonbr) || !Number.isInteger(sonbr)) {
       return NextResponse.json(
-        { ok: false, exists: false, error: "Missing order number." },
+        { ok: false, exists: false, error: "Missing or invalid order number." },
         { status: 400 }
       );
     }
 
-    // 1) header (minimal columns we need for follow-ups)
-    const so = await prisma.sOHeader.findUnique({
+    // If sonbr is not UNIQUE in your DB, use findFirst (safe)
+    const so = await prisma.sOHeader.findFirst({
       where: { sonbr },
       select: {
         sonbr: true,
@@ -31,7 +35,6 @@ export async function GET(_req: Request, context: Context) {
     });
 
     if (!so) {
-      // Same shape as your legacy script when nothing is found
       return NextResponse.json({
         ok: true,
         exists: false,
@@ -39,15 +42,18 @@ export async function GET(_req: Request, context: Context) {
       });
     }
 
-    // 2) parallel lookups (null-safe)
+    // Parallel lookups
     const [cust, carr, rep, ship] = await Promise.all([
       so.custid ? prisma.customers.findUnique({ where: { custid: so.custid } }) : null,
       so.carrid ? prisma.carriers.findUnique({ where: { carrid: so.carrid } }) : null,
       so.srid   ? prisma.salesrep.findUnique({ where: { srid: so.srid } }) : null,
-      prisma.shipmentHdr.findFirst({ where: { sonbr: so.sonbr }, orderBy: { id: "desc" } }),
+      prisma.shipmentHdr.findFirst({
+        where: { sonbr: so.sonbr },
+        orderBy: { id: "desc" },
+      }),
     ]);
 
-    // 3) serialize to your front-end’s expected keys
+    // JSON-safe serialization
     return NextResponse.json({
       ok: true,
       exists: true,
@@ -61,9 +67,7 @@ export async function GET(_req: Request, context: Context) {
       TrackingNumber: ship?.waybill ?? "",
     });
   } catch (err) {
-    // Never leak raw errors; always return JSON so the UI can .json() safely
-    const message =
-      err instanceof Error ? err.message : "Unexpected server error.";
+    const message = err instanceof Error ? err.message : "Unexpected server error.";
     return NextResponse.json(
       { ok: false, exists: false, error: message },
       { status: 500 }
