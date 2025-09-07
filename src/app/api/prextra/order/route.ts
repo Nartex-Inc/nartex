@@ -9,18 +9,18 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const raw = url.searchParams.get("no_commande") ?? "";
-    const sonbr = Number(decodeURIComponent(raw).trim());
+    const parsed = decodeURIComponent(raw).trim();
+    const sonbr = Number(parsed);
 
-    // Validate query
-    if (!Number.isFinite(sonbr)) {
+    // Validate query param
+    if (!Number.isFinite(sonbr) || !Number.isInteger(sonbr)) {
       return NextResponse.json(
         { ok: false, exists: false, error: "Missing or invalid 'no_commande'." },
         { status: 400 }
       );
     }
 
-    // Some datasets can have the same sonbr across companies (cieid).
-    // Pick the record from the highest cieid.
+    // sonbr may exist across companies: pick the one with highest cieid
     const so = await prisma.sOHeader.findFirst({
       where: { sonbr },
       orderBy: [{ cieid: "desc" }],
@@ -43,24 +43,34 @@ export async function GET(req: Request) {
       });
     }
 
-    // Parallel lookups (null-safe)
+    // Parallel lookups (all null-safe)
     const [cust, carr, rep, ship] = await Promise.all([
-      so.custid ? prisma.customers.findUnique({ where: { custid: so.custid } }) : null,
-      so.carrid ? prisma.carriers.findUnique({ where: { carrid: so.carrid } }) : null,
-      so.srid   ? prisma.salesrep.findUnique({ where: { srid: so.srid } })       : null,
+      so.custid
+        ? prisma.customers.findUnique({ where: { custid: so.custid } })
+        : null,
+      so.carrid
+        ? prisma.carriers.findUnique({ where: { carrid: so.carrid } })
+        : null,
+      so.srid
+        ? prisma.salesrep.findUnique({ where: { srid: so.srid } })
+        : null,
+      // ShipmentHdr now uses `shipmentid` as PK, so order by that
       prisma.shipmentHdr.findFirst({
         where: { sonbr: so.sonbr },
-        orderBy: { id: "desc" },
+        orderBy: { shipmentid: "desc" },
+        select: { waybill: true },
       }),
     ]);
 
-    // Serialize in the shape your UI expects
+    // Serialize to what the UI expects
     return NextResponse.json({
       ok: true,
       exists: true,
       sonbr: so.sonbr,
-      OrderDate: so.orderdate ?? null,                              // keep as Date/ISO
-      totalamt: so.totalamt != null ? Number(so.totalamt) : null,   // Decimal -> number
+      // Dates serialize to ISO automatically; null when absent
+      OrderDate: so.orderdate ?? null,
+      // Prisma Decimal -> number (or null)
+      totalamt: so.totalamt != null ? Number(so.totalamt) : null,
       CustCode: cust?.custcode ?? "",
       CustomerName: cust?.name ?? "",
       CarrierName: carr?.name ?? "",
@@ -68,7 +78,8 @@ export async function GET(req: Request) {
       TrackingNumber: ship?.waybill ?? "",
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unexpected server error.";
+    const message =
+      err instanceof Error ? err.message : "Unexpected server error.";
     return NextResponse.json(
       { ok: false, exists: false, error: message },
       { status: 500 }
