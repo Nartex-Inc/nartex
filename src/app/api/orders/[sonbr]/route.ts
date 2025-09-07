@@ -1,18 +1,17 @@
+// src/app/api/orders/[sonbr]/route.ts
 // ✅ Next 15 route: fetch order + joined details for autofill
 //    GET /api/orders/:sonbr
+
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-// Keep the context loose to satisfy Next runtime validator across versions
+// Keep context loose to satisfy Next runtime validator across versions
 type Context = any;
 
 export async function GET(_req: Request, context: Context) {
   try {
     const raw = (context?.params?.sonbr ?? "") as string;
-
-    // sonbr is INT in your DB → coerce & validate
-    const parsed = decodeURIComponent(String(raw)).trim();
-    const sonbr = Number(parsed);
+    const sonbr = Number(decodeURIComponent(raw).trim());
 
     if (!Number.isFinite(sonbr) || !Number.isInteger(sonbr)) {
       return NextResponse.json(
@@ -21,10 +20,12 @@ export async function GET(_req: Request, context: Context) {
       );
     }
 
-    // If sonbr is not UNIQUE in your DB, use findFirst (safe)
+    // sonbr can exist in multiple companies; prefer the latest cieid
     const so = await prisma.sOHeader.findFirst({
       where: { sonbr },
+      orderBy: [{ cieid: "desc" }],
       select: {
+        cieid: true,
         sonbr: true,
         orderdate: true,
         totalamt: true,
@@ -42,18 +43,13 @@ export async function GET(_req: Request, context: Context) {
       });
     }
 
-    // Parallel lookups
     const [cust, carr, rep, ship] = await Promise.all([
       so.custid ? prisma.customers.findUnique({ where: { custid: so.custid } }) : null,
       so.carrid ? prisma.carriers.findUnique({ where: { carrid: so.carrid } }) : null,
-      so.srid   ? prisma.salesrep.findUnique({ where: { srid: so.srid } }) : null,
-      prisma.shipmentHdr.findFirst({
-        where: { sonbr: so.sonbr },
-        orderBy: { id: "desc" },
-      }),
+      so.srid   ? prisma.salesrep.findUnique({ where: { srid: so.srid } })       : null,
+      prisma.shipmentHdr.findFirst({ where: { sonbr: so.sonbr }, orderBy: { id: "desc" } }),
     ]);
 
-    // JSON-safe serialization
     return NextResponse.json({
       ok: true,
       exists: true,
