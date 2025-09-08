@@ -2,6 +2,8 @@
 "use client";
 
 import * as React from "react";
+import { useSession } from "next-auth/react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useTheme } from "next-themes";
 import {
   Search,
@@ -986,8 +988,14 @@ function DetailModal({
                   <h2 className="text-lg font-bold">
                     Retour {draft.id} — {CAUSE_LABEL[draft.cause]}
                   </h2>
+                  const { data: session } = useSession();
+                  const creatorName =
+                    draft.createdBy?.name ??
+                    session?.user?.name ??
+                    REPORTER_LABEL[draft.reporter];
+                  
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Signalé le {new Date(draft.reportedAt).toLocaleDateString("fr-CA")} par {REPORTER_LABEL[draft.reporter]}
+                    Signalé par {creatorName} — {new Date(draft.reportedAt).toLocaleDateString("fr-CA")}
                   </p>
                 </div>
               </div>
@@ -998,20 +1006,34 @@ function DetailModal({
           </div>
 
           {/* Body */}
-          <div className="max-h-[calc(100vh-220px)] overflow-auto px-6 py-6 space-y-6">
-            {draft.createdBy && (
-              <div className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02]">
-                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white grid place-items-center font-medium">
-                  {draft.createdBy.name.charAt(0)}
-                </div>
-                <div className="text-sm">
-                  <div className="font-medium">{draft.createdBy.name}</div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">
-                    {new Date(draft.createdBy.at).toLocaleString("fr-CA")}
-                  </div>
+          {(draft.createdBy || session?.user) && (
+            <div className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02]">
+              <Avatar className="h-9 w-9">
+                <AvatarImage
+                  src={
+                    // prefer stored creator avatar if you later add it;
+                    // meanwhile, use the current session's image as a nice fallback
+                    (draft.createdBy as any)?.avatar ?? session?.user?.image ?? ""
+                  }
+                  alt={creatorName}
+                />
+                <AvatarFallback>
+                  {(creatorName || "U")
+                    .split(" ")
+                    .map((p) => p[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="text-sm">
+                <div className="font-medium">{creatorName}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">
+                  {new Date(draft.createdBy?.at ?? draft.reportedAt).toLocaleString("fr-CA")}
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
             {/* Fields */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
