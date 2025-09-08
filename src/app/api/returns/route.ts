@@ -1,5 +1,5 @@
 // src/app/api/returns/route.ts
-// ✅ GET list + POST create with “R#” that reuses the LOWEST free number,
+// ✅ GET list + POST create with "R#" that reuses the LOWEST free number,
 // and records the creator's name from NextAuth (createdByName).
 
 import { NextRequest, NextResponse } from "next/server";
@@ -168,21 +168,22 @@ async function getCreatorFromSession(): Promise<{
   // NextAuth v4/v5 fallback: getServerSession()
   try {
     const { getServerSession } = await import("next-auth");
-    // Try without options (v5), then with options from the legacy path (v4)
+    // Try without options (v5 style first)
     let session: any = null;
     try {
       session = await getServerSession();
     } catch {
+      // If v5 style fails, import authOptions from @/auth
       try {
-        const mod: any = await import(
-          "@/pages/api/auth/[...nextauth]"
-        );
-        const authOptions = mod?.authOptions ?? mod?.default;
-        if (authOptions) session = await getServerSession(authOptions);
+        const { authOptions } = await import("@/auth");
+        if (authOptions) {
+          session = await getServerSession(authOptions);
+        }
       } catch {
-        /* no options available */
+        /* authOptions not available */
       }
     }
+    
     const u = session?.user || null;
     const name =
       u?.name ??
