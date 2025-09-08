@@ -71,6 +71,8 @@ const THEME = {
   },
 } as const;
 
+type Theme = (typeof THEME)[keyof typeof THEME];
+
 /* =============================================================================
    Types
 ============================================================================= */
@@ -343,7 +345,7 @@ const PremiumCard = ({
   className?: string;
   gradient?: boolean;
   hover?: boolean;
-  type Theme = (typeof THEME)[keyof typeof THEME];
+  theme: Theme;
 }) => (
   <div className={`group relative ${className}`}>
     {gradient && (
@@ -1010,13 +1012,16 @@ function PermissionsButton({ node, onSave, theme }: { node: NodeItem; onSave: (p
   );
 }
 
-function PermissionModal({ initial, onClose, onSubmit, theme }: {
+function PermissionModal({
   initial,
   onClose,
   onSubmit,
   theme,
 }: {
-  initial: PermSpec; onClose: () => void; onSubmit: (p: PermSpec) => void; theme: Theme
+  initial: PermSpec;
+  onClose: () => void;
+  onSubmit: (p: PermSpec) => void;
+  theme: Theme;
 }) {
   const [editGroups, setEditGroups] = React.useState<string[]>(
     initial?.editGroups && initial.editGroups.length > 0 ? initial.editGroups : [""]
