@@ -21,7 +21,6 @@ JOIN public."Products"   p  ON i."ProdId" = p."ProdId" AND p."CieID" = h."cieid"
 WHERE h."cieid" = $1
   AND h."InvDate" BETWEEN $2 AND $3
   AND sr."Name" <> 'OTOPROTEC (004)'
-  -- Exclude all rows where ProdCode is numeric and >= 499 (keeps non-numeric codes like 'RT')
   AND NOT (
     CASE
       WHEN btrim(p."ProdCode") ~ '^[0-9]+$'
