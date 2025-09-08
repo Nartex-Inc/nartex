@@ -24,7 +24,7 @@ WHERE h."cieid" = $1
   AND NOT (
     CASE
       WHEN btrim(p."ProdCode") ~ '^[0-9]+$'
-        THEN (btrim(p."ProdCode")::int >= 499)
+        THEN (btrim(p."ProdCode")::int > 499)
       ELSE FALSE
     END
   );
