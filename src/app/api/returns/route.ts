@@ -1,5 +1,6 @@
 // src/app/api/returns/route.ts
-// ✅ Drop-in: GET list + POST create with “R#” that reuses the LOWEST free number (R1, R2, …)
+// ✅ GET list + POST create with “R#” that reuses the LOWEST free number,
+// and records the creator's name from NextAuth (createdByName).
 
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -124,7 +125,9 @@ function toReturnRow(
  * This lets codes restart at R1 when all rows are deleted, and also fills gaps (R1, R3 → next is R2).
  * Run inside a transaction to reduce the chance of races; on rare conflict, the caller retries.
  */
-async function nextReturnCode(tx: Prisma.TransactionClient): Promise<string> {
+async function nextReturnCode(
+  tx: Prisma.TransactionClient
+): Promise<string> {
   const rows = await tx.return.findMany({ select: { code: true } });
   const used = new Set<number>();
   for (const r of rows) {
@@ -137,6 +140,61 @@ async function nextReturnCode(tx: Prisma.TransactionClient): Promise<string> {
   let n = 1;
   while (used.has(n)) n++;
   return `R${n}`;
+}
+
+/** Safely read NextAuth session user and return a displayable name/image. */
+async function getCreatorFromSession(): Promise<{
+  name: string | null;
+  image: string | null;
+}> {
+  // NextAuth v5 (preferred): "@/auth"
+  try {
+    // eslint-disable-next-line @typescript-eslint/consistent-type-imports
+    const m: any = await import("@/auth");
+    if (typeof m?.auth === "function") {
+      const session = await m.auth();
+      const u = session?.user || null;
+      const name =
+        u?.name ??
+        (u?.email ? String(u.email).split("@")[0] : null) ??
+        null;
+      const image = u?.image ?? null;
+      return { name, image };
+    }
+  } catch {
+    /* ignore and try v4 fallback below */
+  }
+
+  // NextAuth v4/v5 fallback: getServerSession()
+  try {
+    const { getServerSession } = await import("next-auth");
+    // Try without options (v5), then with options from the legacy path (v4)
+    let session: any = null;
+    try {
+      session = await getServerSession();
+    } catch {
+      try {
+        const mod: any = await import(
+          "@/pages/api/auth/[...nextauth]"
+        );
+        const authOptions = mod?.authOptions ?? mod?.default;
+        if (authOptions) session = await getServerSession(authOptions);
+      } catch {
+        /* no options available */
+      }
+    }
+    const u = session?.user || null;
+    const name =
+      u?.name ??
+      (u?.email ? String(u.email).split("@")[0] : null) ??
+      null;
+    const image = u?.image ?? null;
+    return { name, image };
+  } catch {
+    /* ignore */
+  }
+
+  return { name: null, image: null };
 }
 
 /* -----------------------------------------------------------------------------
@@ -208,7 +266,7 @@ export async function GET(req: NextRequest) {
 /* -----------------------------------------------------------------------------
    POST /api/returns  (create)
    - Generates a human code "R#" that reuses the LOWEST FREE number
-   - Does not depend on autoincrement id (so after deleting all rows, next is R1)
+   - Records the creator's name from NextAuth in createdByName
 ----------------------------------------------------------------------------- */
 type CreatePayload = {
   reporter: Reporter;
@@ -241,6 +299,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Who is creating? (best-effort)
+    const { name: sessionName } = await getCreatorFromSession();
+    const creatorName = sessionName ?? "Utilisateur";
+
     // Try a couple of times in case two users race for the same "R#"
     let attempts = 0;
     while (true) {
@@ -266,6 +328,7 @@ export async function POST(req: NextRequest) {
               dateCommande: parseDate(body.dateCommande),
               transport: body.transport?.trim() || null,
               description: body.description?.trim() || null,
+              createdByName: creatorName,
               products: {
                 create:
                   (body.products ?? []).map((p) => ({
@@ -275,7 +338,6 @@ export async function POST(req: NextRequest) {
                     quantite: p.quantite || 0,
                   })) ?? [],
               },
-              createdByName: "current_user",
             },
             include: { products: true, attachments: true },
           });
@@ -284,7 +346,7 @@ export async function POST(req: NextRequest) {
         });
 
         const row = toReturnRow(
-            created as Awaited<ReturnType<typeof fetchOneReturnDB>>
+          created as Awaited<ReturnType<typeof fetchOneReturnDB>>
         );
         return NextResponse.json(
           { ok: true, return: row },
