@@ -343,7 +343,7 @@ const PremiumCard = ({
   className?: string;
   gradient?: boolean;
   hover?: boolean;
-  theme: typeof THEME.dark;
+  type Theme = (typeof THEME)[keyof typeof THEME];
 }) => (
   <div className={`group relative ${className}`}>
     {gradient && (
@@ -869,7 +869,7 @@ export default function SharePointViewer() {
   );
 }
 
-function Row({ label, children, theme }: { label: string; children: React.ReactNode; theme: any }) {
+function Row({ label, children, theme }: { label: string; children: React.ReactNode; theme: Theme }) {
   return (
     <div className="flex items-center justify-between p-3 rounded-xl" style={{ background: theme.soft, border: `1px solid ${theme.cardBorder}` }}>
       <span className="text-xs uppercase tracking-wider" style={{ color: theme.labelMuted }}>{label}</span>
@@ -878,7 +878,7 @@ function Row({ label, children, theme }: { label: string; children: React.ReactN
   );
 }
 
-function LegendCard({ theme }: { theme: any }) {
+function LegendCard({ theme }: { theme: Theme }) {
   return (
     <PremiumCard className="p-5" theme={theme}>
       <div className="flex items-center gap-3 mb-4">
@@ -912,7 +912,7 @@ function LegendCard({ theme }: { theme: any }) {
 /* =============================================================================
    Permissions (read-only viewer + modal + button)
 ============================================================================= */
-function PermissionsViewer({ node, tree, theme }: { node: NodeItem; tree: NodeItem; theme: any }) {
+function PermissionsViewer({ node, tree, theme }: { node: NodeItem; tree: NodeItem; theme: Theme }) {
   const isInherited = (node.depth ?? 0) > 3;
   const parentWithPerms = isInherited ? findParentWithPermissions(tree, node) : null;
   const effective = isInherited && parentWithPerms ? parentWithPerms : node;
@@ -976,7 +976,7 @@ function PermissionsViewer({ node, tree, theme }: { node: NodeItem; tree: NodeIt
   );
 }
 
-function PermissionsButton({ node, onSave, theme }: { node: NodeItem; onSave: (p: PermSpec) => void; theme: any }) {
+function PermissionsButton({ node, onSave, theme }: { node: NodeItem; onSave: (p: PermSpec) => void; theme: Theme }) {
   const [open, setOpen] = React.useState(false);
   return (
     <>
@@ -1010,16 +1010,13 @@ function PermissionsButton({ node, onSave, theme }: { node: NodeItem; onSave: (p
   );
 }
 
-function PermissionModal({
+function PermissionModal({ initial, onClose, onSubmit, theme }: {
   initial,
   onClose,
   onSubmit,
   theme,
 }: {
-  initial: PermSpec;
-  onClose: () => void;
-  onSubmit: (p: PermSpec) => void;
-  theme: any;
+  initial: PermSpec; onClose: () => void; onSubmit: (p: PermSpec) => void; theme: Theme
 }) {
   const [editGroups, setEditGroups] = React.useState<string[]>(
     initial?.editGroups && initial.editGroups.length > 0 ? initial.editGroups : [""]
