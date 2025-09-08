@@ -1,6 +1,5 @@
-// src/app/(dashboard)/page.tsx  (adjust path to your app route)
 /* =============================================================================
-   Dashboard Page (Light/Dark fixed)
+   Dashboard Page (Light/Dark + YOY Growth/Loss filter + Retention KPI)
 ============================================================================= */
 "use client";
 
@@ -42,6 +41,10 @@ import { THEME, PIE_COLORS_DARK, PIE_COLORS_LIGHT } from "@/lib/theme-tokens";
 
 // right under your THEME import
 type ThemeTokens = (typeof THEME)[keyof typeof THEME];
+
+type YoyFilter = "all" | "growth" | "loss";
+
+const RETENTION_THRESHOLD = 300; // $ CAD minimum both years
 
 /* =============================================================================
    Font
@@ -138,13 +141,7 @@ const AnimatedNumber = ({
   return <>{format(displayValue)}</>;
 };
 
-const YOYIndicator = ({
-  current,
-  previous,
-}: {
-  current: number;
-  previous: number;
-}) => {
+const YOYIndicator = ({ current, previous }: { current: number; previous: number }) => {
   const change = previous > 0 ? (current - previous) / previous : 0;
   const isPositive = change >= 0;
   const isNeutral = Math.abs(change) < 0.001;
@@ -177,14 +174,7 @@ const YOYIndicator = ({
 /* =============================================================================
    Custom Recharts components
 ============================================================================= */
-function CustomTooltip({
-  active,
-  payload,
-  label,
-  format = "currency",
-  themeTokens,
-  mode,
-}: any) {
+function CustomTooltip({ active, payload, label, format = "currency", themeTokens, mode }: any) {
   if (active && payload?.length) {
     return (
       <div
@@ -194,10 +184,7 @@ function CustomTooltip({
           borderColor: themeTokens.cardBorder,
         }}
       >
-        <p
-          className="text-xs mb-2 font-medium"
-          style={{ color: themeTokens.labelMuted }}
-        >
+        <p className="text-xs mb-2 font-medium" style={{ color: themeTokens.labelMuted }}>
           {label}
         </p>
         {payload.map((entry: any, index: number) => (
@@ -209,10 +196,7 @@ function CustomTooltip({
                 boxShadow: `0 0 10px ${entry.color}50`,
               }}
             />
-            <p
-              className="text-sm font-semibold"
-              style={{ color: mode === "dark" ? "#ffffff" : "#111827" }}
-            >
+            <p className="text-sm font-semibold" style={{ color: mode === "dark" ? "#ffffff" : "#111827" }}>
               {entry.name}:{" "}
               {format === "number"
                 ? formatNumber(entry.value)
@@ -261,7 +245,7 @@ const CustomLegend = ({ payload, onLegendClick, selectedItems = [] as string[], 
 };
 
 /* =============================================================================
-   Aggregation helper
+   Aggregation helpers
 ============================================================================= */
 function aggregateData(data: SalesRecord[], key: keyof SalesRecord, topN?: number) {
   const aggregated = data.reduce((acc, d) => {
@@ -273,6 +257,22 @@ function aggregateData(data: SalesRecord[], key: keyof SalesRecord, topN?: numbe
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
   return topN ? sorted.slice(0, topN) : sorted;
+}
+
+function totalsByRep(records: SalesRecord[]) {
+  return records.reduce((acc, r) => {
+    acc[r.salesRepName] = (acc[r.salesRepName] || 0) + r.salesValue;
+    return acc;
+  }, {} as Record<string, number>);
+}
+
+function totalsByRepCustomer(records: SalesRecord[]) {
+  const out: Record<string, Record<string, number>> = {};
+  for (const r of records) {
+    out[r.salesRepName] ??= {};
+    out[r.salesRepName][r.customerName] = (out[r.salesRepName][r.customerName] || 0) + r.salesValue;
+  }
+  return out;
 }
 
 /* =============================================================================
@@ -307,7 +307,7 @@ const AccessDenied = () => (
       <h3 className="text-2xl font-bold mb-3 text-zinc-800 dark:text-white">Accès restreint</h3>
       <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
         Vous ne disposez pas des autorisations nécessaires pour consulter ces données.
-        Veuillez contacter votre département TI pour obtenir l'accès approprié.
+        Veuillez contacter votre département TI pour obtenir l&apos;accès approprié.
       </p>
     </div>
   </div>
@@ -444,6 +444,8 @@ const DashboardContent = () => {
     itemCodes: [],
     customers: [],
   });
+  const [yoyFilter, setYoyFilter] = useState<YoyFilter>("all");
+
   const [animationKey, setAnimationKey] = useState(0);
   const [masterData, setMasterData] = useState<SalesRecord[] | null>(null);
   const [previousYearData, setPreviousYearData] = useState<SalesRecord[] | null>(null);
@@ -467,7 +469,7 @@ const DashboardContent = () => {
       setIsLoading(true);
       setError(null);
       try {
-        // Fetch current period data
+        // Current period
         const currentResponse = await fetch(
           `/api/dashboard-data?startDate=${activeDateRange.start}&endDate=${activeDateRange.end}`
         );
@@ -478,17 +480,13 @@ const DashboardContent = () => {
         const currentData = await currentResponse.json();
         setMasterData(currentData);
 
-        // Fetch previous year data for YOY comparison
-        if (showYOYComparison) {
-          const prevResponse = await fetch(
-            `/api/dashboard-data?startDate=${previousYearDateRange.start}&endDate=${previousYearDateRange.end}`
-          );
-          if (prevResponse.ok) {
-            const prevData = await prevResponse.json();
-            setPreviousYearData(prevData);
-          } else {
-            setPreviousYearData([]);
-          }
+        // Always fetch previous for YOY filter + retention KPI
+        const prevResponse = await fetch(
+          `/api/dashboard-data?startDate=${previousYearDateRange.start}&endDate=${previousYearDateRange.end}`
+        );
+        if (prevResponse.ok) {
+          const prevData = await prevResponse.json();
+          setPreviousYearData(prevData);
         } else {
           setPreviousYearData([]);
         }
@@ -499,27 +497,74 @@ const DashboardContent = () => {
       }
     };
     fetchData();
-  }, [activeDateRange, previousYearDateRange, showYOYComparison]);
+  }, [activeDateRange, previousYearDateRange]);
 
+  // All sale reps (current period)
+  const allSalesReps = useMemo(
+    () => (masterData ? Array.from(new Set(masterData.map((d) => d.salesRepName))).sort() : []),
+    [masterData]
+  );
+
+  // YOY classification per rep (based on ALL sales per rep, independent of item/customer filters)
+  const yoyClassSets = useMemo(() => {
+    const currentTotals = totalsByRep(masterData ?? []);
+    const prevTotals = totalsByRep(previousYearData ?? []);
+    const growth = new Set<string>();
+    const loss = new Set<string>();
+    const reps = new Set<string>([
+      ...Object.keys(currentTotals),
+      ...Object.keys(prevTotals),
+    ]);
+
+    for (const rep of reps) {
+      const prev = prevTotals[rep] || 0;
+      const curr = currentTotals[rep] || 0;
+      if (prev <= 0) continue; // ignore unknown/undefined YOY
+      const delta = curr - prev;
+      if (delta > 0) growth.add(rep);
+      else if (delta < 0) loss.add(rep);
+      // =0 is neutral, ignored
+    }
+    return { growth, loss };
+  }, [masterData, previousYearData]);
+
+  // Apply filters to datasets
   const filteredData = useMemo(() => {
     if (!masterData) return [];
-    return masterData.filter(
-      (d) =>
-        (filters.salesReps.length === 0 || filters.salesReps.includes(d.salesRepName)) &&
-        (filters.itemCodes.length === 0 || filters.itemCodes.includes(d.itemCode)) &&
-        (filters.customers.length === 0 || filters.customers.includes(d.customerName))
-    );
-  }, [masterData, filters]);
+    return masterData.filter((d) => {
+      const repSelected = filters.salesReps.length === 0 || filters.salesReps.includes(d.salesRepName);
+      const itemSelected = filters.itemCodes.length === 0 || filters.itemCodes.includes(d.itemCode);
+      const customerSelected =
+        filters.customers.length === 0 || filters.customers.includes(d.customerName);
+
+      // YOY filter is applied only when NO specific rep is selected
+      let yoyPass = true;
+      if (filters.salesReps.length === 0) {
+        if (yoyFilter === "growth") yoyPass = yoyClassSets.growth.has(d.salesRepName);
+        if (yoyFilter === "loss") yoyPass = yoyClassSets.loss.has(d.salesRepName);
+      }
+
+      return repSelected && itemSelected && customerSelected && yoyPass;
+    });
+  }, [masterData, filters, yoyFilter, yoyClassSets]);
 
   const filteredPreviousData = useMemo(() => {
     if (!previousYearData) return [];
-    return previousYearData.filter(
-      (d) =>
-        (filters.salesReps.length === 0 || filters.salesReps.includes(d.salesRepName)) &&
-        (filters.itemCodes.length === 0 || filters.itemCodes.includes(d.itemCode)) &&
-        (filters.customers.length === 0 || filters.customers.includes(d.customerName))
-    );
-  }, [previousYearData, filters]);
+    return previousYearData.filter((d) => {
+      const repSelected = filters.salesReps.length === 0 || filters.salesReps.includes(d.salesRepName);
+      const itemSelected = filters.itemCodes.length === 0 || filters.itemCodes.includes(d.itemCode);
+      const customerSelected =
+        filters.customers.length === 0 || filters.customers.includes(d.customerName);
+
+      let yoyPass = true;
+      if (filters.salesReps.length === 0) {
+        if (yoyFilter === "growth") yoyPass = yoyClassSets.growth.has(d.salesRepName);
+        if (yoyFilter === "loss") yoyPass = yoyClassSets.loss.has(d.salesRepName);
+      }
+
+      return repSelected && itemSelected && customerSelected && yoyPass;
+    });
+  }, [previousYearData, filters, yoyFilter, yoyClassSets]);
 
   useEffect(() => {
     setAnimationKey((prev) => prev + 1);
@@ -546,8 +591,7 @@ const DashboardContent = () => {
         : isSelected && existing.length === 1
         ? []
         : [value];
-      if (category === "salesReps" && !isShiftClick)
-        setStagedSelectedRep(newValues.length === 1 ? newValues[0] : "");
+      if (category === "salesReps" && !isShiftClick) setStagedSelectedRep(newValues.length === 1 ? newValues[0] : "");
       return { ...prev, [category]: newValues };
     });
   };
@@ -557,24 +601,15 @@ const DashboardContent = () => {
     setStagedSelectedRep("");
     setActiveDateRange(defaultDateRange);
     setFilters({ salesReps: [], itemCodes: [], customers: [] });
+    setYoyFilter("all");
   };
 
   const hasActiveFilters =
     filters.salesReps.length > 0 ||
     filters.itemCodes.length > 0 ||
     filters.customers.length > 0 ||
-    JSON.stringify(activeDateRange) !== JSON.stringify(defaultDateRange);
-
-  const allSalesReps = useMemo(
-    () => (masterData ? Array.from(new Set(masterData.map((d) => d.salesRepName))).sort() : []),
-    [masterData]
-  );
-
-  // Count unique active sales reps in filtered data
-  const activeExpertsCount = useMemo(() => {
-    const uniqueReps = new Set(filteredData.map((d) => d.salesRepName));
-    return uniqueReps.size;
-  }, [filteredData]);
+    JSON.stringify(activeDateRange) !== JSON.stringify(defaultDateRange) ||
+    yoyFilter !== "all";
 
   // Current period metrics
   const totalSales = useMemo(
@@ -594,16 +629,18 @@ const DashboardContent = () => {
   );
   const previousTransactionCount = useMemo(() => filteredPreviousData.length, [filteredPreviousData]);
 
-  // Create fixed color mapping for sales reps
+  // Color mapping for sales reps
   const salesRepColorMap = useMemo(() => {
     const map: Record<string, string> = {};
-    allSalesReps.forEach((rep, index) => {
+    const reps = masterData ? Array.from(new Set(masterData.map((d) => d.salesRepName))).sort() : [];
+    reps.forEach((rep, index) => {
       map[rep] = pieColors[index % pieColors.length];
     });
     map["Autres"] = mode === "dark" ? "#303a47" : "#d1d5db";
     return map;
-  }, [allSalesReps, pieColors, mode]);
+  }, [masterData, pieColors, mode]);
 
+  // Sales by rep (applies YOY rep filter via filteredData)
   const salesByRep = useMemo(() => {
     const allReps = aggregateData(filteredData, "salesRepName");
     if (allReps.length <= 8) return allReps;
@@ -671,6 +708,50 @@ const DashboardContent = () => {
     }));
   }, [filteredData, filteredPreviousData]);
 
+  // ------------------ Retention (per-rep, then averaged) --------------------
+  const retentionByRep = useMemo(() => {
+    const prev = totalsByRepCustomer(previousYearData ?? []);
+    const curr = totalsByRepCustomer(masterData ?? []);
+    const result: Record<string, { eligible: number; retained: number; rate: number | null }> = {};
+    const reps = new Set<string>([...Object.keys(prev), ...Object.keys(curr)]);
+    reps.forEach((rep) => {
+      const prevCusts = prev[rep] || {};
+      const currCusts = curr[rep] || {};
+      let eligible = 0;
+      let retained = 0;
+      for (const [cust, prevSpend] of Object.entries(prevCusts)) {
+        if (prevSpend >= RETENTION_THRESHOLD) {
+          eligible += 1;
+          const currSpend = currCusts[cust] || 0;
+          if (currSpend >= RETENTION_THRESHOLD) retained += 1;
+        }
+      }
+      result[rep] = {
+        eligible,
+        retained,
+        rate: eligible > 0 ? retained / eligible : null,
+      };
+    });
+    return result;
+  }, [masterData, previousYearData]);
+
+  const visibleRepsForRetention = useMemo(() => {
+    if (filters.salesReps.length > 0) return new Set(filters.salesReps);
+    if (yoyFilter === "growth") return new Set(yoyClassSets.growth);
+    if (yoyFilter === "loss") return new Set(yoyClassSets.loss);
+    return new Set(allSalesReps);
+  }, [filters.salesReps, yoyFilter, yoyClassSets, allSalesReps]);
+
+  const retentionAverage = useMemo(() => {
+    const rates: number[] = [];
+    visibleRepsForRetention.forEach((rep) => {
+      const r = retentionByRep[rep];
+      if (r && r.rate !== null) rates.push(r.rate);
+    });
+    const avg = rates.length ? rates.reduce((a, b) => a + b, 0) / rates.length : null;
+    return { avg, eligibleReps: rates.length, totalReps: visibleRepsForRetention.size };
+  }, [retentionByRep, visibleRepsForRetention]);
+
   if (error) return <ErrorState message={error.message} />;
   if (!mounted) return <LoadingState />;
   if (isLoading) return <LoadingState />;
@@ -685,12 +766,18 @@ const DashboardContent = () => {
           background: `linear-gradient(135deg, ${t.card} 0%, ${mode === "dark" ? "rgba(139,92,246,0.02)" : "rgba(124,58,237,0.04)"} 100%)`,
         }}
       >
-        <div className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl" style={{ background: `linear-gradient(to bottom right, ${t.haloCyan}, ${t.haloViolet})` }} />
+        <div
+          className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl"
+          style={{ background: `linear-gradient(to bottom right, ${t.haloCyan}, ${t.haloViolet})` }}
+        />
         <div className="px-6 py-6 relative z-10">
           <div className="flex flex-wrap items-center justify-between gap-6">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-xl backdrop-blur-xl" style={{ background: "linear-gradient(135deg, rgba(34,211,238,0.2), rgba(139,92,246,0.2))" }}>
+                <div
+                  className="p-2 rounded-xl backdrop-blur-xl"
+                  style={{ background: "linear-gradient(135deg, rgba(34,211,238,0.2), rgba(139,92,246,0.2))" }}
+                >
                   <BarChart3 className="w-6 h-6" style={{ color: t.accentPrimary }} />
                 </div>
                 <h1
@@ -711,7 +798,9 @@ const DashboardContent = () => {
                 className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 border"
                 style={{
                   color: showYOYComparison ? t.accentPrimary : t.label,
-                  background: showYOYComparison ? "linear-gradient(90deg, rgba(34,211,238,0.2), rgba(139,92,246,0.2))" : t.cardSoft,
+                  background: showYOYComparison
+                    ? "linear-gradient(90deg, rgba(34,211,238,0.2), rgba(139,92,246,0.2))"
+                    : t.cardSoft,
                   borderColor: showYOYComparison ? "rgba(34,211,238,0.3)" : t.cardBorder,
                   boxShadow: showYOYComparison ? "0 6px 16px rgba(34,211,238,0.2)" : "none",
                 }}
@@ -719,6 +808,41 @@ const DashboardContent = () => {
                 <Calendar className="w-4 h-4 inline mr-2" />
                 Comparaison YOY
               </button>
+
+              {/* NEW: YOY Growth/Loss segmented filter (applies when no specific rep is selected) */}
+              <div
+                className="flex rounded-xl overflow-hidden border"
+                title="Filtrer les représentants par variation YOY"
+                style={{ borderColor: t.cardBorder, background: t.cardSoft }}
+              >
+                {([
+                  { key: "all", label: "Tous" },
+                  { key: "growth", label: "Croissance" },
+                  { key: "loss", label: "Baisse" },
+                ] as { key: YoyFilter; label: string }[]).map((opt, idx) => {
+                  const active = yoyFilter === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      onClick={() => setYoyFilter(opt.key)}
+                      className={`px-3 py-2 text-xs font-semibold transition-all ${idx !== 0 ? "border-l" : ""}`}
+                      style={{
+                        borderColor: t.cardBorder,
+                        color: active ? "#000" : t.label,
+                        background: active
+                          ? opt.key === "growth"
+                            ? "linear-gradient(135deg, rgba(16,185,129,0.3), rgba(34,211,238,0.3))"
+                            : opt.key === "loss"
+                            ? "linear-gradient(135deg, rgba(239,68,68,0.3), rgba(234,179,8,0.25))"
+                            : "linear-gradient(135deg, rgba(148,163,184,0.25), rgba(148,163,184,0.15))"
+                          : "transparent",
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
 
               <select
                 value={stagedSelectedRep}
@@ -891,8 +1015,9 @@ const DashboardContent = () => {
           )}
         </KpiCard>
 
+        {/* NEW: Customer Retention KPI replaces "Experts actifs" */}
         <KpiCard
-          title="Experts actifs"
+          title="Taux de rétention clients"
           icon={<Users className="w-5 h-5" />}
           gradient="rgba(245,158,11,0.2), rgba(234,88,12,0.2)"
           className="col-span-12 md:col-span-6 lg:col-span-3"
@@ -900,10 +1025,12 @@ const DashboardContent = () => {
           mode={mode}
         >
           <p className="text-3xl font-bold tracking-tight" style={{ color: t.foreground }}>
-            {activeExpertsCount}
+            {retentionAverage.avg === null ? "N/A" : percentage(retentionAverage.avg)}
           </p>
-          <p className="text-sm mt-2" style={{ color: t.label }}>
-            sur {allSalesReps.length} total
+          <p className="text-xs mt-2" style={{ color: t.label }}>
+            {retentionAverage.avg === null
+              ? "Aucun rep. éligible (≥ 300 $ l’an dernier)"
+              : `Moyenne sur ${retentionAverage.eligibleReps} rep${retentionAverage.eligibleReps > 1 ? "s" : ""} éligible${retentionAverage.eligibleReps > 1 ? "s" : ""}`}
           </p>
         </KpiCard>
       </div>
@@ -1222,14 +1349,13 @@ export default function DashboardPage() {
 
   return (
     <main
-        className={`min-h-[100svh] ${inter.className} bg-white dark:bg-[#050507]`}
-        style={{
-          background: mode === "dark"
-            ? `linear-gradient(180deg, ${t.bg} 0%, #050507 100%)`
-            : undefined,
-          color: t.foreground,
-        }}
-      >
+      className={`min-h-[100svh] ${inter.className} bg-white dark:bg-[#050507]`}
+      style={{
+        background:
+          mode === "dark" ? `linear-gradient(180deg, ${t.bg} 0%, #050507 100%)` : undefined,
+        color: t.foreground,
+      }}
+    >
       {mode === "dark" && (
         <div className="fixed inset-0 opacity-20 pointer-events-none">
           <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full blur-3xl" style={{ background: t.haloCyan }} />
