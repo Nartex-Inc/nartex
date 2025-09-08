@@ -20,6 +20,7 @@ JOIN public."Items"      i  ON d."Itemid" = i."ItemId"
 JOIN public."Products"   p  ON i."ProdId" = p."ProdId" AND p."CieID" = h."cieid"
 WHERE h."cieid" = $1
   AND h."InvDate" BETWEEN $2 AND $3
+  AND d."Amount" > 0
   AND sr."Name" <> 'OTOPROTEC (004)'
   AND NOT (p."ProdCode" ~ '^[0-9]+$' AND p."ProdCode"::int >= 499);
 `;
