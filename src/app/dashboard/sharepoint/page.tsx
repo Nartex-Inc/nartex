@@ -1,3 +1,6 @@
+// src/app/dashboard/sharepoint/page.tsx
+"use client";
+
 import * as React from "react";
 import {
   ChevronRight,
@@ -5,7 +8,6 @@ import {
   FolderOpen,
   Lock,
   Users,
-  Shield,
   Eye,
   Edit,
   Star,
@@ -17,65 +19,63 @@ import {
   Save,
   X,
   Search,
-  Filter,
   Database,
-  Globe,
   Layers,
-  GitBranch,
-  Archive,
-  FileText,
-  Zap,
-  Activity,
-  TrendingUp,
-  BarChart3,
+  Shield,
   Sparkles,
-  Command,
-  ChevronDown,
   Moon,
   Sun,
+  FileText,
+  GitBranch,
 } from "lucide-react";
 
 /* =============================================================================
-   Theme Configuration
+   Theme Configuration  (kept compatible with your dashboard tokens)
 ============================================================================= */
 const THEME = {
   dark: {
     bg: "#050507",
-    card: "rgba(10, 10, 12, 0.7)",
-    cardSoft: "rgba(20, 20, 24, 0.5)",
-    cardBorder: "rgba(255, 255, 255, 0.06)",
+    card: "rgba(10, 10, 12, 0.72)",
+    soft: "rgba(20, 20, 24, 0.55)", // alias for "cardSoft" to match other page
+    cardSoft: "rgba(20, 20, 24, 0.55)",
+    cardBorder: "rgba(255, 255, 255, 0.08)",
     foreground: "#ffffff",
-    label: "#94a3b8",
-    labelMuted: "#64748b",
-    grid: "rgba(255, 255, 255, 0.03)",
+    label: "#d1d5db",
+    labelMuted: "#9ca3af",
+    grid: "rgba(255, 255, 255, 0.06)",
     accentPrimary: "#22d3ee",
     accentSecondary: "#8b5cf6",
     success: "#10b981",
     warning: "#f59e0b",
     danger: "#ef4444",
-    gradientPrimary: "linear-gradient(135deg, rgba(34,211,238,0.15), rgba(139,92,246,0.15))",
-    haloCyan: "rgba(34,211,238,0.4)",
-    haloViolet: "rgba(139,92,246,0.4)",
+    gradientPrimary:
+      "linear-gradient(135deg, rgba(34,211,238,0.15), rgba(139,92,246,0.15))",
+    haloCyan: "rgba(34,211,238,0.40)",
+    haloViolet: "rgba(139,92,246,0.40)",
+    tooltipBg: "rgba(15, 23, 42, 0.95)",
   },
   light: {
     bg: "#ffffff",
-    card: "rgba(255, 255, 255, 0.9)",
-    cardSoft: "rgba(248, 250, 252, 0.9)",
-    cardBorder: "rgba(0, 0, 0, 0.06)",
+    card: "rgba(255,255,255,0.92)",
+    soft: "rgba(248, 250, 252, 0.92)",
+    cardSoft: "rgba(248, 250, 252, 0.92)",
+    cardBorder: "rgba(0,0,0,0.08)",
     foreground: "#0f172a",
-    label: "#475569",
-    labelMuted: "#94a3b8",
-    grid: "rgba(0, 0, 0, 0.03)",
+    label: "#334155",
+    labelMuted: "#64748b",
+    grid: "rgba(0,0,0,0.04)",
     accentPrimary: "#0ea5e9",
     accentSecondary: "#7c3aed",
     success: "#059669",
     warning: "#d97706",
     danger: "#dc2626",
-    gradientPrimary: "linear-gradient(135deg, rgba(14,165,233,0.1), rgba(124,58,237,0.1))",
-    haloCyan: "rgba(14,165,233,0.3)",
-    haloViolet: "rgba(124,58,237,0.3)",
+    gradientPrimary:
+      "linear-gradient(135deg, rgba(14,165,233,0.12), rgba(124,58,237,0.12))",
+    haloCyan: "rgba(14,165,233,0.30)",
+    haloViolet: "rgba(124,58,237,0.30)",
+    tooltipBg: "rgba(255,255,255,0.98)",
   },
-};
+} as const;
 
 const SECURITY_GROUPS = [
   "SG-PRESIDENT",
@@ -96,7 +96,7 @@ const SECURITY_GROUPS = [
   "SG-MARKETING-ALL",
   "SG-MARKETING-EXÉCUTIF",
   "SG-ALL",
-];
+] as const;
 
 // Sample data structure
 const SAMPLE_DATA = [
@@ -108,8 +108,8 @@ const SAMPLE_DATA = [
     icon: "🏢",
     restricted: false,
     highSecurity: false,
-    editGroups: [],
-    readGroups: [],
+    editGroups: [] as string[],
+    readGroups: [] as string[],
   },
   {
     id: "2",
@@ -132,36 +132,9 @@ const SAMPLE_DATA = [
     editGroups: ["SG-DIRECTION"],
     readGroups: ["SG-CFO", "SG-PRESIDENT"],
   },
-  {
-    id: "4",
-    parentId: "3",
-    name: "Communications",
-    type: "folder",
-    restricted: false,
-    highSecurity: false,
-    editGroups: [],
-    readGroups: [],
-  },
-  {
-    id: "5",
-    parentId: "3",
-    name: "Ordres du jour & calendriers",
-    type: "folder",
-    restricted: false,
-    highSecurity: false,
-    editGroups: [],
-    readGroups: [],
-  },
-  {
-    id: "6",
-    parentId: "3",
-    name: "Organigramme fonctionnel",
-    type: "folder",
-    restricted: false,
-    highSecurity: false,
-    editGroups: [],
-    readGroups: [],
-  },
+  { id: "4", parentId: "3", name: "Communications", type: "folder" },
+  { id: "5", parentId: "3", name: "Ordres du jour & calendriers", type: "folder" },
+  { id: "6", parentId: "3", name: "Organigramme fonctionnel", type: "folder" },
   {
     id: "7",
     parentId: "1",
@@ -173,23 +146,12 @@ const SAMPLE_DATA = [
     editGroups: ["SG-MARKETING-EXÉCUTIF"],
     readGroups: ["SG-MARKETING-ALL"],
   },
-  {
-    id: "8",
-    parentId: "7",
-    name: "OPÉRATIONS",
-    type: "folder",
-    restricted: false,
-    highSecurity: false,
-    editGroups: [],
-    readGroups: [],
-  },
+  { id: "8", parentId: "7", name: "OPÉRATIONS", type: "folder" },
   {
     id: "9",
     parentId: "8",
     name: "Capex",
     type: "folder",
-    restricted: false,
-    highSecurity: false,
     editGroups: ["SG-DIRECTION"],
     readGroups: ["SG-MARKETING-ALL"],
   },
@@ -199,18 +161,13 @@ const SAMPLE_DATA = [
     name: "Contrats & fournisseurs",
     type: "folder",
     restricted: true,
-    highSecurity: false,
     editGroups: ["SG-MARKETING-EXÉCUTIF"],
-    readGroups: [],
   },
   {
     id: "11",
     parentId: "8",
     name: "KPI & tableaux de bord",
     type: "folder",
-    restricted: false,
-    highSecurity: false,
-    editGroups: [],
     readGroups: ["SG-ALL"],
   },
   {
@@ -239,8 +196,6 @@ const SAMPLE_DATA = [
     parentId: "13",
     name: "PUBLIC",
     type: "folder",
-    restricted: false,
-    highSecurity: false,
     editGroups: ["SG-ALL"],
     readGroups: ["SG-ALL"],
   },
@@ -262,7 +217,6 @@ const SAMPLE_DATA = [
     type: "library",
     icon: "👥",
     restricted: true,
-    highSecurity: false,
     editGroups: ["SG-RH-EXÉCUTIF"],
     readGroups: ["SG-RH-ALL"],
   },
@@ -272,8 +226,6 @@ const SAMPLE_DATA = [
     name: "TI",
     type: "library",
     icon: "💻",
-    restricted: false,
-    highSecurity: false,
     editGroups: ["SG-TI-EXÉCUTIF"],
     readGroups: ["SG-TI-ALL"],
   },
@@ -283,12 +235,10 @@ const SAMPLE_DATA = [
     name: "VENTES",
     type: "library",
     icon: "💰",
-    restricted: false,
-    highSecurity: false,
     editGroups: ["SG-VENTES-EXÉCUTIF"],
     readGroups: ["SG-VENTES-ALL"],
   },
-];
+] as const;
 
 /* =============================================================================
    Types
@@ -308,20 +258,30 @@ type NodeItem = {
   path?: string;
 };
 
-type PermSpec = {
-  editGroups?: string[] | null;
-  readGroups?: string[] | null;
-  restricted?: boolean;
-  highSecurity?: boolean;
-} | null;
+type PermSpec =
+  | {
+      editGroups?: string[] | null;
+      readGroups?: string[] | null;
+      restricted?: boolean;
+      highSecurity?: boolean;
+    }
+  | null;
+
+type RawRow = (typeof SAMPLE_DATA)[number];
 
 /* =============================================================================
-   Animated Number Component
+   Animated Number Component (build fix: useRef initial value)
 ============================================================================= */
-const AnimatedNumber = ({ value, duration = 700 }: { value: number; duration?: number }) => {
+const AnimatedNumber = ({
+  value,
+  duration = 700,
+}: {
+  value: number;
+  duration?: number;
+}) => {
   const [displayValue, setDisplayValue] = React.useState(0);
   const previousValueRef = React.useRef(0);
-  const animationFrameRef = React.useRef<number>();
+  const animationFrameRef = React.useRef<number | null>(null); // ✅ fix
 
   React.useEffect(() => {
     const startValue = previousValueRef.current;
@@ -342,11 +302,16 @@ const AnimatedNumber = ({ value, duration = 700 }: { value: number; duration?: n
       }
     };
 
-    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+    if (animationFrameRef.current != null) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
     animationFrameRef.current = requestAnimationFrame(animate);
 
     return () => {
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (animationFrameRef.current != null) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      previousValueRef.current = value;
     };
   }, [value, duration]);
 
@@ -382,7 +347,7 @@ const PremiumCard = ({
           hover ? "hover:border-white/10" : ""
         }`}
         style={{
-          background: `linear-gradient(135deg, ${theme.card} 0%, ${theme.cardSoft} 100%)`,
+          background: `linear-gradient(135deg, ${theme.card} 0%, ${theme.soft} 100%)`,
           borderColor: theme.cardBorder,
         }}
       >
@@ -393,41 +358,47 @@ const PremiumCard = ({
 };
 
 /* =============================================================================
-   Data helpers
+   Data helpers (types tightened to avoid TS noise)
 ============================================================================= */
-function buildTree(rows: typeof SAMPLE_DATA): NodeItem {
-  const byParent = new Map<string | null, typeof SAMPLE_DATA>();
+function buildTree(rows: ReadonlyArray<RawRow>): NodeItem {
+  const byParent = new Map<string | null, RawRow[]>();
   rows.forEach((n) => {
-    const k = n.parentId ?? null;
+    const k = (n.parentId as string | null) ?? null;
     const arr = byParent.get(k) ?? [];
     arr.push(n);
     byParent.set(k, arr);
   });
 
-  const toNode = (n: typeof SAMPLE_DATA[0], depth: number = 0, path: string = ""): NodeItem => {
+  const toNode = (n: RawRow, depth = 0, path = ""): NodeItem => {
     const nodePath = path ? `${path}/${n.name}` : n.name;
     return {
       id: n.id,
-      parentId: n.parentId ?? null,
-      name: n.name,
-      type: (n.type as any) ?? "folder",
-      icon: n.icon ?? undefined,
-      restricted: !!n.restricted,
-      highSecurity: !!n.highSecurity,
-      editGroups: n.editGroups?.length ? n.editGroups : null,
-      readGroups: n.readGroups?.length ? n.readGroups : null,
+      parentId: (n.parentId as string | null) ?? null,
+      name: n.name as string,
+      type: (n.type as NodeItem["type"]) ?? "folder",
+      icon: (n as any).icon ?? undefined,
+      restricted: !!(n as any).restricted,
+      highSecurity: !!(n as any).highSecurity,
+      editGroups:
+        (n as any).editGroups && (n as any).editGroups.length
+          ? ((n as any).editGroups as string[])
+          : null,
+      readGroups:
+        (n as any).readGroups && (n as any).readGroups.length
+          ? ((n as any).readGroups as string[])
+          : null,
       depth,
       path: nodePath,
       children: (byParent.get(n.id) ?? [])
-        .sort((a, b) => a.name.localeCompare(b.name))
+        .sort((a, b) => (a.name as string).localeCompare(b.name as string))
         .map((c) => toNode(c, depth + 1, nodePath)),
     };
   };
 
   const rootChildren = (byParent.get(null) ?? []).sort((a, b) =>
-    a.name.localeCompare(b.name)
+    (a.name as string).localeCompare(b.name as string)
   );
-  
+
   return {
     id: "root",
     parentId: null,
@@ -449,14 +420,13 @@ function findNodeById(root: NodeItem | null, id: string): NodeItem | null {
   return null;
 }
 
-function findParentWithPermissions(
-  tree: NodeItem | null,
-  node: NodeItem
-): NodeItem | null {
+function findParentWithPermissions(tree: NodeItem | null, node: NodeItem): NodeItem | null {
   if (!tree || !node.parentId) return null;
   const parent = findNodeById(tree, node.parentId);
   if (!parent) return null;
-  if (parent.editGroups || parent.readGroups) return parent;
+  if (parent.editGroups || parent.readGroups || parent.restricted || parent.highSecurity) {
+    return parent;
+  }
   if (parent.parentId) {
     return findParentWithPermissions(tree, parent);
   }
@@ -469,9 +439,8 @@ function findParentWithPermissions(
 export default function PremiumSharePointViewer() {
   const [theme, setTheme] = React.useState<"dark" | "light">("dark");
   const t = THEME[theme];
-  const [data, setData] = React.useState(SAMPLE_DATA);
-  const [isLoading, setIsLoading] = React.useState(false);
-  
+
+  const [data, setData] = React.useState<Array<RawRow>>([...SAMPLE_DATA]);
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set(["root", "1"]));
   const [selected, setSelected] = React.useState<NodeItem | null>(null);
   const [editingId, setEditingId] = React.useState<string | null>(null);
@@ -479,34 +448,27 @@ export default function PremiumSharePointViewer() {
   const [creatingInId, setCreatingInId] = React.useState<string | null>(null);
   const [newFolderName, setNewFolderName] = React.useState("");
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [viewMode, setViewMode] = React.useState<"tree" | "grid">("tree");
-
   const tree = React.useMemo(() => buildTree(data), [data]);
 
-  // Statistics
+  // Stats (fast, memoized)
   const stats = React.useMemo(() => {
-    if (!tree) return { total: 0, restricted: 0, highSecurity: 0, withPermissions: 0 };
-    
-    const countStats = (node: NodeItem): any => {
-      let stats = {
+    const walk = (node: NodeItem): { total: number; restricted: number; highSecurity: number; withPermissions: number } => {
+      const self = {
         total: 1,
         restricted: node.restricted ? 1 : 0,
         highSecurity: node.highSecurity ? 1 : 0,
         withPermissions: (node.editGroups?.length || node.readGroups?.length) ? 1 : 0,
       };
-      
-      for (const child of node.children ?? []) {
-        const childStats = countStats(child);
-        stats.total += childStats.total;
-        stats.restricted += childStats.restricted;
-        stats.highSecurity += childStats.highSecurity;
-        stats.withPermissions += childStats.withPermissions;
+      for (const c of node.children ?? []) {
+        const s = walk(c);
+        self.total += s.total;
+        self.restricted += s.restricted;
+        self.highSecurity += s.highSecurity;
+        self.withPermissions += s.withPermissions;
       }
-      
-      return stats;
+      return self;
     };
-    
-    return countStats(tree);
+    return walk(tree);
   }, [tree]);
 
   const toggle = (id: string) => {
@@ -529,21 +491,20 @@ export default function PremiumSharePointViewer() {
       setCreatingInId(null);
       return;
     }
-
     const parentId = creatingInId === "root" ? null : creatingInId;
-    const newNode = {
+    const newNode: RawRow = {
       id: `new-${Date.now()}`,
-      parentId,
+      parentId: parentId as any,
       name: newFolderName.trim(),
-      type: "folder" as const,
-      icon: "📁",
-      restricted: false,
-      highSecurity: false,
-      editGroups: [],
-      readGroups: [],
-    };
+      type: "folder",
+      icon: "📁" as any,
+      restricted: false as any,
+      highSecurity: false as any,
+      editGroups: [] as any,
+      readGroups: [] as any,
+    } as RawRow;
 
-    setData([...data, newNode]);
+    setData((prev) => [...prev, newNode]);
     setCreatingInId(null);
     setNewFolderName("");
   };
@@ -558,49 +519,43 @@ export default function PremiumSharePointViewer() {
       setEditingId(null);
       return;
     }
-
-    setData(data.map(n => 
-      n.id === editingId ? { ...n, name: editingName.trim() } : n
-    ));
+    setData((prev) =>
+      prev.map((n) => (n.id === editingId ? ({ ...n, name: editingName.trim() } as RawRow) : n))
+    );
     setEditingId(null);
   };
 
   const deleteNode = (node: NodeItem) => {
-    if (!confirm(`Supprimer « ${node.name} » et tous ses sous-dossiers ?`)) return;
-    
+    if (!window.confirm(`Supprimer « ${node.name} » et tous ses sous-dossiers ?`)) return;
+
     const idsToDelete = new Set<string>([node.id]);
-    const collectChildIds = (n: NodeItem) => {
-      for (const child of n.children ?? []) {
-        idsToDelete.add(child.id);
-        collectChildIds(child);
-      }
-    };
-    collectChildIds(node);
-    
-    setData(data.filter(n => !idsToDelete.has(n.id)));
+    const collect = (n: NodeItem) => (n.children ?? []).forEach((c) => (idsToDelete.add(c.id), collect(c)));
+    collect(node);
+
+    setData((prev) => prev.filter((n) => !idsToDelete.has(n.id)));
     if (selected?.id === node.id) setSelected(null);
   };
 
   const updatePermissions = (node: NodeItem, perms: PermSpec) => {
     if (!perms) return;
-    
-    setData(data.map(n =>
-      n.id === node.id
-        ? {
-            ...n,
-            restricted: !!perms.restricted,
-            highSecurity: !!perms.highSecurity,
-            editGroups: perms.editGroups ?? [],
-            readGroups: perms.readGroups ?? [],
-          }
-        : n
-    ));
+    setData((prev) =>
+      prev.map((n) =>
+        n.id === node.id
+          ? ({
+              ...n,
+              restricted: !!perms.restricted,
+              highSecurity: !!perms.highSecurity,
+              editGroups: perms.editGroups ?? [],
+              readGroups: perms.readGroups ?? [],
+            } as RawRow)
+          : n
+      )
+    );
   };
 
-  const hasMatchingDescendant = (node: NodeItem, query: string): boolean => {
-    if (node.name.toLowerCase().includes(query.toLowerCase())) return true;
-    return node.children?.some(child => hasMatchingDescendant(child, query)) ?? false;
-  };
+  const hasMatchingDescendant = (node: NodeItem, query: string): boolean =>
+    node.name.toLowerCase().includes(query.toLowerCase()) ||
+    (node.children?.some((c) => hasMatchingDescendant(c, query)) ?? false);
 
   const renderNode = (node: NodeItem, visualDepth = 0): React.ReactNode => {
     const isExpanded = expanded.has(node.id);
@@ -608,31 +563,21 @@ export default function PremiumSharePointViewer() {
     const isSelected = selected?.id === node.id;
     const isEditing = editingId === node.id;
     const isCreating = creatingInId === node.id;
-    const canEditPermissions = node.depth === 3 && node.id !== "root";
+    const canEditPermissions = (node.depth ?? 0) === 3 && node.id !== "root";
 
-    // Skip if doesn't match search
-    if (searchQuery && !node.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-      const matchingChildren = node.children?.filter(child => 
-        child.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        hasMatchingDescendant(child, searchQuery)
-      );
-      if (!matchingChildren?.length) return null;
-      return <>{matchingChildren.map(c => renderNode(c, visualDepth))}</>;
-    }
+    // Filter by search
+    if (searchQuery && !hasMatchingDescendant(node, searchQuery)) return null;
 
     return (
       <div key={node.id} className="select-none">
         <div
-          className={`
-            group flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-200
-            hover:translate-x-1 cursor-pointer relative overflow-hidden
-          `}
+          className="group flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-200 hover:translate-x-1 cursor-pointer relative overflow-hidden"
           style={{
-            paddingLeft: (visualDepth * 24) + 16,
+            paddingLeft: visualDepth * 24 + 16,
             background: isSelected
               ? `linear-gradient(90deg, ${t.accentPrimary}15 0%, transparent 100%)`
               : isEditing
-              ? `${t.cardSoft}`
+              ? t.soft
               : "transparent",
             borderLeft: isSelected ? `3px solid ${t.accentPrimary}` : "3px solid transparent",
           }}
@@ -646,18 +591,13 @@ export default function PremiumSharePointViewer() {
         >
           <div
             className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-            style={{
-              background: `linear-gradient(90deg, ${t.accentPrimary}08 0%, transparent 100%)`,
-            }}
+            style={{ background: `linear-gradient(90deg, ${t.accentPrimary}08 0%, transparent 100%)` }}
           />
 
           {hasChildren && (
             <div
               className="transition-transform duration-200"
-              style={{
-                transform: isExpanded ? "rotate(90deg)" : "none",
-                color: t.labelMuted,
-              }}
+              style={{ transform: isExpanded ? "rotate(90deg)" : "none", color: t.labelMuted }}
             >
               <ChevronRight className="h-4 w-4" />
             </div>
@@ -675,10 +615,10 @@ export default function PremiumSharePointViewer() {
               </div>
             )}
             {(!node.type || node.type === "folder") && (
-              <div className="p-2 rounded-lg transition-all duration-200"
-                   style={{ 
-                     background: isExpanded ? `${t.accentPrimary}15` : `${t.cardSoft}`,
-                   }}>
+              <div
+                className="p-2 rounded-lg transition-all duration-200"
+                style={{ background: isExpanded ? `${t.accentPrimary}15` : t.soft }}
+              >
                 {isExpanded ? (
                   <FolderOpen className="h-4 w-4" style={{ color: t.accentPrimary }} />
                 ) : (
@@ -687,11 +627,13 @@ export default function PremiumSharePointViewer() {
               </div>
             )}
             {(node.restricted || node.highSecurity) && (
-              <div className="absolute -top-1 -right-1 p-1 rounded-full"
-                   style={{ 
-                     background: node.highSecurity ? t.danger : t.warning,
-                     boxShadow: `0 0 10px ${node.highSecurity ? t.danger : t.warning}50`,
-                   }}>
+              <div
+                className="absolute -top-1 -right-1 p-1 rounded-full"
+                style={{
+                  background: node.highSecurity ? t.danger : t.warning,
+                  boxShadow: `0 0 10px ${(node.highSecurity ? t.danger : t.warning) + "50"}`,
+                }}
+              >
                 {node.highSecurity ? (
                   <Shield className="h-2.5 w-2.5 text-white" />
                 ) : (
@@ -727,11 +669,10 @@ export default function PremiumSharePointViewer() {
             >
               {node.name}
               {node.children && node.children.length > 0 && (
-                <span className="text-xs px-2 py-0.5 rounded-full"
-                      style={{ 
-                        background: `${t.cardSoft}`,
-                        color: t.labelMuted,
-                      }}>
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full"
+                  style={{ background: t.soft, color: t.labelMuted }}
+                >
                   {node.children.length}
                 </span>
               )}
@@ -740,23 +681,27 @@ export default function PremiumSharePointViewer() {
 
           <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
             {node.editGroups && node.editGroups.length > 0 && (
-              <div className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium"
-                   style={{ 
-                     background: `${t.success}20`,
-                     color: t.success,
-                     border: `1px solid ${t.success}30`,
-                   }}>
+              <div
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium"
+                style={{
+                  background: `${t.success}20`,
+                  color: t.success,
+                  border: `1px solid ${t.success}30`,
+                }}
+              >
                 <Edit className="h-3 w-3" />
                 {node.editGroups.length}
               </div>
             )}
             {node.readGroups && node.readGroups.length > 0 && (
-              <div className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium"
-                   style={{ 
-                     background: `${t.accentPrimary}20`,
-                     color: t.accentPrimary,
-                     border: `1px solid ${t.accentPrimary}30`,
-                   }}>
+              <div
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium"
+                style={{
+                  background: `${t.accentPrimary}20`,
+                  color: t.accentPrimary,
+                  border: `1px solid ${t.accentPrimary}30`,
+                }}
+              >
                 <Eye className="h-3 w-3" />
                 {node.readGroups.length}
               </div>
@@ -767,10 +712,7 @@ export default function PremiumSharePointViewer() {
             <button
               data-node-action
               className="p-1.5 rounded-lg transition-all hover:scale-110"
-              style={{
-                background: `${t.accentPrimary}15`,
-                color: t.accentPrimary,
-              }}
+              style={{ background: `${t.accentPrimary}15`, color: t.accentPrimary }}
               title="Ajouter un sous-dossier"
               onClick={() => startCreating(node.id === "root" ? null : node.id)}
             >
@@ -781,10 +723,7 @@ export default function PremiumSharePointViewer() {
                 <button
                   data-node-action
                   className="p-1.5 rounded-lg transition-all hover:scale-110"
-                  style={{
-                    background: `${t.cardSoft}`,
-                    color: t.label,
-                  }}
+                  style={{ background: t.soft, color: t.label }}
                   title="Renommer"
                   onClick={() => startRenaming(node)}
                 >
@@ -793,21 +732,14 @@ export default function PremiumSharePointViewer() {
                 <button
                   data-node-action
                   className="p-1.5 rounded-lg transition-all hover:scale-110"
-                  style={{
-                    background: `${t.danger}15`,
-                    color: t.danger,
-                  }}
+                  style={{ background: `${t.danger}15`, color: t.danger }}
                   title="Supprimer"
                   onClick={() => deleteNode(node)}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
                 {canEditPermissions && (
-                  <PermissionsButton
-                    node={node}
-                    onSave={(p) => updatePermissions(node, p)}
-                    theme={t}
-                  />
+                  <PermissionsButton node={node} onSave={(p) => updatePermissions(node, p)} theme={t} />
                 )}
               </>
             )}
@@ -815,10 +747,7 @@ export default function PremiumSharePointViewer() {
         </div>
 
         {isCreating && (
-          <div
-            className="ml-2 mt-2 flex items-center gap-2"
-            style={{ paddingLeft: ((visualDepth + 1) * 24) + 16 }}
-          >
+          <div className="ml-2 mt-2 flex items-center gap-2" style={{ paddingLeft: (visualDepth + 1) * 24 + 16 }}>
             <div className="p-2 rounded-lg" style={{ background: `${t.accentPrimary}15` }}>
               <Folder className="h-4 w-4" style={{ color: t.accentPrimary }} />
             </div>
@@ -843,63 +772,53 @@ export default function PremiumSharePointViewer() {
           </div>
         )}
 
-        {isExpanded && hasChildren && (
-          <div className="ml-2">
-            {node.children!.map((c) => renderNode(c, visualDepth + 1))}
-          </div>
-        )}
+        {isExpanded && hasChildren && <div className="ml-2">{node.children!.map((c) => renderNode(c, visualDepth + 1))}</div>}
       </div>
     );
   };
 
   React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "F2" && selected && selected.id !== "root" && !editingId) {
         e.preventDefault();
         startRenaming(selected);
       }
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [selected, editingId]);
 
   return (
-    <div 
+    <div
       className="h-screen overflow-hidden font-sans"
       style={{
-        background: theme === "dark"
-          ? `linear-gradient(180deg, ${t.bg} 0%, #050507 100%)`
-          : t.bg,
+        background: theme === "dark" ? `linear-gradient(180deg, ${t.bg} 0%, #050507 100%)` : t.bg,
         color: t.foreground,
       }}
     >
       {theme === "dark" && (
         <div className="fixed inset-0 opacity-20 pointer-events-none">
-          <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full blur-3xl" 
-               style={{ background: t.haloCyan }} />
-          <div className="absolute bottom-0 right-1/4 w-96 h-96 rounded-full blur-3xl" 
-               style={{ background: t.haloViolet }} />
+          <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full blur-3xl" style={{ background: t.haloCyan }} />
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 rounded-full blur-3xl" style={{ background: t.haloViolet }} />
         </div>
       )}
-      
+
       <div className="h-full flex flex-col relative">
         {/* Premium Header */}
-        <div className="flex-shrink-0 border-b backdrop-blur-2xl relative overflow-hidden"
-             style={{ borderColor: t.cardBorder }}>
-          <div className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl opacity-30"
-               style={{ background: `linear-gradient(to bottom right, ${t.haloCyan}, ${t.haloViolet})` }} />
-          
+        <div className="flex-shrink-0 border-b backdrop-blur-2xl relative overflow-hidden" style={{ borderColor: t.cardBorder }}>
+          <div
+            className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl opacity-30"
+            style={{ background: `linear-gradient(to bottom right, ${t.haloCyan}, ${t.haloViolet})` }}
+          />
           <div className="px-8 py-6 relative z-10">
             <div className="flex flex-wrap items-center justify-between gap-6">
               <div>
                 <div className="flex items-center gap-4 mb-3">
-                  <div className="p-3 rounded-2xl backdrop-blur-xl"
-                       style={{ background: t.gradientPrimary }}>
+                  <div className="p-3 rounded-2xl backdrop-blur-xl" style={{ background: t.gradientPrimary }}>
                     <Layers className="w-7 h-7" style={{ color: t.accentPrimary }} />
                   </div>
                   <div>
-                    <h1 className="text-4xl font-bold tracking-tight flex items-center gap-2"
-                        style={{ color: t.foreground }}>
+                    <h1 className="text-4xl font-bold tracking-tight flex items-center gap-2" style={{ color: t.foreground }}>
                       Structure SharePoint
                       <Sparkles className="w-6 h-6" style={{ color: t.accentSecondary }} />
                     </h1>
@@ -913,19 +832,14 @@ export default function PremiumSharePointViewer() {
               <div className="flex items-center gap-3">
                 {/* Search */}
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4"
-                          style={{ color: t.labelMuted }} />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: t.labelMuted }} />
                   <input
                     type="text"
                     placeholder="Rechercher..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10 pr-4 py-2.5 rounded-xl text-sm w-64 outline-none transition-all focus:w-80"
-                    style={{
-                      background: t.card,
-                      border: `1px solid ${t.cardBorder}`,
-                      color: t.foreground,
-                    }}
+                    style={{ background: t.card, border: `1px solid ${t.cardBorder}`, color: t.foreground }}
                   />
                 </div>
 
@@ -933,11 +847,7 @@ export default function PremiumSharePointViewer() {
                 <button
                   onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                   className="p-2.5 rounded-xl transition-all hover:scale-110"
-                  style={{
-                    background: t.cardSoft,
-                    border: `1px solid ${t.cardBorder}`,
-                    color: t.label,
-                  }}
+                  style={{ background: t.soft, border: `1px solid ${t.cardBorder}`, color: t.label }}
                   title="Changer le thème"
                 >
                   {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
@@ -962,7 +872,7 @@ export default function PremiumSharePointViewer() {
             {/* Stats Bar */}
             <div className="flex items-center gap-6 mt-6">
               <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4" style={{ color: t.accentPrimary }} />
+                <GitBranch className="w-4 h-4" style={{ color: t.accentPrimary }} />
                 <span className="text-xs uppercase tracking-wider" style={{ color: t.labelMuted }}>
                   Total
                 </span>
@@ -1022,8 +932,10 @@ export default function PremiumSharePointViewer() {
                     </div>
                   </div>
                   {selected && selected.id !== "root" && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
-                         style={{ background: t.cardSoft, border: `1px solid ${t.cardBorder}` }}>
+                    <div
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+                      style={{ background: t.soft, border: `1px solid ${t.cardBorder}` }}
+                    >
                       <FileText className="w-3.5 h-3.5" style={{ color: t.accentPrimary }} />
                       <span className="text-xs" style={{ color: t.label }}>
                         {selected.path}
@@ -1040,8 +952,10 @@ export default function PremiumSharePointViewer() {
           </div>
 
           {/* Right Panel */}
-          <div className="w-96 border-l backdrop-blur-xl p-6 overflow-y-auto"
-               style={{ borderColor: t.cardBorder, background: `${t.card}50` }}>
+          <div
+            className="w-96 border-l backdrop-blur-xl p-6 overflow-y-auto"
+            style={{ borderColor: t.cardBorder, background: `${t.card}50` }}
+          >
             <div className="space-y-4">
               {/* Selected Node Details */}
               {selected && selected.id !== "root" && (
@@ -1050,15 +964,16 @@ export default function PremiumSharePointViewer() {
                     <div className="p-2 rounded-xl" style={{ background: t.gradientPrimary }}>
                       <Settings2 className="h-5 w-5" style={{ color: t.accentSecondary }} />
                     </div>
-                    <h3 className="text-sm font-bold uppercase tracking-wider"
-                        style={{ color: t.foreground }}>
+                    <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: t.foreground }}>
                       Détails du dossier
                     </h3>
                   </div>
-                  
+
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 rounded-xl"
-                         style={{ background: t.cardSoft, border: `1px solid ${t.cardBorder}` }}>
+                    <div
+                      className="flex items-center justify-between p-3 rounded-xl"
+                      style={{ background: t.soft, border: `1px solid ${t.cardBorder}` }}
+                    >
                       <span className="text-xs uppercase tracking-wider" style={{ color: t.labelMuted }}>
                         Nom
                       </span>
@@ -1066,23 +981,26 @@ export default function PremiumSharePointViewer() {
                         {selected.name}
                       </span>
                     </div>
-                    
-                    <div className="flex items-center justify-between p-3 rounded-xl"
-                         style={{ background: t.cardSoft, border: `1px solid ${t.cardBorder}` }}>
+
+                    <div
+                      className="flex items-center justify-between p-3 rounded-xl"
+                      style={{ background: t.soft, border: `1px solid ${t.cardBorder}` }}
+                    >
                       <span className="text-xs uppercase tracking-wider" style={{ color: t.labelMuted }}>
                         Type
                       </span>
-                      <span className="font-mono text-xs px-2 py-1 rounded-lg"
-                            style={{ 
-                              background: t.accentPrimary + "20",
-                              color: t.accentPrimary,
-                            }}>
+                      <span
+                        className="font-mono text-xs px-2 py-1 rounded-lg"
+                        style={{ background: t.accentPrimary + "20", color: t.accentPrimary }}
+                      >
                         {selected.type ?? "folder"}
                       </span>
                     </div>
-                    
-                    <div className="flex items-center justify-between p-3 rounded-xl"
-                         style={{ background: t.cardSoft, border: `1px solid ${t.cardBorder}` }}>
+
+                    <div
+                      className="flex items-center justify-between p-3 rounded-xl"
+                      style={{ background: t.soft, border: `1px solid ${t.cardBorder}` }}
+                    >
                       <span className="text-xs uppercase tracking-wider" style={{ color: t.labelMuted }}>
                         Niveau
                       </span>
@@ -1091,9 +1009,7 @@ export default function PremiumSharePointViewer() {
                       </span>
                     </div>
 
-                    {selected.depth && selected.depth >= 3 && (
-                      <PermissionsViewer node={selected} tree={tree} theme={t} />
-                    )}
+                    {selected.depth && selected.depth >= 3 && <PermissionsViewer node={selected} tree={tree} theme={t} />}
                   </div>
                 </PremiumCard>
               )}
@@ -1104,32 +1020,35 @@ export default function PremiumSharePointViewer() {
                   <div className="p-2 rounded-xl" style={{ background: t.gradientPrimary }}>
                     <Star className="h-5 w-5" style={{ color: t.warning }} />
                   </div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider"
-                      style={{ color: t.foreground }}>
+                  <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: t.foreground }}>
                     Légende
                   </h3>
                 </div>
-                
+
                 <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-2 rounded-lg"
-                       style={{ background: t.cardSoft }}>
+                  <div className="flex items-center gap-3 p-2 rounded-lg" style={{ background: t.soft }}>
                     <Lock className="h-4 w-4" style={{ color: t.warning }} />
-                    <span className="text-sm" style={{ color: t.label }}>Accès restreint</span>
+                    <span className="text-sm" style={{ color: t.label }}>
+                      Accès restreint
+                    </span>
                   </div>
-                  <div className="flex items-center gap-3 p-2 rounded-lg"
-                       style={{ background: t.cardSoft }}>
+                  <div className="flex items-center gap-3 p-2 rounded-lg" style={{ background: t.soft }}>
                     <Shield className="h-4 w-4" style={{ color: t.danger }} />
-                    <span className="text-sm" style={{ color: t.label }}>Haute sécurité</span>
+                    <span className="text-sm" style={{ color: t.label }}>
+                      Haute sécurité
+                    </span>
                   </div>
-                  <div className="flex items-center gap-3 p-2 rounded-lg"
-                       style={{ background: t.cardSoft }}>
+                  <div className="flex items-center gap-3 p-2 rounded-lg" style={{ background: t.soft }}>
                     <Edit className="h-4 w-4" style={{ color: t.success }} />
-                    <span className="text-sm" style={{ color: t.label }}>Permissions d'édition</span>
+                    <span className="text-sm" style={{ color: t.label }}>
+                      Permissions d'édition
+                    </span>
                   </div>
-                  <div className="flex items-center gap-3 p-2 rounded-lg"
-                       style={{ background: t.cardSoft }}>
+                  <div className="flex items-center gap-3 p-2 rounded-lg" style={{ background: t.soft }}>
                     <Eye className="h-4 w-4" style={{ color: t.accentPrimary }} />
-                    <span className="text-sm" style={{ color: t.label }}>Permissions de lecture</span>
+                    <span className="text-sm" style={{ color: t.label }}>
+                      Permissions de lecture
+                    </span>
                   </div>
                 </div>
               </PremiumCard>
@@ -1140,28 +1059,26 @@ export default function PremiumSharePointViewer() {
                   <div className="p-2 rounded-xl" style={{ background: t.gradientPrimary }}>
                     <Users className="h-5 w-5" style={{ color: t.accentSecondary }} />
                   </div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider"
-                      style={{ color: t.foreground }}>
+                  <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: t.foreground }}>
                     Groupes de sécurité
                   </h3>
                 </div>
-                
+
                 <div className="space-y-2">
-                  <div className="p-3 rounded-xl" style={{ background: t.cardSoft }}>
+                  <div className="p-3 rounded-xl" style={{ background: t.soft }}>
                     <div className="text-xs font-bold mb-2" style={{ color: t.accentPrimary }}>
                       Direction
                     </div>
                     <div className="space-y-1">
-                      {["SG-PRESIDENT", "SG-CFO", "SG-DIRECTION"].map(g => (
-                        <div key={g} className="text-xs px-2 py-1 rounded"
-                             style={{ background: t.card, color: t.label }}>
+                      {["SG-PRESIDENT", "SG-CFO", "SG-DIRECTION"].map((g) => (
+                        <div key={g} className="text-xs px-2 py-1 rounded" style={{ background: t.card, color: t.label }}>
                           {g}
                         </div>
                       ))}
                     </div>
                   </div>
-                  
-                  <div className="p-3 rounded-xl" style={{ background: t.cardSoft }}>
+
+                  <div className="p-3 rounded-xl" style={{ background: t.soft }}>
                     <div className="text-xs font-bold mb-2" style={{ color: t.accentSecondary }}>
                       Départements
                     </div>
@@ -1184,7 +1101,7 @@ export default function PremiumSharePointViewer() {
    Permissions Components
 ============================================================================= */
 function PermissionsViewer({ node, tree, theme }: { node: NodeItem; tree: NodeItem; theme: any }) {
-  const isInherited = node.depth && node.depth > 3;
+  const isInherited = (node.depth ?? 0) > 3;
   const parentWithPerms = isInherited ? findParentWithPermissions(tree, node) : null;
   const effectiveNode = isInherited && parentWithPerms ? parentWithPerms : node;
 
@@ -1194,15 +1111,12 @@ function PermissionsViewer({ node, tree, theme }: { node: NodeItem; tree: NodeIt
   const highSecurity = !!effectiveNode.highSecurity;
 
   return (
-    <div className="rounded-xl p-4 space-y-3"
-         style={{ background: theme.cardSoft, border: `1px solid ${theme.cardBorder}` }}>
+    <div className="rounded-xl p-4 space-y-3" style={{ background: theme.soft, border: `1px solid ${theme.cardBorder}` }}>
       {isInherited && (
-        <div className="text-xs rounded-lg px-3 py-1.5"
-             style={{ 
-               background: `${theme.warning}20`,
-               color: theme.warning,
-               border: `1px solid ${theme.warning}30`,
-             }}>
+        <div
+          className="text-xs rounded-lg px-3 py-1.5"
+          style={{ background: `${theme.warning}20`, color: theme.warning, border: `1px solid ${theme.warning}30` }}
+        >
           Permissions héritées{parentWithPerms ? ` de "${parentWithPerms.name}"` : ""}
         </div>
       )}
@@ -1211,22 +1125,19 @@ function PermissionsViewer({ node, tree, theme }: { node: NodeItem; tree: NodeIt
         <div className="text-xs uppercase tracking-wider mb-1" style={{ color: theme.labelMuted }}>
           Groupes (édition)
         </div>
-        <div className="min-h-[32px] rounded-lg p-2"
-             style={{ background: theme.card, border: `1px solid ${theme.cardBorder}` }}>
+        <div className="min-h-[32px] rounded-lg p-2" style={{ background: theme.card, border: `1px solid ${theme.cardBorder}` }}>
           {editGroups.length > 0 ? (
             <div className="flex flex-wrap gap-1">
               {editGroups.map((group, index) => (
-                <span key={index} className="text-xs px-2 py-0.5 rounded"
-                      style={{ 
-                        background: `${theme.success}20`,
-                        color: theme.success,
-                      }}>
+                <span key={index} className="text-xs px-2 py-0.5 rounded" style={{ background: `${theme.success}20`, color: theme.success }}>
                   {group}
                 </span>
               ))}
             </div>
           ) : (
-            <div className="text-xs" style={{ color: theme.labelMuted }}>(aucun)</div>
+            <div className="text-xs" style={{ color: theme.labelMuted }}>
+              (aucun)
+            </div>
           )}
         </div>
       </div>
@@ -1235,22 +1146,19 @@ function PermissionsViewer({ node, tree, theme }: { node: NodeItem; tree: NodeIt
         <div className="text-xs uppercase tracking-wider mb-1" style={{ color: theme.labelMuted }}>
           Groupes (lecture)
         </div>
-        <div className="min-h-[32px] rounded-lg p-2"
-             style={{ background: theme.card, border: `1px solid ${theme.cardBorder}` }}>
+        <div className="min-h-[32px] rounded-lg p-2" style={{ background: theme.card, border: `1px solid ${theme.cardBorder}` }}>
           {readGroups.length > 0 ? (
             <div className="flex flex-wrap gap-1">
               {readGroups.map((group, index) => (
-                <span key={index} className="text-xs px-2 py-0.5 rounded"
-                      style={{ 
-                        background: `${theme.accentPrimary}20`,
-                        color: theme.accentPrimary,
-                      }}>
+                <span key={index} className="text-xs px-2 py-0.5 rounded" style={{ background: `${theme.accentPrimary}20`, color: theme.accentPrimary }}>
                   {group}
                 </span>
               ))}
             </div>
           ) : (
-            <div className="text-xs" style={{ color: theme.labelMuted }}>(aucun)</div>
+            <div className="text-xs" style={{ color: theme.labelMuted }}>
+              (aucun)
+            </div>
           )}
         </div>
       </div>
@@ -1271,16 +1179,12 @@ function PermissionsViewer({ node, tree, theme }: { node: NodeItem; tree: NodeIt
 
 function PermissionsButton({ node, onSave, theme }: { node: NodeItem; onSave: (p: PermSpec) => void; theme: any }) {
   const [open, setOpen] = React.useState(false);
-  
   return (
     <>
       <button
         data-node-action
         className="p-1.5 rounded-lg transition-all hover:scale-110"
-        style={{
-          background: `${theme.accentSecondary}15`,
-          color: theme.accentSecondary,
-        }}
+        style={{ background: `${theme.accentSecondary}15`, color: theme.accentSecondary }}
         title="Éditer permissions"
         onClick={() => setOpen(true)}
       >
@@ -1327,28 +1231,22 @@ function PermissionModal({
   const [restricted, setRestricted] = React.useState(!!initial?.restricted);
   const [highSecurity, setHighSecurity] = React.useState(!!initial?.highSecurity);
 
-  const getAvailableEditGroups = (currentIndex: number) => {
-    const usedGroups = editGroups.filter((group, index) => group !== "" && index !== currentIndex);
-    return SECURITY_GROUPS.filter((group) => !usedGroups.includes(group));
-  };
+  const getAvailable = (current: number, pool: readonly string[], used: string[]) =>
+    pool.filter((g) => !used.includes(g));
 
-  const getAvailableReadGroups = (currentIndex: number) => {
-    const usedGroups = readGroups.filter((group, index) => group !== "" && index !== currentIndex);
-    return SECURITY_GROUPS.filter((group) => !usedGroups.includes(group));
-  };
-
-  const canAddEditGroup = editGroups.every((g) => g.trim()) && getAvailableEditGroups(-1).length > 0;
-  const canAddReadGroup = readGroups.every((g) => g.trim()) && getAvailableReadGroups(-1).length > 0;
+  const canAddEdit = editGroups.every((g) => g.trim()) && getAvailable(-1, SECURITY_GROUPS, editGroups).length > 0;
+  const canAddRead = readGroups.every((g) => g.trim()) && getAvailable(-1, SECURITY_GROUPS, readGroups).length > 0;
 
   return (
-    <div className="fixed inset-0 z-[70] backdrop-blur-sm flex items-center justify-center p-4"
-         style={{ background: "rgba(0,0,0,0.7)" }}>
-      <div className="w-full max-w-lg rounded-2xl max-h-[90vh] overflow-y-auto backdrop-blur-2xl"
-           style={{
-             background: theme.card,
-             border: `1px solid ${theme.cardBorder}`,
-             boxShadow: `0 20px 60px ${theme.accentPrimary}20`,
-           }}>
+    <div className="fixed inset-0 z-[70] backdrop-blur-sm flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}>
+      <div
+        className="w-full max-w-lg rounded-2xl max-h-[90vh] overflow-y-auto backdrop-blur-2xl"
+        style={{
+          background: theme.card,
+          border: `1px solid ${theme.cardBorder}`,
+          boxShadow: `0 20px 60px ${theme.accentPrimary}20`,
+        }}
+      >
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
@@ -1359,11 +1257,7 @@ function PermissionModal({
                 Éditer les permissions (Niveau 3)
               </h3>
             </div>
-            <button
-              className="p-2 rounded-lg transition-all hover:scale-110"
-              style={{ background: theme.cardSoft, color: theme.label }}
-              onClick={onClose}
-            >
+            <button className="p-2 rounded-lg transition-all hover:scale-110" style={{ background: theme.soft, color: theme.label }} onClick={onClose}>
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -1378,39 +1272,40 @@ function PermissionModal({
                 <button
                   className="px-3 py-1 rounded-lg text-xs font-semibold transition-all"
                   style={{
-                    background: canAddEditGroup ? `${theme.success}20` : theme.cardSoft,
-                    color: canAddEditGroup ? theme.success : theme.labelMuted,
-                    opacity: canAddEditGroup ? 1 : 0.5,
-                    cursor: canAddEditGroup ? "pointer" : "not-allowed",
+                    background: canAddEdit ? `${theme.success}20` : theme.soft,
+                    color: canAddEdit ? theme.success : theme.labelMuted,
+                    opacity: canAddEdit ? 1 : 0.6,
+                    cursor: canAddEdit ? "pointer" : "not-allowed",
                   }}
-                  onClick={() => canAddEditGroup && setEditGroups([...editGroups, ""])}
-                  disabled={!canAddEditGroup}
+                  onClick={() => canAddEdit && setEditGroups([...editGroups, ""])}
+                  disabled={!canAddEdit}
                 >
                   + Ajouter
                 </button>
               </div>
               <div className="space-y-2">
                 {editGroups.map((group, index) => {
-                  const availableGroups = getAvailableEditGroups(index);
+                  const used = editGroups.filter((g, i) => g && i !== index);
+                  const available = getAvailable(index, SECURITY_GROUPS, used);
                   return (
                     <div key={index} className="flex gap-2">
                       <select
                         className="flex-1 rounded-lg px-3 py-2 text-sm outline-none"
-                        style={{
-                          background: theme.cardSoft,
-                          border: `1px solid ${theme.cardBorder}`,
-                          color: theme.foreground,
-                        }}
+                        style={{ background: theme.soft, border: `1px solid ${theme.cardBorder}`, color: theme.foreground }}
                         value={group}
                         onChange={(e) => {
-                          const updated = [...editGroups];
-                          updated[index] = e.target.value;
-                          setEditGroups(updated);
+                          const next = [...editGroups];
+                          next[index] = e.target.value;
+                          setEditGroups(next);
                         }}
                       >
-                        <option value="" disabled>Sélectionner un groupe</option>
-                        {availableGroups.map((sg) => (
-                          <option key={sg} value={sg}>{sg}</option>
+                        <option value="" disabled>
+                          Sélectionner un groupe
+                        </option>
+                        {available.map((g) => (
+                          <option key={g} value={g}>
+                            {g}
+                          </option>
                         ))}
                       </select>
                       {editGroups.length > 1 && (
@@ -1437,39 +1332,40 @@ function PermissionModal({
                 <button
                   className="px-3 py-1 rounded-lg text-xs font-semibold transition-all"
                   style={{
-                    background: canAddReadGroup ? `${theme.accentPrimary}20` : theme.cardSoft,
-                    color: canAddReadGroup ? theme.accentPrimary : theme.labelMuted,
-                    opacity: canAddReadGroup ? 1 : 0.5,
-                    cursor: canAddReadGroup ? "pointer" : "not-allowed",
+                    background: canAddRead ? `${theme.accentPrimary}20` : theme.soft,
+                    color: canAddRead ? theme.accentPrimary : theme.labelMuted,
+                    opacity: canAddRead ? 1 : 0.6,
+                    cursor: canAddRead ? "pointer" : "not-allowed",
                   }}
-                  onClick={() => canAddReadGroup && setReadGroups([...readGroups, ""])}
-                  disabled={!canAddReadGroup}
+                  onClick={() => canAddRead && setReadGroups([...readGroups, ""])}
+                  disabled={!canAddRead}
                 >
                   + Ajouter
                 </button>
               </div>
               <div className="space-y-2">
                 {readGroups.map((group, index) => {
-                  const availableGroups = getAvailableReadGroups(index);
+                  const used = readGroups.filter((g, i) => g && i !== index);
+                  const available = getAvailable(index, SECURITY_GROUPS, used);
                   return (
                     <div key={index} className="flex gap-2">
                       <select
                         className="flex-1 rounded-lg px-3 py-2 text-sm outline-none"
-                        style={{
-                          background: theme.cardSoft,
-                          border: `1px solid ${theme.cardBorder}`,
-                          color: theme.foreground,
-                        }}
+                        style={{ background: theme.soft, border: `1px solid ${theme.cardBorder}`, color: theme.foreground }}
                         value={group}
                         onChange={(e) => {
-                          const updated = [...readGroups];
-                          updated[index] = e.target.value;
-                          setReadGroups(updated);
+                          const next = [...readGroups];
+                          next[index] = e.target.value;
+                          setReadGroups(next);
                         }}
                       >
-                        <option value="" disabled>Sélectionner un groupe</option>
-                        {availableGroups.map((sg) => (
-                          <option key={sg} value={sg}>{sg}</option>
+                        <option value="" disabled>
+                          Sélectionner un groupe
+                        </option>
+                        {available.map((g) => (
+                          <option key={g} value={g}>
+                            {g}
+                          </option>
                         ))}
                       </select>
                       {readGroups.length > 1 && (
@@ -1488,32 +1384,25 @@ function PermissionModal({
             </div>
 
             {/* Checkboxes */}
-            <div className="flex items-center gap-4 p-3 rounded-xl"
-                 style={{ background: theme.cardSoft }}>
+            <div className="flex items-center gap-4 p-3 rounded-xl" style={{ background: theme.soft }}>
               <label className="flex items-center gap-2 text-sm" style={{ color: theme.label }}>
-                <input
-                  type="checkbox"
-                  checked={restricted}
-                  onChange={(e) => setRestricted(e.target.checked)}
-                />
+                <input type="checkbox" checked={restricted} onChange={(e) => setRestricted(e.target.checked)} />
                 Accès restreint
               </label>
               <label className="flex items-center gap-2 text-sm" style={{ color: theme.label }}>
-                <input
-                  type="checkbox"
-                  checked={highSecurity}
-                  onChange={(e) => setHighSecurity(e.target.checked)}
-                />
+                <input type="checkbox" checked={highSecurity} onChange={(e) => setHighSecurity(e.target.checked)} />
                 Haute sécurité
               </label>
             </div>
 
-            <div className="text-xs rounded-lg p-3"
-                 style={{ 
-                   background: `${theme.accentPrimary}10`,
-                   color: theme.label,
-                   border: `1px solid ${theme.accentPrimary}20`,
-                 }}>
+            <div
+              className="text-xs rounded-lg p-3"
+              style={{
+                background: `${theme.accentPrimary}10`,
+                color: theme.label,
+                border: `1px solid ${theme.accentPrimary}20`,
+              }}
+            >
               Ces permissions s'appliqueront à ce dossier et seront héritées par tous ses sous-dossiers.
             </div>
           </div>
@@ -1521,11 +1410,7 @@ function PermissionModal({
           <div className="flex justify-end gap-3 mt-6">
             <button
               className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
-              style={{
-                background: theme.cardSoft,
-                color: theme.label,
-                border: `1px solid ${theme.cardBorder}`,
-              }}
+              style={{ background: theme.soft, color: theme.label, border: `1px solid ${theme.cardBorder}` }}
               onClick={onClose}
             >
               Annuler
@@ -1541,12 +1426,8 @@ function PermissionModal({
                 onSubmit({
                   restricted,
                   highSecurity,
-                  editGroups: editGroups.filter((g) => g.trim() !== "").length > 0
-                    ? editGroups.filter((g) => g.trim() !== "")
-                    : null,
-                  readGroups: readGroups.filter((g) => g.trim() !== "").length > 0
-                    ? readGroups.filter((g) => g.trim() !== "")
-                    : null,
+                  editGroups: editGroups.filter((g) => g.trim() !== "").length > 0 ? editGroups.filter((g) => g.trim() !== "") : null,
+                  readGroups: readGroups.filter((g) => g.trim() !== "").length > 0 ? readGroups.filter((g) => g.trim() !== "") : null,
                 })
               }
             >
