@@ -1,5 +1,6 @@
+// src/app/(dashboard)/page.tsx
 /* =============================================================================
-   Dashboard Page (Light/Dark + YOY Growth/Loss filter + Retention KPI)
+   Dashboard Page (Light/Dark + YOY Growth/Loss filter + Retention KPI + Modal)
 ============================================================================= */
 "use client";
 
@@ -36,6 +37,8 @@ import {
   Activity,
   Zap,
   BarChart3,
+  X as CloseIcon,
+  ArrowUpDown,
 } from "lucide-react";
 import { THEME, PIE_COLORS_DARK, PIE_COLORS_LIGHT } from "@/lib/theme-tokens";
 
@@ -324,6 +327,7 @@ function KpiCard({
   className,
   t,
   mode,
+  onClick,
 }: {
   title: string;
   icon?: React.ReactNode;
@@ -332,7 +336,9 @@ function KpiCard({
   className?: string;
   t: ThemeTokens;
   mode: "dark" | "light";
+  onClick?: () => void; // NEW: allow click
 }) {
+  const clickable = typeof onClick === "function";
   return (
     <div className={`group relative ${className ?? ""}`}>
       <div
@@ -344,11 +350,18 @@ function KpiCard({
         }}
       />
       <div
-        className="relative rounded-2xl p-6 h-full backdrop-blur-xl border transition-all duration-300 hover:border-white/10"
+        role={clickable ? "button" : undefined}
+        tabIndex={clickable ? 0 : undefined}
+        onClick={onClick}
+        onKeyDown={(e) => clickable && (e.key === "Enter" || e.key === " ") && onClick?.()}
+        className={`relative rounded-2xl p-6 h-full backdrop-blur-xl border transition-all duration-300 hover:border-white/10 ${
+          clickable ? "cursor-pointer focus:outline-none" : ""
+        }`}
         style={{
           background: `linear-gradient(135deg, ${t.card} 0%, ${t.soft} 100%)`,
           borderColor: t.cardBorder,
           color: t.foreground,
+          boxShadow: clickable ? "0 0 0 0 rgba(0,0,0,0)" : undefined,
         }}
       >
         <div className="flex items-center justify-between mb-4">
@@ -452,6 +465,10 @@ const DashboardContent = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  // NEW: Retention modal state
+  const [showRetentionTable, setShowRetentionTable] = useState(false);
+  const [retentionSortAsc, setRetentionSortAsc] = useState(false);
+
   // Calculate previous year date range
   const previousYearDateRange = useMemo(() => {
     const startDate = new Date(activeDateRange.start);
@@ -523,7 +540,6 @@ const DashboardContent = () => {
       const delta = curr - prev;
       if (delta > 0) growth.add(rep);
       else if (delta < 0) loss.add(rep);
-      // =0 is neutral, ignored
     }
     return { growth, loss };
   }, [masterData, previousYearData]);
@@ -752,6 +768,25 @@ const DashboardContent = () => {
     return { avg, eligibleReps: rates.length, totalReps: visibleRepsForRetention.size };
   }, [retentionByRep, visibleRepsForRetention]);
 
+  // Build table rows for modal
+  const retentionRows = useMemo(() => {
+    const rows = Array.from(visibleRepsForRetention).map((rep) => {
+      const r = retentionByRep[rep] || { eligible: 0, retained: 0, rate: null };
+      return {
+        rep,
+        eligible: r.eligible,
+        retained: r.retained,
+        rate: r.rate, // null -> "N/A"
+      };
+    });
+    rows.sort((a, b) => {
+      const aVal = a.rate === null ? -1 : a.rate;
+      const bVal = b.rate === null ? -1 : b.rate;
+      return retentionSortAsc ? aVal - bVal : bVal - aVal;
+    });
+    return rows;
+  }, [visibleRepsForRetention, retentionByRep, retentionSortAsc]);
+
   if (error) return <ErrorState message={error.message} />;
   if (!mounted) return <LoadingState />;
   if (isLoading) return <LoadingState />;
@@ -809,7 +844,7 @@ const DashboardContent = () => {
                 Comparaison YOY
               </button>
 
-              {/* NEW: YOY Growth/Loss segmented filter (applies when no specific rep is selected) */}
+              {/* YOY Growth/Loss segmented filter */}
               <div
                 className="flex rounded-xl overflow-hidden border"
                 title="Filtrer les représentants par variation YOY"
@@ -1015,7 +1050,7 @@ const DashboardContent = () => {
           )}
         </KpiCard>
 
-        {/* NEW: Customer Retention KPI replaces "Experts actifs" */}
+        {/* Customer Retention KPI (clickable to open table) */}
         <KpiCard
           title="Taux de rétention clients"
           icon={<Users className="w-5 h-5" />}
@@ -1023,6 +1058,7 @@ const DashboardContent = () => {
           className="col-span-12 md:col-span-6 lg:col-span-3"
           t={t}
           mode={mode}
+          onClick={() => setShowRetentionTable(true)}
         >
           <p className="text-3xl font-bold tracking-tight" style={{ color: t.foreground }}>
             {retentionAverage.avg === null ? "N/A" : percentage(retentionAverage.avg)}
@@ -1031,6 +1067,9 @@ const DashboardContent = () => {
             {retentionAverage.avg === null
               ? "Aucun rep. éligible (≥ 300 $ l’an dernier)"
               : `Moyenne sur ${retentionAverage.eligibleReps} rep${retentionAverage.eligibleReps > 1 ? "s" : ""} éligible${retentionAverage.eligibleReps > 1 ? "s" : ""}`}
+          </p>
+          <p className="text-[10px] mt-2 opacity-70" style={{ color: t.label }}>
+            Cliquer pour voir le détail par représentant
           </p>
         </KpiCard>
       </div>
@@ -1329,6 +1368,102 @@ const DashboardContent = () => {
           </ResponsiveContainer>
         </ChartCard>
       </div>
+
+      {/* ======================= Retention Modal ======================= */}
+      {showRetentionTable && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          aria-modal="true"
+          role="dialog"
+        >
+          <div
+            className="absolute inset-0 backdrop-blur-sm"
+            style={{ background: mode === "dark" ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.25)" }}
+            onClick={() => setShowRetentionTable(false)}
+          />
+          <div
+            className="relative w-full max-w-3xl rounded-2xl border shadow-2xl overflow-hidden"
+            style={{ background: t.card, borderColor: t.cardBorder, color: t.foreground }}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b"
+              style={{ borderColor: t.cardBorder }}>
+              <div>
+                <h3 className="text-lg font-bold">Taux de rétention par représentant</h3>
+                <p className="text-xs opacity-70" style={{ color: t.label }}>
+                  Seuil d&apos;éligibilité: {currency(RETENTION_THRESHOLD)} les deux années. Cliquez une ligne pour filtrer.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowRetentionTable(false)}
+                className="rounded-lg p-2 hover:opacity-80"
+                aria-label="Fermer"
+              >
+                <CloseIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] overflow-auto">
+              <table className="min-w-full text-sm">
+                <thead className="sticky top-0 backdrop-blur-xl"
+                  style={{ background: t.card }}>
+                  <tr className="border-b" style={{ borderColor: t.cardBorder }}>
+                    <th className="text-left px-6 py-3">Représentant</th>
+                    <th className="text-right px-6 py-3">Clients éligibles</th>
+                    <th className="text-right px-6 py-3">Clients retenus</th>
+                    <th className="text-right px-6 py-3">
+                      <button
+                        onClick={() => setRetentionSortAsc((s) => !s)}
+                        className="inline-flex items-center gap-1 font-semibold hover:opacity-80"
+                      >
+                        Taux de rétention <ArrowUpDown className="w-4 h-4" />
+                      </button>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {retentionRows.map((row, idx) => (
+                    <tr
+                      key={row.rep}
+                      className={`border-b transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${idx % 2 ? "bg-transparent" : ""}`}
+                      style={{ borderColor: t.cardBorder, cursor: "pointer" }}
+                      onClick={() => {
+                        setFilters((prev) => ({ ...prev, salesReps: [row.rep], itemCodes: [], customers: [] }));
+                        setStagedSelectedRep(row.rep);
+                        setShowRetentionTable(false);
+                      }}
+                    >
+                      <td className="px-6 py-3">{row.rep}</td>
+                      <td className="px-6 py-3 text-right">{formatNumber(row.eligible)}</td>
+                      <td className="px-6 py-3 text-right">{formatNumber(row.retained)}</td>
+                      <td className="px-6 py-3 text-right">
+                        {row.rate === null ? "N/A" : percentage(row.rate)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex items-center justify-between px-6 py-4 border-t text-xs"
+              style={{ borderColor: t.cardBorder, color: t.label }}>
+              <span>
+                {retentionRows.length} rep{retentionRows.length > 1 ? "s" : ""} affiché{retentionRows.length > 1 ? "s" : ""} ·
+                {" "}
+                moyenne pondérée simple:{" "}
+                {retentionAverage.avg === null ? "N/A" : percentage(retentionAverage.avg)}
+              </span>
+              <button
+                onClick={() => setShowRetentionTable(false)}
+                className="px-3 py-1.5 rounded-lg border"
+                style={{ borderColor: t.cardBorder }}
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* =================== /Retention Modal =================== */}
     </div>
   );
 };
