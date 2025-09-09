@@ -386,6 +386,10 @@ const DashboardContent = () => {
   const [animationKey, setAnimationKey] = useState(0);
   const [masterData, setMasterData] = useState<SalesRecord[] | null>(null);
   const [previousYearData, setPreviousYearData] = useState<SalesRecord[] | null>(null);
+
+  // NEW: 7-year historical data (ending the day before the current period starts)
+  const [history7yData, setHistory7yData] = useState<SalesRecord[] | null>(null);
+
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -406,11 +410,24 @@ const DashboardContent = () => {
     return { start: startDate.toISOString().slice(0, 10), end: endDate.toISOString().slice(0, 10) };
   }, [activeDateRange]);
 
+  // NEW: 7-year lookback window (company-wide), ending the day before the current period starts
+  const lookback7y = useMemo(() => {
+    const start = new Date(activeDateRange.start);
+    const end = new Date(activeDateRange.start);
+    start.setFullYear(start.getFullYear() - 7);
+    end.setDate(end.getDate() - 1); // exclude the current period
+    return {
+      start: start.toISOString().slice(0, 10),
+      end: end.toISOString().slice(0, 10),
+    };
+  }, [activeDateRange.start]);
+
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
       try {
+        // current period
         const currentResponse = await fetch(`/api/dashboard-data?startDate=${activeDateRange.start}&endDate=${activeDateRange.end}`);
         if (!currentResponse.ok) {
           const errorData = await currentResponse.json().catch(() => ({}));
@@ -419,11 +436,13 @@ const DashboardContent = () => {
         const currentData = await currentResponse.json();
         setMasterData(currentData);
 
+        // previous-year period (keep for YOY & retention)
         const prevResponse = await fetch(`/api/dashboard-data?startDate=${previousYearDateRange.start}&endDate=${previousYearDateRange.end}`);
-        if (prevResponse.ok) {
-          const prevData = await prevResponse.json();
-          setPreviousYearData(prevData);
-        } else setPreviousYearData([]);
+        setPreviousYearData(prevResponse.ok ? await prevResponse.json() : []);
+
+        // NEW: 7-year lookback history (company-wide)
+        const histResp = await fetch(`/api/dashboard-data?startDate=${lookback7y.start}&endDate=${lookback7y.end}`);
+        setHistory7yData(histResp.ok ? await histResp.json() : []);
       } catch (err) {
         setError(err as Error);
       } finally {
@@ -431,7 +450,7 @@ const DashboardContent = () => {
       }
     };
     fetchData();
-  }, [activeDateRange, previousYearDateRange]);
+  }, [activeDateRange, previousYearDateRange, lookback7y]);
 
   const allSalesReps = useMemo(() => (masterData ? Array.from(new Set(masterData.map((d) => d.salesRepName))).sort() : []), [masterData]);
 
@@ -626,8 +645,11 @@ const DashboardContent = () => {
   }, [retentionByRep, visibleRepsForRetention]);
 
   // ----- New Customers calculations -----
-  // Set of ALL customers that bought in the previous period (any rep)
-  const prevCustomersSet = useMemo(() => new Set(filteredPreviousData.map((d) => d.customerName)), [filteredPreviousData]);
+  // NEW: Set of ALL customers that bought in the last 7 years (any rep, any item), prior to the current period
+  const prevCustomersSet = useMemo(
+    () => new Set((history7yData ?? []).map((d) => d.customerName)),
+    [history7yData]
+  );
 
   // Current period: aggregate per customer and track first order's rep & date
   const currentCustomerAgg = useMemo(() => {
@@ -1157,7 +1179,7 @@ const DashboardContent = () => {
               <div>
                 <h3 className="text-lg font-bold">Nouveaux clients (≥ {currency(NEW_CUSTOMER_MIN_SPEND)})</h3>
                 <p className="text-xs opacity-70" style={{ color: t.label }}>
-                  Un « nouveau client » n&apos;a aucun achat l&apos;année précédente et a dépensé ≥ {currency(NEW_CUSTOMER_MIN_SPEND)} sur la période courante.
+                  Un « nouveau client » n&apos;a aucun achat au cours des 7 dernières années (avant le début de la période) et a dépensé ≥ {currency(NEW_CUSTOMER_MIN_SPEND)} sur la période courante.
                 </p>
               </div>
               <button onClick={() => setShowNewCustomersModal(false)} className="rounded-lg p-2 hover:opacity-80" aria-label="Fermer">
@@ -1242,14 +1264,18 @@ const DashboardContent = () => {
                       <XAxis dataKey="rep" tick={{ fill: t.labelMuted, fontSize: 11 }} stroke={t.grid} />
                       <YAxis tick={{ fill: t.labelMuted, fontSize: 11 }} stroke={t.grid} />
                       <Tooltip content={<CustomTooltip format="number" themeTokens={t} mode={mode} />} />
-                      <Bar dataKey="count" radius={[6, 6, 0, 0]} onClick={(_, idx) => {
-                        const target = newCustomersByRep[idx];
-                        if (target) {
-                          setFilters((prev) => ({ ...prev, salesReps: [target.rep], customers: [] }));
-                          setStagedSelectedRep(target.rep);
-                          setShowNewCustomersModal(false);
-                        }
-                      }}>
+                      <Bar
+                        dataKey="count"
+                        radius={[6, 6, 0, 0]}
+                        onClick={(_, idx) => {
+                          const target = newCustomersByRep[idx];
+                          if (target) {
+                            setFilters((prev) => ({ ...prev, salesReps: [target.rep], customers: [] }));
+                            setStagedSelectedRep(target.rep);
+                            setShowNewCustomersModal(false);
+                          }
+                        }}
+                      >
                         {newCustomersByRep.map((_, i) => (
                           <Cell key={`nc-rep-${i}`} fill={t.accentPrimary} className="cursor-pointer hover:brightness-110" />
                         ))}
@@ -1269,7 +1295,7 @@ const DashboardContent = () => {
                       {newCustomersByRep.map((r) => (
                         <tr
                           key={r.rep}
-                          className="border-b hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
+                          className="border-b hover:bg-black/5 dark:hover:bg白/5 cursor-pointer"
                           style={{ borderColor: t.cardBorder }}
                           onClick={() => {
                             setFilters((prev) => ({ ...prev, salesReps: [r.rep], customers: [] }));
