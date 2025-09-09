@@ -629,7 +629,7 @@ const DashboardContent = () => {
   // Set of ALL customers that bought in the previous period (any rep)
   const prevCustomersSet = useMemo(() => new Set(filteredPreviousData.map((d) => d.customerName)), [filteredPreviousData]);
 
-  // Current period: aggregate per customer and track first order’s rep & date
+  // Current period: aggregate per customer and track first order's rep & date
   const currentCustomerAgg = useMemo(() => {
     type Agg = { total: number; orders: number; firstDate: string; firstRep: string };
     const map = new Map<string, Agg>();
@@ -829,7 +829,7 @@ const DashboardContent = () => {
         </div>
       </div>
 
-      {/* KPI row 1 */}
+      {/* KPI rows */}
       <div className="grid grid-cols-12 gap-4">
         <KpiCard title="Chiffre d'affaires total" icon={<DollarSign className="w-5 h-5" />} gradient="rgba(34,211,238,0.2), rgba(59,130,246,0.2)" className="col-span-12 md:col-span-6 lg:col-span-3" t={t} mode={mode}>
           <p className="text-3xl font-bold tracking-tight" style={{ color: t.foreground }}>
@@ -868,17 +868,14 @@ const DashboardContent = () => {
           </p>
           <p className="text-xs mt-2" style={{ color: t.label }}>
             {retentionAverage.avg === null
-              ? "Aucun rep. éligible (≥ 300 $ l’an dernier)"
+              ? "Aucun rep. éligible (≥ 300 $ l'an dernier)"
               : `Moyenne sur ${retentionAverage.eligibleReps} rep${retentionAverage.eligibleReps > 1 ? "s" : ""} éligible${retentionAverage.eligibleReps > 1 ? "s" : ""}`}
           </p>
           <p className="text-[10px] mt-2 opacity-70" style={{ color: t.label }}>
             Cliquer pour voir le détail par représentant
           </p>
         </KpiCard>
-      </div>
 
-      {/* KPI row 2: New Customers */}
-      <div className="grid grid-cols-12 gap-4">
         <KpiCard
           title="Nouveaux clients (≥ 30 $)"
           icon={<UserPlus className="w-5 h-5" />}
