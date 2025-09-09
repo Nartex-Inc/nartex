@@ -1,6 +1,6 @@
 // src/app/(dashboard)/page.tsx
 /* =============================================================================
-   Dashboard Page (Light/Dark + YOY Growth/Loss filter + Retention KPI + Modal)
+   Dashboard Page (YOY filters + Retention KPI/Modal + New Customers KPI/Modal)
 ============================================================================= */
 "use client";
 
@@ -39,15 +39,15 @@ import {
   BarChart3,
   X as CloseIcon,
   ArrowUpDown,
+  UserPlus,
 } from "lucide-react";
 import { THEME, PIE_COLORS_DARK, PIE_COLORS_LIGHT } from "@/lib/theme-tokens";
 
-// right under your THEME import
 type ThemeTokens = (typeof THEME)[keyof typeof THEME];
-
 type YoyFilter = "all" | "growth" | "loss";
 
-const RETENTION_THRESHOLD = 300; // $ CAD minimum both years
+const RETENTION_THRESHOLD = 300; // $ CAD both years
+const NEW_CUSTOMER_MIN_SPEND = 30; // $ CAD this year to be listed
 
 /* =============================================================================
    Font
@@ -62,7 +62,7 @@ type SalesRecord = {
   customerName: string;
   itemCode: string;
   itemDescription: string;
-  invoiceDate: string;
+  invoiceDate: string; // YYYY-MM-DD
   salesValue: number;
 };
 
@@ -73,11 +73,7 @@ type FilterState = {
 };
 
 const currency = (n: number) =>
-  new Intl.NumberFormat("fr-CA", {
-    style: "currency",
-    currency: "CAD",
-    maximumFractionDigits: 0,
-  }).format(n);
+  new Intl.NumberFormat("fr-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(n);
 
 const compactCurrency = (n: number) =>
   new Intl.NumberFormat("fr-CA", {
@@ -89,26 +85,14 @@ const compactCurrency = (n: number) =>
   }).format(n);
 
 const percentage = (n: number) =>
-  new Intl.NumberFormat("fr-CA", {
-    style: "percent",
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  }).format(n);
+  new Intl.NumberFormat("fr-CA", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(n);
 
 const formatNumber = (n: number) => new Intl.NumberFormat("fr-CA").format(Math.round(n));
 
 /* =============================================================================
-   Animated components
+   Animated number
 ============================================================================= */
-const AnimatedNumber = ({
-  value,
-  format,
-  duration = 700,
-}: {
-  value: number;
-  format: (n: number) => string;
-  duration?: number;
-}) => {
+const AnimatedNumber = ({ value, format, duration = 700 }: { value: number; format: (n: number) => string; duration?: number }) => {
   const [displayValue, setDisplayValue] = useState(0);
   const previousValueRef = useRef(0);
   const animationFrameRef = useRef<number | undefined>(undefined);
@@ -124,9 +108,8 @@ const AnimatedNumber = ({
       const eased = 1 - Math.pow(1 - progress, 3);
       const currentValue = startValue + (endValue - startValue) * eased;
       setDisplayValue(currentValue);
-      if (progress < 1) {
-        animationFrameRef.current = requestAnimationFrame(animate);
-      } else {
+      if (progress < 1) animationFrameRef.current = requestAnimationFrame(animate);
+      else {
         setDisplayValue(endValue);
         previousValueRef.current = endValue;
       }
@@ -160,13 +143,7 @@ const YOYIndicator = ({ current, previous }: { current: number; previous: number
             : "bg-red-500/15 text-red-600 dark:text-red-400 shadow-red-500/20 shadow-lg"
         }`}
       >
-        {isNeutral ? (
-          <Minus className="w-3 h-3" />
-        ) : isPositive ? (
-          <TrendingUp className="w-3 h-3" />
-        ) : (
-          <TrendingDown className="w-3 h-3" />
-        )}
+        {isNeutral ? <Minus className="w-3 h-3" /> : isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
         <span>{percentage(Math.abs(change))}</span>
       </div>
       <span className="text-xs text-zinc-500 dark:text-zinc-400">vs année précédente</span>
@@ -175,37 +152,24 @@ const YOYIndicator = ({ current, previous }: { current: number; previous: number
 };
 
 /* =============================================================================
-   Custom Recharts components
+   Custom Recharts bits
 ============================================================================= */
 function CustomTooltip({ active, payload, label, format = "currency", themeTokens, mode }: any) {
   if (active && payload?.length) {
     return (
       <div
         className="backdrop-blur-2xl border rounded-xl px-4 py-3 shadow-2xl"
-        style={{
-          background: themeTokens.tooltipBg,
-          borderColor: themeTokens.cardBorder,
-        }}
+        style={{ background: themeTokens.tooltipBg, borderColor: themeTokens.cardBorder }}
       >
         <p className="text-xs mb-2 font-medium" style={{ color: themeTokens.labelMuted }}>
           {label}
         </p>
         {payload.map((entry: any, index: number) => (
           <div key={index} className="flex items-center gap-3 mb-1">
-            <div
-              className="w-2.5 h-2.5 rounded-full shadow"
-              style={{
-                backgroundColor: entry.color,
-                boxShadow: `0 0 10px ${entry.color}50`,
-              }}
-            />
+            <div className="w-2.5 h-2.5 rounded-full shadow" style={{ backgroundColor: entry.color, boxShadow: `0 0 10px ${entry.color}50` }} />
             <p className="text-sm font-semibold" style={{ color: mode === "dark" ? "#ffffff" : "#111827" }}>
               {entry.name}:{" "}
-              {format === "number"
-                ? formatNumber(entry.value)
-                : format === "percentage"
-                ? percentage(entry.value)
-                : currency(entry.value)}
+              {format === "number" ? formatNumber(entry.value) : format === "percentage" ? percentage(entry.value) : currency(entry.value)}
             </p>
           </div>
         ))}
@@ -233,9 +197,7 @@ const CustomLegend = ({ payload, onLegendClick, selectedItems = [] as string[], 
               className="w-3.5 h-3.5 rounded-md transition-all duration-300"
               style={{
                 backgroundColor: entry.color,
-                boxShadow: isSelected
-                  ? `0 0 12px ${entry.color}60, 0 0 0 1px rgba(255,255,255,0.2) inset`
-                  : "0 0 0 1px rgba(0,0,0,0.08) inset",
+                boxShadow: isSelected ? `0 0 12px ${entry.color}60, 0 0 0 1px rgba(255,255,255,0.2) inset` : "0 0 0 1px rgba(0,0,0,0.08) inset",
                 transform: isSelected ? "scale(1.1)" : "scale(1)",
               }}
             />
@@ -261,14 +223,12 @@ function aggregateData(data: SalesRecord[], key: keyof SalesRecord, topN?: numbe
     .sort((a, b) => b.value - a.value);
   return topN ? sorted.slice(0, topN) : sorted;
 }
-
 function totalsByRep(records: SalesRecord[]) {
   return records.reduce((acc, r) => {
     acc[r.salesRepName] = (acc[r.salesRepName] || 0) + r.salesValue;
     return acc;
   }, {} as Record<string, number>);
 }
-
 function totalsByRepCustomer(records: SalesRecord[]) {
   const out: Record<string, Record<string, number>> = {};
   for (const r of records) {
@@ -279,7 +239,7 @@ function totalsByRepCustomer(records: SalesRecord[]) {
 }
 
 /* =============================================================================
-   Simple loading & error states
+   Simple states
 ============================================================================= */
 const LoadingState = () => <LoadingAnimation />;
 
@@ -317,7 +277,7 @@ const AccessDenied = () => (
 );
 
 /* =============================================================================
-   UI components
+   UI primitives
 ============================================================================= */
 function KpiCard({
   title,
@@ -336,18 +296,14 @@ function KpiCard({
   className?: string;
   t: ThemeTokens;
   mode: "dark" | "light";
-  onClick?: () => void; // NEW: allow click
+  onClick?: () => void;
 }) {
   const clickable = typeof onClick === "function";
   return (
     <div className={`group relative ${className ?? ""}`}>
       <div
         className="absolute -inset-0.5 rounded-2xl blur-xl opacity-0 group-hover:opacity-60 transition duration-700"
-        style={{
-          background: gradient
-            ? `linear-gradient(135deg, ${gradient})`
-            : t.gradientPrimary,
-        }}
+        style={{ background: gradient ? `linear-gradient(135deg, ${gradient})` : t.gradientPrimary }}
       />
       <div
         role={clickable ? "button" : undefined}
@@ -357,27 +313,17 @@ function KpiCard({
         className={`relative rounded-2xl p-6 h-full backdrop-blur-xl border transition-all duration-300 hover:border-white/10 ${
           clickable ? "cursor-pointer focus:outline-none" : ""
         }`}
-        style={{
-          background: `linear-gradient(135deg, ${t.card} 0%, ${t.soft} 100%)`,
-          borderColor: t.cardBorder,
-          color: t.foreground,
-          boxShadow: clickable ? "0 0 0 0 rgba(0,0,0,0)" : undefined,
-        }}
+        style={{ background: `linear-gradient(135deg, ${t.card} 0%, ${t.soft} 100%)`, borderColor: t.cardBorder, color: t.foreground }}
       >
         <div className="flex items-center justify-between mb-4">
-          <h3
-            className="text-[10px] uppercase tracking-[0.2em] font-semibold"
-            style={{ color: t.labelMuted }}
-          >
+          <h3 className="text-[10px] uppercase tracking-[0.2em] font-semibold" style={{ color: t.labelMuted }}>
             {title}
           </h3>
           {icon && (
             <div
               className="p-2 rounded-lg backdrop-blur-xl"
               style={{
-                background: gradient
-                  ? `linear-gradient(135deg, ${gradient})`
-                  : "linear-gradient(135deg, rgba(34,211,238,0.2), rgba(139,92,246,0.2))",
+                background: gradient ? `linear-gradient(135deg, ${gradient})` : "linear-gradient(135deg, rgba(34,211,238,0.2), rgba(139,92,246,0.2))",
                 color: t.foreground,
               }}
             >
@@ -391,30 +337,13 @@ function KpiCard({
   );
 }
 
-function ChartCard({
-  title,
-  children,
-  className,
-  t,
-}: {
-  title: React.ReactNode;
-  children: React.ReactNode;
-  className?: string;
-  t: ThemeTokens;
-}) {
+function ChartCard({ title, children, className, t }: { title: React.ReactNode; children: React.ReactNode; className?: string; t: ThemeTokens }) {
   return (
     <div className={`group relative ${className ?? ""}`}>
-      <div
-        className="absolute -inset-0.5 rounded-2xl blur-xl opacity-0 group-hover:opacity-50 transition duration-700"
-        style={{ background: "linear-gradient(135deg, rgba(34,211,238,0.15), rgba(139,92,246,0.15))" }}
-      />
+      <div className="absolute -inset-0.5 rounded-2xl blur-xl opacity-0 group-hover:opacity-50 transition duration-700" style={{ background: "linear-gradient(135deg, rgba(34,211,238,0.15), rgba(139,92,246,0.15))" }} />
       <div
         className="relative rounded-2xl p-5 border h-full flex flex-col backdrop-blur-xl transition-all duration-300 hover:border-white/10"
-        style={{
-          background: `linear-gradient(135deg, ${t.card} 0%, ${t.soft} 100%)`,
-          borderColor: t.cardBorder,
-          color: t.foreground,
-        }}
+        style={{ background: `linear-gradient(135deg, ${t.card} 0%, ${t.soft} 100%)`, borderColor: t.cardBorder, color: t.foreground }}
       >
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-sm font-bold tracking-wide uppercase" style={{ color: t.foreground }}>
@@ -428,10 +357,9 @@ function ChartCard({
 }
 
 /* =============================================================================
-   Main dashboard content
+   Main dashboard
 ============================================================================= */
 const DashboardContent = () => {
-  // Theme (from next-themes)
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -452,11 +380,7 @@ const DashboardContent = () => {
   const [showAllProducts, setShowAllProducts] = useState(false);
   const [showAllCustomers, setShowAllCustomers] = useState(false);
 
-  const [filters, setFilters] = useState<FilterState>({
-    salesReps: [],
-    itemCodes: [],
-    customers: [],
-  });
+  const [filters, setFilters] = useState<FilterState>({ salesReps: [], itemCodes: [], customers: [] });
   const [yoyFilter, setYoyFilter] = useState<YoyFilter>("all");
 
   const [animationKey, setAnimationKey] = useState(0);
@@ -465,20 +389,21 @@ const DashboardContent = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  // NEW: Retention modal state
+  // Modals
   const [showRetentionTable, setShowRetentionTable] = useState(false);
   const [retentionSortAsc, setRetentionSortAsc] = useState(false);
 
-  // Calculate previous year date range
+  const [showNewCustomersModal, setShowNewCustomersModal] = useState(false);
+  const [newSortAsc, setNewSortAsc] = useState(false);
+  const [newTab, setNewTab] = useState<"list" | "reps">("list");
+
+  // Previous-period range
   const previousYearDateRange = useMemo(() => {
     const startDate = new Date(activeDateRange.start);
     const endDate = new Date(activeDateRange.end);
     startDate.setFullYear(startDate.getFullYear() - 1);
     endDate.setFullYear(endDate.getFullYear() - 1);
-    return {
-      start: startDate.toISOString().slice(0, 10),
-      end: endDate.toISOString().slice(0, 10),
-    };
+    return { start: startDate.toISOString().slice(0, 10), end: endDate.toISOString().slice(0, 10) };
   }, [activeDateRange]);
 
   useEffect(() => {
@@ -486,10 +411,7 @@ const DashboardContent = () => {
       setIsLoading(true);
       setError(null);
       try {
-        // Current period
-        const currentResponse = await fetch(
-          `/api/dashboard-data?startDate=${activeDateRange.start}&endDate=${activeDateRange.end}`
-        );
+        const currentResponse = await fetch(`/api/dashboard-data?startDate=${activeDateRange.start}&endDate=${activeDateRange.end}`);
         if (!currentResponse.ok) {
           const errorData = await currentResponse.json().catch(() => ({}));
           throw new Error(errorData.error || `Erreur HTTP: ${currentResponse.status}`);
@@ -497,16 +419,11 @@ const DashboardContent = () => {
         const currentData = await currentResponse.json();
         setMasterData(currentData);
 
-        // Always fetch previous for YOY filter + retention KPI
-        const prevResponse = await fetch(
-          `/api/dashboard-data?startDate=${previousYearDateRange.start}&endDate=${previousYearDateRange.end}`
-        );
+        const prevResponse = await fetch(`/api/dashboard-data?startDate=${previousYearDateRange.start}&endDate=${previousYearDateRange.end}`);
         if (prevResponse.ok) {
           const prevData = await prevResponse.json();
           setPreviousYearData(prevData);
-        } else {
-          setPreviousYearData([]);
-        }
+        } else setPreviousYearData([]);
       } catch (err) {
         setError(err as Error);
       } finally {
@@ -516,27 +433,19 @@ const DashboardContent = () => {
     fetchData();
   }, [activeDateRange, previousYearDateRange]);
 
-  // All sale reps (current period)
-  const allSalesReps = useMemo(
-    () => (masterData ? Array.from(new Set(masterData.map((d) => d.salesRepName))).sort() : []),
-    [masterData]
-  );
+  const allSalesReps = useMemo(() => (masterData ? Array.from(new Set(masterData.map((d) => d.salesRepName))).sort() : []), [masterData]);
 
-  // YOY classification per rep (based on ALL sales per rep, independent of item/customer filters)
+  // YOY class per rep
   const yoyClassSets = useMemo(() => {
     const currentTotals = totalsByRep(masterData ?? []);
     const prevTotals = totalsByRep(previousYearData ?? []);
     const growth = new Set<string>();
     const loss = new Set<string>();
-    const reps = new Set<string>([
-      ...Object.keys(currentTotals),
-      ...Object.keys(prevTotals),
-    ]);
-
+    const reps = new Set<string>([...Object.keys(currentTotals), ...Object.keys(prevTotals)]);
     for (const rep of reps) {
       const prev = prevTotals[rep] || 0;
       const curr = currentTotals[rep] || 0;
-      if (prev <= 0) continue; // ignore unknown/undefined YOY
+      if (prev <= 0) continue;
       const delta = curr - prev;
       if (delta > 0) growth.add(rep);
       else if (delta < 0) loss.add(rep);
@@ -544,22 +453,18 @@ const DashboardContent = () => {
     return { growth, loss };
   }, [masterData, previousYearData]);
 
-  // Apply filters to datasets
+  // Filter datasets (includes YOY filter if no specific rep chosen)
   const filteredData = useMemo(() => {
     if (!masterData) return [];
     return masterData.filter((d) => {
       const repSelected = filters.salesReps.length === 0 || filters.salesReps.includes(d.salesRepName);
       const itemSelected = filters.itemCodes.length === 0 || filters.itemCodes.includes(d.itemCode);
-      const customerSelected =
-        filters.customers.length === 0 || filters.customers.includes(d.customerName);
-
-      // YOY filter is applied only when NO specific rep is selected
+      const customerSelected = filters.customers.length === 0 || filters.customers.includes(d.customerName);
       let yoyPass = true;
       if (filters.salesReps.length === 0) {
         if (yoyFilter === "growth") yoyPass = yoyClassSets.growth.has(d.salesRepName);
         if (yoyFilter === "loss") yoyPass = yoyClassSets.loss.has(d.salesRepName);
       }
-
       return repSelected && itemSelected && customerSelected && yoyPass;
     });
   }, [masterData, filters, yoyFilter, yoyClassSets]);
@@ -569,44 +474,28 @@ const DashboardContent = () => {
     return previousYearData.filter((d) => {
       const repSelected = filters.salesReps.length === 0 || filters.salesReps.includes(d.salesRepName);
       const itemSelected = filters.itemCodes.length === 0 || filters.itemCodes.includes(d.itemCode);
-      const customerSelected =
-        filters.customers.length === 0 || filters.customers.includes(d.customerName);
-
+      const customerSelected = filters.customers.length === 0 || filters.customers.includes(d.customerName);
       let yoyPass = true;
       if (filters.salesReps.length === 0) {
         if (yoyFilter === "growth") yoyPass = yoyClassSets.growth.has(d.salesRepName);
         if (yoyFilter === "loss") yoyPass = yoyClassSets.loss.has(d.salesRepName);
       }
-
       return repSelected && itemSelected && customerSelected && yoyPass;
     });
   }, [previousYearData, filters, yoyFilter, yoyClassSets]);
 
-  useEffect(() => {
-    setAnimationKey((prev) => prev + 1);
-  }, [filteredData]);
+  useEffect(() => setAnimationKey((prev) => prev + 1), [filteredData]);
 
   const applyFilters = () => {
     setActiveDateRange(stagedDateRange);
-    setFilters((prev) => ({
-      ...prev,
-      itemCodes: [],
-      customers: [],
-      salesReps: stagedSelectedRep ? [stagedSelectedRep] : [],
-    }));
+    setFilters((prev) => ({ ...prev, itemCodes: [], customers: [], salesReps: stagedSelectedRep ? [stagedSelectedRep] : [] }));
   };
 
-  const handleSelect = (category: keyof FilterState, value: string, isShiftClick: boolean = false) => {
+  const handleSelect = (category: keyof FilterState, value: string, isShiftClick = false) => {
     setFilters((prev) => {
       const existing = prev[category];
       const isSelected = existing.includes(value);
-      const newValues = isShiftClick
-        ? isSelected
-          ? existing.filter((v) => v !== value)
-          : [...existing, value]
-        : isSelected && existing.length === 1
-        ? []
-        : [value];
+      const newValues = isShiftClick ? (isSelected ? existing.filter((v) => v !== value) : [...existing, value]) : isSelected && existing.length === 1 ? [] : [value];
       if (category === "salesReps" && !isShiftClick) setStagedSelectedRep(newValues.length === 1 ? newValues[0] : "");
       return { ...prev, [category]: newValues };
     });
@@ -627,36 +516,24 @@ const DashboardContent = () => {
     JSON.stringify(activeDateRange) !== JSON.stringify(defaultDateRange) ||
     yoyFilter !== "all";
 
-  // Current period metrics
-  const totalSales = useMemo(
-    () => filteredData.reduce((sum, d) => sum + d.salesValue, 0),
-    [filteredData]
-  );
+  // ----- KPIs -----
+  const totalSales = useMemo(() => filteredData.reduce((s, d) => s + d.salesValue, 0), [filteredData]);
   const transactionCount = useMemo(() => filteredData.length, [filteredData]);
-  const averageTransactionValue = useMemo(
-    () => (transactionCount > 0 ? totalSales / transactionCount : 0),
-    [totalSales, transactionCount]
-  );
+  const averageTransactionValue = useMemo(() => (transactionCount > 0 ? totalSales / transactionCount : 0), [totalSales, transactionCount]);
 
-  // Previous year metrics
-  const previousTotalSales = useMemo(
-    () => filteredPreviousData.reduce((sum, d) => sum + d.salesValue, 0),
-    [filteredPreviousData]
-  );
+  const previousTotalSales = useMemo(() => filteredPreviousData.reduce((s, d) => s + d.salesValue, 0), [filteredPreviousData]);
   const previousTransactionCount = useMemo(() => filteredPreviousData.length, [filteredPreviousData]);
 
-  // Color mapping for sales reps
+  // Colors for reps
   const salesRepColorMap = useMemo(() => {
     const map: Record<string, string> = {};
     const reps = masterData ? Array.from(new Set(masterData.map((d) => d.salesRepName))).sort() : [];
-    reps.forEach((rep, index) => {
-      map[rep] = pieColors[index % pieColors.length];
-    });
+    reps.forEach((rep, idx) => (map[rep] = pieColors[idx % pieColors.length]));
     map["Autres"] = mode === "dark" ? "#303a47" : "#d1d5db";
     return map;
   }, [masterData, pieColors, mode]);
 
-  // Sales by rep (applies YOY rep filter via filteredData)
+  // Charts data
   const salesByRep = useMemo(() => {
     const allReps = aggregateData(filteredData, "salesRepName");
     if (allReps.length <= 8) return allReps;
@@ -665,66 +542,50 @@ const DashboardContent = () => {
     return [...top, { name: "Autres", value: othersValue }];
   }, [filteredData]);
 
-  const salesByItem = useMemo(
-    () => aggregateData(filteredData, "itemCode", showAllProducts ? undefined : 10),
-    [filteredData, showAllProducts]
-  );
-
+  const salesByItem = useMemo(() => aggregateData(filteredData, "itemCode", showAllProducts ? undefined : 10), [filteredData, showAllProducts]);
   const salesByCustomer = useMemo(
     () => aggregateData(filteredData, "customerName", showAllCustomers ? undefined : 10),
     [filteredData, showAllCustomers]
   );
 
-  // Transaction count by month
   const transactionsByMonth = useMemo(() => {
     const current = filteredData.reduce((acc, d) => {
-      const monthKey = d.invoiceDate.slice(0, 7);
-      acc[monthKey] = (acc[monthKey] || 0) + 1;
+      const m = d.invoiceDate.slice(0, 7);
+      acc[m] = (acc[m] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-
     const previous = filteredPreviousData.reduce((acc, d) => {
-      const monthKey = d.invoiceDate.slice(0, 7);
-      const adjustedMonth = monthKey.replace(/^(\d{4})/, (match, year) => String(parseInt(year) + 1));
-      acc[adjustedMonth] = (acc[adjustedMonth] || 0) + 1;
+      const m = d.invoiceDate.slice(0, 7);
+      const adjusted = m.replace(/^(\d{4})/, (match, y) => String(parseInt(y) + 1));
+      acc[adjusted] = (acc[adjusted] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-
     const allMonths = Array.from(new Set([...Object.keys(current), ...Object.keys(previous)])).sort();
-
-    return allMonths.map((month) => ({
-      name: month,
-      current: current[month] || 0,
-      previous: previous[month] || 0,
-    }));
+    return allMonths.map((m) => ({ name: m, current: current[m] || 0, previous: previous[m] || 0 }));
   }, [filteredData, filteredPreviousData]);
 
-  // Sales comparison by month
   const salesComparisonByMonth = useMemo(() => {
     const current = filteredData.reduce((acc, d) => {
-      const monthKey = d.invoiceDate.slice(0, 7);
-      acc[monthKey] = (acc[monthKey] || 0) + d.salesValue;
+      const m = d.invoiceDate.slice(0, 7);
+      acc[m] = (acc[m] || 0) + d.salesValue;
       return acc;
     }, {} as Record<string, number>);
-
     const previous = filteredPreviousData.reduce((acc, d) => {
-      const monthKey = d.invoiceDate.slice(0, 7);
-      const adjustedMonth = monthKey.replace(/^(\d{4})/, (match, year) => String(parseInt(year) + 1));
-      acc[adjustedMonth] = (acc[adjustedMonth] || 0) + d.salesValue;
+      const m = d.invoiceDate.slice(0, 7);
+      const adjusted = m.replace(/^(\d{4})/, (match, y) => String(parseInt(y) + 1));
+      acc[adjusted] = (acc[adjusted] || 0) + d.salesValue;
       return acc;
     }, {} as Record<string, number>);
-
     const allMonths = Array.from(new Set([...Object.keys(current), ...Object.keys(previous)])).sort();
-
-    return allMonths.map((month) => ({
-      name: month.slice(5),
-      current: current[month] || 0,
-      previous: previous[month] || 0,
-      growth: previous[month] > 0 ? ((current[month] || 0) - previous[month]) / previous[month] : 0,
+    return allMonths.map((m) => ({
+      name: m.slice(5),
+      current: current[m] || 0,
+      previous: previous[m] || 0,
+      growth: previous[m] > 0 ? ((current[m] || 0) - previous[m]) / previous[m] : 0,
     }));
   }, [filteredData, filteredPreviousData]);
 
-  // ------------------ Retention (per-rep, then averaged) --------------------
+  // ----- Retention calculations -----
   const retentionByRep = useMemo(() => {
     const prev = totalsByRepCustomer(previousYearData ?? []);
     const curr = totalsByRepCustomer(masterData ?? []);
@@ -742,11 +603,7 @@ const DashboardContent = () => {
           if (currSpend >= RETENTION_THRESHOLD) retained += 1;
         }
       }
-      result[rep] = {
-        eligible,
-        retained,
-        rate: eligible > 0 ? retained / eligible : null,
-      };
+      result[rep] = { eligible, retained, rate: eligible > 0 ? retained / eligible : null };
     });
     return result;
   }, [masterData, previousYearData]);
@@ -768,57 +625,73 @@ const DashboardContent = () => {
     return { avg, eligibleReps: rates.length, totalReps: visibleRepsForRetention.size };
   }, [retentionByRep, visibleRepsForRetention]);
 
-  // Build table rows for modal
-  const retentionRows = useMemo(() => {
-    const rows = Array.from(visibleRepsForRetention).map((rep) => {
-      const r = retentionByRep[rep] || { eligible: 0, retained: 0, rate: null };
-      return {
-        rep,
-        eligible: r.eligible,
-        retained: r.retained,
-        rate: r.rate, // null -> "N/A"
-      };
-    });
-    rows.sort((a, b) => {
-      const aVal = a.rate === null ? -1 : a.rate;
-      const bVal = b.rate === null ? -1 : b.rate;
-      return retentionSortAsc ? aVal - bVal : bVal - aVal;
-    });
-    return rows;
-  }, [visibleRepsForRetention, retentionByRep, retentionSortAsc]);
+  // ----- New Customers calculations -----
+  // Set of ALL customers that bought in the previous period (any rep)
+  const prevCustomersSet = useMemo(() => new Set(filteredPreviousData.map((d) => d.customerName)), [filteredPreviousData]);
 
+  // Current period: aggregate per customer and track first order’s rep & date
+  const currentCustomerAgg = useMemo(() => {
+    type Agg = { total: number; orders: number; firstDate: string; firstRep: string };
+    const map = new Map<string, Agg>();
+    for (const r of filteredData) {
+      const a = map.get(r.customerName);
+      if (!a) {
+        map.set(r.customerName, { total: r.salesValue, orders: 1, firstDate: r.invoiceDate, firstRep: r.salesRepName });
+      } else {
+        a.total += r.salesValue;
+        a.orders += 1;
+        if (r.invoiceDate < a.firstDate) {
+          a.firstDate = r.invoiceDate;
+          a.firstRep = r.salesRepName;
+        }
+      }
+    }
+    return map;
+  }, [filteredData]);
+
+  const newCustomersList = useMemo(() => {
+    const rows: { customer: string; rep: string; spend: number; orders: number; firstDate: string }[] = [];
+    currentCustomerAgg.forEach((agg, cust) => {
+      const isPrevBuyer = prevCustomersSet.has(cust);
+      if (!isPrevBuyer && agg.total >= NEW_CUSTOMER_MIN_SPEND) {
+        rows.push({ customer: cust, rep: agg.firstRep, spend: agg.total, orders: agg.orders, firstDate: agg.firstDate });
+      }
+    });
+    rows.sort((a, b) => (newSortAsc ? a.spend - b.spend : b.spend - a.spend));
+    return rows;
+  }, [currentCustomerAgg, prevCustomersSet, newSortAsc]);
+
+  const newCustomersCount = newCustomersList.length;
+
+  const newCustomersByRep = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const row of newCustomersList) m.set(row.rep, (m.get(row.rep) || 0) + 1);
+    return Array.from(m.entries())
+      .map(([rep, count]) => ({ rep, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [newCustomersList]);
+
+  // Guard rails
   if (error) return <ErrorState message={error.message} />;
   if (!mounted) return <LoadingState />;
   if (isLoading) return <LoadingState />;
 
   return (
     <div className="space-y-6">
-      {/* Header with filters */}
+      {/* Header */}
       <div
         className="rounded-3xl border backdrop-blur-2xl relative overflow-hidden"
-        style={{
-          borderColor: t.cardBorder,
-          background: `linear-gradient(135deg, ${t.card} 0%, ${mode === "dark" ? "rgba(139,92,246,0.02)" : "rgba(124,58,237,0.04)"} 100%)`,
-        }}
+        style={{ borderColor: t.cardBorder, background: `linear-gradient(135deg, ${t.card} 0%, ${mode === "dark" ? "rgba(139,92,246,0.02)" : "rgba(124,58,237,0.04)"} 100%)` }}
       >
-        <div
-          className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl"
-          style={{ background: `linear-gradient(to bottom right, ${t.haloCyan}, ${t.haloViolet})` }}
-        />
+        <div className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl" style={{ background: `linear-gradient(to bottom right, ${t.haloCyan}, ${t.haloViolet})` }} />
         <div className="px-6 py-6 relative z-10">
           <div className="flex flex-wrap items-center justify-between gap-6">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <div
-                  className="p-2 rounded-xl backdrop-blur-xl"
-                  style={{ background: "linear-gradient(135deg, rgba(34,211,238,0.2), rgba(139,92,246,0.2))" }}
-                >
+                <div className="p-2 rounded-xl backdrop-blur-xl" style={{ background: "linear-gradient(135deg, rgba(34,211,238,0.2), rgba(139,92,246,0.2))" }}>
                   <BarChart3 className="w-6 h-6" style={{ color: t.accentPrimary }} />
                 </div>
-                <h1
-                  className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight"
-                  style={{ color: t.foreground }}
-                >
+                <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight" style={{ color: t.foreground }}>
                   Analyse des performances de ventes<span style={{ color: t.accentPrimary }}>.</span>
                 </h1>
               </div>
@@ -833,9 +706,7 @@ const DashboardContent = () => {
                 className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 border"
                 style={{
                   color: showYOYComparison ? t.accentPrimary : t.label,
-                  background: showYOYComparison
-                    ? "linear-gradient(90deg, rgba(34,211,238,0.2), rgba(139,92,246,0.2))"
-                    : t.cardSoft,
+                  background: showYOYComparison ? "linear-gradient(90deg, rgba(34,211,238,0.2), rgba(139,92,246,0.2))" : t.cardSoft,
                   borderColor: showYOYComparison ? "rgba(34,211,238,0.3)" : t.cardBorder,
                   boxShadow: showYOYComparison ? "0 6px 16px rgba(34,211,238,0.2)" : "none",
                 }}
@@ -844,12 +715,8 @@ const DashboardContent = () => {
                 Comparaison YOY
               </button>
 
-              {/* YOY Growth/Loss segmented filter */}
-              <div
-                className="flex rounded-xl overflow-hidden border"
-                title="Filtrer les représentants par variation YOY"
-                style={{ borderColor: t.cardBorder, background: t.cardSoft }}
-              >
+              {/* YOY segmented control */}
+              <div className="flex rounded-xl overflow-hidden border" title="Filtrer les représentants par variation YOY" style={{ borderColor: t.cardBorder, background: t.cardSoft }}>
                 {([
                   { key: "all", label: "Tous" },
                   { key: "growth", label: "Croissance" },
@@ -883,12 +750,7 @@ const DashboardContent = () => {
                 value={stagedSelectedRep}
                 onChange={(e) => setStagedSelectedRep(e.target.value)}
                 className="appearance-none rounded-xl px-4 py-2.5 pr-10 text-sm focus:outline-none transition-all"
-                style={{
-                  background: mode === "dark" ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.9)",
-                  border: `1px solid ${t.cardBorder}`,
-                  color: t.foreground,
-                  boxShadow: "0 0 0 2px transparent",
-                }}
+                style={{ background: mode === "dark" ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.9)", border: `1px solid ${t.cardBorder}`, color: t.foreground }}
               >
                 <option value="">Tous les experts</option>
                 {allSalesReps.map((rep) => (
@@ -905,11 +767,7 @@ const DashboardContent = () => {
                     value={stagedDateRange.start}
                     onChange={(e) => setStagedDateRange((p) => ({ ...p, start: e.target.value }))}
                     className="rounded-xl px-3 py-2 text-sm focus:outline-none transition-all"
-                    style={{
-                      background: mode === "dark" ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.9)",
-                      border: `1px solid ${t.cardBorder}`,
-                      color: t.foreground,
-                    }}
+                    style={{ background: mode === "dark" ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.9)", border: `1px solid ${t.cardBorder}`, color: t.foreground }}
                   />
                   <span className="text-sm" style={{ color: t.label }}>
                     à
@@ -919,11 +777,7 @@ const DashboardContent = () => {
                     value={stagedDateRange.end}
                     onChange={(e) => setStagedDateRange((p) => ({ ...p, end: e.target.value }))}
                     className="rounded-xl px-3 py-2 text-sm focus:outline-none transition-all"
-                    style={{
-                      background: mode === "dark" ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.9)",
-                      border: `1px solid ${t.cardBorder}`,
-                      color: t.foreground,
-                    }}
+                    style={{ background: mode === "dark" ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.9)", border: `1px solid ${t.cardBorder}`, color: t.foreground }}
                   />
                 </div>
                 <div className="flex items-center gap-2">
@@ -931,17 +785,10 @@ const DashboardContent = () => {
                     onClick={() => {
                       const today = new Date();
                       const yearStart = new Date(today.getFullYear(), 0, 1);
-                      setStagedDateRange({
-                        start: yearStart.toISOString().slice(0, 10),
-                        end: today.toISOString().slice(0, 10),
-                      });
+                      setStagedDateRange({ start: yearStart.toISOString().slice(0, 10), end: today.toISOString().slice(0, 10) });
                     }}
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 border"
-                    style={{
-                      background: mode === "dark" ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.9)",
-                      color: t.label,
-                      borderColor: t.cardBorder,
-                    }}
+                    style={{ background: mode === "dark" ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.9)", color: t.label, borderColor: t.cardBorder }}
                   >
                     YTD
                   </button>
@@ -950,17 +797,10 @@ const DashboardContent = () => {
                       const today = new Date();
                       const yearAgo = new Date(today);
                       yearAgo.setDate(yearAgo.getDate() - 365);
-                      setStagedDateRange({
-                        start: yearAgo.toISOString().slice(0, 10),
-                        end: today.toISOString().slice(0, 10),
-                      });
+                      setStagedDateRange({ start: yearAgo.toISOString().slice(0, 10), end: today.toISOString().slice(0, 10) });
                     }}
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 border"
-                    style={{
-                      background: mode === "dark" ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.9)",
-                      color: t.label,
-                      borderColor: t.cardBorder,
-                    }}
+                    style={{ background: mode === "dark" ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.9)", color: t.label, borderColor: t.cardBorder }}
                   >
                     TTM
                   </button>
@@ -970,11 +810,7 @@ const DashboardContent = () => {
               <button
                 onClick={applyFilters}
                 className="px-6 py-2.5 rounded-xl text-sm font-bold hover:scale-105 transition-all duration-300 shadow-2xl"
-                style={{
-                  color: "#000",
-                  background: "linear-gradient(135deg, #22d3ee 0%, #8b5cf6 100%)",
-                  boxShadow: "0 10px 30px rgba(34, 211, 238, 0.35)",
-                }}
+                style={{ color: "#000", background: "linear-gradient(135deg, #22d3ee 0%, #8b5cf6 100%)", boxShadow: "0 10px 30px rgba(34, 211, 238, 0.35)" }}
               >
                 Appliquer
               </button>
@@ -983,11 +819,7 @@ const DashboardContent = () => {
                 <button
                   onClick={resetFilters}
                   className="px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 border backdrop-blur-xl"
-                  style={{
-                    color: t.foreground,
-                    background: t.cardSoft,
-                    borderColor: t.cardBorder,
-                  }}
+                  style={{ color: t.foreground, background: t.cardSoft, borderColor: t.cardBorder }}
                 >
                   Réinitialiser
                 </button>
@@ -997,60 +829,31 @@ const DashboardContent = () => {
         </div>
       </div>
 
-      {/* KPI Cards with YOY comparison */}
+      {/* KPI row 1 */}
       <div className="grid grid-cols-12 gap-4">
-        <KpiCard
-          title="Chiffre d'affaires total"
-          icon={<DollarSign className="w-5 h-5" />}
-          gradient="rgba(34,211,238,0.2), rgba(59,130,246,0.2)"
-          className="col-span-12 md:col-span-6 lg:col-span-3"
-          t={t}
-          mode={mode}
-        >
+        <KpiCard title="Chiffre d'affaires total" icon={<DollarSign className="w-5 h-5" />} gradient="rgba(34,211,238,0.2), rgba(59,130,246,0.2)" className="col-span-12 md:col-span-6 lg:col-span-3" t={t} mode={mode}>
           <p className="text-3xl font-bold tracking-tight" style={{ color: t.foreground }}>
             <AnimatedNumber value={totalSales} format={currency} />
           </p>
-          {showYOYComparison && previousTotalSales > 0 && (
-            <YOYIndicator current={totalSales} previous={previousTotalSales} />
-          )}
+          {showYOYComparison && previousTotalSales > 0 && <YOYIndicator current={totalSales} previous={previousTotalSales} />}
         </KpiCard>
 
-        <KpiCard
-          title="Nombre de transactions"
-          icon={<Package className="w-5 h-5" />}
-          gradient="rgba(139,92,246,0.2), rgba(147,51,234,0.2)"
-          className="col-span-12 md:col-span-6 lg:col-span-3"
-          t={t}
-          mode={mode}
-        >
+        <KpiCard title="Nombre de transactions" icon={<Package className="w-5 h-5" />} gradient="rgba(139,92,246,0.2), rgba(147,51,234,0.2)" className="col-span-12 md:col-span-6 lg:col-span-3" t={t} mode={mode}>
           <p className="text-3xl font-bold tracking-tight" style={{ color: t.foreground }}>
             <AnimatedNumber value={transactionCount} format={formatNumber} />
           </p>
-          {showYOYComparison && previousTransactionCount > 0 && (
-            <YOYIndicator current={transactionCount} previous={previousTransactionCount} />
-          )}
+          {showYOYComparison && previousTransactionCount > 0 && <YOYIndicator current={transactionCount} previous={previousTransactionCount} />}
         </KpiCard>
 
-        <KpiCard
-          title="Valeur moyenne/transaction"
-          icon={<Activity className="w-5 h-5" />}
-          gradient="rgba(16,185,129,0.2), rgba(13,148,136,0.2)"
-          className="col-span-12 md:col-span-6 lg:col-span-3"
-          t={t}
-          mode={mode}
-        >
+        <KpiCard title="Valeur moyenne/transaction" icon={<Activity className="w-5 h-5" />} gradient="rgba(16,185,129,0.2), rgba(13,148,136,0.2)" className="col-span-12 md:col-span-6 lg:col-span-3" t={t} mode={mode}>
           <p className="text-3xl font-bold tracking-tight" style={{ color: t.foreground }}>
             <AnimatedNumber value={averageTransactionValue} format={currency} />
           </p>
           {showYOYComparison && previousTransactionCount > 0 && (
-            <YOYIndicator
-              current={averageTransactionValue}
-              previous={previousTransactionCount ? previousTotalSales / previousTransactionCount : 0}
-            />
+            <YOYIndicator current={averageTransactionValue} previous={previousTransactionCount ? previousTotalSales / previousTransactionCount : 0} />
           )}
         </KpiCard>
 
-        {/* Customer Retention KPI (clickable to open table) */}
         <KpiCard
           title="Taux de rétention clients"
           icon={<Users className="w-5 h-5" />}
@@ -1074,6 +877,26 @@ const DashboardContent = () => {
         </KpiCard>
       </div>
 
+      {/* KPI row 2: New Customers */}
+      <div className="grid grid-cols-12 gap-4">
+        <KpiCard
+          title="Nouveaux clients (≥ 30 $)"
+          icon={<UserPlus className="w-5 h-5" />}
+          gradient="rgba(59,130,246,0.2), rgba(16,185,129,0.2)"
+          className="col-span-12 md:col-span-6 lg:col-span-3"
+          t={t}
+          mode={mode}
+          onClick={() => setShowNewCustomersModal(true)}
+        >
+          <p className="text-3xl font-bold tracking-tight" style={{ color: t.foreground }}>
+            {formatNumber(newCustomersCount)}
+          </p>
+          <p className="text-xs mt-2" style={{ color: t.label }}>
+            Cliquer pour la liste et la répartition par représentant
+          </p>
+        </KpiCard>
+      </div>
+
       {/* YOY Comparison Section */}
       {showYOYComparison && (
         <div className="grid grid-cols-12 gap-4">
@@ -1082,33 +905,13 @@ const DashboardContent = () => {
               <ComposedChart data={salesComparisonByMonth}>
                 <CartesianGrid strokeDasharray="3 3" stroke={t.grid} strokeOpacity={0.3} />
                 <XAxis dataKey="name" tick={{ fill: t.labelMuted, fontSize: 11 }} stroke={t.grid} />
-                <YAxis
-                  yAxisId="left"
-                  tickFormatter={compactCurrency}
-                  tick={{ fill: t.labelMuted, fontSize: 11 }}
-                  stroke={t.grid}
-                />
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  tickFormatter={percentage}
-                  tick={{ fill: t.labelMuted, fontSize: 11 }}
-                  stroke={t.grid}
-                />
+                <YAxis yAxisId="left" tickFormatter={compactCurrency} tick={{ fill: t.labelMuted, fontSize: 11 }} stroke={t.grid} />
+                <YAxis yAxisId="right" orientation="right" tickFormatter={percentage} tick={{ fill: t.labelMuted, fontSize: 11 }} stroke={t.grid} />
                 <Tooltip content={<CustomTooltip format="auto" themeTokens={t} mode={mode} />} />
                 <Legend />
                 <Bar yAxisId="left" dataKey="previous" fill={t.labelMuted} name="Année précédente" radius={[6, 6, 0, 0]} />
                 <Bar yAxisId="left" dataKey="current" fill={t.accentPrimary} name="Période actuelle" radius={[6, 6, 0, 0]} />
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="growth"
-                  stroke={t.success}
-                  strokeWidth={3}
-                  dot={{ fill: t.success, r: 5 }}
-                  activeDot={{ r: 7 }}
-                  name="Croissance %"
-                />
+                <Line yAxisId="right" type="monotone" dataKey="growth" stroke={t.success} strokeWidth={3} dot={{ fill: t.success, r: 5 }} activeDot={{ r: 7 }} name="Croissance %" />
               </ComposedChart>
             </ResponsiveContainer>
           </ChartCard>
@@ -1139,13 +942,7 @@ const DashboardContent = () => {
                 </div>
               </div>
 
-              <div
-                className="p-4 rounded-xl backdrop-blur-xl border"
-                style={{
-                  background: "linear-gradient(135deg, rgba(34,211,238,0.10), rgba(139,92,246,0.10))",
-                  borderColor: "rgba(34,211,238,0.2)",
-                }}
-              >
+              <div className="p-4 rounded-xl backdrop-blur-xl border" style={{ background: "linear-gradient(135deg, rgba(34,211,238,0.10), rgba(139,92,246,0.10))", borderColor: "rgba(34,211,238,0.2)" }}>
                 <div className="text-xs uppercase tracking-wider mb-2" style={{ color: t.label }}>
                   Variation YOY
                 </div>
@@ -1166,34 +963,16 @@ const DashboardContent = () => {
         <ChartCard title="Répartition par expert" className="col-span-12 lg:col-span-5" t={t}>
           <ResponsiveContainer key={`byRep-${mode}`} width="100%" height={350}>
             <PieChart>
-              <Pie
-                data={salesByRep}
-                dataKey="value"
-                nameKey="name"
-                innerRadius="65%"
-                outerRadius="95%"
-                paddingAngle={3}
-                animationBegin={0}
-                animationDuration={1000}
-              >
+              <Pie data={salesByRep} dataKey="value" nameKey="name" innerRadius="65%" outerRadius="95%" paddingAngle={3} animationBegin={0} animationDuration={1000}>
                 {salesByRep.map((entry) => (
                   <Cell
                     key={`cell-${entry.name}`}
                     fill={salesRepColorMap[entry.name]}
-                    onClick={(e) =>
-                      entry.name !== "Autres" &&
-                      handleSelect("salesReps", entry.name, (e as any).shiftKey)
-                    }
+                    onClick={(e) => entry.name !== "Autres" && handleSelect("salesReps", entry.name, (e as any).shiftKey)}
                     className={entry.name === "Autres" ? "" : "cursor-pointer hover:opacity-85 transition-all duration-300"}
                     style={{
-                      filter:
-                        filters.salesReps.length === 0 || filters.salesReps.includes(entry.name)
-                          ? "none"
-                          : "grayscale(80%)",
-                      opacity:
-                        filters.salesReps.length === 0 || filters.salesReps.includes(entry.name)
-                          ? 1
-                          : 0.25,
+                      filter: filters.salesReps.length === 0 || filters.salesReps.includes(entry.name) ? "none" : "grayscale(80%)",
+                      opacity: filters.salesReps.length === 0 || filters.salesReps.includes(entry.name) ? 1 : 0.25,
                     }}
                   />
                 ))}
@@ -1205,19 +984,8 @@ const DashboardContent = () => {
                 verticalAlign="middle"
                 wrapperStyle={{ paddingLeft: 20 }}
                 content={(props: any) => {
-                  const patchedPayload =
-                    props?.payload?.map((p: any) => ({
-                      ...p,
-                      color: salesRepColorMap[p.value] || p.color,
-                    })) ?? [];
-                  return (
-                    <CustomLegend
-                      payload={patchedPayload}
-                      selectedItems={filters.salesReps}
-                      onLegendClick={(v: string) => v !== "Autres" && handleSelect("salesReps", v)}
-                      themeTokens={t}
-                    />
-                  );
+                  const patchedPayload = props?.payload?.map((p: any) => ({ ...p, color: salesRepColorMap[p.value] || p.color })) ?? [];
+                  return <CustomLegend payload={patchedPayload} selectedItems={filters.salesReps} onLegendClick={(v: string) => v !== "Autres" && handleSelect("salesReps", v)} themeTokens={t} />;
                 }}
               />
             </PieChart>
@@ -1232,26 +1000,8 @@ const DashboardContent = () => {
               <YAxis tick={{ fill: t.labelMuted, fontSize: 11 }} stroke={t.grid} />
               <Tooltip content={<CustomTooltip format="number" themeTokens={t} mode={mode} />} />
               <Legend />
-              {showYOYComparison && (
-                <Line
-                  type="monotone"
-                  dataKey="previous"
-                  stroke={t.labelMuted}
-                  strokeWidth={2}
-                  strokeDasharray="5 5"
-                  name="Année précédente"
-                  dot={false}
-                />
-              )}
-              <Line
-                type="monotone"
-                dataKey="current"
-                stroke={t.accentSecondary}
-                strokeWidth={3}
-                name="Période actuelle"
-                dot={{ fill: t.accentSecondary, r: 5 }}
-                activeDot={{ r: 8, fill: t.accentSecondary }}
-              />
+              {showYOYComparison && <Line type="monotone" dataKey="previous" stroke={t.labelMuted} strokeWidth={2} strokeDasharray="5 5" name="Année précédente" dot={false} />}
+              <Line type="monotone" dataKey="current" stroke={t.accentSecondary} strokeWidth={3} name="Période actuelle" dot={{ fill: t.accentSecondary, r: 5 }} activeDot={{ r: 8, fill: t.accentSecondary }} />
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -1260,11 +1010,7 @@ const DashboardContent = () => {
           title={
             <div className="flex items-center justify-between w-full">
               <span>Top {showAllProducts ? "produits" : "10 produits"}</span>
-              <button
-                onClick={() => setShowAllProducts(!showAllProducts)}
-                className="text-xs transition-colors flex items-center gap-1"
-                style={{ color: t.accentPrimary }}
-              >
+              <button onClick={() => setShowAllProducts(!showAllProducts)} className="text-xs transition-colors flex items-center gap-1" style={{ color: t.accentPrimary }}>
                 {showAllProducts ? "Voir moins" : "Voir tout"}
                 <ChevronRight className={`w-3 h-3 transition-transform ${showAllProducts ? "rotate-90" : ""}`} />
               </button>
@@ -1273,38 +1019,20 @@ const DashboardContent = () => {
           className="col-span-12 xl:col-span-6"
           t={t}
         >
-          <ResponsiveContainer
-            key={`topItems-${mode}-${animationKey}`}
-            width="100%"
-            height={showAllProducts ? Math.max(400, salesByItem.length * 35) : 400}
-          >
+          <ResponsiveContainer key={`topItems-${mode}-${animationKey}`} width="100%" height={showAllProducts ? Math.max(400, salesByItem.length * 35) : 400}>
             <BarChart data={salesByItem} layout="vertical" margin={{ left: 30 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={t.grid} strokeOpacity={0.3} />
-              <XAxis
-                type="number"
-                tickFormatter={compactCurrency}
-                tick={{ fill: t.labelMuted, fontSize: 11 }}
-                stroke={t.grid}
-              />
+              <XAxis type="number" tickFormatter={compactCurrency} tick={{ fill: t.labelMuted, fontSize: 11 }} stroke={t.grid} />
               <YAxis type="category" dataKey="name" width={100} tick={{ fill: t.label, fontSize: 11 }} stroke="none" />
               <Tooltip content={<CustomTooltip themeTokens={t} mode={mode} />} />
               <Bar dataKey="value" radius={[0, 8, 8, 0]} animationDuration={1000}>
-                {salesByItem.map((entry, index) => (
+                {salesByItem.map((entry, i) => (
                   <Cell
-                    key={`cell-item-${index}-${animationKey}`}
-                    fill={`${t.accentPrimary}${Math.round(255 * (1 - index / salesByItem.length))
-                      .toString(16)
-                      .padStart(2, "0")}`}
+                    key={`cell-item-${i}-${animationKey}`}
+                    fill={`${t.accentPrimary}${Math.round(255 * (1 - i / salesByItem.length)).toString(16).padStart(2, "0")}`}
                     onClick={(e) => handleSelect("itemCodes", entry.name, (e as any).shiftKey)}
                     className="cursor-pointer hover:brightness-110 transition-all"
-                    style={{
-                      filter:
-                        filters.itemCodes.length === 0 || filters.itemCodes.includes(entry.name)
-                          ? "none"
-                          : "grayscale(80%)",
-                      opacity:
-                        filters.itemCodes.length === 0 || filters.itemCodes.includes(entry.name) ? 1 : 0.3,
-                    }}
+                    style={{ filter: filters.itemCodes.length === 0 || filters.itemCodes.includes(entry.name) ? "none" : "grayscale(80%)", opacity: filters.itemCodes.length === 0 || filters.itemCodes.includes(entry.name) ? 1 : 0.3 }}
                   />
                 ))}
               </Bar>
@@ -1316,11 +1044,7 @@ const DashboardContent = () => {
           title={
             <div className="flex items-center justify-between w-full">
               <span>Top {showAllCustomers ? "clients" : "10 clients"}</span>
-              <button
-                onClick={() => setShowAllCustomers(!showAllCustomers)}
-                className="text-xs transition-colors flex items-center gap-1"
-                style={{ color: t.accentPrimary }}
-              >
+              <button onClick={() => setShowAllCustomers(!showAllCustomers)} className="text-xs transition-colors flex items-center gap-1" style={{ color: t.accentPrimary }}>
                 {showAllCustomers ? "Voir moins" : "Voir tout"}
                 <ChevronRight className={`w-3 h-3 transition-transform ${showAllCustomers ? "rotate-90" : ""}`} />
               </button>
@@ -1329,38 +1053,20 @@ const DashboardContent = () => {
           className="col-span-12 xl:col-span-6"
           t={t}
         >
-          <ResponsiveContainer
-            key={`topCustomers-${mode}-${animationKey}`}
-            width="100%"
-            height={showAllCustomers ? Math.max(400, salesByCustomer.length * 35) : 400}
-          >
+          <ResponsiveContainer key={`topCustomers-${mode}-${animationKey}`} width="100%" height={showAllCustomers ? Math.max(400, salesByCustomer.length * 35) : 400}>
             <BarChart data={salesByCustomer} layout="vertical" margin={{ left: 30 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={t.grid} strokeOpacity={0.3} />
-              <XAxis
-                type="number"
-                tickFormatter={compactCurrency}
-                tick={{ fill: t.labelMuted, fontSize: 11 }}
-                stroke={t.grid}
-              />
+              <XAxis type="number" tickFormatter={compactCurrency} tick={{ fill: t.labelMuted, fontSize: 11 }} stroke={t.grid} />
               <YAxis type="category" dataKey="name" width={160} tick={{ fill: t.label, fontSize: 11 }} stroke="none" />
               <Tooltip content={<CustomTooltip themeTokens={t} mode={mode} />} />
               <Bar dataKey="value" radius={[0, 8, 8, 0]} animationDuration={1000}>
-                {salesByCustomer.map((entry, index) => (
+                {salesByCustomer.map((entry, i) => (
                   <Cell
-                    key={`cell-cust-${index}-${animationKey}`}
-                    fill={`${t.accentSecondary}${Math.round(255 * (1 - index / salesByCustomer.length))
-                      .toString(16)
-                      .padStart(2, "0")}`}
+                    key={`cell-cust-${i}-${animationKey}`}
+                    fill={`${t.accentSecondary}${Math.round(255 * (1 - i / salesByCustomer.length)).toString(16).padStart(2, "0")}`}
                     onClick={(e) => handleSelect("customers", entry.name, (e as any).shiftKey)}
                     className="cursor-pointer hover:brightness-110 transition-all"
-                    style={{
-                      filter:
-                        filters.customers.length === 0 || filters.customers.includes(entry.name)
-                          ? "none"
-                          : "grayscale(80%)",
-                      opacity:
-                        filters.customers.length === 0 || filters.customers.includes(entry.name) ? 1 : 0.3,
-                    }}
+                    style={{ filter: filters.customers.length === 0 || filters.customers.includes(entry.name) ? "none" : "grayscale(80%)", opacity: filters.customers.length === 0 || filters.customers.includes(entry.name) ? 1 : 0.3 }}
                   />
                 ))}
               </Bar>
@@ -1371,99 +1077,231 @@ const DashboardContent = () => {
 
       {/* ======================= Retention Modal ======================= */}
       {showRetentionTable && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          aria-modal="true"
-          role="dialog"
-        >
-          <div
-            className="absolute inset-0 backdrop-blur-sm"
-            style={{ background: mode === "dark" ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.25)" }}
-            onClick={() => setShowRetentionTable(false)}
-          />
-          <div
-            className="relative w-full max-w-3xl rounded-2xl border shadow-2xl overflow-hidden"
-            style={{ background: t.card, borderColor: t.cardBorder, color: t.foreground }}
-          >
-            <div className="flex items-center justify-between px-6 py-4 border-b"
-              style={{ borderColor: t.cardBorder }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" aria-modal="true" role="dialog">
+          <div className="absolute inset-0 backdrop-blur-sm" style={{ background: mode === "dark" ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.25)" }} onClick={() => setShowRetentionTable(false)} />
+          <div className="relative w-full max-w-3xl rounded-2xl border shadow-2xl overflow-hidden" style={{ background: t.card, borderColor: t.cardBorder, color: t.foreground }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: t.cardBorder }}>
               <div>
                 <h3 className="text-lg font-bold">Taux de rétention par représentant</h3>
                 <p className="text-xs opacity-70" style={{ color: t.label }}>
                   Seuil d&apos;éligibilité: {currency(RETENTION_THRESHOLD)} les deux années. Cliquez une ligne pour filtrer.
                 </p>
               </div>
-              <button
-                onClick={() => setShowRetentionTable(false)}
-                className="rounded-lg p-2 hover:opacity-80"
-                aria-label="Fermer"
-              >
+              <button onClick={() => setShowRetentionTable(false)} className="rounded-lg p-2 hover:opacity-80" aria-label="Fermer">
                 <CloseIcon className="w-5 h-5" />
               </button>
             </div>
 
             <div className="max-h-[70vh] overflow-auto">
               <table className="min-w-full text-sm">
-                <thead className="sticky top-0 backdrop-blur-xl"
-                  style={{ background: t.card }}>
+                <thead className="sticky top-0 backdrop-blur-xl" style={{ background: t.card }}>
                   <tr className="border-b" style={{ borderColor: t.cardBorder }}>
                     <th className="text-left px-6 py-3">Représentant</th>
                     <th className="text-right px-6 py-3">Clients éligibles</th>
                     <th className="text-right px-6 py-3">Clients retenus</th>
                     <th className="text-right px-6 py-3">
-                      <button
-                        onClick={() => setRetentionSortAsc((s) => !s)}
-                        className="inline-flex items-center gap-1 font-semibold hover:opacity-80"
-                      >
+                      <button onClick={() => setRetentionSortAsc((s) => !s)} className="inline-flex items-center gap-1 font-semibold hover:opacity-80">
                         Taux de rétention <ArrowUpDown className="w-4 h-4" />
                       </button>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {retentionRows.map((row, idx) => (
-                    <tr
-                      key={row.rep}
-                      className={`border-b transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${idx % 2 ? "bg-transparent" : ""}`}
-                      style={{ borderColor: t.cardBorder, cursor: "pointer" }}
-                      onClick={() => {
-                        setFilters((prev) => ({ ...prev, salesReps: [row.rep], itemCodes: [], customers: [] }));
-                        setStagedSelectedRep(row.rep);
-                        setShowRetentionTable(false);
-                      }}
-                    >
-                      <td className="px-6 py-3">{row.rep}</td>
-                      <td className="px-6 py-3 text-right">{formatNumber(row.eligible)}</td>
-                      <td className="px-6 py-3 text-right">{formatNumber(row.retained)}</td>
-                      <td className="px-6 py-3 text-right">
-                        {row.rate === null ? "N/A" : percentage(row.rate)}
-                      </td>
-                    </tr>
-                  ))}
+                  {Array.from(visibleRepsForRetention).map((rep) => {
+                    const r = retentionByRep[rep] || { eligible: 0, retained: 0, rate: null };
+                    return r; // satisfy TS
+                  })
+                    .sort((a, b) => {
+                      const ra = (retentionByRep[a as unknown as string]?.rate ?? -1) as number;
+                      const rb = (retentionByRep[b as unknown as string]?.rate ?? -1) as number;
+                      return retentionSortAsc ? ra - rb : rb - ra;
+                    })
+                    .map((repKey) => {
+                      const rep = repKey as unknown as string;
+                      const r = retentionByRep[rep] || { eligible: 0, retained: 0, rate: null };
+                      return (
+                        <tr
+                          key={rep}
+                          className="border-b transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                          style={{ borderColor: t.cardBorder, cursor: "pointer" }}
+                          onClick={() => {
+                            setFilters((prev) => ({ ...prev, salesReps: [rep], itemCodes: [], customers: [] }));
+                            setStagedSelectedRep(rep);
+                            setShowRetentionTable(false);
+                          }}
+                        >
+                          <td className="px-6 py-3">{rep}</td>
+                          <td className="px-6 py-3 text-right">{formatNumber(r.eligible)}</td>
+                          <td className="px-6 py-3 text-right">{formatNumber(r.retained)}</td>
+                          <td className="px-6 py-3 text-right">{r.rate === null ? "N/A" : percentage(r.rate)}</td>
+                        </tr>
+                      );
+                    })}
                 </tbody>
               </table>
             </div>
 
-            <div className="flex items-center justify-between px-6 py-4 border-t text-xs"
-              style={{ borderColor: t.cardBorder, color: t.label }}>
+            <div className="flex items-center justify-between px-6 py-4 border-t text-xs" style={{ borderColor: t.cardBorder, color: t.label }}>
               <span>
-                {retentionRows.length} rep{retentionRows.length > 1 ? "s" : ""} affiché{retentionRows.length > 1 ? "s" : ""} ·
-                {" "}
-                moyenne pondérée simple:{" "}
+                {visibleRepsForRetention.size} rep{visibleRepsForRetention.size > 1 ? "s" : ""} affiché{visibleRepsForRetention.size > 1 ? "s" : ""} · moyenne simple:{" "}
                 {retentionAverage.avg === null ? "N/A" : percentage(retentionAverage.avg)}
               </span>
-              <button
-                onClick={() => setShowRetentionTable(false)}
-                className="px-3 py-1.5 rounded-lg border"
-                style={{ borderColor: t.cardBorder }}
-              >
+              <button onClick={() => setShowRetentionTable(false)} className="px-3 py-1.5 rounded-lg border" style={{ borderColor: t.cardBorder }}>
                 Fermer
               </button>
             </div>
           </div>
         </div>
       )}
-      {/* =================== /Retention Modal =================== */}
+
+      {/* ======================= New Customers Modal ======================= */}
+      {showNewCustomersModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" aria-modal="true" role="dialog">
+          <div className="absolute inset-0 backdrop-blur-sm" style={{ background: mode === "dark" ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.25)" }} onClick={() => setShowNewCustomersModal(false)} />
+          <div className="relative w-full max-w-5xl rounded-2xl border shadow-2xl overflow-hidden" style={{ background: t.card, borderColor: t.cardBorder, color: t.foreground }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: t.cardBorder }}>
+              <div>
+                <h3 className="text-lg font-bold">Nouveaux clients (≥ {currency(NEW_CUSTOMER_MIN_SPEND)})</h3>
+                <p className="text-xs opacity-70" style={{ color: t.label }}>
+                  Un « nouveau client » n&apos;a aucun achat l&apos;année précédente et a dépensé ≥ {currency(NEW_CUSTOMER_MIN_SPEND)} sur la période courante.
+                </p>
+              </div>
+              <button onClick={() => setShowNewCustomersModal(false)} className="rounded-lg p-2 hover:opacity-80" aria-label="Fermer">
+                <CloseIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex items-center gap-2 px-6 py-3 border-b" style={{ borderColor: t.cardBorder }}>
+              {[
+                { key: "list", label: "Liste des nouveaux clients" },
+                { key: "reps", label: "Répartition par représentant" },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setNewTab(tab.key as "list" | "reps")}
+                  className="px-3 py-1.5 rounded-lg text-sm font-semibold"
+                  style={{
+                    color: newTab === tab.key ? "#000" : t.label,
+                    background:
+                      newTab === tab.key ? "linear-gradient(135deg, rgba(34,211,238,0.25), rgba(139,92,246,0.25))" : t.cardSoft,
+                    border: `1px solid ${t.cardBorder}`,
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {newTab === "list" ? (
+              <div className="max-h-[70vh] overflow-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="sticky top-0 backdrop-blur-xl" style={{ background: t.card }}>
+                    <tr className="border-b" style={{ borderColor: t.cardBorder }}>
+                      <th className="text-left px-6 py-3">Client</th>
+                      <th className="text-left px-6 py-3">Expert (1ère commande)</th>
+                      <th className="text-right px-6 py-3">
+                        <button onClick={() => setNewSortAsc((s) => !s)} className="inline-flex items-center gap-1 font-semibold hover:opacity-80">
+                          Total dépensé <ArrowUpDown className="w-4 h-4" />
+                        </button>
+                      </th>
+                      <th className="text-right px-6 py-3"># commandes</th>
+                      <th className="text-right px-6 py-3">1ère commande</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {newCustomersList.length === 0 ? (
+                      <tr>
+                        <td className="px-6 py-6 text-center text-zinc-500" colSpan={5}>
+                          Aucun nouveau client pour les filtres sélectionnés.
+                        </td>
+                      </tr>
+                    ) : (
+                      newCustomersList.map((row) => (
+                        <tr
+                          key={`${row.customer}-${row.firstDate}`}
+                          className="border-b transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                          style={{ borderColor: t.cardBorder, cursor: "pointer" }}
+                          onClick={() => {
+                            setFilters((prev) => ({ ...prev, salesReps: [row.rep], customers: [row.customer] }));
+                            setStagedSelectedRep(row.rep);
+                            setShowNewCustomersModal(false);
+                          }}
+                        >
+                          <td className="px-6 py-3">{row.customer}</td>
+                          <td className="px-6 py-3">{row.rep}</td>
+                          <td className="px-6 py-3 text-right">{currency(row.spend)}</td>
+                          <td className="px-6 py-3 text-right">{formatNumber(row.orders)}</td>
+                          <td className="px-6 py-3 text-right">{row.firstDate}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="grid grid-cols-12 gap-4 p-6">
+                <div className="col-span-12 lg:col-span-6">
+                  <ResponsiveContainer width="100%" height={320}>
+                    <BarChart data={newCustomersByRep}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={t.grid} strokeOpacity={0.3} />
+                      <XAxis dataKey="rep" tick={{ fill: t.labelMuted, fontSize: 11 }} stroke={t.grid} />
+                      <YAxis tick={{ fill: t.labelMuted, fontSize: 11 }} stroke={t.grid} />
+                      <Tooltip content={<CustomTooltip format="number" themeTokens={t} mode={mode} />} />
+                      <Bar dataKey="count" radius={[6, 6, 0, 0]} onClick={(_, idx) => {
+                        const target = newCustomersByRep[idx];
+                        if (target) {
+                          setFilters((prev) => ({ ...prev, salesReps: [target.rep], customers: [] }));
+                          setStagedSelectedRep(target.rep);
+                          setShowNewCustomersModal(false);
+                        }
+                      }}>
+                        {newCustomersByRep.map((_, i) => (
+                          <Cell key={`nc-rep-${i}`} fill={t.accentPrimary} className="cursor-pointer hover:brightness-110" />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="col-span-12 lg:col-span-6">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="border-b" style={{ borderColor: t.cardBorder }}>
+                        <th className="text-left px-4 py-2">Représentant</th>
+                        <th className="text-right px-4 py-2">Nouveaux clients</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {newCustomersByRep.map((r) => (
+                        <tr
+                          key={r.rep}
+                          className="border-b hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
+                          style={{ borderColor: t.cardBorder }}
+                          onClick={() => {
+                            setFilters((prev) => ({ ...prev, salesReps: [r.rep], customers: [] }));
+                            setStagedSelectedRep(r.rep);
+                            setShowNewCustomersModal(false);
+                          }}
+                        >
+                          <td className="px-4 py-2">{r.rep}</td>
+                          <td className="px-4 py-2 text-right">{formatNumber(r.count)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end px-6 py-4 border-t text-xs" style={{ borderColor: t.cardBorder, color: t.label }}>
+              <button onClick={() => setShowNewCustomersModal(false)} className="px-3 py-1.5 rounded-lg border" style={{ borderColor: t.cardBorder }}>
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* =================== /Modals =================== */}
     </div>
   );
 };
@@ -1485,11 +1323,7 @@ export default function DashboardPage() {
   return (
     <main
       className={`min-h-[100svh] ${inter.className} bg-white dark:bg-[#050507]`}
-      style={{
-        background:
-          mode === "dark" ? `linear-gradient(180deg, ${t.bg} 0%, #050507 100%)` : undefined,
-        color: t.foreground,
-      }}
+      style={{ background: mode === "dark" ? `linear-gradient(180deg, ${t.bg} 0%, #050507 100%)` : undefined, color: t.foreground }}
     >
       {mode === "dark" && (
         <div className="fixed inset-0 opacity-20 pointer-events-none">
