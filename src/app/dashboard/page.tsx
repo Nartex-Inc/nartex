@@ -1104,36 +1104,33 @@ const DashboardContent = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {Array.from(visibleRepsForRetention).map((rep) => {
-                    const r = retentionByRep[rep] || { eligible: 0, retained: 0, rate: null };
-                    return r; // satisfy TS
-                  })
+                  {Array.from(visibleRepsForRetention)
+                    .map((rep) => ({
+                      rep,
+                      data: retentionByRep[rep] || { eligible: 0, retained: 0, rate: null }
+                    }))
                     .sort((a, b) => {
-                      const ra = (retentionByRep[a as unknown as string]?.rate ?? -1) as number;
-                      const rb = (retentionByRep[b as unknown as string]?.rate ?? -1) as number;
-                      return retentionSortAsc ? ra - rb : rb - ra;
+                      const aRate = a.data.rate ?? -1;
+                      const bRate = b.data.rate ?? -1;
+                      return retentionSortAsc ? aRate - bRate : bRate - aRate;
                     })
-                    .map((repKey) => {
-                      const rep = repKey as unknown as string;
-                      const r = retentionByRep[rep] || { eligible: 0, retained: 0, rate: null };
-                      return (
-                        <tr
-                          key={rep}
-                          className="border-b transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-                          style={{ borderColor: t.cardBorder, cursor: "pointer" }}
-                          onClick={() => {
-                            setFilters((prev) => ({ ...prev, salesReps: [rep], itemCodes: [], customers: [] }));
-                            setStagedSelectedRep(rep);
-                            setShowRetentionTable(false);
-                          }}
-                        >
-                          <td className="px-6 py-3">{rep}</td>
-                          <td className="px-6 py-3 text-right">{formatNumber(r.eligible)}</td>
-                          <td className="px-6 py-3 text-right">{formatNumber(r.retained)}</td>
-                          <td className="px-6 py-3 text-right">{r.rate === null ? "N/A" : percentage(r.rate)}</td>
-                        </tr>
-                      );
-                    })}
+                    .map(({ rep, data }) => (
+                      <tr
+                        key={rep}
+                        className="border-b transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                        style={{ borderColor: t.cardBorder, cursor: "pointer" }}
+                        onClick={() => {
+                          setFilters((prev) => ({ ...prev, salesReps: [rep], itemCodes: [], customers: [] }));
+                          setStagedSelectedRep(rep);
+                          setShowRetentionTable(false);
+                        }}
+                      >
+                        <td className="px-6 py-3">{rep}</td>
+                        <td className="px-6 py-3 text-right">{formatNumber(data.eligible)}</td>
+                        <td className="px-6 py-3 text-right">{formatNumber(data.retained)}</td>
+                        <td className="px-6 py-3 text-right">{data.rate === null ? "N/A" : percentage(data.rate)}</td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
