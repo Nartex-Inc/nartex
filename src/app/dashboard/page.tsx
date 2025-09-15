@@ -1,7 +1,4 @@
 // src/app/(dashboard)/page.tsx
-/* =============================================================================
-   Dashboard Page (YOY filters + Retention KPI/Modal + New Customers KPI/Modal)
-============================================================================= */
 "use client";
 
 import LoadingAnimation from "@/components/LoadingAnimation";
@@ -71,6 +68,8 @@ type FilterState = {
   itemCodes: string[];
   customers: string[];
 };
+
+type PerfRow = { key: string; prev: number; curr: number; rate: number; delta: number };
 
 const currency = (n: number) =>
   new Intl.NumberFormat("fr-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(n);
@@ -237,6 +236,14 @@ function totalsByRepCustomer(records: SalesRecord[]) {
   }
   return out;
 }
+// generic totals by key
+function totalsByKey<T extends keyof SalesRecord>(records: SalesRecord[], key: T) {
+  return records.reduce((acc, r) => {
+    const k = r[key] as unknown as string;
+    acc[k] = (acc[k] || 0) + r.salesValue;
+    return acc;
+  }, {} as Record<string, number>);
+}
 
 /* =============================================================================
    Simple states
@@ -387,7 +394,7 @@ const DashboardContent = () => {
   const [masterData, setMasterData] = useState<SalesRecord[] | null>(null);
   const [previousYearData, setPreviousYearData] = useState<SalesRecord[] | null>(null);
 
-  // NEW: 7-year historical data (ending the day before the current period starts)
+  // 7-year historical data (ending the day before the current period starts)
   const [history7yData, setHistory7yData] = useState<SalesRecord[] | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -401,6 +408,14 @@ const DashboardContent = () => {
   const [newSortAsc, setNewSortAsc] = useState(false);
   const [newTab, setNewTab] = useState<"list" | "reps">("list");
 
+  // Rep growth modal
+  const [showRepGrowthModal, setShowRepGrowthModal] = useState(false);
+  const [repGrowthTab, setRepGrowthTab] = useState<"growth" | "loss">("growth");
+
+  // Customer growth modal
+  const [showCustomerGrowthModal, setShowCustomerGrowthModal] = useState(false);
+  const [customerGrowthTab, setCustomerGrowthTab] = useState<"growth" | "loss">("growth");
+
   // Previous-period range
   const previousYearDateRange = useMemo(() => {
     const startDate = new Date(activeDateRange.start);
@@ -410,7 +425,7 @@ const DashboardContent = () => {
     return { start: startDate.toISOString().slice(0, 10), end: endDate.toISOString().slice(0, 10) };
   }, [activeDateRange]);
 
-  // NEW: 7-year lookback window (company-wide), ending the day before the current period starts
+  // 7-year lookback window (company-wide), ending the day before the current period starts
   const lookback7y = useMemo(() => {
     const start = new Date(activeDateRange.start);
     const end = new Date(activeDateRange.start);
@@ -440,7 +455,7 @@ const DashboardContent = () => {
         const prevResponse = await fetch(`/api/dashboard-data?startDate=${previousYearDateRange.start}&endDate=${previousYearDateRange.end}`);
         setPreviousYearData(prevResponse.ok ? await prevResponse.json() : []);
 
-        // NEW: 7-year lookback history (company-wide)
+        // 7-year lookback history (company-wide)
         const histResp = await fetch(`/api/dashboard-data?startDate=${lookback7y.start}&endDate=${lookback7y.end}`);
         setHistory7yData(histResp.ok ? await histResp.json() : []);
       } catch (err) {
@@ -454,7 +469,7 @@ const DashboardContent = () => {
 
   const allSalesReps = useMemo(() => (masterData ? Array.from(new Set(masterData.map((d) => d.salesRepName))).sort() : []), [masterData]);
 
-  // YOY class per rep
+  // YOY class per rep (for charts)
   const yoyClassSets = useMemo(() => {
     const currentTotals = totalsByRep(masterData ?? []);
     const prevTotals = totalsByRep(previousYearData ?? []);
@@ -472,36 +487,45 @@ const DashboardContent = () => {
     return { growth, loss };
   }, [masterData, previousYearData]);
 
-  // Filter datasets (includes YOY filter if no specific rep chosen)
+  // ---- Filter helpers
+  const recordPassesBasicFilters = (d: SalesRecord) => {
+    const repSelected = filters.salesReps.length === 0 || filters.salesReps.includes(d.salesRepName);
+    const itemSelected = filters.itemCodes.length === 0 || filters.itemCodes.includes(d.itemCode);
+    const customerSelected = filters.customers.length === 0 || filters.customers.includes(d.customerName);
+    return repSelected && itemSelected && customerSelected;
+  };
+
+  // Filtered datasets (respect YOY segmented filter if no rep selected)
   const filteredData = useMemo(() => {
     if (!masterData) return [];
     return masterData.filter((d) => {
-      const repSelected = filters.salesReps.length === 0 || filters.salesReps.includes(d.salesRepName);
-      const itemSelected = filters.itemCodes.length === 0 || filters.itemCodes.includes(d.itemCode);
-      const customerSelected = filters.customers.length === 0 || filters.customers.includes(d.customerName);
-      let yoyPass = true;
+      if (!recordPassesBasicFilters(d)) return false;
       if (filters.salesReps.length === 0) {
-        if (yoyFilter === "growth") yoyPass = yoyClassSets.growth.has(d.salesRepName);
-        if (yoyFilter === "loss") yoyPass = yoyClassSets.loss.has(d.salesRepName);
+        if (yoyFilter === "growth") return yoyClassSets.growth.has(d.salesRepName);
+        if (yoyFilter === "loss") return yoyClassSets.loss.has(d.salesRepName);
       }
-      return repSelected && itemSelected && customerSelected && yoyPass;
+      return true;
     });
   }, [masterData, filters, yoyFilter, yoyClassSets]);
 
   const filteredPreviousData = useMemo(() => {
     if (!previousYearData) return [];
     return previousYearData.filter((d) => {
-      const repSelected = filters.salesReps.length === 0 || filters.salesReps.includes(d.salesRepName);
-      const itemSelected = filters.itemCodes.length === 0 || filters.itemCodes.includes(d.itemCode);
-      const customerSelected = filters.customers.length === 0 || filters.customers.includes(d.customerName);
-      let yoyPass = true;
+      if (!recordPassesBasicFilters(d)) return false;
       if (filters.salesReps.length === 0) {
-        if (yoyFilter === "growth") yoyPass = yoyClassSets.growth.has(d.salesRepName);
-        if (yoyFilter === "loss") yoyPass = yoyClassSets.loss.has(d.salesRepName);
+        if (yoyFilter === "growth") return yoyClassSets.growth.has(d.salesRepName);
+        if (yoyFilter === "loss") return yoyClassSets.loss.has(d.salesRepName);
       }
-      return repSelected && itemSelected && customerSelected && yoyPass;
+      return true;
     });
   }, [previousYearData, filters, yoyFilter, yoyClassSets]);
+
+  // Filtered datasets but IGNORING the YOY segmented control (for the new % KPIs)
+  const filteredDataNoYoy = useMemo(() => (masterData ? masterData.filter(recordPassesBasicFilters) : []), [masterData, filters]);
+  const filteredPreviousDataNoYoy = useMemo(
+    () => (previousYearData ? previousYearData.filter(recordPassesBasicFilters) : []),
+    [previousYearData, filters]
+  );
 
   useEffect(() => setAnimationKey((prev) => prev + 1), [filteredData]);
 
@@ -645,11 +669,8 @@ const DashboardContent = () => {
   }, [retentionByRep, visibleRepsForRetention]);
 
   // ----- New Customers calculations -----
-  // NEW: Set of ALL customers that bought in the last 7 years (any rep, any item), prior to the current period
-  const prevCustomersSet = useMemo(
-    () => new Set((history7yData ?? []).map((d) => d.customerName)),
-    [history7yData]
-  );
+  // Set of ALL customers that bought at any point in last 7y (any rep)
+  const prevCustomersSet = useMemo(() => new Set((history7yData ?? []).map((d) => d.customerName)), [history7yData]);
 
   // Current period: aggregate per customer and track first order's rep & date
   const currentCustomerAgg = useMemo(() => {
@@ -692,6 +713,57 @@ const DashboardContent = () => {
       .map(([rep, count]) => ({ rep, count }))
       .sort((a, b) => b.count - a.count);
   }, [newCustomersList]);
+
+  // ----- NEW: % in growth KPIs (computed WITHOUT the YOY segmented filter) -----
+  const repsPerf = useMemo(() => {
+    const prev = totalsByKey(filteredPreviousDataNoYoy, "salesRepName");
+    const curr = totalsByKey(filteredDataNoYoy, "salesRepName");
+    const union = new Set<string>([...Object.keys(prev), ...Object.keys(curr)]);
+    const growth: PerfRow[] = [];
+    const loss: PerfRow[] = [];
+    let eligible = 0;
+    union.forEach((rep) => {
+      const p = prev[rep] || 0;
+      const c = curr[rep] || 0;
+      if (p > 0) {
+        eligible += 1;
+        const rate = (c - p) / p;
+        const delta = c - p;
+        if (rate > 0) growth.push({ key: rep, prev: p, curr: c, rate, delta });
+        else if (rate < 0) loss.push({ key: rep, prev: p, curr: c, rate, delta });
+      }
+    });
+    // Sort growth descending, loss ascending
+    growth.sort((a, b) => b.rate - a.rate);
+    loss.sort((a, b) => a.rate - b.rate);
+    const pct = eligible > 0 ? growth.length / eligible : null;
+    return { growth, loss, eligible, pct };
+  }, [filteredDataNoYoy, filteredPreviousDataNoYoy]);
+
+  const customersPerf = useMemo(() => {
+    const prev = totalsByKey(filteredPreviousDataNoYoy, "customerName");
+    const curr = totalsByKey(filteredDataNoYoy, "customerName");
+    const union = new Set<string>([...Object.keys(prev), ...Object.keys(curr)]);
+    const growth: PerfRow[] = [];
+    const loss: PerfRow[] = [];
+    let eligible = 0;
+    union.forEach((cust) => {
+      const p = prev[cust] || 0;
+      const c = curr[cust] || 0;
+      if (p > 0) {
+        eligible += 1;
+        const rate = (c - p) / p;
+        const delta = c - p;
+        if (rate > 0) growth.push({ key: cust, prev: p, curr: c, rate, delta });
+        else if (rate < 0) loss.push({ key: cust, prev: p, curr: c, rate, delta });
+      }
+    });
+    // Sort growth descending, loss ascending
+    growth.sort((a, b) => b.rate - a.rate);
+    loss.sort((a, b) => a.rate - b.rate);
+    const pct = eligible > 0 ? growth.length / eligible : null;
+    return { growth, loss, eligible, pct };
+  }, [filteredDataNoYoy, filteredPreviousDataNoYoy]);
 
   // Guard rails
   if (error) return <ErrorState message={error.message} />;
@@ -853,34 +925,65 @@ const DashboardContent = () => {
 
       {/* KPI rows */}
       <div className="grid grid-cols-12 gap-4">
-        <KpiCard title="Chiffre d'affaires total" icon={<DollarSign className="w-5 h-5" />} gradient="rgba(34,211,238,0.2), rgba(59,130,246,0.2)" className="col-span-12 md:col-span-6 lg:col-span-3" t={t} mode={mode}>
+        <KpiCard title="Chiffre d'affaires total" icon={<DollarSign className="w-5 h-5" />} gradient="rgba(34,211,238,0.2), rgba(59,130,246,0.2)" className="col-span-12 md:col-span-6 lg:col-span-2" t={t} mode={mode}>
           <p className="text-3xl font-bold tracking-tight" style={{ color: t.foreground }}>
             <AnimatedNumber value={totalSales} format={currency} />
           </p>
           {showYOYComparison && previousTotalSales > 0 && <YOYIndicator current={totalSales} previous={previousTotalSales} />}
         </KpiCard>
 
-        <KpiCard title="Nombre de transactions" icon={<Package className="w-5 h-5" />} gradient="rgba(139,92,246,0.2), rgba(147,51,234,0.2)" className="col-span-12 md:col-span-6 lg:col-span-3" t={t} mode={mode}>
+        <KpiCard title="Nombre de transactions" icon={<Package className="w-5 h-5" />} gradient="rgba(139,92,246,0.2), rgba(147,51,234,0.2)" className="col-span-12 md:col-span-6 lg:col-span-2" t={t} mode={mode}>
           <p className="text-3xl font-bold tracking-tight" style={{ color: t.foreground }}>
             <AnimatedNumber value={transactionCount} format={formatNumber} />
           </p>
           {showYOYComparison && previousTransactionCount > 0 && <YOYIndicator current={transactionCount} previous={previousTransactionCount} />}
         </KpiCard>
 
-        <KpiCard title="Valeur moyenne/transaction" icon={<Activity className="w-5 h-5" />} gradient="rgba(16,185,129,0.2), rgba(13,148,136,0.2)" className="col-span-12 md:col-span-6 lg:col-span-3" t={t} mode={mode}>
+        <KpiCard
+          title="% Reps en croissance"
+          icon={<TrendingUp className="w-5 h-5" />}
+          gradient="rgba(16,185,129,0.2), rgba(13,148,136,0.2)"
+          className="col-span-12 md:col-span-6 lg:col-span-2"
+          t={t}
+          mode={mode}
+          onClick={() => setShowRepGrowthModal(true)}
+        >
           <p className="text-3xl font-bold tracking-tight" style={{ color: t.foreground }}>
-            <AnimatedNumber value={averageTransactionValue} format={currency} />
+            {repsPerf.pct === null ? "N/A" : percentage(repsPerf.pct)}
           </p>
-          {showYOYComparison && previousTransactionCount > 0 && (
-            <YOYIndicator current={averageTransactionValue} previous={previousTransactionCount ? previousTotalSales / previousTransactionCount : 0} />
-          )}
+          <p className="text-xs mt-2" style={{ color: t.label }}>
+            {repsPerf.pct === null ? "Aucun rep. éligible" : `${repsPerf.growth.length} sur ${repsPerf.eligible} rep${repsPerf.eligible > 1 ? "s" : ""} éligible${repsPerf.eligible > 1 ? "s" : ""}`}
+          </p>
+          <p className="text-[10px] mt-2 opacity-70" style={{ color: t.label }}>
+            Cliquer pour voir le détail
+          </p>
         </KpiCard>
 
         <KpiCard
-          title="Taux de rétention clients"
+          title="% Clients en croissance"
+          icon={<Users className="w-5 h-5" />}
+          gradient="rgba(34,211,238,0.2), rgba(16,185,129,0.2)"
+          className="col-span-12 md:col-span-6 lg:col-span-2"
+          t={t}
+          mode={mode}
+          onClick={() => setShowCustomerGrowthModal(true)}
+        >
+          <p className="text-3xl font-bold tracking-tight" style={{ color: t.foreground }}>
+            {customersPerf.pct === null ? "N/A" : percentage(customersPerf.pct)}
+          </p>
+          <p className="text-xs mt-2" style={{ color: t.label }}>
+            {customersPerf.pct === null ? "Aucun client éligible" : `${customersPerf.growth.length} sur ${customersPerf.eligible} clients`}
+          </p>
+          <p className="text-[10px] mt-2 opacity-70" style={{ color: t.label }}>
+            Cliquer pour voir le détail
+          </p>
+        </KpiCard>
+
+        <KpiCard
+          title="Taux de rétention"
           icon={<Users className="w-5 h-5" />}
           gradient="rgba(245,158,11,0.2), rgba(234,88,12,0.2)"
-          className="col-span-12 md:col-span-6 lg:col-span-3"
+          className="col-span-12 md:col-span-6 lg:col-span-2"
           t={t}
           mode={mode}
           onClick={() => setShowRetentionTable(true)}
@@ -889,20 +992,18 @@ const DashboardContent = () => {
             {retentionAverage.avg === null ? "N/A" : percentage(retentionAverage.avg)}
           </p>
           <p className="text-xs mt-2" style={{ color: t.label }}>
-            {retentionAverage.avg === null
-              ? "Aucun rep. éligible (≥ 300 $ l'an dernier)"
-              : `Moyenne sur ${retentionAverage.eligibleReps} rep${retentionAverage.eligibleReps > 1 ? "s" : ""} éligible${retentionAverage.eligibleReps > 1 ? "s" : ""}`}
+            {`Moyenne sur ${retentionAverage.eligibleReps} rep${retentionAverage.eligibleReps > 1 ? "s" : ""}`}
           </p>
           <p className="text-[10px] mt-2 opacity-70" style={{ color: t.label }}>
-            Cliquer pour voir le détail par représentant
+            Seuil: {currency(RETENTION_THRESHOLD)}
           </p>
         </KpiCard>
 
         <KpiCard
-          title="Nouveaux clients (≥ 30 $)"
+          title="Nouveaux clients"
           icon={<UserPlus className="w-5 h-5" />}
           gradient="rgba(59,130,246,0.2), rgba(16,185,129,0.2)"
-          className="col-span-12 md:col-span-6 lg:col-span-3"
+          className="col-span-12 md:col-span-6 lg:col-span-2"
           t={t}
           mode={mode}
           onClick={() => setShowNewCustomersModal(true)}
@@ -911,7 +1012,10 @@ const DashboardContent = () => {
             {formatNumber(newCustomersCount)}
           </p>
           <p className="text-xs mt-2" style={{ color: t.label }}>
-            Cliquer pour la liste et la répartition par représentant
+            Dépense ≥ {currency(NEW_CUSTOMER_MIN_SPEND)}
+          </p>
+           <p className="text-[10px] mt-2 opacity-70" style={{ color: t.label }}>
+            Aucun achat depuis 7 ans
           </p>
         </KpiCard>
       </div>
@@ -1094,7 +1198,9 @@ const DashboardContent = () => {
         </ChartCard>
       </div>
 
-      {/* ======================= Retention Modal ======================= */}
+      {/* ======================= Modals Section ======================= */}
+
+      {/* Retention Modal */}
       {showRetentionTable && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" aria-modal="true" role="dialog">
           <div className="absolute inset-0 backdrop-blur-sm" style={{ background: mode === "dark" ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.25)" }} onClick={() => setShowRetentionTable(false)} />
@@ -1170,7 +1276,7 @@ const DashboardContent = () => {
         </div>
       )}
 
-      {/* ======================= New Customers Modal ======================= */}
+      {/* New Customers Modal */}
       {showNewCustomersModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" aria-modal="true" role="dialog">
           <div className="absolute inset-0 backdrop-blur-sm" style={{ background: mode === "dark" ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.25)" }} onClick={() => setShowNewCustomersModal(false)} />
@@ -1187,7 +1293,6 @@ const DashboardContent = () => {
               </button>
             </div>
 
-            {/* Tabs */}
             <div className="flex items-center gap-2 px-6 py-3 border-b" style={{ borderColor: t.cardBorder }}>
               {[
                 { key: "list", label: "Liste des nouveaux clients" },
@@ -1295,7 +1400,7 @@ const DashboardContent = () => {
                       {newCustomersByRep.map((r) => (
                         <tr
                           key={r.rep}
-                          className="border-b hover:bg-black/5 dark:hover:bg白/5 cursor-pointer"
+                          className="border-b hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
                           style={{ borderColor: t.cardBorder }}
                           onClick={() => {
                             setFilters((prev) => ({ ...prev, salesReps: [r.rep], customers: [] }));
@@ -1321,7 +1426,148 @@ const DashboardContent = () => {
           </div>
         </div>
       )}
-      {/* =================== /Modals =================== */}
+
+      {/* Rep Growth/Loss Modal */}
+      {showRepGrowthModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" aria-modal="true" role="dialog">
+          <div className="absolute inset-0 backdrop-blur-sm" style={{ background: mode === "dark" ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.25)" }} onClick={() => setShowRepGrowthModal(false)} />
+          <div className="relative w-full max-w-5xl rounded-2xl border shadow-2xl overflow-hidden" style={{ background: t.card, borderColor: t.cardBorder, color: t.foreground }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: t.cardBorder }}>
+                <h3 className="text-lg font-bold">Performance YOY des représentants</h3>
+              <button onClick={() => setShowRepGrowthModal(false)} className="rounded-lg p-2 hover:opacity-80" aria-label="Fermer">
+                <CloseIcon className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="flex items-center gap-2 px-6 py-3 border-b" style={{ borderColor: t.cardBorder }}>
+                <button
+                  onClick={() => setRepGrowthTab('growth')}
+                  className="px-3 py-1.5 rounded-lg text-sm font-semibold"
+                  style={{
+                    color: repGrowthTab === 'growth' ? "#000" : t.label,
+                    background: repGrowthTab === 'growth' ? "linear-gradient(135deg, rgba(16,185,129,0.3), rgba(34,211,238,0.3))" : t.cardSoft,
+                    border: `1px solid ${t.cardBorder}`,
+                  }}
+                >
+                  Croissance ({repsPerf.growth.length})
+                </button>
+                <button
+                  onClick={() => setRepGrowthTab('loss')}
+                  className="px-3 py-1.5 rounded-lg text-sm font-semibold"
+                  style={{
+                    color: repGrowthTab === 'loss' ? "#000" : t.label,
+                    background: repGrowthTab === 'loss' ? "linear-gradient(135deg, rgba(239,68,68,0.3), rgba(234,179,8,0.25))" : t.cardSoft,
+                    border: `1px solid ${t.cardBorder}`,
+                  }}
+                >
+                  Décroissance ({repsPerf.loss.length})
+                </button>
+            </div>
+
+            <div className="max-h-[70vh] overflow-auto">
+              <table className="min-w-full text-sm">
+                <thead className="sticky top-0 backdrop-blur-xl" style={{ background: t.card }}>
+                  <tr className="border-b" style={{ borderColor: t.cardBorder }}>
+                    <th className="text-left px-6 py-3">Représentant</th>
+                    <th className="text-right px-6 py-3">Ventes N-1</th>
+                    <th className="text-right px-6 py-3">Ventes N</th>
+                    <th className="text-right px-6 py-3">Variation ($)</th>
+                    <th className="text-right px-6 py-3">Variation (%)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(repGrowthTab === 'growth' ? repsPerf.growth : repsPerf.loss).map((row) => (
+                    <tr key={row.key} className="border-b" style={{ borderColor: t.cardBorder }}>
+                      <td className="px-6 py-3">{row.key}</td>
+                      <td className="px-6 py-3 text-right">{currency(row.prev)}</td>
+                      <td className="px-6 py-3 text-right">{currency(row.curr)}</td>
+                      <td className={`px-6 py-3 text-right font-semibold ${row.delta > 0 ? "text-emerald-500" : "text-red-500"}`}>{currency(row.delta)}</td>
+                      <td className={`px-6 py-3 text-right font-semibold ${row.rate > 0 ? "text-emerald-500" : "text-red-500"}`}>{percentage(row.rate)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-center justify-end px-6 py-4 border-t text-xs" style={{ borderColor: t.cardBorder, color: t.label }}>
+              <button onClick={() => setShowRepGrowthModal(false)} className="px-3 py-1.5 rounded-lg border" style={{ borderColor: t.cardBorder }}>
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Customer Growth/Loss Modal */}
+      {showCustomerGrowthModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" aria-modal="true" role="dialog">
+          <div className="absolute inset-0 backdrop-blur-sm" style={{ background: mode === "dark" ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.25)" }} onClick={() => setShowCustomerGrowthModal(false)} />
+          <div className="relative w-full max-w-5xl rounded-2xl border shadow-2xl overflow-hidden" style={{ background: t.card, borderColor: t.cardBorder, color: t.foreground }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: t.cardBorder }}>
+                <h3 className="text-lg font-bold">Performance YOY des clients</h3>
+              <button onClick={() => setShowCustomerGrowthModal(false)} className="rounded-lg p-2 hover:opacity-80" aria-label="Fermer">
+                <CloseIcon className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="flex items-center gap-2 px-6 py-3 border-b" style={{ borderColor: t.cardBorder }}>
+                <button
+                  onClick={() => setCustomerGrowthTab('growth')}
+                  className="px-3 py-1.5 rounded-lg text-sm font-semibold"
+                  style={{
+                    color: customerGrowthTab === 'growth' ? "#000" : t.label,
+                    background: customerGrowthTab === 'growth' ? "linear-gradient(135deg, rgba(16,185,129,0.3), rgba(34,211,238,0.3))" : t.cardSoft,
+                    border: `1px solid ${t.cardBorder}`,
+                  }}
+                >
+                  Croissance ({customersPerf.growth.length})
+                </button>
+                <button
+                  onClick={() => setCustomerGrowthTab('loss')}
+                  className="px-3 py-1.5 rounded-lg text-sm font-semibold"
+                  style={{
+                    color: customerGrowthTab === 'loss' ? "#000" : t.label,
+                    background: customerGrowthTab === 'loss' ? "linear-gradient(135deg, rgba(239,68,68,0.3), rgba(234,179,8,0.25))" : t.cardSoft,
+                    border: `1px solid ${t.cardBorder}`,
+                  }}
+                >
+                  Décroissance ({customersPerf.loss.length})
+                </button>
+            </div>
+
+            <div className="max-h-[70vh] overflow-auto">
+              <table className="min-w-full text-sm">
+                <thead className="sticky top-0 backdrop-blur-xl" style={{ background: t.card }}>
+                  <tr className="border-b" style={{ borderColor: t.cardBorder }}>
+                    <th className="text-left px-6 py-3">Client</th>
+                    <th className="text-right px-6 py-3">Ventes N-1</th>
+                    <th className="text-right px-6 py-3">Ventes N</th>
+                    <th className="text-right px-6 py-3">Variation ($)</th>
+                    <th className="text-right px-6 py-3">Variation (%)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                   {(customerGrowthTab === 'growth' ? customersPerf.growth : customersPerf.loss).map((row) => (
+                    <tr key={row.key} className="border-b" style={{ borderColor: t.cardBorder }}>
+                      <td className="px-6 py-3">{row.key}</td>
+                      <td className="px-6 py-3 text-right">{currency(row.prev)}</td>
+                      <td className="px-6 py-3 text-right">{currency(row.curr)}</td>
+                      <td className={`px-6 py-3 text-right font-semibold ${row.delta > 0 ? "text-emerald-500" : "text-red-500"}`}>{currency(row.delta)}</td>
+                      <td className={`px-6 py-3 text-right font-semibold ${row.rate > 0 ? "text-emerald-500" : "text-red-500"}`}>{percentage(row.rate)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-center justify-end px-6 py-4 border-t text-xs" style={{ borderColor: t.cardBorder, color: t.label }}>
+              <button onClick={() => setShowCustomerGrowthModal(false)} className="px-3 py-1.5 rounded-lg border" style={{ borderColor: t.cardBorder }}>
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =================== /Modals Section =================== */}
     </div>
   );
 };
