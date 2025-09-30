@@ -104,9 +104,9 @@ type PermSpec =
 /* =============================================================================
    Data helpers
 ============================================================================= */
-// Diacritic-insensitive highlight of `q` inside `text`
-const highlightName = React.useCallback((text: string, q: string) => {
-  const query = q.trim();
+// PURE helper (no hooks!) to highlight query within text (diacritic-insensitive)
+function highlightName(text: string, q: string): React.ReactNode {
+  const query = q?.trim();
   if (!query) return text;
 
   const strip = (s: string) =>
@@ -135,12 +135,12 @@ const highlightName = React.useCallback((text: string, q: string) => {
     const slice = text.slice(origStart, origEnd);
     parts.push(
       mark ? (
-        <span
+        <mark
           key={`${origStart}-${origEnd}-hl`}
           className="bg-yellow-200/70 dark:bg-yellow-600/40 rounded px-0.5"
         >
           {slice}
-        </span>
+        </mark>
       ) : (
         <React.Fragment key={`${origStart}-${origEnd}`}>{slice}</React.Fragment>
       )
@@ -158,7 +158,7 @@ const highlightName = React.useCallback((text: string, q: string) => {
     pos = hit + needle.length;
   }
   return parts;
-}, []);
+}
 
 const fetcher = (url: string) =>
   fetch(url).then((r) => {
@@ -324,9 +324,7 @@ function SharePointStructure() {
     };
 
     const prunedRoot =
-      clone(root) ??
-      // Keep an empty root if no matches to avoid null guards downstream
-      { ...root, children: [] };
+      clone(root) ?? { ...root, children: [] };
 
     // Ensure the virtual root is expanded so top-level results are visible
     expandIds.add("root");
@@ -348,7 +346,6 @@ function SharePointStructure() {
     if (query.trim()) {
       setExpanded(new Set(expandIds));
     }
-    // When query is cleared, we keep the user's current expanded state (no-op)
   }, [tree, query, expandIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep 'selected' bound to the latest node instance after SWR updates
@@ -773,7 +770,7 @@ function SharePointStructure() {
             {/* SEARCH BAR */}
             <label className="relative block">
               <input
-                type="search"
+                type="text" /* avoid native WebKit clear button (no double X) */
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Rechercher un dossier…"
@@ -782,6 +779,7 @@ function SharePointStructure() {
                            focus:outline-none focus:ring-2 focus:ring-blue-500/40
                            dark:border-white/10 dark:bg-white/[0.02] dark:text-gray-200
                            dark:placeholder:text-gray-500"
+                aria-label="Recherche"
               />
               {query && (
                 <button
@@ -792,6 +790,7 @@ function SharePointStructure() {
                   aria-label="Effacer la recherche"
                   title="Effacer"
                 >
+                  <X className="h-4 w-4" />
                 </button>
               )}
             </label>
