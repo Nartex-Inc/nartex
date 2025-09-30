@@ -395,7 +395,7 @@ const DashboardContent = () => {
   const [previousYearData, setPreviousYearData] = useState<SalesRecord[] | null>(null);
 
   // 7-year historical data (ending the day before the current period starts)
-  const [history7yData, setHistory7yData] = useState<SalesRecord[] | null>(null);
+  const [history3yData, setHistory3yData] = useState<SalesRecord[] | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -426,10 +426,10 @@ const DashboardContent = () => {
   }, [activeDateRange]);
 
   // 7-year lookback window (company-wide), ending the day before the current period starts
-  const lookback7y = useMemo(() => {
+  const lookback3y = useMemo(() => {
     const start = new Date(activeDateRange.start);
     const end = new Date(activeDateRange.start);
-    start.setFullYear(start.getFullYear() - 7);
+    start.setFullYear(start.getFullYear() - 3);
     end.setDate(end.getDate() - 1); // exclude the current period
     return {
       start: start.toISOString().slice(0, 10),
@@ -456,8 +456,8 @@ const DashboardContent = () => {
         setPreviousYearData(prevResponse.ok ? await prevResponse.json() : []);
 
         // 7-year lookback history (company-wide)
-        const histResp = await fetch(`/api/dashboard-data?startDate=${lookback7y.start}&endDate=${lookback7y.end}`);
-        setHistory7yData(histResp.ok ? await histResp.json() : []);
+        const histResp = await fetch(`/api/dashboard-data?startDate=${lookback3y.start}&endDate=${lookback3y.end}`);
+        setHistory3yData(histResp.ok ? await histResp.json() : []);
       } catch (err) {
         setError(err as Error);
       } finally {
@@ -465,7 +465,7 @@ const DashboardContent = () => {
       }
     };
     fetchData();
-  }, [activeDateRange, previousYearDateRange, lookback7y]);
+  }, [activeDateRange, previousYearDateRange, lookback3y]);
 
   const allSalesReps = useMemo(() => (masterData ? Array.from(new Set(masterData.map((d) => d.salesRepName))).sort() : []), [masterData]);
 
@@ -669,8 +669,8 @@ const DashboardContent = () => {
   }, [retentionByRep, visibleRepsForRetention]);
 
   // ----- New Customers calculations -----
-  // Set of ALL customers that bought at any point in last 7y (any rep)
-  const prevCustomersSet = useMemo(() => new Set((history7yData ?? []).map((d) => d.customerName)), [history7yData]);
+  // Set of ALL customers that bought at any point in last 3y (any rep)
+  const prevCustomersSet = useMemo(() => new Set((history3yData ?? []).map((d) => d.customerName)), [history3yData]);
 
   // Current period: aggregate per customer and track first order's rep & date
   const currentCustomerAgg = useMemo(() => {
