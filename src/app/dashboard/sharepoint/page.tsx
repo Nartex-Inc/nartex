@@ -229,7 +229,71 @@ function SharePointStructure() {
   const [creatingInId, setCreatingInId] = React.useState<string | null>(null);
   const [newFolderName, setNewFolderName] = React.useState("");
 
+  // -------------------------- SEARCH BAR STATE & LOGIC -----------------------
+  const [query, setQuery] = React.useState("");
+
+  // Strip accents & lowercase for diacritic-insensitive matching
+  const _strip = (s: string) =>
+    s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+
+  /**
+   * Returns a pruned copy of the tree that keeps:
+   * - nodes whose name matches `needle`, and
+   * - all ancestors of those nodes (for context).
+   * Also returns a set of ids to expand so the matches are visible.
+   */
+  function pruneTreeForQuery(
+    root: NodeItem,
+    needleRaw: string
+  ): { pruned: NodeItem; expandIds: Set<string> } {
+    const needle = _strip(needleRaw.trim());
+    if (!needle) return { pruned: root, expandIds: new Set() };
+
+    const expandIds = new Set<string>();
+
+    const clone = (node: NodeItem): NodeItem | null => {
+      const nameMatch = _strip(node.name).includes(needle);
+      const keptChildren: NodeItem[] = [];
+
+      for (const c of node.children ?? []) {
+        const kept = clone(c);
+        if (kept) keptChildren.push(kept);
+      }
+
+      if (nameMatch || keptChildren.length > 0) {
+        if (keptChildren.length > 0) expandIds.add(node.id);
+        return { ...node, children: keptChildren };
+      }
+      return null;
+    };
+
+    const prunedRoot =
+      clone(root) ??
+      // Keep an empty root if no matches to avoid null guards downstream
+      { ...root, children: [] };
+
+    // Ensure the virtual root is expanded so top-level results are visible
+    expandIds.add("root");
+    return { pruned: prunedRoot, expandIds };
+  }
+  // --------------------------------------------------------------------------
+
   const tree = React.useMemo(() => (data ? buildTree(data) : null), [data]);
+
+  // Derived filtered tree for the current query
+  const { pruned: filteredTree, expandIds } = React.useMemo(() => {
+    if (!tree) return { pruned: null as unknown as NodeItem, expandIds: new Set<string>() };
+    return pruneTreeForQuery(tree, query);
+  }, [tree, query]);
+
+  // Auto-expand relevant branches while a query is active
+  React.useEffect(() => {
+    if (!tree) return;
+    if (query.trim()) {
+      setExpanded(new Set(expandIds));
+    }
+    // When query is cleared, we keep the user's current expanded state (no-op)
+  }, [tree, query, expandIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep 'selected' bound to the latest node instance after SWR updates
   React.useEffect(() => {
@@ -648,14 +712,44 @@ function SharePointStructure() {
           <h1 className="text-3xl font-bold tracking-tight">
             Structure SharePoint<span className="text-blue-600 dark:text-blue-500">.</span>
           </h1>
-          <button
-            className="rounded-lg px-3 py-1.5 text-sm font-medium
-            border border-slate-200 bg-white text-slate-700 hover:bg-slate-50
-            dark:border-white/10 dark:bg-white/[0.02] dark:text-gray-300 dark:hover:bg-white/[0.05] transition-colors"
-            onClick={() => startCreating("root")}
-          >
-            Ajouter un dossier racine
-          </button>
+
+          <div className="flex items-center gap-3">
+            {/* SEARCH BAR */}
+            <label className="relative block">
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Rechercher un dossier…"
+                className="w-64 md:w-80 rounded-lg border px-3 py-1.5 text-sm
+                           border-slate-200 bg-white text-slate-700 placeholder:text-slate-400
+                           focus:outline-none focus:ring-2 focus:ring-blue-500/40
+                           dark:border-white/10 dark:bg-white/[0.02] dark:text-gray-200
+                           dark:placeholder:text-gray-500"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400
+                             hover:text-slate-600 dark:hover:text-gray-300"
+                  aria-label="Effacer la recherche"
+                  title="Effacer"
+                >
+                  ×
+                </button>
+              )}
+            </label>
+
+            <button
+              className="rounded-lg px-3 py-1.5 text-sm font-medium
+              border border-slate-200 bg-white text-slate-700 hover:bg-slate-50
+              dark:border-white/10 dark:bg-white/[0.02] dark:text-gray-300 dark:hover:bg-white/[0.05] transition-colors"
+              onClick={() => startCreating("root")}
+            >
+              Ajouter un dossier racine
+            </button>
+          </div>
         </div>
       </div>
 
@@ -700,7 +794,9 @@ function SharePointStructure() {
                 </div>
               )}
 
-              {tree.children?.map((c) => renderNode(c, 0))}
+              {(query.trim() ? filteredTree?.children : tree.children)?.map((c: NodeItem) =>
+                renderNode(c, 0)
+              )}
             </div>
           </Card>
         </div>
