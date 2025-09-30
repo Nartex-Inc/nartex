@@ -736,7 +736,6 @@ function SharePointStructure() {
                   aria-label="Effacer la recherche"
                   title="Effacer"
                 >
-                  ×
                 </button>
               )}
             </label>
