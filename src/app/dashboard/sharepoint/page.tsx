@@ -104,6 +104,62 @@ type PermSpec =
 /* =============================================================================
    Data helpers
 ============================================================================= */
+// Diacritic-insensitive highlight of `q` inside `text`
+const highlightName = React.useCallback((text: string, q: string) => {
+  const query = q.trim();
+  if (!query) return text;
+
+  const strip = (s: string) =>
+    s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+
+  // Build a map from "stripped" indices back to original indices
+  const map: number[] = [];
+  const strippedChars: string[] = [];
+  for (let i = 0; i < text.length; i++) {
+    const base = text[i].normalize("NFD").replace(/\p{Diacritic}/gu, "");
+    for (let j = 0; j < base.length; j++) {
+      strippedChars.push(base[j]);
+      map.push(i);
+    }
+  }
+  const stripped = strippedChars.join("").toLowerCase();
+  const needle = strip(query);
+  if (!needle) return text;
+
+  let pos = 0;
+  const parts: React.ReactNode[] = [];
+  const pushSlice = (from: number, to: number, mark = false) => {
+    if (from >= to) return;
+    const origStart = map[from];
+    const origEnd = map[to - 1] + 1; // exclusive
+    const slice = text.slice(origStart, origEnd);
+    parts.push(
+      mark ? (
+        <span
+          key={`${origStart}-${origEnd}-hl`}
+          className="bg-yellow-200/70 dark:bg-yellow-600/40 rounded px-0.5"
+        >
+          {slice}
+        </span>
+      ) : (
+        <React.Fragment key={`${origStart}-${origEnd}`}>{slice}</React.Fragment>
+      )
+    );
+  };
+
+  while (true) {
+    const hit = stripped.indexOf(needle, pos);
+    if (hit === -1) {
+      pushSlice(pos, stripped.length, false);
+      break;
+    }
+    pushSlice(pos, hit, false);
+    pushSlice(hit, hit + needle.length, true);
+    pos = hit + needle.length;
+  }
+  return parts;
+}, []);
+
 const fetcher = (url: string) =>
   fetch(url).then((r) => {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -593,7 +649,7 @@ function SharePointStructure() {
               ].join(" ")}
               onDoubleClick={() => node.id !== "root" && startRenaming(node)}
             >
-              {node.name}
+              {highlightName(node.name, query)}
               {node.restricted && (
                 <Lock className="h-3 w-3 text-amber-500 dark:text-amber-400" />
               )}
