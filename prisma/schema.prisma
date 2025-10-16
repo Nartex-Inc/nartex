@@ -167,6 +167,7 @@ model Tenant {
   users           UserTenant[]
   projects        Project[]
   sharePointNodes SharePointNode[]
+  deptRoles       UserDepartmentRole[]
 
   @@map("tenants")
 }
