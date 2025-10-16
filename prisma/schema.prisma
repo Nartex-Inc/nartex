@@ -92,6 +92,23 @@ model User {
   @@map("users")
 }
 
+model UserDepartmentRole {
+  // Composite PK ensures one row per (user, tenant, department)
+  userId     String
+  tenantId   String
+  department Department
+  role       DepartmentRole  // reader | editor | admin
+  createdAt  DateTime        @default(now())
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([userId, tenantId, department])
+  @@index([tenantId, department, role])
+  @@map("user_department_roles")
+}
+
 model Account {
   id                String  @id @default(cuid())
   userId            String  @map("user_id")
