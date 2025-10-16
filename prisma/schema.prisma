@@ -159,29 +159,25 @@ model Project {
 }
 
 model SharePointNode {
-  id           String   @id @default(cuid())
+  id           String      @id @default(cuid())
   tenantId     String
+  department   Department  
   parentId     String?
   name         String
-  type         String   @default("folder")
+  type         String      @default("folder")
   icon         String?
-
-  restricted   Boolean  @default(false)
-  highSecurity Boolean  @default(false)
-
-  // Arrays (never null); empty arrays mean “inherit”
-  editGroups   String[] @default([])
-  readGroups   String[] @default([])
-
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  restricted   Boolean     @default(false)
+  highSecurity Boolean     @default(false)
+  editGroups   String[]    @default([])
+  readGroups   String[]    @default([])
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
   tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   parent   SharePointNode?  @relation("SPChildren", fields: [parentId], references: [id], onDelete: Cascade)
   children SharePointNode[] @relation("SPChildren")
 
-  @@index([tenantId])
-  @@index([tenantId, parentId])
+  @@index([tenantId, department, parentId])
   @@map("sharepoint_nodes")
 }
 
