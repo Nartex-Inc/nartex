@@ -13,6 +13,27 @@ datasource db {
 // 0) ENUMS
 ////////////////////////////////////////////////////////////////////////////////
 
+// Which business unit a node/user permission applies to
+enum Department {
+  RD
+  CFO
+  RH
+  VENTES
+  MARKETING
+  OPERATIONS
+  ADMIN_FINANCE
+  TI
+  PUBLIC
+  DIRECTION          // (a.k.a. comité de direction)
+}
+
+// Department-scoped role
+enum DepartmentRole {
+  reader
+  editor
+  admin
+}
+
 enum ProductLifecycleStage {
   DEMANDE_IDEATION
   EVALUATION_COUT_POTENTIEL
