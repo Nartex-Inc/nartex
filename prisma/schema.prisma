@@ -21,7 +21,7 @@ enum Department {
   VENTES
   MARKETING
   OPERATIONS
-  ADMIN_FINANCE
+  ADMIN-FINANCE
   TI
   PUBLIC
   DIRECTION          // (a.k.a. comité de direction)
