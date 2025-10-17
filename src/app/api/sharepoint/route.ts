@@ -3,6 +3,11 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import prisma from "@/lib/prisma";
+import { Department } from "@prisma/client"; // <<— Prisma enum
+
+// 🔒 This route is the ADMIN_FINANCE tree.
+// Change this constant if this endpoint should serve another department.
+const DEPT = Department.ADMIN_FINANCE;
 
 const EDITOR_ROLES = new Set(
   ["ceo", "admin", "ventes-exec", "ti-exec", "direction-exec"].map((s) =>
@@ -13,10 +18,8 @@ const EDITOR_ROLES = new Set(
 // NEW: reader role set (explicitly includes "principal")
 const READER_ROLES = new Set(["principal"].map((s) => s.toLowerCase()));
 
-// (optional) helpers for future checks
 const isEditor = (role: string) => EDITOR_ROLES.has(role.toLowerCase());
-const isReader = (role: string) =>
-  isEditor(role) || READER_ROLES.has(role.toLowerCase());
+const isReader = (role: string) => isEditor(role) || READER_ROLES.has(role.toLowerCase());
 
 type Authed = { userId: string; role: string; tenantId: string };
 
@@ -27,15 +30,13 @@ async function loadAuth(): Promise<Authed | { error: NextResponse }> {
 
   if (!userId && email) {
     const u = await prisma.user.findFirst({
-      where: { email: email },
+      where: { email },
       select: { id: true },
     });
     userId = u?.id;
   }
   if (!userId) {
-    return {
-      error: NextResponse.json({ error: "Not authenticated" }, { status: 401 }),
-    };
+    return { error: NextResponse.json({ error: "Not authenticated" }, { status: 401 }) };
   }
 
   const user = await prisma.user.findUnique({
@@ -50,10 +51,7 @@ async function loadAuth(): Promise<Authed | { error: NextResponse }> {
   });
   if (!ut) {
     return {
-      error: NextResponse.json(
-        { error: "Tenant not found for user" },
-        { status: 404 }
-      ),
+      error: NextResponse.json({ error: "Tenant not found for user" }, { status: 404 }),
     };
   }
 
@@ -64,45 +62,35 @@ async function requireEditor(): Promise<Authed | { error: NextResponse }> {
   const a = await loadAuth();
   if ("error" in a) return a;
 
-  // The role check is bypassed for now to allow all users.
+  // Bypass role enforcement for now (keep comment to re-enable later)
   /*
   if (!isEditor(a.role)) {
-    return {
-      error: NextResponse.json(
-        { error: `Forbidden: role '${a.role}'` },
-        { status: 403 }
-      ),
-    };
+    return { error: NextResponse.json({ error: `Forbidden: role '${a.role}'` }, { status: 403 }) };
   }
   */
-
   return a;
 }
 
-/** GET /api/sharepoint */
+/** GET /api/sharepoint  — returns ONLY nodes in DEPT */
 export async function GET() {
   const a = await loadAuth();
   if ("error" in a) return a.error;
 
-  // OPTIONAL: if/when you want to gate read access by role,
-  // uncomment this block to allow only readers or editors:
+  // Optional read gating
   /*
   if (!isReader(a.role)) {
-    return NextResponse.json(
-      { error: `Forbidden: role '${a.role}'` },
-      { status: 403 }
-    );
+    return NextResponse.json({ error: `Forbidden: role '${a.role}'` }, { status: 403 });
   }
   */
 
   const nodes = await prisma.sharePointNode.findMany({
-    where: { tenantId: a.tenantId },
+    where: { tenantId: a.tenantId, department: DEPT }, // << scope to department
     orderBy: [{ parentId: "asc" }, { name: "asc" }],
   });
   return NextResponse.json(nodes);
 }
 
-/** POST /api/sharepoint */
+/** POST /api/sharepoint  — creates a node in DEPT only */
 export async function POST(req: Request) {
   const a = await requireEditor();
   if ("error" in a) return a.error;
@@ -130,14 +118,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
   }
 
+  // Parent must exist in the SAME tenant AND department
   if (parentId) {
     const parent = await prisma.sharePointNode.findFirst({
-      where: { id: parentId, tenantId: a.tenantId },
+      where: { id: parentId, tenantId: a.tenantId, department: DEPT }, // << enforce dept
       select: { id: true },
     });
     if (!parent) {
       return NextResponse.json(
-        { error: "Parent not found in tenant" },
+        { error: "Parent not found in this department" },
         { status: 400 }
       );
     }
@@ -156,16 +145,10 @@ export async function POST(req: Request) {
     readGroups = [];
   } else {
     if (permissions.edit && !Array.isArray(permissions.edit)) {
-      return NextResponse.json(
-        { error: "permissions.edit must be an array" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "permissions.edit must be an array" }, { status: 400 });
     }
     if (permissions.read && !Array.isArray(permissions.read)) {
-      return NextResponse.json(
-        { error: "permissions.read must be an array" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "permissions.read must be an array" }, { status: 400 });
     }
     editGroups = sanitize(permissions.edit ?? []);
     readGroups = sanitize(permissions.read ?? []);
@@ -183,6 +166,7 @@ export async function POST(req: Request) {
       name: name.trim(),
       parentId: parentId ?? null,
       tenantId: a.tenantId,
+      department: DEPT,   // << REQUIRED by schema
       type,
       icon,
       restricted,
