@@ -21,7 +21,7 @@ enum Department {
   VENTES
   MARKETING
   OPERATIONS
-  ADMIN-FINANCE
+  ADMIN_FINANCE
   TI
   PUBLIC
   DIRECTION          // (a.k.a. comité de direction)
@@ -201,7 +201,7 @@ model Project {
 model SharePointNode {
   id           String      @id @default(cuid())
   tenantId     String
-  department   Department  @default(ADMIN-FINANCE) // if user was not assigned a department, then it defaults back to ADMIN-FINANCE
+  department   Department  @default(ADMIN_FINANCE) // if user was not assigned a department, then it defaults back to ADMIN-FINANCE
   parentId     String?
   name         String
   type         String      @default("folder")
