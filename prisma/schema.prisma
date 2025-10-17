@@ -201,7 +201,7 @@ model Project {
 model SharePointNode {
   id           String      @id @default(cuid())
   tenantId     String
-  department   Department  
+  department   Department  @default(ADMIN-FINANCE) // if user was not assigned a department, then it defaults back to ADMIN-FINANCE
   parentId     String?
   name         String
   type         String      @default("folder")
