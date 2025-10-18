@@ -47,7 +47,8 @@
 
   /* === Premium glass / gradient tokens === */
   --app-bg: hsl(210 40% 98%);
-  --glass: hsl(0 0% 100% / 0.66);
+  --glass: hsl(0 0% 100% / 0.78); /* slightly more opaque */
+  --glass-blur: 18px; /* was effectively 12px */
   --hairline: hsl(210 18% 90% / 0.85);
 
   /* Accent gradient (blue → purple) */
@@ -94,7 +95,8 @@
 
   /* === Premium dark tokens === */
   --app-bg: hsl(222 47% 5%);
-  --glass: hsl(220 15% 10% / 0.6);
+  --glass: hsl(220 15% 10% / 0.72); /* slightly more opaque */
+  --glass-blur: 20px; /* a hair more blur in dark for depth */
   --hairline: hsl(220 14% 20% / 0.7);
   --shadow: 0 0% 0% / 0.64;
   --ring-oklab: 210 100% 64%;
@@ -139,12 +141,10 @@
    Utilities (Tailwind-friendly custom classes)
    ────────────────────────────────────────────────────────────── */
 @layer utilities {
-  .bg-app { background: var(--app-bg); }
-
   .glass {
     background: var(--glass);
-    -webkit-backdrop-filter: blur(12px);
-    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
   }
 
   .hairline { border-color: var(--hairline); }
