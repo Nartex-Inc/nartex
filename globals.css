@@ -8,7 +8,7 @@
 /* ──────────────────────────────────────────────────────────────
    Design tokens
    - Includes shadcn base tokens (background/foreground/etc.)
-   - Adds premium glass/gradient variables
+   - Adds premium glass/gradient variables + background image
    ────────────────────────────────────────────────────────────── */
 :root {
   /* === App layout === */
@@ -47,8 +47,8 @@
 
   /* === Premium glass / gradient tokens === */
   --app-bg: hsl(210 40% 98%);
-  --glass: hsl(0 0% 100% / 0.78); /* slightly more opaque */
-  --glass-blur: 18px; /* was effectively 12px */
+  --glass: hsl(0 0% 100% / 0.78);      /* slightly more opaque */
+  --glass-blur: 18px;                   /* stronger blur than default */
   --hairline: hsl(210 18% 90% / 0.85);
 
   /* Accent gradient (blue → purple) */
@@ -62,6 +62,14 @@
 
   /* Focus ring tuned for glass */
   --ring-oklab: 222 84% 56%;
+
+  /* === Background image + ambient overlays for glassmorphism ===
+     Place your asset in public/bg/, e.g. /bg/nartex-bg.webp          */
+  --bg-img: url("/bg/nartex-bg.webp");
+  --bg-overlay:
+    radial-gradient(1200px 600px at 50% -200px, hsl(223 90% 18% / .22), transparent 65%),
+    radial-gradient(900px 420px at 85% 10%,  hsl(271 84% 35% / .20), transparent 65%),
+    radial-gradient(900px 420px at 10% 20%,  hsl(198 85% 32% / .16), transparent 65%);
 }
 
 .dark {
@@ -95,11 +103,18 @@
 
   /* === Premium dark tokens === */
   --app-bg: hsl(222 47% 5%);
-  --glass: hsl(220 15% 10% / 0.72); /* slightly more opaque */
-  --glass-blur: 20px; /* a hair more blur in dark for depth */
+  --glass: hsl(220 15% 10% / 0.72);     /* slightly more opaque */
+  --glass-blur: 20px;                    /* a hair more blur in dark for depth */
   --hairline: hsl(220 14% 20% / 0.7);
   --shadow: 0 0% 0% / 0.64;
   --ring-oklab: 210 100% 64%;
+
+  /* Dark-tuned ambient overlays (keeps panels legible) */
+  --bg-img: url("/bg/nartex-bg.webp"); /* swap to darker variant if you have one */
+  --bg-overlay:
+    radial-gradient(1200px 600px at 50% -220px, hsl(223 90% 18% / .35), transparent 65%),
+    radial-gradient(900px 420px at 85% 10%,  hsl(271 84% 35% / .28), transparent 65%),
+    radial-gradient(900px 420px at 10% 20%,  hsl(198 85% 32% / .22), transparent 65%);
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -114,7 +129,16 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    background: var(--app-bg); /* premium subtle paper */
+    /* Layered background: subtle paper → ambient gradients → your image.
+       Fixed attachment gives a slight parallax under glass surfaces. */
+    background:
+      var(--app-bg),
+      var(--bg-overlay),
+      var(--bg-img);
+    background-repeat: no-repeat, no-repeat, no-repeat;
+    background-position: center top, center top, center center;
+    background-size: auto, cover, cover;
+    background-attachment: fixed, fixed, fixed;
   }
 
   /* Text selection tuned to primary */
@@ -122,6 +146,11 @@
     background: hsl(var(--primary) / 0.18);
     color: hsl(var(--primary));
   }
+}
+
+/* Accessibility / data-saver fallbacks */
+@media (prefers-reduced-transparency: reduce), (prefers-reduced-data: reduce) {
+  body { background: var(--app-bg); }
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -141,6 +170,8 @@
    Utilities (Tailwind-friendly custom classes)
    ────────────────────────────────────────────────────────────── */
 @layer utilities {
+  .bg-app { background: var(--app-bg); }
+
   .glass {
     background: var(--glass);
     -webkit-backdrop-filter: blur(var(--glass-blur));
