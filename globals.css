@@ -7,8 +7,9 @@
 
 /* ──────────────────────────────────────────────────────────────
    Design tokens
-   - Includes shadcn base tokens (background/foreground/etc.)
-   - Adds premium glass/gradient variables + background image
+   - shadcn base tokens
+   - premium glass/gradient system
+   - global background image + overlays
    ────────────────────────────────────────────────────────────── */
 :root {
   /* === App layout === */
@@ -47,24 +48,23 @@
 
   /* === Premium glass / gradient tokens === */
   --app-bg: hsl(210 40% 98%);
-  --glass: hsl(0 0% 100% / 0.78);      /* slightly more opaque */
-  --glass-blur: 18px;                   /* stronger blur than default */
+  --glass: hsl(0 0% 100% / 0.82); /* more opaque */
+  --glass-blur: 22px;              /* blurrier glass */
   --hairline: hsl(210 18% 90% / 0.85);
 
   /* Accent gradient (blue → purple) */
   --grad-1: 217 91% 60%;
   --grad-2: 271 81% 56%;
-  /* Use as background-image: var(--grad) */
   --grad: linear-gradient(135deg, hsl(var(--grad-1)) 0%, hsl(var(--grad-2)) 100%);
 
   /* Shadows / elevation */
-  --shadow: 222 47% 11% / 0.32; /* hsl with alpha for box-shadow mixes */
+  --shadow: 222 47% 11% / 0.32;
 
   /* Focus ring tuned for glass */
   --ring-oklab: 222 84% 56%;
 
   /* === Background image + ambient overlays for glassmorphism ===
-     Place your asset in public/bg/, e.g. /bg/nartex-bg.webp          */
+     Place your asset at public/bg/nartex-bg.webp (or change path). */
   --bg-img: url("/bg/nartex-bg.webp");
   --bg-overlay:
     radial-gradient(1200px 600px at 50% -200px, hsl(223 90% 18% / .22), transparent 65%),
@@ -103,14 +103,14 @@
 
   /* === Premium dark tokens === */
   --app-bg: hsl(222 47% 5%);
-  --glass: hsl(220 15% 10% / 0.72);     /* slightly more opaque */
-  --glass-blur: 20px;                    /* a hair more blur in dark for depth */
+  --glass: hsl(220 15% 10% / 0.78); /* more opaque */
+  --glass-blur: 24px;               /* a bit more blur in dark */
   --hairline: hsl(220 14% 20% / 0.7);
   --shadow: 0 0% 0% / 0.64;
   --ring-oklab: 210 100% 64%;
 
-  /* Dark-tuned ambient overlays (keeps panels legible) */
-  --bg-img: url("/bg/nartex-bg.webp"); /* swap to darker variant if you have one */
+  /* Dark-tuned ambient overlays */
+  --bg-img: url("/bg/nartex-bg.webp"); /* swap to a dark variant if you have one */
   --bg-overlay:
     radial-gradient(1200px 600px at 50% -220px, hsl(223 90% 18% / .35), transparent 65%),
     radial-gradient(900px 420px at 85% 10%,  hsl(271 84% 35% / .28), transparent 65%),
@@ -121,23 +121,21 @@
    Base resets & theming hookup
    ────────────────────────────────────────────────────────────── */
 @layer base {
-  * {
-    @apply border-border;
-  }
-  html, body {
-    min-height: 100%;
-  }
+  * { @apply border-border; }
+  html, body { min-height: 100%; }
+
   body {
     @apply bg-background text-foreground antialiased;
-    /* Layered background: subtle paper → ambient gradients → your image.
-       Fixed attachment gives a slight parallax under glass surfaces. */
+
+    /* TOP → BOTTOM: overlay, image, color (image now visible) */
     background:
-      var(--app-bg),
       var(--bg-overlay),
-      var(--bg-img);
+      var(--bg-img),
+      var(--app-bg);
+
     background-repeat: no-repeat, no-repeat, no-repeat;
-    background-position: center top, center top, center center;
-    background-size: auto, cover, cover;
+    background-position: center top, center center, center;
+    background-size: cover, cover, auto;
     background-attachment: fixed, fixed, fixed;
   }
 
