@@ -19,7 +19,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} min-h-screen bg-background text-foreground`}>
+      <body className={`${inter.className} min-h-screen bg-app text-foreground selection:bg-primary/20 selection:text-primary`}>
         {/* Mount next-themes at the root so it can toggle <html>. */}
         <ThemeProvider
           attribute="class"           // Tailwind expects the 'dark' class
