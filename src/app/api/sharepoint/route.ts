@@ -84,7 +84,7 @@ export async function GET() {
   */
 
   const nodes = await prisma.sharePointNode.findMany({
-    where: { tenantId: a.tenantId, department: DEPT }, // << scope to department
+    where: { tenantId: a.tenantId },
     orderBy: [{ parentId: "asc" }, { name: "asc" }],
   });
   return NextResponse.json(nodes);
