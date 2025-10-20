@@ -1,10 +1,13 @@
-// src/app/api/sharepoint/[id]/route.ts
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import prisma from "@/lib/prisma";
 
-const EDITOR_ROLES = new Set(["ceo","admin","ventes-exec","ti-exec","direction-exec"].map(s=>s.toLowerCase()));
+const EDITOR_ROLES = new Set(
+  ["ceo", "admin", "ventes-exec", "ti-exec", "direction-exec"].map((s) =>
+    s.toLowerCase()
+  )
+);
 type PermSpec = { edit?: string[]; read?: string[] } | "inherit" | null;
 type Authed = { userId: string; role: string; tenantId: string };
 
@@ -43,14 +46,12 @@ async function loadAuth(): Promise<Authed | { error: NextResponse }> {
 async function requireEditor(): Promise<Authed | { error: NextResponse }> {
   const a = await loadAuth();
   if ("error" in a) return a;
-  
-  // The role check is bypassed for now to allow all users.
-  /*
-  if (!EDITOR_ROLES.has(a.role)) {
-    return { error: NextResponse.json({ error: `Forbidden: role '${a.role}'` }, { status: 403 }) };
-  }
-  */
-  
+
+  // Temporarily allow all roles
+  // if (!EDITOR_ROLES.has(a.role)) {
+  //   return { error: NextResponse.json({ error: `Forbidden: role '${a.role}'` }, { status: 403 }) };
+  // }
+
   return a;
 }
 
@@ -89,7 +90,9 @@ export async function PATCH(req: Request, ctx: any) {
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   let body: any;
-  try { body = await req.json(); } catch {
+  try {
+    body = await req.json();
+  } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
@@ -125,7 +128,7 @@ export async function PATCH(req: Request, ctx: any) {
         if (cursor === id) {
           return NextResponse.json(
             { error: "Cannot move node under its own descendant" },
-            { status: 400 },
+            { status: 400 }
           );
         }
         cursor = await getParentId(cursor, a.tenantId);
@@ -143,7 +146,8 @@ export async function PATCH(req: Request, ctx: any) {
   if (Object.prototype.hasOwnProperty.call(body, "permissions")) {
     const perms: PermSpec = body.permissions;
     if (perms == null || perms === "inherit") {
-      editGroupsToSet = null; readGroupsToSet = null;
+      editGroupsToSet = null;
+      readGroupsToSet = null;
     } else {
       if (perms.edit && !Array.isArray(perms.edit)) {
         return NextResponse.json({ error: "permissions.edit must be an array" }, { status: 400 });
@@ -161,8 +165,11 @@ export async function PATCH(req: Request, ctx: any) {
   if (Object.prototype.hasOwnProperty.call(body, "readGroups")) {
     readGroupsToSet = body.readGroups === null ? null : sanitize(body.readGroups);
   }
-  if (editGroupsToSet !== undefined) data.editGroups = editGroupsToSet === null ? [] : editGroupsToSet;
-  if (readGroupsToSet !== undefined) data.readGroups = readGroupsToSet === null ? [] : readGroupsToSet;
+
+  if (editGroupsToSet !== undefined)
+    data.editGroups = editGroupsToSet === null ? [] : editGroupsToSet;
+  if (readGroupsToSet !== undefined)
+    data.readGroups = readGroupsToSet === null ? [] : readGroupsToSet;
 
   const updated = await prisma.sharePointNode.update({ where: { id }, data });
   return NextResponse.json(updated);
