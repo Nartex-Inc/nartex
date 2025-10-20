@@ -1,10 +1,8 @@
 // src/app/dashboard/layout.tsx
 "use client";
-
 import * as React from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
-
 import { Header } from "@/components/dashboard/header";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import LoadingAnimation from "@/components/LoadingAnimation";
@@ -52,37 +50,49 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-white dark:bg-[#050507]">
-      {/* Sticky app header */}
-      <Header
-        onToggleMobileSidebar={() => setMobileOpen((v) => !v)}
-        notificationCount={5}
-      />
-
+    // CHANGED: Removed opaque background to let body background show through
+    <div className="flex min-h-screen flex-col">
+      {/* Sticky app header with glass morphism */}
+      <div className="sticky top-0 z-50 backdrop-blur-xl bg-white/5 dark:bg-black/5 border-b border-white/10 dark:border-white/5">
+        <Header
+          onToggleMobileSidebar={() => setMobileOpen((v) => !v)}
+          notificationCount={5}
+        />
+      </div>
+      
       <div className="relative flex flex-1 overflow-hidden">
         {/* Mobile backdrop */}
         {isMobileOpen && (
           <div
             aria-hidden
             onClick={() => setMobileOpen(false)}
-            className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+            className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"
           />
         )}
-
-        {/* Fixed sidebar (renders itself fixed below the header) */}
-        <Sidebar
-          isOpen={isDesktopOpen}
-          isMobileOpen={isMobileOpen}
-          toggleSidebar={() => setDesktopOpen((v) => !v)}
-          closeMobileSidebar={() => setMobileOpen(false)}
-        />
-
-        {/* Main content; reserve space for the sidebar on lg+ via CSS var */}
-        <main className="relative z-0 flex-1 overflow-y-auto bg-transparent">
+        
+        {/* Fixed sidebar with glass morphism */}
+        <div className="relative z-40">
+          <Sidebar
+            isOpen={isDesktopOpen}
+            isMobileOpen={isMobileOpen}
+            toggleSidebar={() => setDesktopOpen((v) => !v)}
+            closeMobileSidebar={() => setMobileOpen(false)}
+          />
+        </div>
+        
+        {/* Main content with transparent background */}
+        <main className="relative z-0 flex-1 overflow-y-auto">
           <div className="lg:pl-[var(--sidebar-w)]">
-            {/* Wider container: scales up to 2000px with generous paddings */}
+            {/* Content wrapper with subtle glass effect for readability */}
             <div className="mx-auto w-full max-w-[1760px] 2xl:max-w-[2000px] px-2 sm:px-4 lg:px-6 xl:px-8 py-6 lg:py-8">
-              {children}
+              {/* Optional: Add a very subtle background to content area for better readability */}
+              <div className="relative">
+                {/* Subtle backdrop for content readability */}
+                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-white/[0.01] dark:from-black/20 dark:to-black/10 rounded-3xl backdrop-blur-[2px]" />
+                <div className="relative">
+                  {children}
+                </div>
+              </div>
             </div>
           </div>
         </main>
