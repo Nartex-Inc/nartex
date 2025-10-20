@@ -13,27 +13,6 @@ datasource db {
 // 0) ENUMS
 ////////////////////////////////////////////////////////////////////////////////
 
-// Which business unit a node/user permission applies to
-enum Department {
-  RD
-  CFO
-  RH
-  VENTES
-  MARKETING
-  OPERATIONS
-  ADMIN_FINANCE
-  TI
-  PUBLIC
-  DIRECTION          // (a.k.a. comité de direction)
-}
-
-// Department-scoped role
-enum DepartmentRole {
-  reader
-  editor
-  admin
-}
-
 enum ProductLifecycleStage {
   DEMANDE_IDEATION
   EVALUATION_COUT_POTENTIEL
@@ -88,26 +67,8 @@ model User {
   accounts Account[]
   sessions Session[]
   tenants  UserTenant[]
-  deptRoles UserDepartmentRole[]
 
   @@map("users")
-}
-
-model UserDepartmentRole {
-  // Composite PK ensures one row per (user, tenant, department)
-  userId     String
-  tenantId   String
-  department Department
-  role       DepartmentRole  // reader | editor | admin
-  createdAt  DateTime        @default(now())
-
-  // Relations
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@id([userId, tenantId, department])
-  @@index([tenantId, department, role])
-  @@map("user_department_roles")
 }
 
 model Account {
@@ -167,7 +128,6 @@ model Tenant {
   users           UserTenant[]
   projects        Project[]
   sharePointNodes SharePointNode[]
-  deptRoles       UserDepartmentRole[]
 
   @@map("tenants")
 }
@@ -199,25 +159,29 @@ model Project {
 }
 
 model SharePointNode {
-  id           String      @id @default(cuid())
+  id           String   @id @default(cuid())
   tenantId     String
-  department   Department  @default(ADMIN_FINANCE) // if user was not assigned a department, then it defaults back to ADMIN-FINANCE
   parentId     String?
   name         String
-  type         String      @default("folder")
+  type         String   @default("folder")
   icon         String?
-  restricted   Boolean     @default(false)
-  highSecurity Boolean     @default(false)
-  editGroups   String[]    @default([])
-  readGroups   String[]    @default([])
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+
+  restricted   Boolean  @default(false)
+  highSecurity Boolean  @default(false)
+
+  // Arrays (never null); empty arrays mean “inherit”
+  editGroups   String[] @default([])
+  readGroups   String[] @default([])
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   parent   SharePointNode?  @relation("SPChildren", fields: [parentId], references: [id], onDelete: Cascade)
   children SharePointNode[] @relation("SPChildren")
 
-  @@index([tenantId, department, parentId])
+  @@index([tenantId])
+  @@index([tenantId, parentId])
   @@map("sharepoint_nodes")
 }
 
@@ -351,29 +315,29 @@ model Salesrep {
 
 /// Shipments header replicated as "ShipmentHdr"
 model ShipmentHdr {
-  shipmentid Int     @id @map("shipmentid")
-  cieid      Int     @map("cieid")
-  sonbr      Int     @map("sonbr")
-  waybill    String? @map("WayBill")
+  id      Int     @id @default(autoincrement()) @map("Id") // use "Id"; change to "id" if needed
+  sonbr   Int     @map("sonbr")
+  waybill String? @map("WayBill")
+
   @@index([sonbr])
   @@map("ShipmentHdr")
 }
 
-/// Item / site stock (public.itemsite)
+// If you don’t actually replicate these, remove later.
+// Keeping them mapped prevents accidental case mismatches.
 model Itemsite {
-  itemsiteid Int      @id            @map("itemsiteid")
-  itemid     Int      @map("itemid")
-  siteid     Int      @map("siteid")
-  qtyonhand  Decimal? @db.Decimal(18, 4) @map("qtyonhand")
-  locid      Int?     @map("locid")
-  cieid      Int?     @map("cieid")
+  itemsiteid Int  @id          @map("ItemSiteId")
+  itemid     Int  @map("ItemId")
+  siteid     Int  @map("SiteId")
+  qtyonhand  Int? @map("QtyOnHand")
+  locid      Int? @map("LocId")
 
   @@index([itemid, siteid])
-  @@map("itemsite")
+  @@map("Itemsite")
 }
 
 model Sites {
-  siteid Int    @id @map("SiteId")  // primary key column is SiteId
+  id   Int    @id @default(autoincrement()) @map("Id")
   name String @map("Name")
 
   @@map("Sites")
