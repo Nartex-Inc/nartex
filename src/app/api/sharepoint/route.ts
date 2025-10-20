@@ -1,3 +1,4 @@
+// src/app/api/sharepoint/route.ts
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
@@ -8,11 +9,16 @@ const EDITOR_ROLES = new Set(
     s.toLowerCase()
   )
 );
+
+// NEW: reader role set (explicitly includes "principal")
 const READER_ROLES = new Set(["principal"].map((s) => s.toLowerCase()));
 
+// (optional) helpers for future checks
+const isEditor = (role: string) => EDITOR_ROLES.has(role.toLowerCase());
+const isReader = (role: string) =>
+  isEditor(role) || READER_ROLES.has(role.toLowerCase());
+
 type Authed = { userId: string; role: string; tenantId: string };
-const isEditor = (r: string) => EDITOR_ROLES.has(r.toLowerCase());
-const isReader = (r: string) => isEditor(r) || READER_ROLES.has(r.toLowerCase());
 
 async function loadAuth(): Promise<Authed | { error: NextResponse }> {
   const session = await getServerSession(authOptions);
@@ -20,12 +26,22 @@ async function loadAuth(): Promise<Authed | { error: NextResponse }> {
   let userId = (session?.user as any)?.id as string | undefined;
 
   if (!userId && email) {
-    const u = await prisma.user.findFirst({ where: { email }, select: { id: true } });
+    const u = await prisma.user.findFirst({
+      where: { email: email },
+      select: { id: true },
+    });
     userId = u?.id;
   }
-  if (!userId) return { error: NextResponse.json({ error: "Not authenticated" }, { status: 401 }) };
+  if (!userId) {
+    return {
+      error: NextResponse.json({ error: "Not authenticated" }, { status: 401 }),
+    };
+  }
 
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
   const role = (user?.role ?? "user").toLowerCase().trim();
 
   const ut = await prisma.userTenant.findFirst({
@@ -33,24 +49,52 @@ async function loadAuth(): Promise<Authed | { error: NextResponse }> {
     select: { tenantId: true },
   });
   if (!ut) {
-    return { error: NextResponse.json({ error: "Tenant not found for user" }, { status: 404 }) };
+    return {
+      error: NextResponse.json(
+        { error: "Tenant not found for user" },
+        { status: 404 }
+      ),
+    };
   }
+
   return { userId, role, tenantId: ut.tenantId };
 }
 
 async function requireEditor(): Promise<Authed | { error: NextResponse }> {
   const a = await loadAuth();
   if ("error" in a) return a;
-  // Temporarily allow all roles
-  // if (!isEditor(a.role)) return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+
+  // The role check is bypassed for now to allow all users.
+  /*
+  if (!isEditor(a.role)) {
+    return {
+      error: NextResponse.json(
+        { error: `Forbidden: role '${a.role}'` },
+        { status: 403 }
+      ),
+    };
+  }
+  */
+
   return a;
 }
 
+/** GET /api/sharepoint */
 export async function GET() {
   const a = await loadAuth();
   if ("error" in a) return a.error;
 
-  // Temporarily fetch without department
+  // OPTIONAL: if/when you want to gate read access by role,
+  // uncomment this block to allow only readers or editors:
+  /*
+  if (!isReader(a.role)) {
+    return NextResponse.json(
+      { error: `Forbidden: role '${a.role}'` },
+      { status: 403 }
+    );
+  }
+  */
+
   const nodes = await prisma.sharePointNode.findMany({
     where: { tenantId: a.tenantId },
     orderBy: [{ parentId: "asc" }, { name: "asc" }],
@@ -58,12 +102,17 @@ export async function GET() {
   return NextResponse.json(nodes);
 }
 
+/** POST /api/sharepoint */
 export async function POST(req: Request) {
   const a = await requireEditor();
   if ("error" in a) return a.error;
 
   let body: any;
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 }); }
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
 
   const {
     name,
@@ -87,7 +136,10 @@ export async function POST(req: Request) {
       select: { id: true },
     });
     if (!parent) {
-      return NextResponse.json({ error: "Parent not found in tenant" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Parent not found in tenant" },
+        { status: 400 }
+      );
     }
   }
 
@@ -104,10 +156,16 @@ export async function POST(req: Request) {
     readGroups = [];
   } else {
     if (permissions.edit && !Array.isArray(permissions.edit)) {
-      return NextResponse.json({ error: "permissions.edit must be an array" }, { status: 400 });
+      return NextResponse.json(
+        { error: "permissions.edit must be an array" },
+        { status: 400 }
+      );
     }
     if (permissions.read && !Array.isArray(permissions.read)) {
-      return NextResponse.json({ error: "permissions.read must be an array" }, { status: 400 });
+      return NextResponse.json(
+        { error: "permissions.read must be an array" },
+        { status: 400 }
+      );
     }
     editGroups = sanitize(permissions.edit ?? []);
     readGroups = sanitize(permissions.read ?? []);
@@ -125,7 +183,6 @@ export async function POST(req: Request) {
       name: name.trim(),
       parentId: parentId ?? null,
       tenantId: a.tenantId,
-      // department: <REMOVED TEMPORARILY>
       type,
       icon,
       restricted,
