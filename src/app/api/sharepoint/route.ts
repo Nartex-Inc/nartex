@@ -1,196 +1,172 @@
-// src/app/api/sharepoint/route.ts
+// Force Node runtime + no caching for Prisma
+export const runtime = "nodejs";
+export const revalidate = 0;
+
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import prisma from "@/lib/prisma";
 
-const EDITOR_ROLES = new Set(
-  ["ceo", "admin", "ventes-exec", "ti-exec", "direction-exec"].map((s) =>
-    s.toLowerCase()
-  )
-);
-
-// NEW: reader role set (explicitly includes "principal")
-const READER_ROLES = new Set(["principal"].map((s) => s.toLowerCase()));
-
-// (optional) helpers for future checks
-const isEditor = (role: string) => EDITOR_ROLES.has(role.toLowerCase());
-const isReader = (role: string) =>
-  isEditor(role) || READER_ROLES.has(role.toLowerCase());
-
 type Authed = { userId: string; role: string; tenantId: string };
 
-async function loadAuth(): Promise<Authed | { error: NextResponse }> {
-  const session = await getServerSession(authOptions);
-  const email = session?.user?.email ?? null;
-  let userId = (session?.user as any)?.id as string | undefined;
+function toJsonError(e: unknown, fallback = "Internal error", status = 500) {
+  const msg =
+    typeof e === "object" && e && "message" in e
+      ? String((e as any).message)
+      : String(e);
+  // Don’t expose full stack traces in prod; message is enough to debug quickly
+  return NextResponse.json({ error: fallback, detail: msg }, { status });
+}
 
-  if (!userId && email) {
-    const u = await prisma.user.findFirst({
-      where: { email: email },
-      select: { id: true },
+async function loadAuth(): Promise<Authed> {
+  try {
+    const session = await getServerSession(authOptions);
+    const email = session?.user?.email ?? null;
+    let userId = (session?.user as any)?.id as string | undefined;
+
+    if (!userId && email) {
+      const u = await prisma.user.findFirst({ where: { email }, select: { id: true } });
+      userId = u?.id ?? undefined;
+    }
+    if (!userId) throw new Error("Not authenticated");
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
     });
-    userId = u?.id;
-  }
-  if (!userId) {
-    return {
-      error: NextResponse.json({ error: "Not authenticated" }, { status: 401 }),
-    };
-  }
+    const role = (user?.role ?? "user").toLowerCase().trim();
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { role: true },
-  });
-  const role = (user?.role ?? "user").toLowerCase().trim();
+    const ut = await prisma.userTenant.findFirst({
+      where: { userId },
+      select: { tenantId: true },
+    });
+    if (!ut) throw new Error("Tenant not found for user");
 
-  const ut = await prisma.userTenant.findFirst({
-    where: { userId },
-    select: { tenantId: true },
-  });
-  if (!ut) {
-    return {
-      error: NextResponse.json(
-        { error: "Tenant not found for user" },
-        { status: 404 }
-      ),
-    };
-  }
-
-  return { userId, role, tenantId: ut.tenantId };
-}
-
-async function requireEditor(): Promise<Authed | { error: NextResponse }> {
-  const a = await loadAuth();
-  if ("error" in a) return a;
-
-  // The role check is bypassed for now to allow all users.
-  /*
-  if (!isEditor(a.role)) {
-    return {
-      error: NextResponse.json(
-        { error: `Forbidden: role '${a.role}'` },
-        { status: 403 }
-      ),
-    };
-  }
-  */
-
-  return a;
-}
-
-/** GET /api/sharepoint */
-export async function GET() {
-  const a = await loadAuth();
-  if ("error" in a) return a.error;
-
-  // OPTIONAL: if/when you want to gate read access by role,
-  // uncomment this block to allow only readers or editors:
-  /*
-  if (!isReader(a.role)) {
-    return NextResponse.json(
-      { error: `Forbidden: role '${a.role}'` },
-      { status: 403 }
+    return { userId, role, tenantId: ut.tenantId };
+  } catch (e) {
+    throw new Error(
+      "AUTH_LOAD_FAILED: " +
+        (typeof e === "object" && e && "message" in e ? (e as any).message : String(e))
     );
   }
-  */
-
-  const nodes = await prisma.sharePointNode.findMany({
-    where: { tenantId: a.tenantId },
-    orderBy: [{ parentId: "asc" }, { name: "asc" }],
-  });
-  return NextResponse.json(nodes);
 }
 
-/** POST /api/sharepoint */
-export async function POST(req: Request) {
-  const a = await requireEditor();
-  if ("error" in a) return a.error;
-
-  let body: any;
+/** GET /api/sharepoint — list all nodes for the user's tenant */
+export async function GET() {
   try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
+    const a = await loadAuth();
 
-  const {
-    name,
-    parentId,
-    type = "folder",
-    icon,
-    restricted = false,
-    highSecurity = false,
-    permissions,
-    editGroups: editGroupsRaw,
-    readGroups: readGroupsRaw,
-  } = body ?? {};
-
-  if (!name || typeof name !== "string" || name.trim() === "") {
-    return NextResponse.json({ error: "Name is required" }, { status: 400 });
-  }
-
-  if (parentId) {
-    const parent = await prisma.sharePointNode.findFirst({
-      where: { id: parentId, tenantId: a.tenantId },
-      select: { id: true },
+    const nodes = await prisma.sharePointNode.findMany({
+      where: { tenantId: a.tenantId },
+      orderBy: [{ parentId: "asc" }, { name: "asc" }],
     });
-    if (!parent) {
-      return NextResponse.json(
-        { error: "Parent not found in tenant" },
-        { status: 400 }
-      );
+
+    return NextResponse.json(nodes);
+  } catch (e) {
+    // If auth failed, return 401/404 style messages instead of opaque 500
+    const msg = String(e);
+    if (msg.includes("Not authenticated")) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
-  }
-
-  const sanitize = (arr: unknown): string[] =>
-    Array.isArray(arr)
-      ? Array.from(new Set(arr.map((x) => String(x).trim()).filter(Boolean)))
-      : [];
-
-  let editGroups: string[] = [];
-  let readGroups: string[] = [];
-
-  if (permissions == null || permissions === "inherit") {
-    editGroups = [];
-    readGroups = [];
-  } else {
-    if (permissions.edit && !Array.isArray(permissions.edit)) {
-      return NextResponse.json(
-        { error: "permissions.edit must be an array" },
-        { status: 400 }
-      );
+    if (msg.includes("Tenant not found")) {
+      return NextResponse.json({ error: "Tenant not found for user" }, { status: 404 });
     }
-    if (permissions.read && !Array.isArray(permissions.read)) {
-      return NextResponse.json(
-        { error: "permissions.read must be an array" },
-        { status: 400 }
-      );
+    return toJsonError(e);
+  }
+}
+
+/** POST /api/sharepoint — create a node (no department column anywhere) */
+export async function POST(req: Request) {
+  try {
+    const a = await loadAuth();
+
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
-    editGroups = sanitize(permissions.edit ?? []);
-    readGroups = sanitize(permissions.read ?? []);
-  }
 
-  if (Object.prototype.hasOwnProperty.call(body, "editGroups")) {
-    editGroups = editGroupsRaw === null ? [] : sanitize(editGroupsRaw);
-  }
-  if (Object.prototype.hasOwnProperty.call(body, "readGroups")) {
-    readGroups = readGroupsRaw === null ? [] : sanitize(readGroupsRaw);
-  }
-
-  const newNode = await prisma.sharePointNode.create({
-    data: {
-      name: name.trim(),
-      parentId: parentId ?? null,
-      tenantId: a.tenantId,
-      type,
+    const {
+      name,
+      parentId,
+      type = "folder",
       icon,
-      restricted,
-      highSecurity,
-      editGroups,
-      readGroups,
-    },
-  });
+      restricted = false,
+      highSecurity = false,
+      permissions,
+      editGroups: editGroupsRaw,
+      readGroups: readGroupsRaw,
+    } = body ?? {};
 
-  return NextResponse.json(newNode, { status: 201 });
+    if (!name || typeof name !== "string" || name.trim() === "") {
+      return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    }
+
+    if (parentId) {
+      const parent = await prisma.sharePointNode.findFirst({
+        where: { id: parentId, tenantId: a.tenantId },
+        select: { id: true },
+      });
+      if (!parent) {
+        return NextResponse.json(
+          { error: "Parent not found in tenant" },
+          { status: 400 }
+        );
+      }
+    }
+
+    const sanitize = (arr: unknown): string[] =>
+      Array.isArray(arr)
+        ? Array.from(new Set(arr.map((x) => String(x).trim()).filter(Boolean)))
+        : [];
+
+    let editGroups: string[] = [];
+    let readGroups: string[] = [];
+
+    if (permissions == null || permissions === "inherit") {
+      editGroups = [];
+      readGroups = [];
+    } else {
+      if (permissions.edit && !Array.isArray(permissions.edit)) {
+        return NextResponse.json(
+          { error: "permissions.edit must be an array" },
+          { status: 400 }
+        );
+      }
+      if (permissions.read && !Array.isArray(permissions.read)) {
+        return NextResponse.json(
+          { error: "permissions.read must be an array" },
+          { status: 400 }
+        );
+      }
+      editGroups = sanitize(permissions.edit ?? []);
+      readGroups = sanitize(permissions.read ?? []);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "editGroups")) {
+      editGroups = editGroupsRaw === null ? [] : sanitize(editGroupsRaw);
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "readGroups")) {
+      readGroups = readGroupsRaw === null ? [] : sanitize(readGroupsRaw);
+    }
+
+    const created = await prisma.sharePointNode.create({
+      data: {
+        name: name.trim(),
+        parentId: parentId ?? null,
+        tenantId: a.tenantId,
+        type,
+        icon,
+        restricted,
+        highSecurity,
+        editGroups,
+        readGroups,
+      },
+    });
+
+    return NextResponse.json(created, { status: 201 });
+  } catch (e) {
+    return toJsonError(e);
+  }
 }
