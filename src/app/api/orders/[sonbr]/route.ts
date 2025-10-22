@@ -7,13 +7,7 @@ import prisma from "@/lib/prisma";
 export async function GET(_req: Request, context: any) {
   try {
     const raw = context?.params?.sonbr ?? "";
-    let decoded = "";
-    try {
-      decoded = decodeURIComponent(String(raw)).trim();
-    } catch {
-      decoded = String(raw).trim();
-    }
-    const sonbr = Number(decoded);
+    const sonbr = Number(decodeURIComponent(raw).trim());
 
     if (!Number.isFinite(sonbr) || !Number.isInteger(sonbr)) {
       return NextResponse.json(
@@ -51,8 +45,8 @@ export async function GET(_req: Request, context: any) {
       so.srid   ? prisma.salesrep.findUnique({ where: { srid: so.srid } })     : null,
       prisma.shipmentHdr.findFirst({
         where: { sonbr: so.sonbr },
-        orderBy: { id: "desc" },         // ✅ correct Prisma field name
-        select: { waybill: true, id: true },
+        orderBy: { shipmentid: "desc" }, // uses ShipmentHdr.shipmentid as PK
+        select: { waybill: true },
       }),
     ]);
 

@@ -1,4 +1,4 @@
-// src/app/api/sharepoint/[id]/route.ts
+// src/app/api/sharepoint/sharepoint-rd/[id]/route.tss
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";

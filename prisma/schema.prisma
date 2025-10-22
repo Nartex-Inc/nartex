@@ -315,29 +315,29 @@ model Salesrep {
 
 /// Shipments header replicated as "ShipmentHdr"
 model ShipmentHdr {
-  id      Int     @id @default(autoincrement()) @map("Id") // use "Id"; change to "id" if needed
-  sonbr   Int     @map("sonbr")
-  waybill String? @map("WayBill")
-
+  shipmentid Int     @id @map("shipmentid")
+  cieid      Int     @map("cieid")
+  sonbr      Int     @map("sonbr")
+  waybill    String? @map("WayBill")
   @@index([sonbr])
   @@map("ShipmentHdr")
 }
 
-// If you don’t actually replicate these, remove later.
-// Keeping them mapped prevents accidental case mismatches.
+/// Item / site stock (public.itemsite)
 model Itemsite {
-  itemsiteid Int  @id          @map("ItemSiteId")
-  itemid     Int  @map("ItemId")
-  siteid     Int  @map("SiteId")
-  qtyonhand  Int? @map("QtyOnHand")
-  locid      Int? @map("LocId")
+  itemsiteid Int      @id            @map("itemsiteid")
+  itemid     Int      @map("itemid")
+  siteid     Int      @map("siteid")
+  qtyonhand  Decimal? @db.Decimal(18, 4) @map("qtyonhand")
+  locid      Int?     @map("locid")
+  cieid      Int?     @map("cieid")
 
   @@index([itemid, siteid])
-  @@map("Itemsite")
+  @@map("itemsite")
 }
 
 model Sites {
-  id   Int    @id @default(autoincrement()) @map("Id")
+  siteid Int    @id @map("SiteId")  // primary key column is SiteId
   name String @map("Name")
 
   @@map("Sites")

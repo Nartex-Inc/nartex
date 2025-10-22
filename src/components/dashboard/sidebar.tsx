@@ -1,4 +1,3 @@
-// src/components/dashboard/sidebar.tsx
 "use client";
 
 import * as React from "react";
@@ -31,7 +30,6 @@ import {
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
-/** Keep your original types and constants (no refactor) */
 type NavItem = { href: string; title: string; icon: React.ElementType };
 
 interface SidebarProps {
@@ -41,7 +39,17 @@ interface SidebarProps {
   closeMobileSidebar: () => void;
 }
 
-/** Your existing nav definition left as-is */
+/* ---------- Premium light/dark glass tokens ---------- */
+const LIGHT_GLASS =
+  "bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/70";
+const DARK_GLASS =
+  "dark:bg-[#0b0f14]/80 dark:backdrop-blur dark:supports-[backdrop-filter]:bg-[#0b0f14]/70";
+
+const ELEVATION =
+  "ring-1 ring-slate-200 shadow-[0_10px_30px_rgba(2,6,23,0.08)]";
+const DARK_ELEVATION =
+  "dark:ring-white/10 dark:shadow-[0_10px_30px_rgba(0,0,0,0.6)]";
+
 const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: "GÉNÉRAL",
@@ -76,12 +84,6 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   },
 ];
 
-/** Premium visual helpers (no behavioral refactor) */
-const ACTIVE_CHIP =
-  "chip-active chip-aura ring-1 ring-white/10 shadow-soft"; // gradient + glow + soft shadow
-const IDLE_LINK =
-  "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-white";
-
 function NavLink({
   item,
   expanded,
@@ -99,9 +101,14 @@ function NavLink({
     (item.href !== "/dashboard" && pathname.startsWith(item.href));
 
   const linkClasses = cn(
-    "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all hover:no-underline",
-    "ring-1 ring-transparent",
-    active ? ACTIVE_CHIP : `${IDLE_LINK} hover:translate-x-[1px]`
+    "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors hover:no-underline",
+    active
+      ? // Active
+        "bg-slate-900 text-white ring-1 ring-slate-900/10 shadow-sm " +
+        "dark:bg-white/10 dark:text-white dark:ring-white/10"
+      : // Idle + hover
+        "text-slate-600 hover:bg-slate-100 hover:text-slate-900 " +
+        "dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-white"
   );
 
   const content = (
@@ -111,23 +118,8 @@ function NavLink({
       className={linkClasses}
       aria-current={active ? "page" : undefined}
     >
-      <item.icon
-        className={cn(
-          "h-4 w-4 shrink-0 transition-colors",
-          active
-            ? "text-white drop-shadow-[0_2px_8px_rgba(59,130,246,.55)]"
-            : "text-slate-500 group-hover:text-slate-800 dark:text-zinc-300 dark:group-hover:text-white"
-        )}
-      />
-      {expanded && (
-        <span className="truncate flex items-center gap-1">
-          {item.title}
-          {/* Optional tiny live dot on active item */}
-          {active && (
-            <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-white/90 pulse-badge" />
-          )}
-        </span>
-      )}
+      <item.icon className="h-4 w-4 shrink-0 text-slate-500 group-hover:text-slate-800 aria-[current=page]:text-white dark:text-zinc-300 dark:group-hover:text-white" />
+      {expanded && <span className="truncate">{item.title}</span>}
     </Link>
   );
 
@@ -155,7 +147,7 @@ function NavGroup({
   return (
     <div className="space-y-1">
       {expanded && (
-        <h2 className="px-3 py-2 text-[10.5px] font-semibold tracking-[0.14em] text-slate-500/90 dark:text-zinc-400/90">
+        <h2 className="px-3 py-2 text-[11px] font-semibold tracking-[0.14em] text-slate-500 dark:text-zinc-400">
           {title}
         </h2>
       )}
@@ -192,8 +184,12 @@ export function Sidebar({
       {/* MOBILE drawer */}
       <div
         className={cn(
-          "fixed left-0 top-16 z-50 h-[calc(100svh-4rem)] w-64 -translate-x-full transition-transform duration-300 lg:hidden",
-          "border-r hairline glass shadow-soft",
+          "fixed left-0 top-16 z-50 h[calc(100svh-4rem)] h-[calc(100svh-4rem)] w-64 -translate-x-full border-r transition-transform duration-300 lg:hidden",
+          LIGHT_GLASS,
+          DARK_GLASS,
+          ELEVATION,
+          DARK_ELEVATION,
+          "border-slate-200 dark:border-white/10",
           isMobileOpen && "translate-x-0"
         )}
         role="dialog"
@@ -201,7 +197,7 @@ export function Sidebar({
       >
         <aside className="flex h-full flex-col">
           {/* Brand row (mobile) */}
-          <div className="flex h-12 flex-none items-center justify-between border-b hairline px-4 bg-transparent">
+          <div className="flex h-12 flex-none items-center justify-between border-b px-4 bg-gradient-to-r from-white/70 to-slate-50/60 border-slate-200 dark:from-transparent dark:to-transparent dark:bg-transparent dark:border-white/10">
             <Image
               src="/sinto-logo.svg"
               alt="Sinto"
@@ -241,8 +237,8 @@ export function Sidebar({
           </div>
 
           {/* Pinned user strip */}
-          <div className="flex-none border-t p-3 hairline">
-            <div className="flex items-center gap-3 rounded-xl bg-white/70 dark:bg-white/5 p-2 ring-1 ring-[--hairline] shadow-soft">
+          <div className="flex-none border-t p-3 border-slate-200 dark:border-white/10">
+            <div className="flex items-center gap-3 rounded-xl p-2 ring-1 ring-slate-200 shadow-sm bg-gradient-to-br from-white to-slate-50 dark:from-[#0b0f14] dark:to-[#111827] dark:ring-white/10">
               <Avatar className="h-8 w-8">
                 <AvatarImage src={user?.image ?? ""} alt={display} />
                 <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
@@ -270,12 +266,16 @@ export function Sidebar({
         aria-label="Barre latérale"
         className={cn(
           "fixed left-0 top-16 z-30 hidden h-[calc(100svh-4rem)] transition-[width] duration-300 lg:flex lg:flex-col",
-          "border-r hairline glass shadow-soft",
+          LIGHT_GLASS,
+          DARK_GLASS,
+          ELEVATION,
+          DARK_ELEVATION,
+          "border-r border-slate-200 dark:border-white/10",
           desktopWidth
         )}
       >
         {/* Brand row (desktop) */}
-        <div className="flex h-12 flex-none items-center justify-between border-b hairline px-3 bg-transparent">
+        <div className="flex h-12 flex-none items-center justify-between border-b px-3 bg-gradient-to-r from-white/70 to-slate-50/60 border-slate-200 dark:from-transparent dark:to-transparent dark:bg-transparent dark:border-white/10">
           <div className="flex items-center gap-2 overflow-hidden">
             <Image
               src="/sinto-logo.svg"
@@ -322,9 +322,9 @@ export function Sidebar({
         </div>
 
         {/* Pinned user strip */}
-        <div className="flex-none border-t p-2 hairline">
+        <div className="flex-none border-t p-2 border-slate-200 dark:border-white/10">
           {expanded ? (
-            <div className="flex items-center gap-3 rounded-xl bg-white/70 dark:bg-white/5 p-2 ring-1 ring-[--hairline] shadow-soft">
+            <div className="flex items-center gap-3 rounded-xl p-2 ring-1 ring-slate-200 shadow-sm bg-gradient-to-br from-white to-slate-50 dark:from-[#0b0f14] dark:to-[#111827] dark:ring-white/10">
               <Avatar className="h-8 w-8">
                 <AvatarImage src={user?.image ?? ""} alt={display} />
                 <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
@@ -351,7 +351,7 @@ export function Sidebar({
           ) : (
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-white/70 dark:bg-white/5 ring-1 ring-[--hairline] shadow-soft">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl ring-1 ring-slate-200 shadow-sm bg-gradient-to-br from-white to-slate-50 dark:from-[#0b0f14] dark:to-[#111827] dark:ring-white/10">
                   <Avatar className="h-7 w-7">
                     <AvatarImage src={user?.image ?? ""} alt={display} />
                     <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>

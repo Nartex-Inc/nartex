@@ -4,6 +4,7 @@
 import * as React from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
+
 import { Header } from "@/components/dashboard/header";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import LoadingAnimation from "@/components/LoadingAnimation";
@@ -30,7 +31,7 @@ export default function DashboardLayout({
     };
   }, [isMobileOpen]);
 
-  // Keep a CSS variable updated with the actual sidebar width so the main
+  // Keep a CSS variable updated with the *actual* sidebar width so the main
   // content can reserve that space and never overlap the fixed sidebar.
   React.useEffect(() => {
     const setVar = () => {
@@ -51,37 +52,41 @@ export default function DashboardLayout({
   }
 
   return (
-    // IMPORTANT: no page-level background classes here (transparent so body shows)
-    <div className="relative min-h-screen">
-      {/* Sticky app header (glass) */}
+    <div className="flex min-h-screen flex-col bg-white dark:bg-[#050507]">
+      {/* Sticky app header */}
       <Header
         onToggleMobileSidebar={() => setMobileOpen((v) => !v)}
         notificationCount={5}
       />
 
-      {/* Mobile backdrop (transparent overlay, no solid bg) */}
-      {isMobileOpen && (
-        <button
-          aria-label="Fermer le menu"
-          onClick={() => setMobileOpen(false)}
-          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"
+      <div className="relative flex flex-1 overflow-hidden">
+        {/* Mobile backdrop */}
+        {isMobileOpen && (
+          <div
+            aria-hidden
+            onClick={() => setMobileOpen(false)}
+            className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+          />
+        )}
+
+        {/* Fixed sidebar (renders itself fixed below the header) */}
+        <Sidebar
+          isOpen={isDesktopOpen}
+          isMobileOpen={isMobileOpen}
+          toggleSidebar={() => setDesktopOpen((v) => !v)}
+          closeMobileSidebar={() => setMobileOpen(false)}
         />
-      )}
 
-      {/* Fixed sidebar (glass) */}
-      <Sidebar
-        isOpen={isDesktopOpen}
-        isMobileOpen={isMobileOpen}
-        toggleSidebar={() => setDesktopOpen((v) => !v)}
-        closeMobileSidebar={() => setMobileOpen(false)}
-      />
-
-      {/* Main content – no bg so the body background image is visible */}
-      <main className="relative z-10 with-sidebar-pad px-4 md:px-6 lg:px-8 py-6 md:py-8">
-        <div className="mx-auto w-full max-w-[1920px]">
-          {children}
-        </div>
-      </main>
+        {/* Main content; reserve space for the sidebar on lg+ via CSS var */}
+        <main className="relative z-0 flex-1 overflow-y-auto bg-transparent">
+          <div className="lg:pl-[var(--sidebar-w)]">
+            {/* Wider container: scales up to 2000px with generous paddings */}
+            <div className="mx-auto w-full max-w-[1760px] 2xl:max-w-[2000px] px-2 sm:px-4 lg:px-6 xl:px-8 py-6 lg:py-8">
+              {children}
+            </div>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

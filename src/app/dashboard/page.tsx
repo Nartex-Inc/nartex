@@ -1588,9 +1588,15 @@ export default function DashboardPage() {
 
   return (
     <main
-      className={`min-h-[100svh] ${inter.className}`}
-      style={{ color: t.foreground }}   // ← no background here; let the body show the image
+      className={`min-h-[100svh] ${inter.className} bg-white dark:bg-[#050507]`}
+      style={{ background: mode === "dark" ? `linear-gradient(180deg, ${t.bg} 0%, #050507 100%)` : undefined, color: t.foreground }}
     >
+      {mode === "dark" && (
+        <div className="fixed inset-0 opacity-20 pointer-events-none">
+          <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full blur-3xl" style={{ background: t.haloCyan }} />
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 rounded-full blur-3xl" style={{ background: t.haloViolet }} />
+        </div>
+      )}
       <div className="px-4 md:px-6 lg:px-8 py-6 md:py-8 relative z-10">
         <div className="mx-auto w-full max-w-[1920px]">
           <DashboardContent />
