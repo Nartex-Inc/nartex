@@ -1,4 +1,4 @@
-// src/app/api/dashboard-data/route.ts
+// src/app/api/dashboard-data/route.ts **
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
