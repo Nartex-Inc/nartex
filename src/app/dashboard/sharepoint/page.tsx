@@ -249,6 +249,75 @@ function findParentWithPermissions(
   return parent.parentId ? findParentWithPermissions(tree, parent) : null;
 }
 
+/** Return effective groups for a node:
+ * - depth <= 2: no effective groups (sites/libraries level don’t carry folder perms here)
+ * - depth === 3: node’s own groups/flags
+ * - depth >= 4: inherited from nearest ancestor with permissions (legacy behavior)
+ */
+function getEffectiveGroups(tree: NodeItem | null, node: NodeItem): {
+  edit: string[];
+  read: string[];
+  restricted: boolean;
+  highSecurity: boolean;
+} {
+  if (!node.depth || node.depth <= 2) {
+    return { edit: [], read: [], restricted: !!node.restricted, highSecurity: !!node.highSecurity };
+  }
+  if (node.depth === 3) {
+    return {
+      edit: node.editGroups ?? [],
+      read: node.readGroups ?? [],
+      restricted: !!node.restricted,
+      highSecurity: !!node.highSecurity,
+    };
+  }
+  // depth >= 4 → inherit from nearest ancestor with explicit permissions or flags
+  const p = findParentWithPermissions(tree, node);
+  return {
+    edit: p?.editGroups ?? [],
+    read: p?.readGroups ?? [],
+    restricted: !!p?.restricted,
+    highSecurity: !!p?.highSecurity,
+  };
+}
+
+/** Filter a full tree by a selected security group.
+ * Keeps any node that itself matches OR has a descendant that matches.
+ * Always keeps ancestors of matches for context. Always keeps virtual root.
+ */
+function filterTreeByGroup(
+  tree: NodeItem,
+  group: string
+): { filtered: NodeItem; expandIds: Set<string>; totalMatches: number } {
+  if (!group.trim()) return { filtered: tree, expandIds: new Set(["root"]), totalMatches: 0 };
+
+  let matches = 0;
+  const expandIds = new Set<string>();
+
+  const walk = (node: NodeItem): NodeItem | null => {
+    const eff = getEffectiveGroups(tree, node);
+    const selfMatch = eff.edit.includes(group) || eff.read.includes(group);
+
+    const keptChildren: NodeItem[] = [];
+    for (const c of node.children ?? []) {
+      const kept = walk(c);
+      if (kept) keptChildren.push(kept);
+    }
+
+    const keep = selfMatch || keptChildren.length > 0;
+    if (!keep) return null;
+
+    if (keptChildren.length > 0) expandIds.add(node.id);
+    if (selfMatch) matches += 1;
+
+    return { ...node, children: keptChildren };
+  };
+
+  const keptRoot = walk(tree) ?? { ...tree, children: [] };
+  expandIds.add("root");
+  return { filtered: keptRoot, expandIds, totalMatches: matches };
+}
+
 /* =============================================================================
    Page (auth gate)
 ============================================================================= */
@@ -290,6 +359,7 @@ function SharePointStructure() {
   const [editingName, setEditingName] = React.useState("");
   const [creatingInId, setCreatingInId] = React.useState<string | null>(null);
   const [newFolderName, setNewFolderName] = React.useState("");
+  const [selectedGroup, setSelectedGroup] = React.useState<string>("");
 
   // -------------------------- SEARCH BAR STATE & LOGIC -----------------------
   const [query, setQuery] = React.useState("");
@@ -340,19 +410,29 @@ function SharePointStructure() {
 
   const tree = React.useMemo(() => (data ? buildTree(data) : null), [data]);
 
-  // Derived filtered tree for the current query
-  const { pruned: filteredTree, expandIds } = React.useMemo(() => {
-    if (!tree) return { pruned: null as unknown as NodeItem, expandIds: new Set<string>() };
-    return pruneTreeForQuery(tree, query);
-  }, [tree, query]);
+  // 1) Filter by selected security group
+  const groupFiltered = React.useMemo(() => {
+    if (!tree) return { filtered: null as unknown as NodeItem, expandIds: new Set<string>(), totalMatches: 0 };
+    return filterTreeByGroup(tree, selectedGroup);
+  }, [tree, selectedGroup]);
 
-  // Auto-expand relevant branches while a query is active
+  // 2) Apply textual pruning (diacritic-insensitive) on the group-filtered tree
+  const { pruned: filteredTree, expandIds: queryExpandIds } = React.useMemo(() => {
+    if (!groupFiltered.filtered) {
+      return { pruned: null as unknown as NodeItem, expandIds: new Set<string>() };
+    }
+    return pruneTreeForQuery(groupFiltered.filtered, query);
+  }, [groupFiltered.filtered, query]);
+
+  // Auto-expand for either filter
   React.useEffect(() => {
     if (!tree) return;
-    if (query.trim()) {
-      setExpanded(new Set(expandIds));
-    }
-  }, [tree, query, expandIds]); // eslint-disable-line react-hooks/exhaustive-deps
+    const ids = new Set<string>([
+      ...groupFiltered.expandIds,
+      ...queryExpandIds,
+    ]);
+    if (query.trim() || selectedGroup.trim()) setExpanded(ids);
+  }, [tree, groupFiltered.expandIds, queryExpandIds, query, selectedGroup]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep 'selected' bound to the latest node instance after SWR updates
   React.useEffect(() => {
@@ -773,10 +853,29 @@ function SharePointStructure() {
           </h1>
 
           <div className="flex items-center gap-3">
-            {/* SEARCH BAR */}
+            {/* SECURITY-GROUP DROPDOWN */}
+            <label className="relative block">
+              <select
+                value={selectedGroup}
+                onChange={(e) => setSelectedGroup(e.target.value)}
+                className="w-56 md:w-64 rounded-lg border px-3 py-1.5 text-sm
+                           border-slate-200 bg-white text-slate-700
+                           focus:outline-none focus:ring-2 focus:ring-blue-500/40
+                           dark:border-white/10 dark:bg-white/[0.02] dark:text-gray-200"
+                aria-label="Filtre par groupe de sécurité"
+                title="Filtrer par groupe de sécurité"
+              >
+                <option value="">— Tous les groupes —</option>
+                {SECURITY_GROUPS.map((g) => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </select>
+            </label>
+          
+            {/* SEARCH BAR (unchanged) */}
             <label className="relative block">
               <input
-                type="text" /* avoid native WebKit clear button (no double X) */
+                type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Rechercher un dossier…"
@@ -800,18 +899,17 @@ function SharePointStructure() {
                 </button>
               )}
             </label>
-
+          
             <button
               className="rounded-lg px-3 py-1.5 text-sm font-medium
-              border border-slate-200 bg-white text-slate-700 hover:bg-slate-50
-              dark:border-white/10 dark:bg-white/[0.02] dark:text-gray-300 dark:hover:bg-white/[0.05] transition-colors"
+                         border border-slate-200 bg-white text-slate-700 hover:bg-slate-50
+                         dark:border-white/10 dark:bg-white/[0.02] dark:text-gray-300 dark:hover:bg-white/[0.05] transition-colors"
               onClick={() => startCreating("root")}
             >
               Ajouter un dossier racine
             </button>
           </div>
         </div>
-      </div>
 
       <div className="flex-1 overflow-hidden flex">
         {/* Explorer */}
@@ -853,8 +951,7 @@ function SharePointStructure() {
                   </div>
                 </div>
               )}
-
-              {(query.trim() ? filteredTree?.children : tree.children)?.map((c: NodeItem) =>
+              {(query.trim() || selectedGroup.trim() ? filteredTree?.children : tree.children)?.map((c: NodeItem) =>
                 renderNode(c, 0)
               )}
             </div>
@@ -867,6 +964,13 @@ function SharePointStructure() {
             {selected && selected.id !== "root" && (
               <Card className="space-y-3">
                 <CardTitle icon={<Settings2 className="h-5 w-5 text-purple-600 dark:text-purple-400" />}>
+                  {selectedGroup && (
+                    <div className="text-xs rounded-md px-2 py-1 border
+                                    bg-blue-50 text-blue-700 border-blue-200
+                                    dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-400/20">
+                      {groupFiltered.totalMatches} dossier{groupFiltered.totalMatches !== 1 ? "s" : ""} accessibles pour « {selectedGroup} »
+                    </div>
+                  )}
                   {/* Dark title in light mode */}
                   <span className="text-slate-900 dark:text-white">Détails du dossier</span>
                 </CardTitle>
@@ -957,8 +1061,9 @@ function PermissionsInlineViewer({
   tree,
 }: {
   node: NodeItem;
-  tree: NodeItem;
+  tree: NodeItem | null;
 }) {
+  
   // Only show for level 3+ folders
   if (!node.depth || node.depth < 3) {
     return null;
