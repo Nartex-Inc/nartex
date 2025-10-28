@@ -7,9 +7,6 @@
 
 /* ──────────────────────────────────────────────────────────────
    Design tokens
-   - shadcn base tokens
-   - premium glass/gradient system
-   - global background image + overlays
    ────────────────────────────────────────────────────────────── */
 :root {
   /* === App layout === */
@@ -18,38 +15,29 @@
   /* === shadcn color system (HSL channels) === */
   --background: 0 0% 100%;
   --foreground: 222.2 47.4% 11.2%;
-
   --muted: 210 40% 96.1%;
   --muted-foreground: 215.4 16.3% 46.9%;
-
   --popover: 0 0% 100%;
   --popover-foreground: 222.2 47.4% 11.2%;
-
   --card: 0 0% 100%;
   --card-foreground: 222.2 47.4% 11.2%;
-
   --border: 214.3 31.8% 91.4%;
   --input: 214.3 31.8% 91.4%;
-
   --primary: 221.2 83.2% 53.3%;
   --primary-foreground: 210 40% 98%;
-
   --secondary: 210 40% 96.1%;
   --secondary-foreground: 222.2 47.4% 11.2%;
-
   --accent: 210 40% 96.1%;
   --accent-foreground: 222.2 47.4% 11.2%;
-
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 210 40% 98%;
-
   --ring: 221.2 83.2% 53.3%;
-  --radius: 0.75rem; /* rounded-xl default */
+  --radius: 0.75rem;
 
   /* === Premium glass / gradient tokens === */
   --app-bg: hsl(210 40% 98%);
-  --glass: hsl(0 0% 100% / 0.82); /* more opaque */
-  --glass-blur: 22px;              /* blurrier glass */
+  --glass: hsl(0 0% 100% / 0.75);
+  --glass-blur: 20px;
   --hairline: hsl(210 18% 90% / 0.85);
 
   /* Accent gradient (blue → purple) */
@@ -59,87 +47,84 @@
 
   /* Shadows / elevation */
   --shadow: 222 47% 11% / 0.32;
-
-  /* Focus ring tuned for glass */
   --ring-oklab: 222 84% 56%;
-
-  /* === Background image + ambient overlays for glassmorphism ===
-     Place your asset at public/bg/nartex-bg.webp (or change path). */
-  --bg-img: url("/bg/nartex-bg.webp");
-  --bg-overlay:
-    radial-gradient(1200px 600px at 50% -200px, hsl(223 90% 18% / .22), transparent 65%),
-    radial-gradient(900px 420px at 85% 10%,  hsl(271 84% 35% / .20), transparent 65%),
-    radial-gradient(900px 420px at 10% 20%,  hsl(198 85% 32% / .16), transparent 65%);
 }
 
 .dark {
   /* === shadcn dark === */
   --background: 222.2 84% 4.9%;
   --foreground: 210 40% 98%;
-
   --muted: 217.2 32.6% 17.5%;
   --muted-foreground: 215 20.2% 65.1%;
-
   --popover: 222.2 84% 4.9%;
   --popover-foreground: 210 40% 98%;
-
   --card: 222.2 84% 4.9%;
   --card-foreground: 210 40% 98%;
-
   --border: 217.2 32.6% 17.5%;
   --input: 217.2 32.6% 17.5%;
-
   --primary: 217.2 91.2% 59.8%;
   --primary-foreground: 222.2 47.4% 11.2%;
-
   --secondary: 217.2 32.6% 17.5%;
   --secondary-foreground: 210 40% 98%;
-
   --accent: 217.2 32.6% 17.5%;
   --accent-foreground: 210 40% 98%;
-
   --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 210 40% 98%;
 
   /* === Premium dark tokens === */
   --app-bg: hsl(222 47% 5%);
-  --glass: hsl(220 15% 10% / 0.78); /* more opaque */
-  --glass-blur: 24px;               /* a bit more blur in dark */
+  --glass: hsl(220 15% 10% / 0.7);
+  --glass-blur: 24px;
   --hairline: hsl(220 14% 20% / 0.7);
   --shadow: 0 0% 0% / 0.64;
   --ring-oklab: 210 100% 64%;
-
-  /* Dark-tuned ambient overlays */
-  --bg-img: url("/bg/nartex-bg.webp"); /* swap to a dark variant if you have one */
-  --bg-overlay:
-    radial-gradient(1200px 600px at 50% -220px, hsl(223 90% 18% / .35), transparent 65%),
-    radial-gradient(900px 420px at 85% 10%,  hsl(271 84% 35% / .28), transparent 65%),
-    radial-gradient(900px 420px at 10% 20%,  hsl(198 85% 32% / .22), transparent 65%);
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Base resets & theming hookup
+   Base resets & theming - BACKGROUND SETUP
    ────────────────────────────────────────────────────────────── */
 @layer base {
-  * { @apply border-border; }
-  html, body { min-height: 100%; }
-
-  body {
-    @apply bg-background text-foreground antialiased;
-
-    /* TOP → BOTTOM: overlay, image, color (image now visible) */
-    background:
-      var(--bg-overlay),
-      var(--bg-img),
-      var(--app-bg);
-
-    background-repeat: no-repeat, no-repeat, no-repeat;
-    background-position: center top, center center, center;
-    background-size: cover, cover, auto;
-    background-attachment: fixed, fixed, fixed;
+  * {
+    @apply border-border;
   }
 
-  /* Text selection tuned to primary */
+  html,
+  body {
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    @apply text-foreground antialiased;
+    
+    /* FIXED: Single background definition with proper layering */
+    /* Order: overlays → image → fallback color */
+    background-image:
+      radial-gradient(1000px 600px at 10% -10%, rgba(34, 211, 238, 0.10), transparent 60%),
+      radial-gradient(900px 500px at 110% 20%, rgba(139, 92, 246, 0.10), transparent 60%),
+      url("/nartex-bg.webp");
+    
+    background-color: var(--app-bg);
+    background-size: cover, cover, cover;
+    background-position: center top, center top, center center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    
+    /* Create stacking context for backdrop-filter */
+    position: relative;
+    isolation: isolate;
+  }
+
+  /* Dark mode ambient overlay adjustments */
+  .dark body {
+    background-image:
+      radial-gradient(1000px 600px at 10% -10%, rgba(34, 211, 238, 0.16), transparent 60%),
+      radial-gradient(900px 500px at 110% 20%, rgba(139, 92, 246, 0.16), transparent 60%),
+      url("/nartex-bg.webp");
+  }
+
+  /* Text selection */
   ::selection {
     background: hsl(var(--primary) / 0.18);
     color: hsl(var(--primary));
@@ -147,58 +132,110 @@
 }
 
 /* Accessibility / data-saver fallbacks */
-@media (prefers-reduced-transparency: reduce), (prefers-reduced-data: reduce) {
-  body { background: var(--app-bg); }
+@media (prefers-reduced-transparency: reduce),
+  (prefers-reduced-data: reduce) {
+  body {
+    background-image: none !important;
+    background-color: var(--app-bg);
+  }
 }
 
 /* ──────────────────────────────────────────────────────────────
    Keyframes for micro-interactions
    ────────────────────────────────────────────────────────────── */
 @keyframes pulse-dot {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50%      { transform: scale(1.35); opacity: .55; }
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0.55;
+  }
 }
+
 @keyframes aura {
-  0%   { box-shadow: 0 0 0 0 rgba(99,102,241,.35); }
-  70%  { box-shadow: 0 0 0 8px rgba(99,102,241,0); }
-  100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.35);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(99, 102, 241, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0);
+  }
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Utilities (Tailwind-friendly custom classes)
+   Utilities - SINGLE SOURCE OF TRUTH FOR .glass
    ────────────────────────────────────────────────────────────── */
 @layer utilities {
-  .bg-app { background: var(--app-bg); }
-
+  /* === Core glass morphism === */
   .glass {
     background: var(--glass);
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--hairline);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
   }
 
-  .hairline { border-color: var(--hairline); }
+  .glass-soft {
+    background: color-mix(in srgb, var(--glass) 70%, transparent);
+    border: 1px solid color-mix(in srgb, var(--hairline) 70%, transparent);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    backdrop-filter: blur(16px) saturate(150%);
+  }
 
-  .shadow-soft   { box-shadow: 0 10px 30px rgba(2, 6, 23, 0.08); }
-  .shadow-strong { box-shadow: 0 12px 40px rgba(2, 6, 23, 0.16); }
+  .glass-strong {
+    background: color-mix(in srgb, var(--glass) 130%, transparent);
+    border: 1px solid var(--hairline);
+    -webkit-backdrop-filter: blur(28px) saturate(200%);
+    backdrop-filter: blur(28px) saturate(200%);
+  }
+
+  /* === Other utilities === */
+  .bg-app {
+    background: var(--app-bg);
+  }
+
+  .hairline {
+    border-color: var(--hairline);
+  }
+
+  .shadow-soft {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  }
+
+  .shadow-strong {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  }
 
   /* Gradient active chip with subtle glow */
   .chip-active {
     background-image: var(--grad);
     color: white;
   }
-  .chip-aura { position: relative; isolation: isolate; }
+
+  .chip-aura {
+    position: relative;
+    isolation: isolate;
+  }
+
   .chip-aura::after {
     content: "";
-    position: absolute; inset: -1px;
+    position: absolute;
+    inset: -1px;
     border-radius: inherit;
     background-image: var(--grad);
     filter: blur(10px);
-    opacity: .28;
+    opacity: 0.28;
     z-index: -1;
   }
 
   /* Pulsing dot for notifications/live indicators */
-  .pulse-badge { animation: pulse-dot 1.8s infinite ease-in-out; }
+  .pulse-badge {
+    animation: pulse-dot 1.8s infinite ease-in-out;
+  }
 
   /* Focus ring that reads on glass */
   .ring-glass:focus-visible {
@@ -208,27 +245,31 @@
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Sidebar helpers (keep your existing behavior intact)
+   Sidebar helpers
    ────────────────────────────────────────────────────────────── */
-@media (min-width: 1024px) {
-  .with-sidebar-shift {
-    margin-left: var(--sidebar-w);
-    transition: margin-left 200ms ease;
-  }
-  .with-sidebar-pad {
-    padding-left: var(--sidebar-w);
-    transition: padding-left 200ms ease;
+@layer utilities {
+  @media (min-width: 1024px) {
+    .with-sidebar-shift {
+      margin-left: var(--sidebar-w);
+      transition: margin-left 200ms ease;
+    }
+
+    .with-sidebar-pad {
+      padding-left: var(--sidebar-w);
+      transition: padding-left 200ms ease;
+    }
   }
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Input polish — hide native clear buttons for search fields
+   Input polish
    ────────────────────────────────────────────────────────────── */
 input[type="search"]::-webkit-search-cancel-button {
   -webkit-appearance: none;
   appearance: none;
   display: none;
 }
+
 input[type="search"]::-ms-clear,
 input[type="search"]::-ms-reveal {
   display: none;
@@ -237,58 +278,29 @@ input[type="search"]::-ms-reveal {
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Optional: minimal scrollbar cosmetics (kept subtle)
+   Scrollbar cosmetics
    ────────────────────────────────────────────────────────────── */
 * {
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--muted-foreground) / 0.35) transparent;
 }
-*::-webkit-scrollbar { height: 10px; width: 10px; }
+
+*::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+
 *::-webkit-scrollbar-thumb {
   background: hsl(var(--muted-foreground) / 0.35);
   border-radius: 9999px;
   border: 3px solid transparent;
   background-clip: padding-box;
 }
-*::-webkit-scrollbar-track { background: transparent; }
 
-/* === Nartex global background & glass helpers =========================== */
-@layer base {
-  html, body { min-height: 100%; }
-  /* Create an isolated stacking context so backdrop-filter samples the bg */
-  body { isolation: isolate; }
-
-  /* Fixed background layer (the “canvas” to blur against) */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;                      /* sit behind everything */
-    background:
-      radial-gradient(1000px 600px at 10% -10%, rgba(34,211,238,.10), transparent 60%),
-      radial-gradient(900px 500px at 110% 20%, rgba(139,92,246,.10), transparent 60%),
-      url("/nartex-bg.webp");
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    filter: saturate(1.05) contrast(1.05);
-  }
+*::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
 }
 
-/* Glass utility with guaranteed translucency (some tokens were opaque) */
-@layer utilities {
-  .glass {
-    /* IMPORTANT: keep alpha < 1 so the backdrop is visible */
-    background: color-mix(in oklab, hsl(var(--background)) 70%, transparent) !important;
-    border: 1px solid color-mix(in oklab, hsl(var(--foreground)) 10%, transparent) !important;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-  }
-  .glass-soft {
-    background: color-mix(in oklab, hsl(var(--background)) 50%, transparent) !important;
-    border: 1px solid color-mix(in oklab, hsl(var(--foreground)) 8%, transparent) !important;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-  }
+*::-webkit-scrollbar-track {
+  background: transparent;
 }
-
