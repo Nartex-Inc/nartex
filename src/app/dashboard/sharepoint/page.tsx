@@ -195,9 +195,10 @@ function buildTree(rows: APINode[]): NodeItem {
     id: n.id,
     parentId: normalizeParentId(n.parentId),
     name: n.name,
-    type: n.type === "site" || n.type === "library" || n.type === "folder" 
-      ? n.type 
-      : "folder",
+    type:
+      n.type === "site" || n.type === "library" || n.type === "folder"
+        ? n.type
+        : "folder",
     icon: n.icon ?? undefined,
     restricted: !!n.restricted,
     highSecurity: !!n.highSecurity,
@@ -244,7 +245,12 @@ function findParentWithPermissions(
   const parent = findNodeById(tree, node.parentId);
   if (!parent) return null;
 
-  if (parent.editGroups || parent.readGroups || parent.restricted || parent.highSecurity) {
+  if (
+    parent.editGroups ||
+    parent.readGroups ||
+    parent.restricted ||
+    parent.highSecurity
+  ) {
     return parent;
   }
 
@@ -256,14 +262,22 @@ function findParentWithPermissions(
  * - depth === 3: node’s own groups/flags
  * - depth >= 4: inherited from nearest ancestor with permissions (legacy behavior)
  */
-function getEffectiveGroups(tree: NodeItem | null, node: NodeItem): {
+function getEffectiveGroups(
+  tree: NodeItem | null,
+  node: NodeItem
+): {
   edit: string[];
   read: string[];
   restricted: boolean;
   highSecurity: boolean;
 } {
   if (!node.depth || node.depth <= 2) {
-    return { edit: [], read: [], restricted: !!node.restricted, highSecurity: !!node.highSecurity };
+    return {
+      edit: [],
+      read: [],
+      restricted: !!node.restricted,
+      highSecurity: !!node.highSecurity,
+    };
   }
   if (node.depth === 3) {
     return {
@@ -291,7 +305,8 @@ function filterTreeByGroup(
   tree: NodeItem,
   group: string
 ): { filtered: NodeItem; expandIds: Set<string>; totalMatches: number } {
-  if (!group.trim()) return { filtered: tree, expandIds: new Set(["root"]), totalMatches: 0 };
+  if (!group.trim())
+    return { filtered: tree, expandIds: new Set(["root"]), totalMatches: 0 };
 
   let matches = 0;
   const expandIds = new Set<string>();
@@ -355,7 +370,9 @@ function SharePointStructure() {
     { revalidateOnFocus: false }
   );
 
-  const [expanded, setExpanded] = React.useState<Set<string>>(new Set(["root"]));
+  const [expanded, setExpanded] = React.useState<Set<string>>(
+    new Set(["root"])
+  );
   const [selected, setSelected] = React.useState<NodeItem | null>(null);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editingName, setEditingName] = React.useState("");
@@ -401,8 +418,7 @@ function SharePointStructure() {
       return null;
     };
 
-    const prunedRoot =
-      clone(root) ?? { ...root, children: [] };
+    const prunedRoot = clone(root) ?? { ...root, children: [] };
 
     // Ensure the virtual root is expanded so top-level results are visible
     expandIds.add("root");
@@ -414,14 +430,25 @@ function SharePointStructure() {
 
   // 1) Filter by selected security group
   const groupFiltered = React.useMemo(() => {
-    if (!tree) return { filtered: null as unknown as NodeItem, expandIds: new Set<string>(), totalMatches: 0 };
+    if (!tree)
+      return {
+        filtered: null as unknown as NodeItem,
+        expandIds: new Set<string>(),
+        totalMatches: 0,
+      };
     return filterTreeByGroup(tree, selectedGroup);
   }, [tree, selectedGroup]);
 
   // 2) Apply textual pruning (diacritic-insensitive) on the group-filtered tree
-  const { pruned: filteredTree, expandIds: queryExpandIds } = React.useMemo(() => {
+  const {
+    pruned: filteredTree,
+    expandIds: queryExpandIds,
+  } = React.useMemo(() => {
     if (!groupFiltered.filtered) {
-      return { pruned: null as unknown as NodeItem, expandIds: new Set<string>() };
+      return {
+        pruned: null as unknown as NodeItem,
+        expandIds: new Set<string>(),
+      };
     }
     return pruneTreeForQuery(groupFiltered.filtered, query);
   }, [groupFiltered.filtered, query]);
@@ -703,13 +730,12 @@ function SharePointStructure() {
           {node.type === "library" && (
             <span className="text-base">{node.icon || "📁"}</span>
           )}
-          {(!node.type || node.type === "folder") && (
-            isExpanded ? (
+          {(!node.type || node.type === "folder") &&
+            (isExpanded ? (
               <FolderOpen className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
             ) : (
               <Folder className="h-3.5 w-3.5 text-slate-500 dark:text-muted-foreground/70" />
-            )
-          )}
+            ))}
 
           {isEditing ? (
             <input
@@ -745,7 +771,9 @@ function SharePointStructure() {
             </span>
           )}
 
-          <div className="ml-auto hidden gap-2 md:flex">{permissionBadges(node)}</div>
+          <div className="ml-auto hidden gap-2 md:flex">
+            {permissionBadges(node)}
+          </div>
 
           <div className="ml-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
             <button
@@ -811,7 +839,11 @@ function SharePointStructure() {
         )}
 
         {isExpanded && hasChildren && (
-          <div className="ml-2">{(node.children ?? []).map((c) => renderNode(c, visualDepth + 1))}</div>
+          <div className="ml-2">
+            {(node.children ?? []).map((c) =>
+              renderNode(c, visualDepth + 1)
+            )}
+          </div>
         )}
       </div>
     );
@@ -836,7 +868,7 @@ function SharePointStructure() {
       </div>
     );
   }
-  
+
   if (isLoading || !tree)
     return (
       <LoadingAnimation
@@ -851,7 +883,8 @@ function SharePointStructure() {
       <div className="flex-shrink-0 px-6 py-4 border-b border-slate-200 dark:border-gray-800 bg-white/80 backdrop-blur-sm dark:bg-black/10">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-3xl font-bold tracking-tight">
-            Structure SharePoint<span className="text-blue-600 dark:text-blue-500">.</span>
+            Structure SharePoint
+            <span className="text-blue-600 dark:text-blue-500">.</span>
           </h1>
 
           <div className="flex items-center gap-3">
@@ -869,12 +902,14 @@ function SharePointStructure() {
               >
                 <option value="">— Tous les groupes —</option>
                 {SECURITY_GROUPS.map((g) => (
-                  <option key={g} value={g}>{g}</option>
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
                 ))}
               </select>
             </label>
-          
-            {/* SEARCH BAR (unchanged) */}
+
+            {/* SEARCH BAR */}
             <label className="relative block">
               <input
                 type="text"
@@ -901,7 +936,7 @@ function SharePointStructure() {
                 </button>
               )}
             </label>
-          
+
             <button
               className="rounded-lg px-3 py-1.5 text-sm font-medium
                          border border-slate-200 bg-white text-slate-700 hover:bg-slate-50
@@ -912,15 +947,21 @@ function SharePointStructure() {
             </button>
           </div>
         </div>
+      </div> {/* <-- FIX: close header container properly */}
 
       <div className="flex-1 overflow-hidden flex">
         {/* Explorer */}
         <div className="flex-1 overflow-y-auto p-6">
           <Card className="h-full">
             <div className="mb-4">
-              <CardTitle icon={<Folder className="h-5 w-5 text-blue-600 dark:text-blue-400" />}>
-                {/* Force dark text in light mode (your request) */}
-                <span className="text-slate-900 dark:text-white">Arborescence des dossiers</span>
+              <CardTitle
+                icon={
+                  <Folder className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                }
+              >
+                <span className="text-slate-900 dark:text-white">
+                  Arborescence des dossiers
+                </span>
               </CardTitle>
               <p className="mt-1 text-xs text-slate-500 dark:text-gray-400">
                 Double-cliquez ou appuyez sur F2 pour renommer. Permissions
@@ -931,7 +972,7 @@ function SharePointStructure() {
               className="overflow-y-auto pr-2"
               style={{ maxHeight: "calc(100vh - 250px)" }}
             >
-              {/* Root-level create row (fix for 'Ajouter un dossier racine') */}
+              {/* Root-level create row (for 'Ajouter un dossier racine') */}
               {creatingInId === "root" && (
                 <div className="mt-1" style={{ paddingLeft: 12 }}>
                   <div className="flex items-center gap-2">
@@ -953,9 +994,11 @@ function SharePointStructure() {
                   </div>
                 </div>
               )}
-              {(query.trim() || selectedGroup.trim() ? filteredTree?.children : tree.children)?.map((c: NodeItem) =>
-                renderNode(c, 0)
-              )}
+
+              {(query.trim() || selectedGroup.trim()
+                ? filteredTree?.children
+                : tree!.children
+              )?.map((c: NodeItem) => renderNode(c, 0))}
             </div>
           </Card>
         </div>
@@ -965,45 +1008,72 @@ function SharePointStructure() {
           <div className="space-y-4">
             {selected && selected.id !== "root" && (
               <Card className="space-y-3">
-                <CardTitle icon={<Settings2 className="h-5 w-5 text-purple-600 dark:text-purple-400" />}>
+                <CardTitle
+                  icon={
+                    <Settings2 className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  }
+                >
                   {selectedGroup && (
-                    <div className="text-xs rounded-md px-2 py-1 border
+                    <div
+                      className="text-xs rounded-md px-2 py-1 border
                                     bg-blue-50 text-blue-700 border-blue-200
-                                    dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-400/20">
-                      {groupFiltered.totalMatches} dossier{groupFiltered.totalMatches !== 1 ? "s" : ""} accessibles pour « {selectedGroup} »
+                                    dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-400/20"
+                    >
+                      {groupFiltered.totalMatches} dossier
+                      {groupFiltered.totalMatches !== 1 ? "s" : ""} accessibles
+                      pour « {selectedGroup} »
                     </div>
                   )}
-                  {/* Dark title in light mode */}
-                  <span className="text-slate-900 dark:text-white">Détails du dossier</span>
+                  <span className="text-slate-900 dark:text-white">
+                    Détails du dossier
+                  </span>
                 </CardTitle>
                 <div className="text-sm space-y-2 text-slate-700 dark:text-gray-300">
                   <div className="flex items-center gap-2">
-                    <span className="text-slate-500 dark:text-gray-400">Nom :</span>
+                    <span className="text-slate-500 dark:text-gray-400">
+                      Nom :
+                    </span>
                     <span className="font-medium text-slate-900 dark:text-white">
                       {selected.name}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-slate-500 dark:text-gray-400">Type :</span>
-                    <span className="font-mono text-xs">{selected.type ?? "folder"}</span>
+                    <span className="text-slate-500 dark:text-gray-400">
+                      Type :
+                    </span>
+                    <span className="font-mono text-xs">
+                      {selected.type ?? "folder"}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-slate-500 dark:text-gray-400">Niveau :</span>
+                    <span className="text-slate-500 dark:text-gray-400">
+                      Niveau :
+                    </span>
                     <span className="font-mono text-xs">{selected.depth}</span>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2">{permissionBadges(selected)}</div>
+                <div className="flex flex-wrap gap-2">
+                  {permissionBadges(selected)}
+                </div>
 
                 {/* Permission viewer - shows only for level 3+ folders */}
                 {selected.depth && selected.depth >= 3 && (
-                  <PermissionsInlineViewer key={selected.id} node={selected} tree={tree} />
+                  <PermissionsInlineViewer
+                    key={selected.id}
+                    node={selected}
+                    tree={tree}
+                  />
                 )}
               </Card>
             )}
 
             {/* Legend */}
             <Card>
-              <CardTitle icon={<Star className="h-5 w-5 text-yellow-500 dark:text-yellow-400" />}>
+              <CardTitle
+                icon={
+                  <Star className="h-5 w-5 text-yellow-500 dark:text-yellow-400" />
+                }
+              >
                 <span className="text-slate-900 dark:text-white">Légende</span>
               </CardTitle>
               <div className="mt-4 space-y-2 text-xs">
@@ -1028,23 +1098,45 @@ function SharePointStructure() {
 
             {/* Security groups (static helper) */}
             <Card>
-              <CardTitle icon={<Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />}>
-                <span className="text-slate-900 dark:text-white">Groupes de sécurité</span>
+              <CardTitle
+                icon={
+                  <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                }
+              >
+                <span className="text-slate-900 dark:text-white">
+                  Groupes de sécurité
+                </span>
               </CardTitle>
               <div className="mt-4 space-y-2 text-xs text-slate-700 dark:text-gray-300">
                 <div>
-                  <span className="font-medium text-slate-900 dark:text-gray-200">Standard :</span>
-                  <p className="text-slate-600 dark:text-gray-400">SG-[DEPT]-ALL</p>
+                  <span className="font-medium text-slate-900 dark:text-gray-200">
+                    Standard :
+                  </span>
+                  <p className="text-slate-600 dark:text-gray-400">
+                    SG-[DEPT]-ALL
+                  </p>
                 </div>
                 <div>
-                  <span className="font-medium text-slate-900 dark:text-gray-200">Exécutif :</span>
-                  <p className="text-slate-600 dark:text-gray-400">SG-[DEPT]-EXECUTIF</p>
+                  <span className="font-medium text-slate-900 dark:text-gray-200">
+                    Exécutif :
+                  </span>
+                  <p className="text-slate-600 dark:text-gray-400">
+                    SG-[DEPT]-EXECUTIF
+                  </p>
                 </div>
                 <div className="border-t border-slate-200 pt-2 dark:border-white/10">
-                  <span className="font-medium text-slate-900 dark:text-gray-200">Spéciaux :</span>
-                  <p className="text-slate-600 dark:text-gray-400">SG-CFO, SG-PRESIDENT</p>
-                  <p className="text-slate-600 dark:text-gray-400">SG-DIRECTION-ALL</p>
-                  <p className="text-slate-600 dark:text-gray-400">SG-DIRECTION-EXECUTIF</p>
+                  <span className="font-medium text-slate-900 dark:text-gray-200">
+                    Spéciaux :
+                  </span>
+                  <p className="text-slate-600 dark:text-gray-400">
+                    SG-CFO, SG-PRESIDENT
+                  </p>
+                  <p className="text-slate-600 dark:text-gray-400">
+                    SG-DIRECTION-ALL
+                  </p>
+                  <p className="text-slate-600 dark:text-gray-400">
+                    SG-DIRECTION-EXECUTIF
+                  </p>
                 </div>
               </div>
             </Card>
@@ -1065,7 +1157,6 @@ function PermissionsInlineViewer({
   node: NodeItem;
   tree: NodeItem | null;
 }) {
-  
   // Only show for level 3+ folders
   if (!node.depth || node.depth < 3) {
     return null;
@@ -1073,7 +1164,9 @@ function PermissionsInlineViewer({
 
   // For level 4+ folders, find inherited permissions from level 3 parent
   const isInherited = node.depth > 3;
-  const parentWithPerms = isInherited ? findParentWithPermissions(tree, node) : null;
+  const parentWithPerms = isInherited
+    ? findParentWithPermissions(tree, node)
+    : null;
 
   // Use parent permissions if inherited, otherwise use node's own
   const effectiveNode = isInherited && parentWithPerms ? parentWithPerms : node;
@@ -1086,47 +1179,64 @@ function PermissionsInlineViewer({
   return (
     <div className="rounded-xl border p-3 space-y-3 border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/[0.02]">
       {isInherited && (
-        <div className="text-xs rounded-lg px-2 py-1 border
+        <div
+          className="text-xs rounded-lg px-2 py-1 border
           text-amber-700 bg-amber-50 border-amber-200
-          dark:text-amber-400 dark:bg-amber-500/10 dark:border-amber-400/20">
-          Permissions héritées{parentWithPerms ? ` de "${parentWithPerms.name}"` : ""}
+          dark:text-amber-400 dark:bg-amber-500/10 dark:border-amber-400/20"
+        >
+          Permissions héritées
+          {parentWithPerms ? ` de "${parentWithPerms.name}"` : ""}
         </div>
       )}
 
       <div className="grid gap-2">
         <label className="text-xs text-slate-600 dark:text-gray-400">
-          Groupes (édition) — {editGroups.length} groupe{editGroups.length !== 1 ? "s" : ""}
+          Groupes (édition) — {editGroups.length} groupe
+          {editGroups.length !== 1 ? "s" : ""}
         </label>
-        <div className="rounded-lg border px-3 py-2 min-h-[32px]
+        <div
+          className="rounded-lg border px-3 py-2 min-h-[32px]
           bg-white border-slate-200 text-slate-800
-          dark:bg-gray-950/80 dark:border-gray-800 dark:text-gray-300">
+          dark:bg-gray-950/80 dark:border-gray-800 dark:text-gray-300"
+        >
           {editGroups.length > 0 ? (
             <div className="space-y-1">
               {editGroups.map((group, index) => (
-                <div key={index} className="text-xs">{group}</div>
+                <div key={index} className="text-xs">
+                  {group}
+                </div>
               ))}
             </div>
           ) : (
-            <div className="text-xs text-slate-500 dark:text-gray-500">(aucun)</div>
+            <div className="text-xs text-slate-500 dark:text-gray-500">
+              (aucun)
+            </div>
           )}
         </div>
       </div>
 
       <div className="grid gap-2">
         <label className="text-xs text-slate-600 dark:text-gray-400">
-          Groupes (lecture) — {readGroups.length} groupe{readGroups.length !== 1 ? "s" : ""}
+          Groupes (lecture) — {readGroups.length} groupe
+          {readGroups.length !== 1 ? "s" : ""}
         </label>
-        <div className="rounded-lg border px-3 py-2 min-h-[32px]
+        <div
+          className="rounded-lg border px-3 py-2 min-h-[32px]
           bg-white border-slate-200 text-slate-800
-          dark:bg-gray-950/80 dark:border-gray-800 dark:text-gray-300">
+          dark:bg-gray-950/80 dark:border-gray-800 dark:text-gray-300"
+        >
           {readGroups.length > 0 ? (
             <div className="space-y-1">
               {readGroups.map((group, index) => (
-                <div key={index} className="text-xs">{group}</div>
+                <div key={index} className="text-xs">
+                  {group}
+                </div>
               ))}
             </div>
           ) : (
-            <div className="text-xs text-slate-500 dark:text-gray-500">(aucun)</div>
+            <div className="text-xs text-slate-500 dark:text-gray-500">
+              (aucun)
+            </div>
           )}
         </div>
       </div>
@@ -1144,7 +1254,8 @@ function PermissionsInlineViewer({
 
       {node.depth === 3 ? (
         <p className="text-xs text-slate-500 dark:text-gray-500">
-          Utilisez le bouton <Settings2 className="inline h-3 w-3" /> pour modifier les permissions.
+          Utilisez le bouton <Settings2 className="inline h-3 w-3" /> pour
+          modifier les permissions.
         </p>
       ) : node.depth && node.depth > 3 ? (
         <p className="text-xs text-slate-500 dark:text-gray-500">
@@ -1251,10 +1362,12 @@ function PermissionModal({
   };
 
   const removeEditGroup = (index: number) => {
-    if (editGroups.length > 1) setEditGroups(editGroups.filter((_, i) => i !== index));
+    if (editGroups.length > 1)
+      setEditGroups(editGroups.filter((_, i) => i !== index));
   };
   const removeReadGroup = (index: number) => {
-    if (readGroups.length > 1) setReadGroups(readGroups.filter((_, i) => i !== index));
+    if (readGroups.length > 1)
+      setReadGroups(readGroups.filter((_, i) => i !== index));
   };
 
   return (
@@ -1416,11 +1529,13 @@ function PermissionModal({
                 Haute sécurité
               </label>
             </div>
-            <div className="text-xs rounded-lg p-2 border
+            <div
+              className="text-xs rounded-lg p-2 border
               bg-slate-50 text-slate-600 border-slate-200
-              dark:bg-gray-900 dark:text-gray-500 dark:border-gray-800">
-              Ces permissions s&apos;appliqueront à ce dossier et seront héritées
-              par tous ses sous-dossiers.
+              dark:bg-gray-900 dark:text-gray-500 dark:border-gray-800"
+            >
+              Ces permissions s&apos;appliqueront à ce dossier et seront
+              héritées par tous ses sous-dossiers.
             </div>
           </div>
 
@@ -1504,21 +1619,10 @@ function PermissionsButton({
 /* =============================================================================
    Utils & Shared states
 ============================================================================= */
-function splitOrNull(s: string): string[] | null {
-  const arr = s
-    .split(",")
-    .map((x) => x.trim())
-    .filter(Boolean);
-  return arr.length ? arr : null;
-}
-
 function AccessDenied() {
   return (
-    <div className="fixed inset-0 flex items-center justify-center p-4
-      bg-slate-50 dark:bg-black">
-      <div className="max-w-lg rounded-xl border p-8 text-center
-        bg-white text-slate-800 border-slate-200
-        dark:bg-gray-900 dark:text-white dark:border-gray-800">
+    <div className="fixed inset-0 flex items-center justify-center p-4 bg-slate-50 dark:bg-black">
+      <div className="max-w-lg rounded-xl border p-8 text-center bg-white text-slate-800 border-slate-200 dark:bg-gray-900 dark:text-white dark:border-gray-800">
         <h3 className="mb-2 text-xl font-bold">Accès restreint</h3>
         <p className="text-sm text-slate-600 dark:text-gray-400">
           Vous ne disposez pas des autorisations nécessaires pour consulter ces
