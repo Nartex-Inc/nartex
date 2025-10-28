@@ -5,7 +5,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-/** Public type that client code may import as `import type { PrextraOrderResponse } ...` */
+/** Public type for client code to import as `import type { PrextraOrderResponse } ...` */
 export type PrextraOrderResponse =
   | {
       ok: true;
@@ -20,16 +20,8 @@ export type PrextraOrderResponse =
       SalesrepName: string;
       TrackingNumber: string | null;
     }
-  | {
-      ok: true;
-      exists: false;
-      error: string;
-    }
-  | {
-      ok: false;
-      exists: false;
-      error: string;
-    };
+  | { ok: true; exists: false; error: string }
+  | { ok: false; exists: false; error: string };
 
 export async function GET(req: Request) {
   try {
@@ -106,10 +98,3 @@ export async function GET(req: Request) {
     return NextResponse.json(body, { status: 500 });
   }
 }
-
-/**
- * Ensure this file remains a module even if the handler is tree-shaken during type-checking.
- * This also allows harmless default imports from legacy code without changing behavior.
- */
-// eslint-disable-next-line import/no-default-export
-export default {};
