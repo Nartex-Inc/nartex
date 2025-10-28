@@ -81,7 +81,7 @@
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Base resets & theming - BACKGROUND SETUP
+   Base resets & theming - BACKGROUND SETUP WITH !important
    ────────────────────────────────────────────────────────────── */
 @layer base {
   * {
@@ -95,21 +95,21 @@
     padding: 0;
   }
 
+  /* CRITICAL: Using !important to override any Tailwind utilities */
   body {
     @apply text-foreground antialiased;
     
-    /* FIXED: Single background definition with proper layering */
-    /* Order: overlays → image → fallback color */
+    /* FORCE background with !important to override everything */
     background-image:
       radial-gradient(1000px 600px at 10% -10%, rgba(34, 211, 238, 0.10), transparent 60%),
       radial-gradient(900px 500px at 110% 20%, rgba(139, 92, 246, 0.10), transparent 60%),
-      url("/bg/nartex-bg.webp");
+      url("/bg/nartex-bg.webp") !important;
     
-    background-color: var(--app-bg);
-    background-size: cover, cover, cover;
-    background-position: center top, center top, center center;
-    background-repeat: no-repeat;
-    background-attachment: fixed;
+    background-color: var(--app-bg) !important;
+    background-size: cover, cover, cover !important;
+    background-position: center top, center top, center center !important;
+    background-repeat: no-repeat !important;
+    background-attachment: fixed !important;
     
     /* Create stacking context for backdrop-filter */
     position: relative;
@@ -121,7 +121,7 @@
     background-image:
       radial-gradient(1000px 600px at 10% -10%, rgba(34, 211, 238, 0.16), transparent 60%),
       radial-gradient(900px 500px at 110% 20%, rgba(139, 92, 246, 0.16), transparent 60%),
-      url("/bg/nartex-bg.webp");
+      url("/bg/nartex-bg.webp") !important;
   }
 
   /* Text selection */
@@ -136,7 +136,7 @@
   (prefers-reduced-data: reduce) {
   body {
     background-image: none !important;
-    background-color: var(--app-bg);
+    background-color: var(--app-bg) !important;
   }
 }
 
