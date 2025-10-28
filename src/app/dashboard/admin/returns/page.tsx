@@ -481,7 +481,7 @@ export default function ReturnsPage() {
 
   return (
   <div className="min-h-[100svh]">
-    {/* Decorative glows - subtle atmosphere */}
+    {/* Decorative glows */}
     {isDark && (
       <div className="fixed inset-0 pointer-events-none opacity-15">
         <div className="absolute -top-10 right-20 w-96 h-96 rounded-full blur-3xl bg-emerald-400/40" />
@@ -490,9 +490,8 @@ export default function ReturnsPage() {
     )}
 
     <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8 py-7 relative z-10">
-      {/* Header - Premium Glass Card */}
+      {/* Header Card */}
       <div className="rounded-3xl glass-card shadow-glass-lg relative overflow-hidden mb-6">
-        {/* Decorative glow inside header */}
         <div
           className="absolute -top-10 -right-10 w-[420px] h-[420px] rounded-full blur-3xl opacity-30"
           style={{
@@ -643,7 +642,7 @@ export default function ReturnsPage() {
         </div>
       </div>
 
-      {/* Stats Cards - Light Glass */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="rounded-xl glass-light p-5 border border-glass">
           <div className="flex items-center justify-between">
@@ -703,7 +702,7 @@ export default function ReturnsPage() {
         </div>
       </div>
 
-      {/* Main Table Card - Glass */}
+      {/* Table Card */}
       <div className="rounded-3xl glass-card shadow-glass overflow-hidden">
         {loading && (
           <div className="absolute inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 rounded-3xl">
@@ -860,7 +859,7 @@ export default function ReturnsPage() {
               )}
             </div>
 
-            {/* Table footer */}
+            {/* Footer */}
             <div className={cn(
               "px-5 py-3 flex items-center justify-between",
               isDark ? "border-t border-white/10 bg-black/20" : "border-t border-slate-200 bg-slate-50/50"
@@ -878,7 +877,7 @@ export default function ReturnsPage() {
         )}
       </div>
 
-      {/* Detail modal (read-only editing demo) */}
+      {/* Modals */}
       {selected && (
         <DetailModal
           row={selected}
@@ -891,7 +890,6 @@ export default function ReturnsPage() {
         />
       )}
 
-      {/* New return modal */}
       {openNew && (
         <NewReturnModal
           onClose={() => setOpenNew(false)}
