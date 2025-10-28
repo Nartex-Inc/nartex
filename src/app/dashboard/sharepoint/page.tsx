@@ -195,7 +195,9 @@ function buildTree(rows: APINode[]): NodeItem {
     id: n.id,
     parentId: normalizeParentId(n.parentId),
     name: n.name,
-    type: (n.type as any) ?? "folder",
+    type: n.type === "site" || n.type === "library" || n.type === "folder" 
+      ? n.type 
+      : "folder",
     icon: n.icon ?? undefined,
     restricted: !!n.restricted,
     highSecurity: !!n.highSecurity,
@@ -701,12 +703,13 @@ function SharePointStructure() {
           {node.type === "library" && (
             <span className="text-base">{node.icon || "📁"}</span>
           )}
-          {(!node.type || node.type === "folder") &&
-            (isExpanded ? (
+          {(!node.type || node.type === "folder") && (
+            isExpanded ? (
               <FolderOpen className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
             ) : (
               <Folder className="h-3.5 w-3.5 text-slate-500 dark:text-muted-foreground/70" />
-            ))}
+            )
+          )}
 
           {isEditing ? (
             <input
