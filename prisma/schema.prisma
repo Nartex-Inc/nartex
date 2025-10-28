@@ -290,7 +290,7 @@ model SOHeader {
 
 /// Customers replicated as "Customers"
 model Customers {
-  custid   Int     @id            @map("CustId")   // <-- corrected: CustId
+  custid   Int     @id            @map("CustId")
   custcode String? @map("CustCode")
   name     String? @map("Name")
 
@@ -315,11 +315,13 @@ model Salesrep {
 
 /// Shipments header replicated as "ShipmentHdr"
 model ShipmentHdr {
-  id      Int     @id @default(autoincrement()) @map("Id") // use "Id"; change to "id" if needed
-  sonbr   Int     @map("sonbr")
-  waybill String? @map("WayBill")
+  id       Int     @id @default(autoincrement()) @map("Id")     // DB column "Id"
+  cieid    Int     @map("cieid")                                // company id
+  sonbr    Int     @map("sonbr")
+  waybill  String? @map("WayBill")
 
   @@index([sonbr])
+  @@index([cieid, sonbr])
   @@map("ShipmentHdr")
 }
 
