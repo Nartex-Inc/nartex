@@ -5,13 +5,12 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-/** Public type for client code to import as `import type { PrextraOrderResponse } ...` */
 export type PrextraOrderResponse =
   | {
       ok: true;
       exists: true;
       sonbr: number;
-      OrderDate: string | null;
+      OrderDate: string | null;          // ISO string
       totalamt: number | null;
       noClient: string;
       CustCode: string;
@@ -30,7 +29,6 @@ export async function GET(req: Request) {
     const parsed = decodeURIComponent(raw).trim();
     const sonbr = Number(parsed);
 
-    // Validate query param
     if (!Number.isFinite(sonbr) || !Number.isInteger(sonbr)) {
       const body: PrextraOrderResponse = {
         ok: false,
@@ -69,10 +67,9 @@ export async function GET(req: Request) {
       so.custid ? prisma.customers.findUnique({ where: { custid: so.custid } }) : null,
       so.carrid ? prisma.carriers.findUnique({ where: { carrid: so.carrid } }) : null,
       so.srid ? prisma.salesrep.findUnique({ where: { srid: so.srid } }) : null,
-      // Filter by cieid; order by Id (Prisma field: id)
       prisma.shipmentHdr.findFirst({
-        where: { sonbr: so.sonbr, cieid: so.cieid },
-        orderBy: { id: "desc" },
+        where: { sonbr: so.sonbr, cieid: so.cieid }, // requires prisma model with cieid
+        orderBy: { id: "desc" },                     // Prisma field maps to DB "Id"
         select: { waybill: true },
       }),
     ]);
@@ -81,9 +78,9 @@ export async function GET(req: Request) {
       ok: true,
       exists: true,
       sonbr: so.sonbr,
-      OrderDate: so.orderdate ?? null, // Dates -> ISO in JSON
-      totalamt: so.totalamt != null ? Number(so.totalamt) : null, // Decimal -> number
-      // Provide both for maximum compatibility:
+      // Convert Date -> ISO string to satisfy response type and JSON
+      OrderDate: so.orderdate ? so.orderdate.toISOString() : null,
+      totalamt: so.totalamt != null ? Number(so.totalamt) : null,
       noClient: cust?.custcode ?? "",
       CustCode: cust?.custcode ?? "",
       CustomerName: cust?.name ?? "",
@@ -91,6 +88,7 @@ export async function GET(req: Request) {
       SalesrepName: rep?.name ?? "",
       TrackingNumber: ship?.waybill ?? "",
     };
+
     return NextResponse.json(body);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unexpected server error.";
