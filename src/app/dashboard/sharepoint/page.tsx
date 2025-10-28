@@ -774,8 +774,6 @@ function SharePointStructure() {
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
-
-                {/* Permissions can only be edited on level 3 folders */}
                 {canEditPermissions && (
                   <PermissionsButton
                     node={node}
@@ -838,6 +836,7 @@ function SharePointStructure() {
       </div>
     );
   }
+  
   if (isLoading || !tree)
     return (
       <LoadingAnimation
