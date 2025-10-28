@@ -1,3 +1,4 @@
+```ts
 // src/app/api/prextra/order/route.ts
 // GET /api/prextra/order?no_commande=12345
 // Returns minimal SO header + joined details to auto-fill the return form.
@@ -16,7 +17,7 @@ export async function GET(req: Request) {
     if (!Number.isFinite(sonbr) || !Number.isInteger(sonbr)) {
       return NextResponse.json(
         { ok: false, exists: false, error: "Missing or invalid 'no_commande'." },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -48,10 +49,10 @@ export async function GET(req: Request) {
       so.custid ? prisma.customers.findUnique({ where: { custid: so.custid } }) : null,
       so.carrid ? prisma.carriers.findUnique({ where: { carrid: so.carrid } }) : null,
       so.srid ? prisma.salesrep.findUnique({ where: { srid: so.srid } }) : null,
-      // Use shipmentid for ordering; also filter by cieid so we don't mix companies
+      // Filter by cieid; order by Id (Prisma field: id)
       prisma.shipmentHdr.findFirst({
-        where: { sonbr: so.sonbr, cieid: so.cieid }, // ensure ShipmentHdr has cieid mapped
-        orderBy: { shipmentid: "desc" },
+        where: { sonbr: so.sonbr, cieid: so.cieid },
+        orderBy: { id: "desc" },
         select: { waybill: true },
       }),
     ]);
@@ -61,7 +62,7 @@ export async function GET(req: Request) {
       ok: true,
       exists: true,
       sonbr: so.sonbr,
-      OrderDate: so.orderdate ?? null,                         // Dates -> ISO in JSON
+      OrderDate: so.orderdate ?? null, // Dates -> ISO in JSON
       totalamt: so.totalamt != null ? Number(so.totalamt) : null, // Decimal -> number
       // Provide both for maximum compatibility:
       noClient: cust?.custcode ?? "",
@@ -75,7 +76,8 @@ export async function GET(req: Request) {
     const message = err instanceof Error ? err.message : "Unexpected server error.";
     return NextResponse.json(
       { ok: false, exists: false, error: message },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
+```
