@@ -37,9 +37,12 @@ const inter = Inter({
 
 const SECURITY_GROUPS = [
   "SG-PDG",
-  "SG-ADMIN-FINANCE-0",
-  "SG-ADMIN-FINANCE-1",
-  "SG-ADMIN-FINANCE-2",
+  "SG-ADMIN-0",
+  "SG-ADMIN-1",
+  "SG-ADMIN-2",
+  "SG-FINANCE-0",
+  "SG-FINANCE-1",
+  "SG-FINANCE-2",
   "SG-RH-0",
   "SG-RH-1",
   "SG-RH-2",
