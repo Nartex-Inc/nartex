@@ -21,7 +21,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr" suppressHydrationWarning>
-      {/* Remove bg-app so the layered background in globals.css is visible */}
       <body
         className={`${inter.className} min-h-screen antialiased text-foreground selection:bg-primary/20 selection:text-primary`}
       >
