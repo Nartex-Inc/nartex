@@ -251,3 +251,44 @@ input[type="search"]::-ms-reveal {
   background-clip: padding-box;
 }
 *::-webkit-scrollbar-track { background: transparent; }
+
+/* === Nartex global background & glass helpers =========================== */
+@layer base {
+  html, body { min-height: 100%; }
+  /* Create an isolated stacking context so backdrop-filter samples the bg */
+  body { isolation: isolate; }
+
+  /* Fixed background layer (the “canvas” to blur against) */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;                      /* sit behind everything */
+    background:
+      radial-gradient(1000px 600px at 10% -10%, rgba(34,211,238,.10), transparent 60%),
+      radial-gradient(900px 500px at 110% 20%, rgba(139,92,246,.10), transparent 60%),
+      url("/nartex-bg.webp");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: saturate(1.05) contrast(1.05);
+  }
+}
+
+/* Glass utility with guaranteed translucency (some tokens were opaque) */
+@layer utilities {
+  .glass {
+    /* IMPORTANT: keep alpha < 1 so the backdrop is visible */
+    background: color-mix(in oklab, hsl(var(--background)) 70%, transparent) !important;
+    border: 1px solid color-mix(in oklab, hsl(var(--foreground)) 10%, transparent) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  .glass-soft {
+    background: color-mix(in oklab, hsl(var(--background)) 50%, transparent) !important;
+    border: 1px solid color-mix(in oklab, hsl(var(--foreground)) 8%, transparent) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+}
+
