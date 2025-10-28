@@ -909,7 +909,7 @@ function SharePointStructure() {
               Ajouter un dossier racine
             </button>
           </div>
-        </div>  {
+        </div>
 
       <div className="flex-1 overflow-hidden flex">
         {/* Explorer */}
