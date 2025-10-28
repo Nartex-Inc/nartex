@@ -480,430 +480,402 @@ export default function ReturnsPage() {
   }, [sorted]);
 
   return (
-  <div className="min-h-[100svh]">
-    {/* Decorative glows - subtle atmosphere */}
-    {isDark && (
-      <div className="fixed inset-0 pointer-events-none opacity-15">
-        <div className="absolute -top-10 right-20 w-96 h-96 rounded-full blur-3xl bg-emerald-400/40" />
-        <div className="absolute bottom-0 left-1/3 w-[28rem] h-[28rem] rounded-full blur-[100px] bg-emerald-700/30" />
-      </div>
-    )}
+    <div className={cn("min-h-[100svh]", isDark ? "bg-[#050507]" : "bg-white")}>
+      {isDark && (
+        <div className="fixed inset-0 pointer-events-none opacity-25">
+          <div className="absolute -top-10 right-20 w-96 h-96 rounded-full blur-3xl bg-emerald-400" />
+          <div className="absolute bottom-0 left-1/3 w-[28rem] h-[28rem] rounded-full blur-[100px] bg-emerald-700/50" />
+        </div>
+      )}
 
-    <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8 py-7 relative z-10">
-      {/* Header - Premium Glass Card */}
-      <div className="rounded-3xl glass-card shadow-glass-lg relative overflow-hidden mb-6">
-        {/* Decorative glow inside header */}
+      <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8 py-7 relative z-10">
+        {/* Header */}
         <div
-          className="absolute -top-10 -right-10 w-[420px] h-[420px] rounded-full blur-3xl opacity-30"
+          className={cn(
+            "rounded-3xl border backdrop-blur-2xl relative overflow-hidden",
+            isDark ? "border-white/15" : "border-slate-200"
+          )}
           style={{
-            background: "linear-gradient(135deg, rgba(16,185,129,0.35), rgba(16,185,129,0.20))",
+            background: isDark
+              ? "linear-gradient(135deg, rgba(15,16,19,0.92) 0%, rgba(15,16,19,0.78) 60%, rgba(16,185,129,0.08) 100%)"
+              : "linear-gradient(135deg, rgba(236,253,245,0.65) 0%, rgba(255,255,255,0.92) 100%)",
           }}
-        />
-        
-        <div className="px-6 py-6 relative z-10">
-          <div className="flex flex-wrap items-center justify-between gap-6">
-            <div>
-              <h1 className={cn("font-bold tracking-tight", "text-2xl md:text-[28px]")}>
-                <span className={isDark ? "text-white" : "text-slate-900"}>
-                  Gestion des retours
-                </span>
-                <span className="text-emerald-500">.</span>
-              </h1>
-              <p className={cn("mt-1 text-[13px]", isDark ? "text-slate-400" : "text-slate-500")}>
-                Recherchez, filtrez et inspectez les retours produits.
-              </p>
-            </div>
+        >
+          <div
+            className="absolute -top-10 -right-10 w-[420px] h-[420px] rounded-full blur-3xl"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(16,185,129,0.35), rgba(16,185,129,0.20))",
+            }}
+          />
+          <div className="px-6 py-6 relative z-10">
+            <div className="flex flex-wrap items-center justify-between gap-6">
+              <div>
+                <h1 className={cn("font-bold tracking-tight", "text-2xl md:text-[28px]")}>
+                  <span className={isDark ? "text-white" : "text-slate-900"}>
+                    Gestion des retours
+                  </span>
+                  <span className="text-emerald-500">.</span>
+                </h1>
+                <p className={cn("mt-1 text-[13px]", isDark ? "text-slate-400" : "text-slate-500")}>
+                  Recherchez, filtrez et inspectez les retours produits.
+                </p>
+              </div>
 
-            <button
-              className={cn(
-                "relative inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all",
-                "border backdrop-blur-sm",
-                isDark
-                  ? "border-emerald-500/30 text-white hover:border-emerald-500/50 bg-emerald-500/10 hover:bg-emerald-500/20"
-                  : "border-emerald-400/40 text-slate-800 hover:border-emerald-400/60 bg-emerald-50/80 hover:bg-emerald-100/80"
-              )}
-              style={{
-                boxShadow: isDark
-                  ? "0 8px 30px rgba(16,185,129,0.15)"
-                  : "0 8px 30px rgba(16,185,129,0.10)",
-              }}
-              onClick={() => setOpenNew(true)}
-            >
-              <Plus className="h-4 w-4" />
-              Nouveau retour
-            </button>
-          </div>
-
-          {/* Search + filters */}
-          <div className="mt-4 flex flex-col lg:flex-row gap-3">
-            <div className="flex-1 relative">
-              <Search className={cn("absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4", isDark ? "text-slate-400" : "text-slate-400")} />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && load()}
-                placeholder="Rechercher par code, client, expert, commande…"
-                className={cn(
-                  "w-full pl-11 pr-4 py-2.5 rounded-xl text-sm outline-none transition",
-                  "border backdrop-blur-sm",
-                  isDark
-                    ? "bg-black/30 border-white/15 text-white placeholder:text-slate-500 focus:border-emerald-400/40"
-                    : "bg-white/60 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-emerald-400"
-                )}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <select
-                value={cause}
-                onChange={(e) => setCause(e.target.value as Cause | "all")}
-                className={cn(
-                  "px-3 py-2.5 rounded-xl text-sm outline-none border transition backdrop-blur-sm",
-                  isDark
-                    ? "bg-black/30 border-white/15 text-white focus:border-emerald-400/40"
-                    : "bg-white/60 border-slate-200 text-slate-900 focus:border-emerald-400"
-                )}
-              >
-                <option value="all">Toutes les causes</option>
-                {CAUSES_IN_ORDER.map((c) => (
-                  <option key={c} value={c}>
-                    {CAUSE_LABEL[c]}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={reporter}
-                onChange={(e) => setReporter(e.target.value as Reporter | "all")}
-                className={cn(
-                  "px-3 py-2.5 rounded-xl text-sm outline-none border transition backdrop-blur-sm",
-                  isDark
-                    ? "bg-black/30 border-white/15 text-white focus:border-emerald-400/40"
-                    : "bg-white/60 border-slate-200 text-slate-900 focus:border-emerald-400"
-                )}
-              >
-                <option value="all">Tous les signaleurs</option>
-                {(["expert", "transporteur", "autre"] as Reporter[]).map((r) => (
-                  <option key={r} value={r}>
-                    {REPORTER_LABEL[r]}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className={cn(
-                  "px-3 py-2.5 rounded-xl text-sm outline-none border transition backdrop-blur-sm",
-                  isDark
-                    ? "bg-black/30 border-white/15 text-white focus:border-emerald-400/40"
-                    : "bg-white/60 border-slate-200 text-slate-900 focus:border-emerald-400"
-                )}
-              />
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className={cn(
-                  "px-3 py-2.5 rounded-xl text-sm outline-none border transition backdrop-blur-sm",
-                  isDark
-                    ? "bg-black/30 border-white/15 text-white focus:border-emerald-400/40"
-                    : "bg-white/60 border-slate-200 text-slate-900 focus:border-emerald-400"
-                )}
-              />
               <button
-                onClick={() => setOpenNew(true)}
                 className={cn(
-                  "lg:hidden inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm border transition backdrop-blur-sm",
+                  "relative inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all",
+                  "border",
                   isDark
-                    ? "bg-black/30 border-white/15 text-white"
-                    : "bg-white/60 border-slate-200 text-slate-800"
+                    ? "border-white/20 text-white hover:border-white/30"
+                    : "border-slate-300 text-slate-800 hover:border-slate-400"
                 )}
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.10))",
+                  boxShadow: isDark
+                    ? "0 8px 30px rgba(16,185,129,0.15)"
+                    : "0 8px 30px rgba(16,185,129,0.10)",
+                }}
+                onClick={() => setOpenNew(true)}
               >
                 <Plus className="h-4 w-4" />
-                Nouveau
-              </button>
-              <button
-                onClick={() => {
-                  setQuery("");
-                  setCause("all");
-                  setReporter("all");
-                  setDateFrom("");
-                  setDateTo("");
-                }}
-                className={cn(
-                  "px-3 py-2.5 rounded-xl text-sm border transition backdrop-blur-sm",
-                  isDark
-                    ? "bg-black/30 border-white/15 text-white hover:bg-black/40"
-                    : "bg-white/60 border-slate-200 text-slate-800 hover:bg-white/80"
-                )}
-              >
-                <RotateCcw className="h-4 w-4" />
+                Nouveau retour
               </button>
             </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Stats Cards - Light Glass */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="rounded-xl glass-light p-5 border border-glass">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className={cn("text-xs font-medium uppercase tracking-wider", isDark ? "text-slate-400" : "text-slate-500")}>
-                Total retours
-              </p>
-              <p className={cn("text-3xl font-bold mt-2", isDark ? "text-white" : "text-slate-900")}>
-                {rows.length}
-              </p>
-            </div>
-            <div className={cn(
-              "h-12 w-12 rounded-xl flex items-center justify-center",
-              isDark ? "bg-emerald-500/20" : "bg-emerald-100"
-            )}>
-              <Package className={cn("h-6 w-6", isDark ? "text-emerald-400" : "text-emerald-600")} />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl glass-light p-5 border border-glass">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className={cn("text-xs font-medium uppercase tracking-wider", isDark ? "text-slate-400" : "text-slate-500")}>
-                En attente
-              </p>
-              <p className={cn("text-3xl font-bold mt-2", isDark ? "text-white" : "text-slate-900")}>
-                {rows.filter((r) => r.status === "awaiting_physical").length}
-              </p>
-            </div>
-            <div className={cn(
-              "h-12 w-12 rounded-xl flex items-center justify-center",
-              isDark ? "bg-amber-500/20" : "bg-amber-100"
-            )}>
-              <Clock className={cn("h-6 w-6", isDark ? "text-amber-400" : "text-amber-600")} />
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl glass-light p-5 border border-glass">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className={cn("text-xs font-medium uppercase tracking-wider", isDark ? "text-slate-400" : "text-slate-500")}>
-                Brouillons
-              </p>
-              <p className={cn("text-3xl font-bold mt-2", isDark ? "text-white" : "text-slate-900")}>
-                {rows.filter((r) => r.status === "draft").length}
-              </p>
-            </div>
-            <div className={cn(
-              "h-12 w-12 rounded-xl flex items-center justify-center",
-              isDark ? "bg-slate-500/20" : "bg-slate-100"
-            )}>
-              <FileText className={cn("h-6 w-6", isDark ? "text-slate-400" : "text-slate-600")} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Table Card - Glass */}
-      <div className="rounded-3xl glass-card shadow-glass overflow-hidden">
-        {loading && (
-          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 rounded-3xl">
-            <div className="flex flex-col items-center gap-3">
-              <div className="h-8 w-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-              <p className={cn("text-sm font-medium", isDark ? "text-white" : "text-slate-900")}>
-                Chargement...
-              </p>
-            </div>
-          </div>
-        )}
-
-        {!loading && (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className={cn(isDark ? "bg-black/30 border-b border-white/10" : "bg-slate-50/80 border-b border-slate-200")}>
-                  <tr className={cn("text-xs font-semibold uppercase tracking-wider", isDark ? "text-slate-300" : "text-slate-600")}>
-                    <SortTh label="Code" active={sortKey === "id"} dir={sortDir} onClick={() => toggleSort("id")} />
-                    <SortTh label="Date" active={sortKey === "reportedAt"} dir={sortDir} onClick={() => toggleSort("reportedAt")} />
-                    <SortTh label="Signalé par" active={sortKey === "reporter"} dir={sortDir} onClick={() => toggleSort("reporter")} />
-                    <SortTh label="Cause" active={sortKey === "cause"} dir={sortDir} onClick={() => toggleSort("cause")} />
-                    <SortTh label="Client / Expert" active={sortKey === "client"} dir={sortDir} onClick={() => toggleSort("client")} />
-                    <SortTh label="No commande" active={sortKey === "noCommande"} dir={sortDir} onClick={() => toggleSort("noCommande")} />
-                    <SortTh label="Tracking" active={sortKey === "tracking"} dir={sortDir} onClick={() => toggleSort("tracking")} />
-                    <SortTh label="P.J." active={sortKey === "attachments"} dir={sortDir} onClick={() => toggleSort("attachments")} />
-                    <th className="px-5 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-
-                <tbody className={cn(isDark ? "divide-y divide-white/8" : "divide-y divide-slate-100")}>
-                  {striped.map(({ row, stripe }) => {
-                    const hasFiles = (row.attachments?.length ?? 0) > 0;
-                    const s = STATUS_TEXT[row.status];
-                    return (
-                      <tr
-                        key={row.id}
-                        onMouseEnter={() => setHovered(row.id)}
-                        onMouseLeave={() => setHovered(null)}
-                        className={cn(
-                          "relative transition-all duration-200",
-                          row.standby && "opacity-60",
-                          hovered === row.id && (isDark ? "bg-white/5" : "bg-slate-50/50")
-                        )}
-                        style={rowStyle(row.status, stripe)}
-                      >
-                        <td className={cn("px-5 py-4 font-semibold", s.text)}>
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={cn(
-                                "w-1.5 h-6 rounded-full",
-                                row.status === "draft" && "bg-slate-300",
-                                row.status === "awaiting_physical" && (isDark ? "bg-amber-400" : "bg-amber-500"),
-                                row.status === "received_or_no_physical" && (isDark ? "bg-emerald-400" : "bg-emerald-500")
-                              )}
-                            />
-                            <span className="font-mono">{row.id}</span>
-                          </div>
-                        </td>
-                        <td className={cn("px-5 py-4", s.text)}>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-3.5 w-3.5 opacity-70" />
-                            {new Date(row.reportedAt).toLocaleDateString("fr-CA")}
-                          </div>
-                        </td>
-                        <td className="px-5 py-4">
-                          <span className={cn(
-                            "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium",
-                            isDark 
-                              ? "bg-white/10 text-slate-100 border-white/20" 
-                              : "bg-slate-200 text-slate-700 border-slate-300"
-                          )}>
-                            {REPORTER_LABEL[row.reporter]}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4">
-                          <span className={cn(
-                            "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium",
-                            isDark
-                              ? "bg-emerald-500/15 text-emerald-200 border-emerald-500/20"
-                              : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          )}>
-                            {CAUSE_LABEL[row.cause]}
-                          </span>
-                        </td>
-                        <td className={cn("px-5 py-4", s.text)}>
-                          <div>
-                            <div className="font-medium">{row.client}</div>
-                            <div className={cn("text-[11px] opacity-80")}>{row.expert}</div>
-                          </div>
-                        </td>
-                        <td className={cn("px-5 py-4", s.text)}>{row.noCommande ?? "—"}</td>
-                        <td className={cn("px-5 py-4", s.text)}>{row.tracking ?? "—"}</td>
-                        <td className={cn("px-5 py-4", s.text)}>
-                          {hasFiles ? (
-                            <div className="inline-flex items-center gap-1.5">
-                              <Folder className="h-4 w-4 opacity-80" />
-                              <span className="text-xs font-medium">{row.attachments!.length}</span>
-                            </div>
-                          ) : (
-                            <span className={cn("text-xs", isDark ? "text-slate-300" : "text-slate-500")}>—</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3">
-                          <div className={cn(
-                            "flex items-center justify-end gap-1 transition-opacity",
-                            hovered === row.id ? "opacity-100" : "opacity-0"
-                          )}>
-                            <button
-                              onClick={() => setOpenId(row.id)}
-                              className={cn(
-                                "p-2 rounded-lg transition-colors",
-                                isDark ? "hover:bg-white/10 text-slate-300" : "hover:bg-slate-100 text-slate-700"
-                              )}
-                              title="Consulter"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => onToggleStandby(row.id)}
-                              className={cn(
-                                "p-2 rounded-lg transition-colors",
-                                isDark ? "hover:bg-amber-500/10 text-amber-300" : "hover:bg-amber-50 text-amber-600"
-                              )}
-                              title={row.standby ? "Retirer du standby" : "Mettre en standby"}
-                            >
-                              <Pause className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => onDelete(row.id)}
-                              className={cn(
-                                "p-2 rounded-lg transition-colors",
-                                isDark ? "hover:bg-red-500/10 text-red-400" : "hover:bg-red-50 text-red-600"
-                              )}
-                              title="Supprimer"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-
-              {sorted.length === 0 && (
-                <div className="py-16 text-center">
-                  <Package className={cn("h-10 w-10 mx-auto mb-3", isDark ? "text-slate-600" : "text-slate-300")} />
-                  <p className={cn(isDark ? "text-slate-400" : "text-slate-500", "text-sm")}>
-                    Aucun retour ne correspond à vos filtres
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Table footer */}
-            <div className={cn(
-              "px-5 py-3 flex items-center justify-between",
-              isDark ? "border-t border-white/10 bg-black/20" : "border-t border-slate-200 bg-slate-50/50"
-            )}>
-              <span className={cn("text-xs", isDark ? "text-slate-400" : "text-slate-500")}>
-                {sorted.length} résultat{sorted.length > 1 ? "s" : ""}
-              </span>
+            {/* Search + filters */}
+            <div className="mt-4 flex flex-col lg:flex-row gap-3">
+              <div className="flex-1 relative">
+                <Search className={cn("absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4", isDark ? "text-slate-400" : "text-slate-400")} />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && load()}
+                  placeholder="Rechercher par code, client, expert, commande…"
+                  className={cn(
+                    "w-full pl-11 pr-4 py-2.5 rounded-xl text-sm outline-none transition",
+                    "border",
+                    isDark
+                      ? "bg-[#0c0d11]/80 border-white/15 text-white placeholder:text-slate-500 focus:border-emerald-400/40"
+                      : "bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-emerald-400"
+                  )}
+                />
+              </div>
               <div className="flex items-center gap-2">
-                <StatusChip status="draft" />
-                <StatusChip status="awaiting_physical" />
-                <StatusChip status="received_or_no_physical" />
+                <select
+                  value={cause}
+                  onChange={(e) => setCause(e.target.value as Cause | "all")}
+                  className={cn(
+                    "px-3 py-2.5 rounded-xl text-sm outline-none border transition",
+                    isDark
+                      ? "bg-[#0c0d11] border-white/15 text-white focus:border-emerald-400/40"
+                      : "bg-white border-slate-200 text-slate-900 focus:border-emerald-400"
+                  )}
+                >
+                  <option value="all">Toutes les causes</option>
+                  {CAUSES_IN_ORDER.map((c) => (
+                    <option key={c} value={c}>
+                      {CAUSE_LABEL[c]}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={reporter}
+                  onChange={(e) => setReporter(e.target.value as Reporter | "all")}
+                  className={cn(
+                    "px-3 py-2.5 rounded-xl text-sm outline-none border transition",
+                    isDark
+                      ? "bg-[#0c0d11] border-white/15 text-white focus:border-emerald-400/40"
+                      : "bg-white border-slate-200 text-slate-900 focus:border-emerald-400"
+                  )}
+                >
+                  <option value="all">Tous les signaleurs</option>
+                  {(["expert", "transporteur", "autre"] as Reporter[]).map((r) => (
+                    <option key={r} value={r}>
+                      {REPORTER_LABEL[r]}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className={cn(
+                    "px-3 py-2.5 rounded-xl text-sm outline-none border transition",
+                    isDark
+                      ? "bg-[#0c0d11] border-white/15 text-white focus:border-emerald-400/40"
+                      : "bg-white border-slate-200 text-slate-900 focus:border-emerald-400"
+                  )}
+                />
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className={cn(
+                    "px-3 py-2.5 rounded-xl text-sm outline-none border transition",
+                    isDark
+                      ? "bg-[#0c0d11] border-white/15 text-white focus:border-emerald-400/40"
+                      : "bg-white border-slate-200 text-slate-900 focus:border-emerald-400"
+                  )}
+                />
+                <button
+                  onClick={() => setOpenNew(true)}
+                  className={cn(
+                    "lg:hidden inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm border transition",
+                    isDark
+                      ? "bg-[#0c0d11] border-white/15 text-white"
+                      : "bg-white border-slate-200 text-slate-800"
+                  )}
+                >
+                  <Plus className="h-4 w-4" />
+                  Nouveau
+                </button>
+                <button
+                  onClick={() => load()}
+                  className={cn(
+                    "hidden lg:inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm border transition",
+                    isDark
+                      ? "bg-[#0c0d11] border-white/15 text-white hover:border-white/25"
+                      : "bg-white border-slate-200 text-slate-800 hover:border-slate-300"
+                  )}
+                >
+                  <Download className="h-4 w-4" />
+                  Rafraîchir
+                </button>
+                <button
+                  onClick={onReset}
+                  className={cn(
+                    "hidden lg:inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm border transition",
+                    isDark
+                      ? "bg-[#0c0d11] border-white/15 text-white hover:border-white/25"
+                      : "bg-white border-slate-200 text-slate-800 hover:border-slate-300"
+                  )}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Réinitialiser
+                </button>
               </div>
             </div>
-          </>
+
+            {/* Metrics */}
+            <div className="mt-4 grid grid-cols-12 gap-3">
+              <Metric
+                className="col-span-12 sm:col-span-4"
+                title="Total retours"
+                value={stats.total}
+                icon={<Package className="h-4 w-4" />}
+                isDark={isDark}
+              />
+              <Metric
+                className="col-span-12 sm:col-span-4"
+                title="En attente"
+                value={stats.awaiting}
+                icon={<Clock className="h-4 w-4" />}
+                isDark={isDark}
+              />
+              <Metric
+                className="col-span-12 sm:col-span-4"
+                title="Brouillons"
+                value={stats.draft}
+                icon={<FileText className="h-4 w-4" />}
+                isDark={isDark}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="mt-6 relative">
+          <div
+            className={cn(
+              "rounded-2xl border overflow-hidden shadow-sm",
+              isDark ? "border-white/15 bg-neutral-950/70" : "border-slate-200 bg-white"
+            )}
+          >
+            {loading && (
+              <div className="py-10 text-center text-sm">
+                Chargement des retours…
+              </div>
+            )}
+            {error && (
+              <div className="py-10 text-center text-sm text-red-600">
+                {error}
+              </div>
+            )}
+
+            {!loading && !error && (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead
+                      className={cn(
+                        "text-[11px] uppercase tracking-wider",
+                        isDark
+                          ? "bg-neutral-950/80 text-slate-400"
+                          : "bg-slate-50 text-slate-500"
+                      )}
+                    >
+                      <tr
+                        className={cn(
+                          isDark ? "border-b border-white/10" : "border-b border-slate-200"
+                        )}
+                      >
+                        <SortTh label="Code" active={sortKey === "id"} dir={sortDir} onClick={() => toggleSort("id")} />
+                        <SortTh label="Date" active={sortKey === "reportedAt"} dir={sortDir} onClick={() => toggleSort("reportedAt")} />
+                        <SortTh label="Signalé par" active={sortKey === "reporter"} dir={sortDir} onClick={() => toggleSort("reporter")} />
+                        <SortTh label="Cause" active={sortKey === "cause"} dir={sortDir} onClick={() => toggleSort("cause")} />
+                        <SortTh label="Client / Expert" active={sortKey === "client"} dir={sortDir} onClick={() => toggleSort("client")} />
+                        <SortTh label="No commande" active={sortKey === "noCommande"} dir={sortDir} onClick={() => toggleSort("noCommande")} />
+                        <SortTh label="Tracking" active={sortKey === "tracking"} dir={sortDir} onClick={() => toggleSort("tracking")} />
+                        <SortTh label="P.J." active={sortKey === "attachments"} dir={sortDir} onClick={() => toggleSort("attachments")} />
+                        <th className="px-5 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+
+                    <tbody className={cn(isDark ? "divide-y divide-white/8" : "divide-y divide-slate-100")}>
+                      {striped.map(({ row, stripe }) => {
+                        const hasFiles = (row.attachments?.length ?? 0) > 0;
+                        const s = STATUS_TEXT[row.status];
+                        return (
+                          <tr
+                            key={row.id}
+                            onMouseEnter={() => setHovered(row.id)}
+                            onMouseLeave={() => setHovered(null)}
+                            className={cn("relative transition-all duration-200", row.standby && "opacity-60")}
+                            style={rowStyle(row.status, stripe)}
+                          >
+                            <td className={cn("px-5 py-4 font-semibold", s.text)}>
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className={cn(
+                                    "w-1.5 h-6 rounded-full",
+                                    row.status === "draft" && "bg-slate-300",
+                                    row.status === "awaiting_physical" && "bg-white/80",
+                                    row.status === "received_or_no_physical" && "bg-white/80"
+                                  )}
+                                />
+                                <span className="font-mono">{row.id}</span>
+                              </div>
+                            </td>
+                            <td className={cn("px-5 py-4", s.text)}>
+                              <div className="flex items-center gap-2">
+                                <Calendar className="h-3.5 w-3.5 opacity-70" />
+                                {new Date(row.reportedAt).toLocaleDateString("fr-CA")}
+                              </div>
+                            </td>
+                            <td className="px-5 py-4">
+                              <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium bg-slate-200 text-slate-700 border-slate-300 dark:bg-white/10 dark:text-slate-100 dark:border-white/20">
+                                {REPORTER_LABEL[row.reporter]}
+                              </span>
+                            </td>
+                            <td className="px-5 py-4">
+                              <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-200 dark:border-emerald-500/20">
+                                {CAUSE_LABEL[row.cause]}
+                              </span>
+                            </td>
+                            <td className={cn("px-5 py-4", s.text)}>
+                              <div>
+                                <div className="font-medium">{row.client}</div>
+                                <div className={cn("text-[11px] opacity-80")}>{row.expert}</div>
+                              </div>
+                            </td>
+                            <td className={cn("px-5 py-4", s.text)}>{row.noCommande ?? "—"}</td>
+                            <td className={cn("px-5 py-4", s.text)}>{row.tracking ?? "—"}</td>
+                            <td className={cn("px-5 py-4", s.text)}>
+                              {hasFiles ? (
+                                <div className="inline-flex items-center gap-1.5">
+                                  <Folder className="h-4 w-4 opacity-80" />
+                                  <span className="text-xs font-medium">{row.attachments!.length}</span>
+                                </div>
+                              ) : (
+                                <span className={cn("text-xs", isDark ? "text-slate-300" : "text-slate-500")}>—</span>
+                              )}
+                            </td>
+                            <td className="px-5 py-3">
+                              <div className={cn("flex items-center justify-end gap-1 transition-opacity", hovered === row.id ? "opacity-100" : "opacity-0")}>
+                                <button
+                                  onClick={() => setOpenId(row.id)}
+                                  className={cn("p-2 rounded-lg", row.status === "draft" ? (isDark ? "hover:bg-white/10 text-slate-300" : "hover:bg-slate-100 text-slate-700") : "hover:bg-white/20 text-white")}
+                                  title="Consulter"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => onToggleStandby(row.id)}
+                                  className={cn("p-2 rounded-lg", row.status === "draft" ? (isDark ? "hover:bg-white/10 text-amber-300" : "hover:bg-amber-50 text-amber-600") : "hover:bg-white/20 text-white")}
+                                  title={row.standby ? "Retirer du standby" : "Mettre en standby"}
+                                >
+                                  <Pause className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => onDelete(row.id)}
+                                  className={cn("p-2 rounded-lg", row.status === "draft" ? (isDark ? "hover:bg-red-500/10 text-red-400" : "hover:bg-red-50 text-red-600") : "hover:bg-white/20 text-white")}
+                                  title="Supprimer"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+
+                  {sorted.length === 0 && (
+                    <div className="py-16 text-center">
+                      <Package className={cn("h-10 w-10 mx-auto mb-3", isDark ? "text-slate-600" : "text-slate-300")} />
+                      <p className={cn(isDark ? "text-slate-400" : "text-slate-500", "text-sm")}>
+                        Aucun retour ne correspond à vos filtres
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Table footer */}
+                <div className={cn("px-5 py-2 flex items-center justify-between", isDark ? "border-t border-white/10 bg-neutral-950/60" : "border-t border-slate-200 bg-slate-50")}>
+                  <span className={cn("text-xs", isDark ? "text-slate-400" : "text-slate-500")}>
+                    {sorted.length} résultat{sorted.length > 1 ? "s" : ""}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <StatusChip status="draft" />
+                    <StatusChip status="awaiting_physical" />
+                    <StatusChip status="received_or_no_physical" />
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Detail modal (read-only editing demo) */}
+        {selected && (
+          <DetailModal
+            row={selected}
+            onClose={() => setOpenId(null)}
+            onPatched={(patch) =>
+              setRows((prev) =>
+                prev.map((r) => (r.id === selected.id ? { ...r, ...patch } : r))
+              )
+            }
+          />
+        )}
+
+        {/* New return modal */}
+        {openNew && (
+          <NewReturnModal
+            onClose={() => setOpenNew(false)}
+            onCreated={async () => {
+              setOpenNew(false);
+              await load();
+            }}
+          />
         )}
       </div>
-
-      {/* Detail modal (read-only editing demo) */}
-      {selected && (
-        <DetailModal
-          row={selected}
-          onClose={() => setOpenId(null)}
-          onPatched={(patch) =>
-            setRows((prev) =>
-              prev.map((r) => (r.id === selected.id ? { ...r, ...patch } : r))
-            )
-          }
-        />
-      )}
-
-      {/* New return modal */}
-      {openNew && (
-        <NewReturnModal
-          onClose={() => setOpenNew(false)}
-          onCreated={async () => {
-            setOpenNew(false);
-            await load();
-          }}
-        />
-      )}
     </div>
-  </div>
-);
+  );
+}
 
 /* =============================================================================
    Pieces
