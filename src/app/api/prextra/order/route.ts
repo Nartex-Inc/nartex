@@ -1,10 +1,35 @@
-```ts
 // src/app/api/prextra/order/route.ts
 // GET /api/prextra/order?no_commande=12345
 // Returns minimal SO header + joined details to auto-fill the return form.
 
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+
+/** Public type that client code may import as `import type { PrextraOrderResponse } ...` */
+export type PrextraOrderResponse =
+  | {
+      ok: true;
+      exists: true;
+      sonbr: number;
+      OrderDate: string | null;
+      totalamt: number | null;
+      noClient: string;
+      CustCode: string;
+      CustomerName: string;
+      CarrierName: string;
+      SalesrepName: string;
+      TrackingNumber: string | null;
+    }
+  | {
+      ok: true;
+      exists: false;
+      error: string;
+    }
+  | {
+      ok: false;
+      exists: false;
+      error: string;
+    };
 
 export async function GET(req: Request) {
   try {
@@ -15,10 +40,12 @@ export async function GET(req: Request) {
 
     // Validate query param
     if (!Number.isFinite(sonbr) || !Number.isInteger(sonbr)) {
-      return NextResponse.json(
-        { ok: false, exists: false, error: "Missing or invalid 'no_commande'." },
-        { status: 400 }
-      );
+      const body: PrextraOrderResponse = {
+        ok: false,
+        exists: false,
+        error: "Missing or invalid 'no_commande'.",
+      };
+      return NextResponse.json(body, { status: 400 });
     }
 
     // sonbr may exist across companies: pick the one with highest cieid
@@ -37,11 +64,12 @@ export async function GET(req: Request) {
     });
 
     if (!so) {
-      return NextResponse.json({
+      const body: PrextraOrderResponse = {
         ok: true,
         exists: false,
         error: "Aucune information trouvée.",
-      });
+      };
+      return NextResponse.json(body);
     }
 
     // Parallel lookups (all null-safe)
@@ -57,8 +85,7 @@ export async function GET(req: Request) {
       }),
     ]);
 
-    // Serialize to what the UI expects
-    return NextResponse.json({
+    const body: PrextraOrderResponse = {
       ok: true,
       exists: true,
       sonbr: so.sonbr,
@@ -71,13 +98,18 @@ export async function GET(req: Request) {
       CarrierName: carr?.name ?? "",
       SalesrepName: rep?.name ?? "",
       TrackingNumber: ship?.waybill ?? "",
-    });
+    };
+    return NextResponse.json(body);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unexpected server error.";
-    return NextResponse.json(
-      { ok: false, exists: false, error: message },
-      { status: 500 }
-    );
+    const body: PrextraOrderResponse = { ok: false, exists: false, error: message };
+    return NextResponse.json(body, { status: 500 });
   }
 }
-```
+
+/**
+ * Ensure this file remains a module even if the handler is tree-shaken during type-checking.
+ * This also allows harmless default imports from legacy code without changing behavior.
+ */
+// eslint-disable-next-line import/no-default-export
+export default {};
