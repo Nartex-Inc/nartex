@@ -83,15 +83,12 @@
     @apply border-border; /* Apply default border color from Shadcn vars */
   }
   body {
-    @apply bg-background text-foreground; /* Use Shadcn vars for body bg and text */
-    /*
-      The font-family will be primarily controlled by the `font-sans` utility class
-      applied in your layout.tsx (e.g., className={inter.variable}) or here.
-      Tailwind's `font-sans` class will use the `sans` array from your tailwind.config.js.
-      So, `font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;` will be effectively applied.
-    */
-    font-family: var(--font-sans, "Arial", "Helvetica", sans-serif); /* Fallback if --font-sans is not defined */
-  }
+    @apply text-foreground antialiased; /* ← NO bg-background! */
+    background-image: url("/bg/nartex-bg.webp");
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    font-family: var(--font-sans, "Arial", "Helvetica", sans-serif);
 }
 
 /* === Your Custom Scrollbar Styles === */
