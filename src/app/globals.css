@@ -343,3 +343,87 @@ input[type="search"]::-ms-reveal {
   width: 0;
   height: 0;
 }
+
+/* ──────────────────────────────────────────────────────────────
+   DARK MODE: 70% BLACK OVERLAY ON nartex-bg.webp
+   ────────────────────────────────────────────────────────────── */
+@layer base {
+  .dark body {
+    position: relative; /* already set, kept for clarity */
+    isolation: isolate; /* already set, ensures overlay stacks correctly */
+  }
+
+  .dark body::after {
+    content: "";
+    position: fixed;          /* covers viewport regardless of scroll */
+    inset: 0;
+    z-index: -1;              /* sits between body background and content due to isolation */
+    background: rgba(0, 0, 0, 0.7);
+    pointer-events: none;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   TYPOGRAPHY + SCALING: CAP BASE TEXT AT ≤13px AND DE-ZOOM 1080p
+   ────────────────────────────────────────────────────────────── */
+@layer base {
+  /* Cap the root font-size: never exceed 13px, gently scale down on smaller/1080p */
+  html {
+    /* 0.68vw ≈ 13px at 1920px width; clamp caps the maximum at 13px */
+    font-size: clamp(12px, 0.68vw, 13px);
+  }
+
+  /* Optional: slightly tighter defaults to counter “zoomed-in” feel without harming readability */
+  body {
+    line-height: 1.45; /* reduce vertical bloat compared to typical 1.6 */
+    letter-spacing: 0; /* ensure no unintended tracking inflation */
+  }
+
+  /* Ensure common UI atoms inherit the 13px cap rather than introducing larger fixed px */
+  input, textarea, select, button {
+    font-size: 1rem; /* 1rem == capped html size */
+    line-height: 1.35;
+  }
+
+  /* If certain components used fixed pixel bases, normalize them here */
+  .text-base { font-size: 1rem !important; }     /* = 13px max */
+  .text-sm   { font-size: 0.9231rem !important; }/* ~12px at 13px root */
+  .text-xs   { font-size: 0.8462rem !important; }/* ~11px at 13px root */
+}
+
+/* Target typical “24-inch 1080p” environments explicitly:
+   Some setups report high browser zoom / OS scaling; hedge via height+width gates. */
+@media (max-width: 1920px), (max-height: 1080px) {
+  html {
+    /* bias slightly smaller on 1080p without dipping below 12px */
+    font-size: clamp(12px, 0.62vw, 13px);
+  }
+}
+
+/* If headings were ramping overall perceived “zoom”, trim their scale without removing hierarchy */
+@layer base {
+  h1 { font-size: 1.6rem; line-height: 1.2; } /* <= ~20.8px at 13px root */
+  h2 { font-size: 1.38rem; line-height: 1.25; }
+  h3 { font-size: 1.23rem; line-height: 1.3; }
+  h4 { font-size: 1.15rem; line-height: 1.35; }
+  h5 { font-size: 1.07rem; line-height: 1.4; }
+  h6 { font-size: 1rem;    line-height: 1.45; }
+}
+
+/* Tighten container padding on wide-but-low-DPI displays to reduce “zoomed” impression */
+@layer utilities {
+  .container,
+  .mx-auto,
+  .px-container {
+    padding-left: 0.9rem !important;
+    padding-right: 0.9rem !important;
+  }
+
+  @media (min-width: 1280px) and (max-width: 1920px) {
+    .container,
+    .mx-auto,
+    .px-container {
+      max-width: 1100px !important; /* avoid overly-wide measure causing oversized feel */
+    }
+  }
+}
