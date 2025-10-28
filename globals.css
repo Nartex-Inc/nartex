@@ -103,7 +103,7 @@
     background-image:
       radial-gradient(1000px 600px at 10% -10%, rgba(34, 211, 238, 0.10), transparent 60%),
       radial-gradient(900px 500px at 110% 20%, rgba(139, 92, 246, 0.10), transparent 60%),
-      url("/nartex-bg.webp");
+      url("/bg/nartex-bg.webp")
     
     background-color: var(--app-bg);
     background-size: cover, cover, cover;
