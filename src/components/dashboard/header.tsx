@@ -2,13 +2,10 @@
 "use client";
 
 import * as React from "react";
-import { useEffect, useState } from "react";
-import { Bell, Menu, Plus, Search, Command } from "lucide-react";
+import { Bell, Menu, Plus, Search, Command, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ModeToggle } from "@/components/theme-toggle";
 import { UserNav } from "@/components/dashboard/user-nav";
-import NartexLogo from "@/components/nartex-logo";
 
 interface HeaderProps {
   onToggleMobileSidebar: () => void;
@@ -16,122 +13,146 @@ interface HeaderProps {
 }
 
 /**
- * Sticky, translucent app header aligned with the main content.
- * On lg+ screens it pads left by var(--sidebar-w) so it stays aligned
- * when the sidebar collapses/expands.
- *
- * Premium touches:
- *  - Glass surface with hairline; elevation appears after scroll
- *  - Command-style search (⌘K) that focuses the input
- *  - Quick-create button
- *  - Pulsing notification indicator
+ * Clean, minimal header for Nartex SaaS platform.
+ * Solid background, no glassmorphism.
  */
 export function Header({
   onToggleMobileSidebar,
   notificationCount = 0,
 }: HeaderProps) {
-  const [scrolled, setScrolled] = useState(false);
+  const [scrolled, setScrolled] = React.useState(false);
+  const [searchFocused, setSearchFocused] = React.useState(false);
+  const searchRef = React.useRef<HTMLInputElement>(null);
 
-  // Elevate header only after slight scroll to preserve minimalism at rest
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 4);
+  // Subtle shadow on scroll
+  React.useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // ⌘K / Ctrl+K focuses the global search input
-  useEffect(() => {
+  // ⌘K / Ctrl+K shortcut
+  React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const key = e.key?.toLowerCase();
-      if ((e.metaKey || e.ctrlKey) && key === "k") {
+      if ((e.metaKey || e.ctrlKey) && e.key?.toLowerCase() === "k") {
         e.preventDefault();
-        const el = document.querySelector<HTMLInputElement>(
-          'input[aria-label="Rechercher"]'
-        );
-        el?.focus();
+        searchRef.current?.focus();
+      }
+      if (e.key === "Escape" && searchFocused) {
+        searchRef.current?.blur();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [searchFocused]);
 
   return (
     <header
-      className={[
-        "sticky top-0 z-50 w-full border-b glass supports-[backdrop-filter]:glass transition-colors",
-        scrolled ? "hairline shadow-soft" : "border-transparent",
-      ].join(" ")}
+      className={`
+        sticky top-0 z-40 w-full transition-all duration-200
+        bg-[hsl(var(--bg-base))] border-b
+        ${scrolled 
+          ? "border-[hsl(var(--border-default))] shadow-sm" 
+          : "border-transparent"
+        }
+      `}
     >
-      {/* pad-left matches sidebar on lg+ */}
-      <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-3 px-5 sm:px-8 lg:pl-[var(--sidebar-w)]">
-        {/* Mobile hamburger (sidebar sits under header on mobile) */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="lg:hidden"
+      <div className="flex h-16 items-center gap-4 px-4 lg:pl-[calc(var(--sidebar-w)+1rem)] lg:pr-6">
+        {/* Mobile menu button */}
+        <button
           onClick={onToggleMobileSidebar}
-          aria-label="Ouvrir le menu latéral"
+          className="lg:hidden rounded-lg p-2 text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] hover:text-[hsl(var(--text-primary))] transition-colors"
+          aria-label="Menu"
         >
           <Menu className="h-5 w-5" />
-        </Button>
+        </button>
 
-        {/* Brand */}
+        {/* Nartex Brand */}
+        <div className="hidden lg:flex items-center">
+          <span className="text-lg font-bold tracking-tight text-[hsl(var(--text-primary))]">
+            nartex
+          </span>
+          <span className="ml-0.5 text-lg font-bold text-[hsl(var(--accent))]">.</span>
+        </div>
+
+        {/* Search Bar */}
+        <div className="relative flex-1 max-w-md hidden md:block">
+          <div
+            className={`
+              relative flex items-center rounded-lg transition-all duration-200
+              bg-[hsl(var(--bg-muted))] border
+              ${searchFocused 
+                ? "border-[hsl(var(--accent))] ring-2 ring-[hsl(var(--accent)/0.2)]" 
+                : "border-transparent hover:border-[hsl(var(--border-default))]"
+              }
+            `}
+          >
+            <Search className="absolute left-3 h-4 w-4 text-[hsl(var(--text-muted))]" />
+            <input
+              ref={searchRef}
+              type="search"
+              placeholder="Rechercher..."
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              className="h-9 w-full bg-transparent pl-10 pr-16 text-sm font-medium text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none"
+              aria-label="Rechercher"
+            />
+            <kbd className="absolute right-3 hidden sm:flex items-center gap-1 rounded-md bg-[hsl(var(--bg-elevated))] px-1.5 py-0.5 text-[10px] font-semibold text-[hsl(var(--text-muted))] border border-[hsl(var(--border-subtle))]">
+              <Command className="h-2.5 w-2.5" />K
+            </kbd>
+          </div>
+        </div>
+
+        {/* Spacer */}
+        <div className="flex-1 md:hidden" />
+
+        {/* Right Actions */}
         <div className="flex items-center gap-2">
-          <NartexLogo className="h-5 w-auto select-none text-foreground" />
-        </div>
-
-        {/* Command search (⌘K) — hidden on narrow screens to keep header clean */}
-        <div className="relative ml-2 hidden min-w-[260px] flex-1 items-center md:flex">
-          <Search className="pointer-events-none absolute left-3 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            aria-label="Rechercher"
-            placeholder="Rechercher (⌘K)"
-            className="h-9 w-full rounded-xl bg-[--glass] pl-9 pr-10 text-sm ring-1 ring-transparent ring-offset-0 ring-glass placeholder:text-muted-foreground/70"
-          />
-          <kbd className="pointer-events-none absolute right-2 hidden rounded-md border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:block">
-            ⌘K
-          </kbd>
-        </div>
-
-        <div className="ml-auto" />
-
-        {/* Right controls */}
-        <div className="flex items-center gap-1 sm:gap-2">
-          {/* Optional: shortcuts hint (shows on md+) */}
-          <Button variant="ghost" size="sm" className="hidden gap-2 md:flex" aria-label="Raccourcis">
+          {/* Raccourcis - hidden on smaller screens */}
+          <button
+            className="hidden xl:flex items-center gap-2 px-3 py-2 rounded-lg text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] hover:text-[hsl(var(--text-primary))] transition-colors"
+            aria-label="Raccourcis clavier"
+          >
             <Command className="h-4 w-4" />
-            <span className="text-xs">Raccourcis</span>
-          </Button>
+            <span className="text-xs font-semibold">Raccourcis</span>
+          </button>
 
-          {/* Quick create (primary action) */}
-          <Button variant="default" size="sm" className="hidden gap-2 sm:flex" aria-label="Nouvelle ressource">
-            <Plus className="h-4 w-4" />
-            <span className="text-xs">Nouveau</span>
-          </Button>
+          {/* Create New */}
+          <button
+            className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg bg-[hsl(var(--accent))] text-[hsl(var(--bg-base))] font-semibold text-xs hover:bg-[hsl(var(--accent-hover))] transition-colors"
+            aria-label="Créer"
+          >
+            <Plus className="h-4 w-4" strokeWidth={2.5} />
+            <span>Nouveau</span>
+          </button>
 
+          {/* Mobile Create */}
+          <button
+            className="sm:hidden flex items-center justify-center w-9 h-9 rounded-lg bg-[hsl(var(--accent))] text-[hsl(var(--bg-base))]"
+            aria-label="Créer"
+          >
+            <Plus className="h-4 w-4" strokeWidth={2.5} />
+          </button>
+
+          {/* Theme Toggle */}
           <ModeToggle />
 
           {/* Notifications */}
-          <div className="relative">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full"
-              aria-label="Notifications"
-            >
-              <Bell className="h-5 w-5" />
-            </Button>
+          <button
+            className="relative flex items-center justify-center w-9 h-9 rounded-lg text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] hover:text-[hsl(var(--text-primary))] transition-colors"
+            aria-label="Notifications"
+          >
+            <Bell className="h-5 w-5" />
             {notificationCount > 0 && (
-              <span
-                aria-hidden
-                className="absolute right-2 top-2 inline-block h-2 w-2 rounded-full bg-primary ring-2 ring-[--glass] pulse-badge"
-              />
+              <>
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[hsl(var(--accent))]" />
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[hsl(var(--accent))] animate-ping" />
+              </>
             )}
-          </div>
+          </button>
 
-          {/* Account menu */}
+          {/* User Menu */}
           <UserNav />
         </div>
       </div>
