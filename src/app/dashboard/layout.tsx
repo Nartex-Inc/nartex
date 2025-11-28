@@ -13,7 +13,6 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Auth gate for everything under /dashboard
   const { status } = useSession({
     required: true,
     onUnauthenticated: () => redirect("/"),
@@ -30,15 +29,11 @@ export default function DashboardLayout({
     };
   }, [isMobileOpen]);
 
-  // Keep a CSS variable updated with the actual sidebar width so the main
-  // content can reserve that space and never overlap the fixed sidebar.
+  // Update CSS variable for sidebar width
   React.useEffect(() => {
     const setVar = () => {
-      const w = window.matchMedia("(min-width: 1024px)").matches
-        ? isDesktopOpen
-          ? "16rem" // expanded width (w-64)
-          : "84px"  // collapsed width
-        : "0px";   // on mobile, content shouldn't be pushed
+      const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
+      const w = isDesktop ? (isDesktopOpen ? "16rem" : "84px") : "0px";
       document.documentElement.style.setProperty("--sidebar-w", w);
     };
     setVar();
@@ -51,24 +46,24 @@ export default function DashboardLayout({
   }
 
   return (
-    // IMPORTANT: no page-level background classes here (transparent so body shows)
-    <div className="relative min-h-screen">
-      {/* Sticky app header (glass) */}
+    <div className="relative min-h-screen surface-base">
+      {/* Header */}
       <Header
         onToggleMobileSidebar={() => setMobileOpen((v) => !v)}
         notificationCount={5}
       />
 
-      {/* Mobile backdrop (transparent overlay, no solid bg) */}
+      {/* Mobile backdrop */}
       {isMobileOpen && (
         <button
           aria-label="Fermer le menu"
           onClick={() => setMobileOpen(false)}
-          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-30 lg:hidden animate-fade-in"
+          style={{ background: "hsl(0, 0%, 0% / 0.6)" }}
         />
       )}
 
-      {/* Fixed sidebar (glass) */}
+      {/* Sidebar */}
       <Sidebar
         isOpen={isDesktopOpen}
         isMobileOpen={isMobileOpen}
@@ -76,12 +71,8 @@ export default function DashboardLayout({
         closeMobileSidebar={() => setMobileOpen(false)}
       />
 
-      {/* Main content – no bg so the body background image is visible */}
-      <main className="relative z-10 with-sidebar-pad px-4 md:px-6 lg:px-8 py-6 md:py-8">
-        <div className="mx-auto w-full max-w-[1920px]">
-          {children}
-        </div>
-      </main>
+      {/* Main content */}
+      <main className="relative z-10 with-sidebar-pad">{children}</main>
     </div>
   );
 }
