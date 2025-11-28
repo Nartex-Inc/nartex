@@ -1,259 +1,372 @@
-/* ──────────────────────────────────────────────────────────────
-   Tailwind layers
-   ────────────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════════
+   NARTEX — Dark Luxe Terminal
+   A refined, minimal dark aesthetic. No glassmorphism, no background images.
+   Clean surfaces, precise typography, sophisticated color palette.
+   ══════════════════════════════════════════════════════════════════════════════ */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ──────────────────────────────────────────────────────────────
-   Design tokens
-   ────────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────────────
+   Fonts
+   Using Geist (modern Swiss) + JetBrains Mono (data/numbers)
+   ───────────────────────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Design Tokens — Dark Luxe
+   ───────────────────────────────────────────────────────────────────────────── */
 :root {
-  /* === App layout === */
-  --sidebar-w: 16rem; /* 256px (expanded default for SSR) */
+  /* Layout */
+  --sidebar-w: 16rem;
 
-  /* === shadcn color system (HSL channels) === */
-  --background: 0 0% 100%;
-  --foreground: 222.2 47.4% 11.2%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 222.2 47.4% 11.2%;
-  --card: 0 0% 100%;
-  --card-foreground: 222.2 47.4% 11.2%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --primary: 221.2 83.2% 53.3%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-  --ring: 221.2 83.2% 53.3%;
-  --radius: 0.75rem;
+  /* === Core Palette === */
+  --void: 0 0% 4%;              /* #0a0a0a - deepest black */
+  --surface-0: 0 0% 6%;         /* #0f0f0f - base surface */
+  --surface-1: 0 0% 9%;         /* #171717 - elevated surface */
+  --surface-2: 0 0% 12%;        /* #1f1f1f - cards, modals */
+  --surface-3: 0 0% 16%;        /* #292929 - hover states */
+  
+  --border-subtle: 0 0% 14%;    /* #242424 */
+  --border-default: 0 0% 18%;   /* #2e2e2e */
+  --border-emphasis: 0 0% 24%;  /* #3d3d3d */
 
-  /* === Premium glass / gradient tokens === */
-  --app-bg: hsl(210 40% 98%);
-  --glass: hsl(0 0% 100% / 0.75);
-  --glass-blur: 20px;
-  --hairline: hsl(210 18% 90% / 0.85);
+  /* Text hierarchy */
+  --text-primary: 0 0% 98%;     /* #fafafa */
+  --text-secondary: 0 0% 70%;   /* #b3b3b3 */
+  --text-tertiary: 0 0% 45%;    /* #737373 */
+  --text-muted: 0 0% 32%;       /* #525252 */
 
-  /* Accent gradient (blue → purple) */
-  --grad-1: 217 91% 60%;
-  --grad-2: 271 81% 56%;
-  --grad: linear-gradient(135deg, hsl(var(--grad-1)) 0%, hsl(var(--grad-2)) 100%);
+  /* Accent: Electric Cyan */
+  --accent: 187 100% 50%;       /* #00d4ff */
+  --accent-muted: 187 80% 35%;  /* muted for backgrounds */
+  --accent-subtle: 187 60% 15%; /* very subtle tint */
 
-  /* Shadows / elevation */
-  --shadow: 222 47% 11% / 0.32;
-  --ring-oklab: 222 84% 56%;
+  /* Semantic */
+  --success: 142 76% 46%;       /* #22c55e */
+  --success-muted: 142 50% 20%;
+  --warning: 38 92% 50%;        /* #f59e0b */
+  --warning-muted: 38 60% 20%;
+  --danger: 0 84% 60%;          /* #ef4444 */
+  --danger-muted: 0 50% 20%;
+
+  /* shadcn compatibility */
+  --background: var(--surface-0);
+  --foreground: var(--text-primary);
+  --card: var(--surface-1);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface-2);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--accent);
+  --primary-foreground: 0 0% 4%;
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--text-tertiary);
+  --accent-color: var(--accent);
+  --accent-foreground: 0 0% 4%;
+  --destructive: var(--danger);
+  --destructive-foreground: var(--text-primary);
+  --border: var(--border-default);
+  --input: var(--border-default);
+  --ring: var(--accent);
+  --radius: 0.5rem;
+
+  /* Chart colors - sophisticated palette */
+  --chart-1: 187 100% 50%;      /* cyan */
+  --chart-2: 262 83% 58%;       /* violet */
+  --chart-3: 142 76% 46%;       /* green */
+  --chart-4: 38 92% 50%;        /* amber */
+  --chart-5: 340 82% 52%;       /* rose */
+  --chart-6: 200 98% 39%;       /* blue */
 }
 
-.dark {
-  /* === shadcn dark === */
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --popover: 222.2 84% 4.9%;
-  --popover-foreground: 210 40% 98%;
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --primary: 217.2 91.2% 59.8%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
+/* Light mode - subtle refinement */
+.light {
+  --void: 0 0% 100%;
+  --surface-0: 0 0% 98%;
+  --surface-1: 0 0% 100%;
+  --surface-2: 0 0% 96%;
+  --surface-3: 0 0% 92%;
+  
+  --border-subtle: 0 0% 92%;
+  --border-default: 0 0% 88%;
+  --border-emphasis: 0 0% 82%;
 
-  /* === Premium dark tokens === */
-  --app-bg: hsl(222 47% 5%);
-  --glass: hsl(220 15% 10% / 0.7);
-  --glass-blur: 24px;
-  --hairline: hsl(220 14% 20% / 0.7);
-  --shadow: 0 0% 0% / 0.64;
-  --ring-oklab: 210 100% 64%;
+  --text-primary: 0 0% 9%;
+  --text-secondary: 0 0% 35%;
+  --text-tertiary: 0 0% 50%;
+  --text-muted: 0 0% 65%;
+
+  --accent: 187 100% 38%;
+  --accent-muted: 187 60% 85%;
+  --accent-subtle: 187 40% 95%;
 }
 
-/* ──────────────────────────────────────────────────────────────
-   Base resets & theming - BACKGROUND SETUP WITH !important
-   ────────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────────────
+   Base Styles
+   ───────────────────────────────────────────────────────────────────────────── */
 @layer base {
   * {
     @apply border-border;
   }
 
-  html,
+  html {
+    font-feature-settings: "ss01", "ss02", "cv01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
-    min-height: 100vh;
-    margin: 0;
-    padding: 0;
+    @apply antialiased;
+    background-color: hsl(var(--void));
+    color: hsl(var(--text-primary));
+    font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
   }
 
-  /* CRITICAL: Using !important to override any Tailwind utilities */
-  body {
-    @apply text-foreground antialiased;
-    
-    /* FORCE background with !important to override everything */
-    background-image:
-      radial-gradient(1000px 600px at 10% -10%, rgba(34, 211, 238, 0.10), transparent 60%),
-      radial-gradient(900px 500px at 110% 20%, rgba(139, 92, 246, 0.10), transparent 60%),
-      url("/bg/nartex-bg.webp") !important;
-    
-    background-color: var(--app-bg) !important;
-    background-size: cover, cover, cover !important;
-    background-position: center top, center top, center center !important;
-    background-repeat: no-repeat !important;
-    background-attachment: fixed !important;
-    
-    /* Create stacking context for backdrop-filter */
-    position: relative;
-    isolation: isolate;
-  }
-
-  /* Dark mode ambient overlay adjustments */
-  .dark body {
-    background-image:
-      radial-gradient(1000px 600px at 10% -10%, rgba(34, 211, 238, 0.16), transparent 60%),
-      radial-gradient(900px 500px at 110% 20%, rgba(139, 92, 246, 0.16), transparent 60%),
-      url("/bg/nartex-bg.webp") !important;
-  }
-
-  /* Text selection */
+  /* Refined selection */
   ::selection {
-    background: hsl(var(--primary) / 0.18);
-    color: hsl(var(--primary));
+    background: hsl(var(--accent) / 0.25);
+    color: hsl(var(--text-primary));
+  }
+
+  /* Focus states */
+  :focus-visible {
+    outline: 2px solid hsl(var(--accent));
+    outline-offset: 2px;
   }
 }
 
-/* Accessibility / data-saver fallbacks */
-@media (prefers-reduced-transparency: reduce),
-  (prefers-reduced-data: reduce) {
-  body {
-    background-image: none !important;
-    background-color: var(--app-bg) !important;
-  }
-}
-
-/* ──────────────────────────────────────────────────────────────
-   Keyframes for micro-interactions
-   ────────────────────────────────────────────────────────────── */
-@keyframes pulse-dot {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.35);
-    opacity: 0.55;
-  }
-}
-
-@keyframes aura {
-  0% {
-    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.35);
-  }
-  70% {
-    box-shadow: 0 0 0 8px rgba(99, 102, 241, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0);
-  }
-}
-
-/* ──────────────────────────────────────────────────────────────
-   Utilities - SINGLE SOURCE OF TRUTH FOR .glass
-   ────────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────────────
+   Typography Scale
+   ───────────────────────────────────────────────────────────────────────────── */
 @layer utilities {
-  /* === Core glass morphism === */
-  .glass {
-    background: var(--glass);
-    border: 1px solid var(--hairline);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
-    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  .font-mono-data {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-feature-settings: "tnum", "zero";
   }
 
-  .glass-soft {
-    background: color-mix(in srgb, var(--glass) 70%, transparent);
-    border: 1px solid color-mix(in srgb, var(--hairline) 70%, transparent);
-    -webkit-backdrop-filter: blur(16px) saturate(150%);
-    backdrop-filter: blur(16px) saturate(150%);
+  .text-display {
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
   }
 
-  .glass-strong {
-    background: color-mix(in srgb, var(--glass) 130%, transparent);
-    border: 1px solid var(--hairline);
-    -webkit-backdrop-filter: blur(28px) saturate(200%);
-    backdrop-filter: blur(28px) saturate(200%);
+  .text-headline {
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
   }
 
-  /* === Other utilities === */
-  .bg-app {
-    background: var(--app-bg);
+  .text-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
   }
 
-  .hairline {
-    border-color: var(--hairline);
+  .text-label {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: hsl(var(--text-tertiary));
   }
 
-  .shadow-soft {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  .text-caption {
+    font-size: 0.75rem;
+    color: hsl(var(--text-tertiary));
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Surface System
+   ───────────────────────────────────────────────────────────────────────────── */
+@layer utilities {
+  .surface-base {
+    background-color: hsl(var(--surface-0));
   }
 
-  .shadow-strong {
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  .surface-elevated {
+    background-color: hsl(var(--surface-1));
   }
 
-  /* Gradient active chip with subtle glow */
-  .chip-active {
-    background-image: var(--grad);
-    color: white;
+  .surface-card {
+    background-color: hsl(var(--surface-2));
+    border: 1px solid hsl(var(--border-subtle));
+    border-radius: 0.75rem;
   }
 
-  .chip-aura {
+  .surface-card-hover {
+    @apply surface-card;
+    transition: all 200ms ease;
+  }
+
+  .surface-card-hover:hover {
+    background-color: hsl(var(--surface-3));
+    border-color: hsl(var(--border-default));
+  }
+
+  .surface-inset {
+    background-color: hsl(var(--void));
+    border: 1px solid hsl(var(--border-subtle));
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Accent Glow Effects (Subtle)
+   ───────────────────────────────────────────────────────────────────────────── */
+@layer utilities {
+  .glow-accent {
+    box-shadow: 
+      0 0 0 1px hsl(var(--accent) / 0.15),
+      0 4px 20px -4px hsl(var(--accent) / 0.2);
+  }
+
+  .glow-accent-strong {
+    box-shadow: 
+      0 0 0 1px hsl(var(--accent) / 0.3),
+      0 8px 32px -8px hsl(var(--accent) / 0.35);
+  }
+
+  .border-glow {
     position: relative;
-    isolation: isolate;
   }
 
-  .chip-aura::after {
-    content: "";
+  .border-glow::before {
+    content: '';
     position: absolute;
     inset: -1px;
     border-radius: inherit;
-    background-image: var(--grad);
-    filter: blur(10px);
-    opacity: 0.28;
-    z-index: -1;
-  }
-
-  /* Pulsing dot for notifications/live indicators */
-  .pulse-badge {
-    animation: pulse-dot 1.8s infinite ease-in-out;
-  }
-
-  /* Focus ring that reads on glass */
-  .ring-glass:focus-visible {
-    outline: none;
-    box-shadow: inset 0 0 0 1px hsl(var(--ring-oklab));
+    padding: 1px;
+    background: linear-gradient(
+      135deg,
+      hsl(var(--accent) / 0.4) 0%,
+      transparent 50%,
+      hsl(var(--accent) / 0.1) 100%
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
   }
 }
 
-/* ──────────────────────────────────────────────────────────────
-   Sidebar helpers
-   ────────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────────────
+   Data Visualization Badges
+   ───────────────────────────────────────────────────────────────────────────── */
+@layer utilities {
+  .badge-positive {
+    background-color: hsl(var(--success-muted));
+    color: hsl(var(--success));
+    border: 1px solid hsl(var(--success) / 0.2);
+  }
+
+  .badge-negative {
+    background-color: hsl(var(--danger-muted));
+    color: hsl(var(--danger));
+    border: 1px solid hsl(var(--danger) / 0.2);
+  }
+
+  .badge-neutral {
+    background-color: hsl(var(--surface-3));
+    color: hsl(var(--text-tertiary));
+    border: 1px solid hsl(var(--border-default));
+  }
+
+  .badge-accent {
+    background-color: hsl(var(--accent-subtle));
+    color: hsl(var(--accent));
+    border: 1px solid hsl(var(--accent) / 0.2);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Animations
+   ───────────────────────────────────────────────────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { 
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fade-in 300ms ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 400ms ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scale-in 300ms ease-out;
+  }
+
+  .animate-pulse-subtle {
+    animation: pulse-subtle 2s ease-in-out infinite;
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--surface-2)) 25%,
+      hsl(var(--surface-3)) 50%,
+      hsl(var(--surface-2)) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Staggered animations */
+  .stagger-1 { animation-delay: 50ms; }
+  .stagger-2 { animation-delay: 100ms; }
+  .stagger-3 { animation-delay: 150ms; }
+  .stagger-4 { animation-delay: 200ms; }
+  .stagger-5 { animation-delay: 250ms; }
+  .stagger-6 { animation-delay: 300ms; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sidebar Layout Helper
+   ───────────────────────────────────────────────────────────────────────────── */
 @layer utilities {
   @media (min-width: 1024px) {
-    .with-sidebar-shift {
-      margin-left: var(--sidebar-w);
-      transition: margin-left 200ms ease;
-    }
-
     .with-sidebar-pad {
       padding-left: var(--sidebar-w);
       transition: padding-left 200ms ease;
@@ -261,46 +374,71 @@
   }
 }
 
-/* ──────────────────────────────────────────────────────────────
-   Input polish
-   ────────────────────────────────────────────────────────────── */
-input[type="search"]::-webkit-search-cancel-button {
-  -webkit-appearance: none;
-  appearance: none;
-  display: none;
-}
-
-input[type="search"]::-ms-clear,
-input[type="search"]::-ms-reveal {
-  display: none;
-  width: 0;
-  height: 0;
-}
-
-/* ──────────────────────────────────────────────────────────────
-   Scrollbar cosmetics
-   ────────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────────────
+   Custom Scrollbars
+   ───────────────────────────────────────────────────────────────────────────── */
 * {
   scrollbar-width: thin;
-  scrollbar-color: hsl(var(--muted-foreground) / 0.35) transparent;
+  scrollbar-color: hsl(var(--border-emphasis)) transparent;
 }
 
 *::-webkit-scrollbar {
-  height: 10px;
-  width: 10px;
-}
-
-*::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.35);
-  border-radius: 9999px;
-  border: 3px solid transparent;
-  background-clip: padding-box;
-}
-
-*::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.5);
+  width: 8px;
+  height: 8px;
 }
 
 *::-webkit-scrollbar-track {
   background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: hsl(var(--border-emphasis));
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--text-muted));
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Form Controls
+   ───────────────────────────────────────────────────────────────────────────── */
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-ms-clear,
+input[type="search"]::-ms-reveal {
+  display: none;
+}
+
+input[type="date"] {
+  color-scheme: dark;
+}
+
+.light input[type="date"] {
+  color-scheme: light;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Recharts Overrides
+   ───────────────────────────────────────────────────────────────────────────── */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: hsl(var(--border-subtle)) !important;
+  stroke-opacity: 0.5 !important;
+}
+
+.recharts-tooltip-wrapper {
+  filter: drop-shadow(0 4px 12px hsl(0 0% 0% / 0.4));
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Accessibility: Reduced Motion
+   ───────────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
