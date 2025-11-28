@@ -1,17 +1,15 @@
 // src/app/layout.tsx
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import SessionProviderWrapper from "./SessionProviderWrapper";
 import { ThemeProvider } from "@/components/theme-provider";
 
-const inter = Inter({ subsets: ["latin"] });
-
 export const metadata: Metadata = {
-  title:
-    "Nartex | CRM visuel & BI | Automatisation et optimisation des processus connectés",
+  title: "Nartex | Intelligence d'affaires & CRM visuel",
   description:
-    "Nartex est une plateforme SaaS de CRM visuel et intelligence d'affaires (BI) qui automatise vos processus et connecte vos données pour des insights exploitables.",
+    "Plateforme SaaS de CRM visuel et business intelligence. Automatisez vos processus et transformez vos données en insights exploitables.",
 };
 
 export default function RootLayout({
@@ -20,13 +18,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr" suppressHydrationWarning>
-      <body
-        className={`${inter.className} min-h-screen antialiased text-foreground selection:bg-primary/20 selection:text-primary`}
-      >
+    <html
+      lang="fr"
+      suppressHydrationWarning
+      className={`${GeistSans.variable} ${GeistMono.variable}`}
+    >
+      <body className="min-h-screen antialiased">
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="dark"
           enableSystem
           disableTransitionOnChange
         >
