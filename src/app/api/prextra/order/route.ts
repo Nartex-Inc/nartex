@@ -1,98 +1,93 @@
 // src/app/api/prextra/order/route.ts
-// GET /api/prextra/order?no_commande=12345
-// Returns minimal SO header + joined details to auto-fill the return form.
+// Order lookup by no_commande - GET
+// PostgreSQL version - queries replicated Prextra tables
 
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { query, PREXTRA_TABLES } from "@/lib/db";
+import { OrderLookup } from "@/types/returns";
 
-export type PrextraOrderResponse =
-  | {
-      ok: true;
-      exists: true;
-      sonbr: number;
-      OrderDate: string | null;          // ISO string
-      totalamt: number | null;
-      noClient: string;
-      CustCode: string;
-      CustomerName: string;
-      CarrierName: string;
-      SalesrepName: string;
-      TrackingNumber: string | null;
-    }
-  | { ok: true; exists: false; error: string }
-  | { ok: false; exists: false; error: string };
-
-export async function GET(req: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const url = new URL(req.url);
-    const raw = url.searchParams.get("no_commande") ?? "";
-    const parsed = decodeURIComponent(raw).trim();
-    const sonbr = Number(parsed);
-
-    if (!Number.isFinite(sonbr) || !Number.isInteger(sonbr)) {
-      const body: PrextraOrderResponse = {
-        ok: false,
-        exists: false,
-        error: "Missing or invalid 'no_commande'.",
-      };
-      return NextResponse.json(body, { status: 400 });
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
-    // sonbr may exist across companies: pick the one with highest cieid
-    const so = await prisma.sOHeader.findFirst({
-      where: { sonbr },
-      orderBy: [{ cieid: "desc" }],
-      select: {
-        cieid: true,
-        sonbr: true,
-        orderdate: true,
-        totalamt: true,
-        custid: true,
-        carrid: true,
-        srid: true,
-      },
-    });
+    const { searchParams } = new URL(request.url);
+    const noCommande = searchParams.get("no_commande");
 
-    if (!so) {
-      const body: PrextraOrderResponse = {
+    if (!noCommande) {
+      return NextResponse.json(
+        { ok: false, error: "Numéro de commande requis" },
+        { status: 400 }
+      );
+    }
+
+    // Query replicated Prextra tables with JOINs
+    // Note: Column names may be case-sensitive in PostgreSQL when using double quotes
+    const result = await query<{
+      sonbr: string;
+      OrderDate: Date | null;
+      totalamt: number | null;
+      customerName: string | null;
+      custCode: string | null;
+      carrierName: string | null;
+      salesrepName: string | null;
+      tracking: string | null;
+    }>(
+      `SELECT 
+        so."sonbr",
+        so."OrderDate",
+        so."totalamt",
+        c."Name" AS "customerName",
+        c."CustCode" AS "custCode",
+        ca."name" AS "carrierName",
+        sr."Name" AS "salesrepName",
+        sh."WayBill" AS "tracking"
+       FROM ${PREXTRA_TABLES.SO_HEADER} so
+       LEFT JOIN ${PREXTRA_TABLES.CUSTOMERS} c ON so."custid" = c."CustId"
+       LEFT JOIN ${PREXTRA_TABLES.CARRIERS} ca ON so."Carrid" = ca."carrid"
+       LEFT JOIN ${PREXTRA_TABLES.SALESREP} sr ON so."SRid" = sr."SRId"
+       LEFT JOIN ${PREXTRA_TABLES.SHIPMENT_HDR} sh ON so."sonbr" = sh."sonbr"
+       WHERE so."sonbr" = $1
+       LIMIT 1`,
+      [noCommande]
+    );
+
+    if (result.length === 0) {
+      return NextResponse.json({
         ok: true,
         exists: false,
-        error: "Aucune information trouvée.",
-      };
-      return NextResponse.json(body);
+        order: null,
+      });
     }
 
-    // Parallel lookups (all null-safe)
-    const [cust, carr, rep, ship] = await Promise.all([
-      so.custid ? prisma.customers.findUnique({ where: { custid: so.custid } }) : null,
-      so.carrid ? prisma.carriers.findUnique({ where: { carrid: so.carrid } }) : null,
-      so.srid ? prisma.salesrep.findUnique({ where: { srid: so.srid } }) : null,
-      prisma.shipmentHdr.findFirst({
-        where: { sonbr: so.sonbr, cieid: so.cieid }, // requires prisma model with cieid
-        orderBy: { id: "desc" },                     // Prisma field maps to DB "Id"
-        select: { waybill: true },
-      }),
-    ]);
+    const row = result[0];
 
-    const body: PrextraOrderResponse = {
-      ok: true,
-      exists: true,
-      sonbr: so.sonbr,
-      // Convert Date -> ISO string to satisfy response type and JSON
-      OrderDate: so.orderdate ? so.orderdate.toISOString() : null,
-      totalamt: so.totalamt != null ? Number(so.totalamt) : null,
-      noClient: cust?.custcode ?? "",
-      CustCode: cust?.custcode ?? "",
-      CustomerName: cust?.name ?? "",
-      CarrierName: carr?.name ?? "",
-      SalesrepName: rep?.name ?? "",
-      TrackingNumber: ship?.waybill ?? "",
+    const order: OrderLookup = {
+      sonbr: row.sonbr,
+      orderDate: row.OrderDate ? new Date(row.OrderDate).toISOString() : null,
+      totalamt: row.totalamt,
+      customerName: row.customerName,
+      custCode: row.custCode,
+      noClient: row.custCode,
+      carrierName: row.carrierName,
+      salesrepName: row.salesrepName,
+      tracking: row.tracking,
     };
 
-    return NextResponse.json(body);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unexpected server error.";
-    const body: PrextraOrderResponse = { ok: false, exists: false, error: message };
-    return NextResponse.json(body, { status: 500 });
+    return NextResponse.json({
+      ok: true,
+      exists: true,
+      order,
+    });
+  } catch (error) {
+    console.error("GET /api/prextra/order error:", error);
+    return NextResponse.json(
+      { ok: false, error: "Erreur lors de la recherche de la commande" },
+      { status: 500 }
+    );
   }
 }
