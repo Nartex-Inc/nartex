@@ -1,12 +1,10 @@
 // src/app/api/products/[id]/route.ts
 // Delete product from return - DELETE
-// PostgreSQL version
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { query } from "@/lib/db";
-import { Return, ReturnProduct } from "@/types/returns";
+import prisma from "@/lib/prisma";
+import { authOptions } from "@/app/api/auth/[...nextauth]/auth-options";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -25,32 +23,20 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Get product and its return
-    const products = await query<ReturnProduct>(
-      "SELECT * FROM return_products WHERE id = $1",
-      [productId]
-    );
+    const product = await prisma.returnProduct.findUnique({
+      where: { id: productId },
+      include: { return: true },
+    });
 
-    if (products.length === 0) {
+    if (!product) {
       return NextResponse.json({ ok: false, error: "Produit non trouvé" }, { status: 404 });
     }
 
-    const product = products[0];
-
-    // Get the return
-    const returns = await query<Return>(
-      "SELECT * FROM returns WHERE id = $1",
-      [product.return_id]
-    );
-
-    if (returns.length === 0) {
-      return NextResponse.json({ ok: false, error: "Retour non trouvé" }, { status: 404 });
-    }
-
-    const existing = returns[0];
+    const ret = product.return;
     const userRole = (session.user as { role?: string }).role;
 
     // Check if return can be edited
-    if (existing.is_final && !existing.is_standby) {
+    if (ret.isFinal && !ret.isStandby) {
       return NextResponse.json(
         { ok: false, error: "Impossible de modifier un retour finalisé" },
         { status: 400 }
@@ -58,7 +44,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Vérificateur cannot delete products from verified returns
-    if (userRole === "Vérificateur" && existing.is_verified) {
+    if (userRole === "Verificateur" && ret.isVerified) {
       return NextResponse.json(
         { ok: false, error: "Impossible de supprimer un produit d'un retour vérifié" },
         { status: 400 }
@@ -67,17 +53,16 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     // Expert can only modify their own returns
     const userName = session.user.name || "";
-    if (userRole === "Expert" && !existing.expert?.toLowerCase().includes(userName.toLowerCase())) {
+    if (userRole === "Expert" && !ret.expert.toLowerCase().includes(userName.toLowerCase())) {
       return NextResponse.json({ ok: false, error: "Accès non autorisé" }, { status: 403 });
     }
 
     // Check if this is the last product
-    const productCount = await query<{ count: string }>(
-      "SELECT COUNT(*) as count FROM return_products WHERE return_id = $1",
-      [existing.id]
-    );
+    const productCount = await prisma.returnProduct.count({
+      where: { returnId: ret.id },
+    });
 
-    if (parseInt(productCount[0]?.count || "0", 10) <= 1) {
+    if (productCount <= 1) {
       return NextResponse.json(
         { ok: false, error: "Impossible de supprimer le dernier produit d'un retour" },
         { status: 400 }
@@ -85,7 +70,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Delete product
-    await query("DELETE FROM return_products WHERE id = $1", [productId]);
+    await prisma.returnProduct.delete({ where: { id: productId } });
 
     return NextResponse.json({ ok: true, message: "Produit supprimé" });
   } catch (error) {
