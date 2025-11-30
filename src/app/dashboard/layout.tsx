@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { Header } from "@/components/dashboard/header";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import LoadingAnimation from "@/components/LoadingAnimation";
+import { cn } from "@/lib/utils";
 
 export default function DashboardLayout({
   children,
@@ -23,46 +24,45 @@ export default function DashboardLayout({
 
   // Lock body scroll when mobile nav is open
   React.useEffect(() => {
-    document.body.style.overflow = isMobileOpen ? "hidden" : "auto";
+    if (isMobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
     return () => {
-      document.body.style.overflow = "auto";
+      document.body.style.overflow = "";
     };
   }, [isMobileOpen]);
 
   // Update CSS variable for sidebar width
   React.useEffect(() => {
-    const setVar = () => {
+    const updateSidebarWidth = () => {
       const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
-      const w = isDesktop ? (isDesktopOpen ? "16rem" : "84px") : "0px";
+      const w = isDesktop ? (isDesktopOpen ? "15rem" : "68px") : "0px";
       document.documentElement.style.setProperty("--sidebar-w", w);
     };
-    setVar();
-    window.addEventListener("resize", setVar);
-    return () => window.removeEventListener("resize", setVar);
+    updateSidebarWidth();
+    window.addEventListener("resize", updateSidebarWidth);
+    return () => window.removeEventListener("resize", updateSidebarWidth);
   }, [isDesktopOpen]);
+
+  // Close mobile sidebar on route change (ESC key)
+  React.useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isMobileOpen) {
+        setMobileOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [isMobileOpen]);
 
   if (status === "loading") {
     return <LoadingAnimation />;
   }
 
   return (
-    <div className="relative min-h-screen surface-base">
-      {/* Header */}
-      <Header
-        onToggleMobileSidebar={() => setMobileOpen((v) => !v)}
-        notificationCount={5}
-      />
-
-      {/* Mobile backdrop */}
-      {isMobileOpen && (
-        <button
-          aria-label="Fermer le menu"
-          onClick={() => setMobileOpen(false)}
-          className="fixed inset-0 z-30 lg:hidden animate-fade-in"
-          style={{ background: "hsl(0, 0%, 0% / 0.6)" }}
-        />
-      )}
-
+    <div className="relative min-h-screen bg-[hsl(var(--bg-base))]">
       {/* Sidebar */}
       <Sidebar
         isOpen={isDesktopOpen}
@@ -71,8 +71,36 @@ export default function DashboardLayout({
         closeMobileSidebar={() => setMobileOpen(false)}
       />
 
-      {/* Main content */}
-      <main className="relative z-10 with-sidebar-pad">{children}</main>
+      {/* Mobile backdrop with blur */}
+      {isMobileOpen && (
+        <div
+          aria-hidden="true"
+          onClick={() => setMobileOpen(false)}
+          className={cn(
+            "fixed inset-0 z-40 lg:hidden",
+            "bg-black/50 backdrop-blur-sm",
+            "animate-in fade-in-0 duration-200"
+          )}
+        />
+      )}
+
+      {/* Main content area */}
+      <div
+        className={cn(
+          "flex flex-col min-h-screen",
+          "lg:pl-[var(--sidebar-w)]",
+          "transition-[padding] duration-200 ease-out"
+        )}
+      >
+        {/* Header */}
+        <Header
+          onToggleMobileSidebar={() => setMobileOpen((v) => !v)}
+          notificationCount={5}
+        />
+
+        {/* Page content */}
+        <main className="flex-1">{children}</main>
+      </div>
     </div>
   );
 }
