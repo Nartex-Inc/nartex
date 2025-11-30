@@ -2,12 +2,11 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { Bell, Menu, Search } from "lucide-react";
-import { useTheme } from "next-themes";
 import { ModeToggle } from "@/components/theme-toggle";
 import { UserNav } from "@/components/dashboard/user-nav";
+import NartexLogo from "@/components/nartex-logo";
 import { cn } from "@/lib/utils";
 
 interface HeaderProps {
@@ -17,20 +16,13 @@ interface HeaderProps {
 
 /**
  * Premium header - Clean, centered layout.
- * Uses nartex_logo.svg with dark/light mode support.
+ * Uses NartexLogo component with currentColor for proper dark/light mode.
  */
 export function Header({
   onToggleMobileSidebar,
   notificationCount = 0,
 }: HeaderProps) {
-  const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
   const [scrolled, setScrolled] = React.useState(false);
-  const [mounted, setMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Detect scroll for subtle elevation
   React.useEffect(() => {
@@ -67,31 +59,15 @@ export function Header({
               <Menu className="h-5 w-5" />
             </button>
 
-            {/* Nartex Logo — Uses SVG with dark/light mode filter */}
+            {/* Nartex Logo — Uses NartexLogo component with currentColor */}
             <Link
               href="/dashboard"
               className="flex items-center group"
             >
-              {mounted ? (
-                <Image
-                  src="/nartex_logo.svg"
-                  alt="Nartex"
-                  width={100}
-                  height={28}
-                  priority
-                  className={cn(
-                    "h-6 w-auto object-contain transition-opacity group-hover:opacity-80",
-                    // Invert for dark mode (white logo), normal for light mode (black logo)
-                    isDark ? "invert brightness-0 invert" : ""
-                  )}
-                  style={{
-                    filter: isDark ? "brightness(0) invert(1)" : "none"
-                  }}
-                />
-              ) : (
-                // Placeholder during hydration
-                <div className="h-6 w-24 bg-[hsl(var(--bg-muted))] rounded animate-pulse" />
-              )}
+              <NartexLogo 
+                className="h-6 w-auto text-[hsl(var(--text-primary))] transition-opacity group-hover:opacity-70" 
+                title="Nartex"
+              />
             </Link>
           </div>
 
