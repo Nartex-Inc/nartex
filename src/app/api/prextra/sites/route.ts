@@ -1,11 +1,10 @@
 // src/app/api/prextra/sites/route.ts
 // Get list of warehouse sites - GET
-// PostgreSQL version - queries replicated dbo."Sites" table
 
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { query, PREXTRA_TABLES } from "@/lib/db";
+import { authOptions } from "@/app/api/auth/[...nextauth]/auth-options";
+import { getSites } from "@/lib/prextra";
 
 export async function GET() {
   try {
@@ -14,14 +13,7 @@ export async function GET() {
       return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
-    // Query replicated Prextra Sites table
-    const result = await query<{ Name: string }>(
-      `SELECT "Name" FROM ${PREXTRA_TABLES.SITES} 
-       WHERE "Name" IS NOT NULL AND "Name" != ''
-       ORDER BY "Name" ASC`
-    );
-
-    const sites = result.map((r) => r.Name);
+    const sites = await getSites();
 
     return NextResponse.json({ ok: true, sites });
   } catch (error) {
