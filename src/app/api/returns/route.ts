@@ -1,19 +1,18 @@
 // src/app/api/returns/route.ts
-// Main returns API - GET (list with filters), POST (create new return)
-// PostgreSQL version - single AWS RDS database
+// Returns API - GET (list with filters), POST (create new return)
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { query, withTransaction, PREXTRA_TABLES, NARTEX_TABLES } from "@/lib/db";
-import {
-  Return,
-  ReturnProduct,
-  Upload,
+import prisma from "@/lib/prisma";
+import { authOptions } from "@/app/api/auth/[...nextauth]/auth-options";
+import type {
   ReturnRow,
   CreateReturnPayload,
-  getReturnStatus,
+  AttachmentResponse,
+  ProductLineResponse,
 } from "@/types/returns";
+import { getReturnStatus } from "@/types/returns";
+import type { Return, ReturnProduct, Upload, Prisma } from "@prisma/client";
 
 /* =============================================================================
    GET /api/returns - List returns with filters
@@ -37,103 +36,86 @@ export async function GET(request: NextRequest) {
     const includeHistory = searchParams.get("history") === "true";
 
     // Build WHERE conditions
-    const conditions: string[] = [];
-    const params: unknown[] = [];
-    let paramIndex = 1;
+    const where: Prisma.ReturnWhereInput = {};
+    const AND: Prisma.ReturnWhereInput[] = [];
 
     // Filter by final status (history vs active)
     if (includeHistory) {
-      conditions.push("r.is_final = true");
+      AND.push({ isFinal: true });
     } else {
-      conditions.push("r.is_final = false");
+      AND.push({ isFinal: false });
     }
 
     // Expert role filter - only show their own returns
     const userRole = (session.user as { role?: string }).role;
     const userName = session.user.name || "";
     if (userRole === "Expert") {
-      conditions.push(`r.expert ILIKE $${paramIndex++}`);
-      params.push(`%${userName}%`);
+      AND.push({ expert: { contains: userName, mode: "insensitive" } });
     }
 
     // Search query
     if (q) {
-      conditions.push(`(
-        r.code_retour::text LIKE $${paramIndex} OR
-        r.client ILIKE $${paramIndex} OR
-        r.no_commande ILIKE $${paramIndex} OR
-        r.no_client ILIKE $${paramIndex} OR
-        r.expert ILIKE $${paramIndex} OR
-        EXISTS (SELECT 1 FROM return_products p WHERE p.return_id = r.id AND p.code_produit ILIKE $${paramIndex})
-      )`);
-      params.push(`%${q}%`);
-      paramIndex++;
+      AND.push({
+        OR: [
+          { code: { contains: q, mode: "insensitive" } },
+          { client: { contains: q, mode: "insensitive" } },
+          { noCommande: { contains: q, mode: "insensitive" } },
+          { noClient: { contains: q, mode: "insensitive" } },
+          { expert: { contains: q, mode: "insensitive" } },
+          { products: { some: { codeProduit: { contains: q, mode: "insensitive" } } } },
+        ],
+      });
     }
 
     // Cause filter
     if (cause && cause !== "all") {
-      conditions.push(`r.cause_retour = $${paramIndex++}`);
-      params.push(cause);
+      AND.push({ cause: cause as any });
     }
 
     // Reporter filter
     if (reporter && reporter !== "all") {
-      conditions.push(`r.signale_par = $${paramIndex++}`);
-      params.push(reporter);
+      AND.push({ reporter: reporter as any });
     }
 
     // Date range filter
     if (dateFrom) {
-      conditions.push(`r.date_signalement >= $${paramIndex++}`);
-      params.push(dateFrom);
+      AND.push({ reportedAt: { gte: new Date(dateFrom) } });
     }
     if (dateTo) {
-      conditions.push(`r.date_signalement <= $${paramIndex++}`);
-      params.push(dateTo);
+      AND.push({ reportedAt: { lte: new Date(dateTo) } });
     }
 
-    // Status filter (draft, awaiting, received)
+    // Status filter
     if (status === "draft") {
-      conditions.push("r.is_draft = true");
+      AND.push({ isDraft: true });
     } else if (status === "awaiting") {
-      conditions.push("r.is_draft = false AND r.retour_physique = true AND r.is_verified = false");
+      AND.push({ isDraft: false, retourPhysique: true, isVerified: false });
     } else if (status === "received") {
-      conditions.push("r.is_draft = false AND (r.retour_physique = false OR r.is_verified = true)");
+      AND.push({
+        isDraft: false,
+        OR: [{ retourPhysique: false }, { isVerified: true }],
+      });
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    if (AND.length > 0) {
+      where.AND = AND;
+    }
 
-    // Main query
-    const sql = `
-      SELECT r.*,
-        (SELECT COUNT(*) FROM uploads u WHERE u.return_id = r.id) AS attachment_count
-      FROM returns r
-      ${whereClause}
-      ORDER BY r.date_signalement DESC, r.code_retour DESC
-      LIMIT $${paramIndex}
-    `;
-    params.push(take);
+    // Query with relations
+    const returns = await prisma.return.findMany({
+      where,
+      include: {
+        products: true,
+        attachments: true,
+      },
+      orderBy: [{ reportedAt: "desc" }, { id: "desc" }],
+      take,
+    });
 
-    const rows = await query<Return & { attachment_count: number }>(sql, params);
+    // Map to response format
+    const rows: ReturnRow[] = returns.map((r) => mapToReturnRow(r));
 
-    // Fetch products and attachments for each return
-    const returnRows: ReturnRow[] = await Promise.all(
-      rows.map(async (row) => {
-        const products = await query<ReturnProduct>(
-          "SELECT * FROM return_products WHERE return_id = $1 ORDER BY id",
-          [row.id]
-        );
-
-        const attachments = await query<Upload>(
-          "SELECT * FROM uploads WHERE return_id = $1 ORDER BY id",
-          [row.id]
-        );
-
-        return mapToReturnRow(row, products, attachments);
-      })
-    );
-
-    return NextResponse.json({ ok: true, rows: returnRows });
+    return NextResponse.json({ ok: true, rows });
   } catch (error) {
     console.error("GET /api/returns error:", error);
     return NextResponse.json(
@@ -164,89 +146,66 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await withTransaction(async (client) => {
-      // Get next code_retour
-      const maxResult = await client.query(
-        "SELECT COALESCE(MAX(code_retour), 0) + 1 AS next_code FROM returns"
-      );
-      const nextCode = maxResult.rows[0].next_code;
+    // Determine if draft based on required fields
+    const hasRequiredFields =
+      body.reporter &&
+      body.cause &&
+      body.products &&
+      body.products.length > 0 &&
+      body.products.every((p) => p.codeProduit && p.quantite > 0);
 
-      // Determine if draft based on required fields
-      const hasRequiredFields =
-        body.reporter &&
-        body.cause &&
-        body.products &&
-        body.products.length > 0 &&
-        body.products.every((p) => p.codeProduit && p.quantite > 0);
+    const isDraft = !hasRequiredFields;
 
-      const isDraft = !hasRequiredFields;
+    // Create return with products
+    const created = await prisma.return.create({
+      data: {
+        code: "", // Will be updated after creation
+        reporter: body.reporter || "expert",
+        cause: body.cause || "production",
+        expert: body.expert.trim(),
+        client: body.client.trim(),
+        noClient: body.noClient?.trim() || null,
+        noCommande: body.noCommande?.trim() || null,
+        tracking: body.tracking?.trim() || null,
+        amount: body.amount ?? null,
+        dateCommande: body.dateCommande ? new Date(body.dateCommande) : null,
+        transport: body.transport?.trim() || null,
+        description: body.description?.trim() || null,
+        retourPhysique: body.retourPhysique || false,
+        isDraft,
+        isPickup: body.isPickup || false,
+        isCommande: body.isCommande || false,
+        isReclamation: body.isReclamation || false,
+        noBill: body.noBill?.trim() || null,
+        noBonCommande: body.noBonCommande?.trim() || null,
+        noReclamation: body.noReclamation?.trim() || null,
+        initiePar: session.user.name || "Système",
+        dateInitialization: new Date(),
+        status: isDraft ? "draft" : "received_or_no_physical",
+        products: body.products
+          ? {
+              create: body.products.map((p) => ({
+                codeProduit: p.codeProduit.trim(),
+                descriptionProduit: p.descriptionProduit?.trim() || "",
+                descriptionRetour: p.descriptionRetour?.trim() || null,
+                quantite: p.quantite,
+              })),
+            }
+          : undefined,
+      },
+    });
 
-      // Insert into returns
-      const insertResult = await client.query(
-        `INSERT INTO returns (
-          code_retour, date_signalement, signale_par, cause_retour, expert, montant,
-          client, no_client, no_commande, no_tracking, date_commande, description,
-          transporteur, retour_physique, is_draft, is_final, is_verified, is_standby,
-          is_pickup, is_commande, is_reclamation, no_bill, no_bon_commande, no_reclamation,
-          initie_par, date_initialization
-        ) VALUES (
-          $1, CURRENT_DATE, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-          false, false, false, $15, $16, $17, $18, $19, $20, $21, NOW()
-        ) RETURNING id, code_retour`,
-        [
-          nextCode,
-          body.reporter || "expert",
-          body.cause || "production",
-          body.expert.trim(),
-          body.amount || null,
-          body.client.trim(),
-          body.noClient?.trim() || null,
-          body.noCommande?.trim() || null,
-          body.tracking?.trim() || null,
-          body.dateCommande || null,
-          body.description?.trim() || null,
-          body.transport?.trim() || null,
-          body.retourPhysique || false,
-          isDraft,
-          body.isPickup || false,
-          body.isCommande || false,
-          body.isReclamation || false,
-          body.noBill?.trim() || null,
-          body.noBonCommande?.trim() || null,
-          body.noReclamation?.trim() || null,
-          session.user.name || "Système",
-        ]
-      );
-
-      const returnId = insertResult.rows[0].id;
-      const codeRetour = insertResult.rows[0].code_retour;
-
-      // Insert products
-      if (body.products && body.products.length > 0) {
-        for (const product of body.products) {
-          await client.query(
-            `INSERT INTO return_products (return_id, code_retour, code_produit, quantite, descr_produit, description_retour)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [
-              returnId,
-              codeRetour,
-              product.codeProduit.trim(),
-              product.quantite,
-              product.descriptionProduit?.trim() || null,
-              product.descriptionRetour?.trim() || null,
-            ]
-          );
-        }
-      }
-
-      return { id: returnId, codeRetour };
+    // Update code with R + id format
+    const updated = await prisma.return.update({
+      where: { id: created.id },
+      data: { code: `R${created.id}` },
     });
 
     return NextResponse.json({
       ok: true,
       return: {
-        id: `R${result.codeRetour}`,
-        code_retour: result.codeRetour,
+        id: updated.code,
+        code_retour: updated.id,
       },
     });
   } catch (error) {
@@ -259,97 +218,88 @@ export async function POST(request: NextRequest) {
 }
 
 /* =============================================================================
-   Helper Functions
+   Helper: Map Prisma Return to API ReturnRow
 ============================================================================= */
 
-function mapToReturnRow(
-  row: Return & { attachment_count?: number },
-  products: ReturnProduct[],
-  attachments: Upload[]
-): ReturnRow {
-  const status = getReturnStatus(row);
+type ReturnWithRelations = Return & {
+  products: ReturnProduct[];
+  attachments: Upload[];
+};
+
+function mapToReturnRow(r: ReturnWithRelations): ReturnRow {
+  const status = getReturnStatus(r);
 
   return {
-    id: `R${row.code_retour}`,
-    codeRetour: row.code_retour,
-    reportedAt: row.date_signalement
-      ? new Date(row.date_signalement).toISOString()
-      : new Date().toISOString(),
-    reporter: row.signale_par,
-    cause: row.cause_retour,
-    expert: row.expert || "",
-    client: row.client || "",
-    noClient: row.no_client || undefined,
-    noCommande: row.no_commande || undefined,
-    tracking: row.no_tracking || undefined,
+    id: r.code,
+    codeRetour: r.id,
+    reportedAt: r.reportedAt.toISOString(),
+    reporter: r.reporter,
+    cause: r.cause,
+    expert: r.expert,
+    client: r.client,
+    noClient: r.noClient,
+    noCommande: r.noCommande,
+    tracking: r.tracking,
     status,
-    standby: row.is_standby,
-    amount: row.montant,
-    dateCommande: row.date_commande,
-    transport: row.transporteur,
-    description: row.description || undefined,
-    attachments: attachments.map((a) => ({
-      id: a.file_path,
-      name: a.file_name,
-      url: `https://drive.google.com/file/d/${a.file_path}/preview`,
-      downloadUrl: `https://drive.google.com/uc?export=download&id=${a.file_path}`,
-    })),
-    products: products.map((p) => ({
-      id: String(p.id),
-      codeProduit: p.code_produit,
-      descriptionProduit: p.descr_produit || "",
-      descriptionRetour: p.description_retour || undefined,
-      quantite: p.quantite,
-      poidsUnitaire: p.weight_produit,
-      poidsTotal: p.poids,
-      quantiteRecue: p.quantite_recue,
-      qteInventaire: p.qte_inventaire,
-      qteDetruite: p.qte_detruite,
-      tauxRestock: p.taux_restock,
-    })),
-    createdBy: row.initie_par
+    standby: r.isStandby,
+    amount: r.amount ? Number(r.amount) : null,
+    dateCommande: r.dateCommande?.toISOString() || null,
+    transport: r.transport,
+    description: r.description,
+    attachments: r.attachments.map(
+      (a): AttachmentResponse => ({
+        id: a.url,
+        name: a.name,
+        url: `https://drive.google.com/file/d/${a.url}/preview`,
+        downloadUrl: `https://drive.google.com/uc?export=download&id=${a.url}`,
+      })
+    ),
+    products: r.products.map(
+      (p): ProductLineResponse => ({
+        id: String(p.id),
+        codeProduit: p.codeProduit,
+        descriptionProduit: p.descriptionProduit,
+        descriptionRetour: p.descriptionRetour,
+        quantite: p.quantite,
+        poidsUnitaire: p.weightProduit ? Number(p.weightProduit) : null,
+        poidsTotal: p.poids ? Number(p.poids) : null,
+        quantiteRecue: p.quantiteRecue,
+        qteInventaire: p.qteInventaire,
+        qteDetruite: p.qteDetruite,
+        tauxRestock: p.tauxRestock ? Number(p.tauxRestock) : null,
+      })
+    ),
+    createdBy: r.initiePar
       ? {
-          name: row.initie_par,
+          name: r.initiePar,
           avatar: null,
-          at: row.date_initialization
-            ? new Date(row.date_initialization).toISOString()
-            : new Date().toISOString(),
-        }
-      : undefined,
-    retourPhysique: row.retour_physique,
-    isPickup: row.is_pickup,
-    isCommande: row.is_commande,
-    isReclamation: row.is_reclamation,
-    noBill: row.no_bill,
-    noBonCommande: row.no_bon_commande,
-    noReclamation: row.no_reclamation,
-    verifiedBy: row.verifie_par
-      ? {
-          name: row.verifie_par,
-          at: row.date_verification
-            ? new Date(row.date_verification).toISOString()
-            : null,
+          at: r.dateInitialization?.toISOString() || r.createdAt.toISOString(),
         }
       : null,
-    finalizedBy: row.finalise_par
-      ? {
-          name: row.finalise_par,
-          at: row.date_finalisation
-            ? new Date(row.date_finalisation).toISOString()
-            : null,
-        }
+    retourPhysique: r.retourPhysique,
+    isPickup: r.isPickup,
+    isCommande: r.isCommande,
+    isReclamation: r.isReclamation,
+    noBill: r.noBill,
+    noBonCommande: r.noBonCommande,
+    noReclamation: r.noReclamation,
+    verifiedBy: r.verifiePar
+      ? { name: r.verifiePar, at: r.dateVerification?.toISOString() || null }
       : null,
-    entrepotDepart: row.entrepot_depart,
-    entrepotDestination: row.entrepot_destination,
-    noCredit: row.no_credit,
-    noCredit2: row.no_credit2,
-    noCredit3: row.no_credit3,
-    crediteA: row.credite_a,
-    crediteA2: row.credite_a2,
-    crediteA3: row.credite_a3,
-    villeShipto: row.ville_shipto,
-    poidsTotal: row.poids_total,
-    montantTransport: row.montant_transport,
-    montantRestocking: row.montant_restocking,
+    finalizedBy: r.finalisePar
+      ? { name: r.finalisePar, at: r.dateFinalisation?.toISOString() || null }
+      : null,
+    entrepotDepart: r.entrepotDepart,
+    entrepotDestination: r.entrepotDestination,
+    noCredit: r.noCredit,
+    noCredit2: r.noCredit2,
+    noCredit3: r.noCredit3,
+    crediteA: r.crediteA,
+    crediteA2: r.crediteA2,
+    crediteA3: r.crediteA3,
+    villeShipto: r.villeShipto,
+    poidsTotal: r.poidsTotal ? Number(r.poidsTotal) : null,
+    montantTransport: r.montantTransport ? Number(r.montantTransport) : null,
+    montantRestocking: r.montantRestocking ? Number(r.montantRestocking) : null,
   };
 }
