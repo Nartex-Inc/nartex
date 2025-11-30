@@ -2,8 +2,21 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
+import { useTheme } from "next-themes";
+import {
+  User,
+  Settings,
+  CreditCard,
+  Keyboard,
+  HelpCircle,
+  Sparkles,
+  LogOut,
+  Sun,
+  Moon,
+  Monitor,
+} from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,47 +25,58 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  LogOut,
-  Settings,
-  User,
-  HelpCircle,
-  Keyboard,
-  CreditCard,
-  Sparkles,
-} from "lucide-react";
 import { cn } from "@/lib/utils";
 
+/**
+ * Premium user navigation dropdown.
+ * Includes theme toggle inside the menu.
+ * Fixed: No body scroll lock to prevent layout shift.
+ */
 export function UserNav() {
-  const { data } = useSession();
-  const user = data?.user;
+  const { data: session } = useSession();
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = React.useState(false);
 
-  if (!user) return null;
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  const display = user.name || user.email?.split("@")[0] || "Utilisateur";
-  const initials = display
-    .split(" ")
-    .map((p) => p[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase() || "U";
+  const user = session?.user;
+  const initials = user?.name
+    ? user.name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase()
+    : "U";
 
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <button
           className={cn(
             "flex items-center justify-center h-9 w-9 rounded-lg",
-            "hover:bg-[hsl(var(--bg-elevated))] transition-colors",
-            "outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--bg-base))]"
+            "outline-none transition-all duration-200",
+            "hover:ring-2 hover:ring-[hsl(var(--accent)/0.3)]",
+            "focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--bg-base))]"
           )}
           aria-label="Menu utilisateur"
         >
-          <Avatar className="h-7 w-7 ring-2 ring-[hsl(var(--border-subtle))] transition-all hover:ring-[hsl(var(--border-default))]">
-            <AvatarImage src={user.image ?? ""} alt={display} />
-            <AvatarFallback className="text-[10px] font-bold bg-gradient-to-br from-[hsl(var(--accent))] to-[hsl(187,100%,40%)] text-white">
+          <Avatar className="h-8 w-8 ring-2 ring-[hsl(var(--border-subtle))]">
+            <AvatarImage src={user?.image ?? ""} alt={user?.name ?? "User"} />
+            <AvatarFallback
+              className="text-xs font-bold"
+              style={{
+                background: "linear-gradient(135deg, hsl(var(--accent)), hsl(187, 100%, 40%))",
+                color: "hsl(var(--bg-base))",
+              }}
+            >
               {initials}
             </AvatarFallback>
           </Avatar>
@@ -62,114 +86,152 @@ export function UserNav() {
       <DropdownMenuContent
         align="end"
         sideOffset={8}
-        className="w-56 p-1.5 bg-[hsl(var(--bg-surface))] border-[hsl(var(--border-default))] shadow-xl rounded-xl z-[60]"
-        forceMount
+        className={cn(
+          "w-56 rounded-xl p-1.5 z-[60]",
+          "bg-[hsl(var(--bg-surface))] border-[hsl(var(--border-default))]",
+          "shadow-xl shadow-black/20"
+        )}
       >
         {/* User Info Header */}
-        <DropdownMenuLabel className="px-2 py-2.5">
-          <div className="flex items-center gap-3">
+        <DropdownMenuLabel className="p-0 font-normal">
+          <div className="flex items-center gap-3 px-2 py-2.5">
             <Avatar className="h-10 w-10 ring-2 ring-[hsl(var(--border-subtle))]">
-              <AvatarImage src={user.image ?? ""} alt={display} />
-              <AvatarFallback className="text-xs font-bold bg-gradient-to-br from-[hsl(var(--accent))] to-[hsl(187,100%,40%)] text-white">
+              <AvatarImage src={user?.image ?? ""} alt={user?.name ?? "User"} />
+              <AvatarFallback
+                className="text-sm font-bold"
+                style={{
+                  background: "linear-gradient(135deg, hsl(var(--accent)), hsl(187, 100%, 40%))",
+                  color: "hsl(var(--bg-base))",
+                }}
+              >
                 {initials}
               </AvatarFallback>
             </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="truncate text-sm font-semibold text-[hsl(var(--text-primary))]">
-                {display}
-              </p>
-              {user.email && (
-                <p className="truncate text-xs text-[hsl(var(--text-tertiary))]">
-                  {user.email}
-                </p>
-              )}
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-semibold text-[hsl(var(--text-primary))] truncate">
+                {user?.name ?? "Utilisateur"}
+              </span>
+              <span className="text-xs text-[hsl(var(--text-muted))] truncate">
+                {user?.email ?? ""}
+              </span>
             </div>
           </div>
         </DropdownMenuLabel>
 
-        <DropdownMenuSeparator className="bg-[hsl(var(--border-subtle))] my-1" />
+        <DropdownMenuSeparator className="bg-[hsl(var(--border-subtle))]" />
 
-        {/* Navigation Items */}
-        <DropdownMenuGroup className="space-y-0.5">
-          <DropdownMenuItem asChild>
-            <Link
-              href="/dashboard/profile"
-              className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] hover:text-[hsl(var(--text-primary))] cursor-pointer transition-colors"
-            >
-              <User className="h-4 w-4" />
-              <span className="text-sm font-medium">Profil</span>
-            </Link>
+        {/* Main Menu Items */}
+        <DropdownMenuGroup>
+          <DropdownMenuItem className="gap-3 px-2 py-2 rounded-lg text-[13px] font-medium text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] cursor-pointer">
+            <User className="h-4 w-4" />
+            Profil
           </DropdownMenuItem>
-
-          <DropdownMenuItem asChild>
-            <Link
-              href="/dashboard/settings"
-              className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] hover:text-[hsl(var(--text-primary))] cursor-pointer transition-colors"
-            >
-              <Settings className="h-4 w-4" />
-              <span className="text-sm font-medium">Paramètres</span>
-            </Link>
+          <DropdownMenuItem className="gap-3 px-2 py-2 rounded-lg text-[13px] font-medium text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] cursor-pointer">
+            <Settings className="h-4 w-4" />
+            Paramètres
           </DropdownMenuItem>
-
-          <DropdownMenuItem asChild>
-            <Link
-              href="/dashboard/billing"
-              className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] hover:text-[hsl(var(--text-primary))] cursor-pointer transition-colors"
-            >
-              <CreditCard className="h-4 w-4" />
-              <span className="text-sm font-medium">Facturation</span>
-            </Link>
+          <DropdownMenuItem className="gap-3 px-2 py-2 rounded-lg text-[13px] font-medium text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] cursor-pointer">
+            <CreditCard className="h-4 w-4" />
+            Facturation
           </DropdownMenuItem>
-
-          <DropdownMenuItem asChild>
-            <button
-              className="w-full flex items-center justify-between gap-2.5 px-2 py-2 rounded-lg text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] hover:text-[hsl(var(--text-primary))] cursor-pointer transition-colors"
-            >
-              <div className="flex items-center gap-2.5">
-                <Keyboard className="h-4 w-4" />
-                <span className="text-sm font-medium">Raccourcis</span>
-              </div>
-              <kbd className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))] border border-[hsl(var(--border-subtle))]">
-                ?
-              </kbd>
-            </button>
+          <DropdownMenuItem className="gap-3 px-2 py-2 rounded-lg text-[13px] font-medium text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] cursor-pointer justify-between">
+            <div className="flex items-center gap-3">
+              <Keyboard className="h-4 w-4" />
+              Raccourcis
+            </div>
+            <kbd className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))] border border-[hsl(var(--border-subtle))]">
+              ?
+            </kbd>
           </DropdownMenuItem>
         </DropdownMenuGroup>
 
-        <DropdownMenuSeparator className="bg-[hsl(var(--border-subtle))] my-1" />
+        <DropdownMenuSeparator className="bg-[hsl(var(--border-subtle))]" />
+
+        {/* Theme Submenu */}
+        <DropdownMenuGroup>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger className="gap-3 px-2 py-2 rounded-lg text-[13px] font-medium text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] cursor-pointer">
+              {mounted && theme === "dark" ? (
+                <Moon className="h-4 w-4" />
+              ) : mounted && theme === "light" ? (
+                <Sun className="h-4 w-4" />
+              ) : (
+                <Monitor className="h-4 w-4" />
+              )}
+              Apparence
+            </DropdownMenuSubTrigger>
+            <DropdownMenuPortal>
+              <DropdownMenuSubContent
+                className={cn(
+                  "min-w-[140px] rounded-xl p-1.5",
+                  "bg-[hsl(var(--bg-surface))] border-[hsl(var(--border-default))]",
+                  "shadow-xl shadow-black/20"
+                )}
+              >
+                <DropdownMenuItem
+                  onClick={() => setTheme("light")}
+                  className={cn(
+                    "gap-3 px-2 py-2 rounded-lg text-[13px] font-medium cursor-pointer",
+                    theme === "light"
+                      ? "text-[hsl(var(--accent))] bg-[hsl(var(--accent-muted))]"
+                      : "text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))]"
+                  )}
+                >
+                  <Sun className="h-4 w-4" />
+                  Clair
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setTheme("dark")}
+                  className={cn(
+                    "gap-3 px-2 py-2 rounded-lg text-[13px] font-medium cursor-pointer",
+                    theme === "dark"
+                      ? "text-[hsl(var(--accent))] bg-[hsl(var(--accent-muted))]"
+                      : "text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))]"
+                  )}
+                >
+                  <Moon className="h-4 w-4" />
+                  Sombre
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setTheme("system")}
+                  className={cn(
+                    "gap-3 px-2 py-2 rounded-lg text-[13px] font-medium cursor-pointer",
+                    theme === "system"
+                      ? "text-[hsl(var(--accent))] bg-[hsl(var(--accent-muted))]"
+                      : "text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))]"
+                  )}
+                >
+                  <Monitor className="h-4 w-4" />
+                  Système
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuPortal>
+          </DropdownMenuSub>
+        </DropdownMenuGroup>
+
+        <DropdownMenuSeparator className="bg-[hsl(var(--border-subtle))]" />
 
         {/* Help & Support */}
-        <DropdownMenuGroup className="space-y-0.5">
-          <DropdownMenuItem asChild>
-            <Link
-              href="/help"
-              className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] hover:text-[hsl(var(--text-primary))] cursor-pointer transition-colors"
-            >
-              <HelpCircle className="h-4 w-4" />
-              <span className="text-sm font-medium">Aide & Support</span>
-            </Link>
-          </DropdownMenuItem>
+        <DropdownMenuItem className="gap-3 px-2 py-2 rounded-lg text-[13px] font-medium text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] cursor-pointer">
+          <HelpCircle className="h-4 w-4" />
+          Aide & Support
+        </DropdownMenuItem>
 
-          <DropdownMenuItem asChild>
-            <Link
-              href="/dashboard/upgrade"
-              className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-[hsl(var(--accent))] hover:bg-[hsl(var(--accent-muted))] cursor-pointer transition-colors"
-            >
-              <Sparkles className="h-4 w-4" />
-              <span className="text-sm font-medium">Mettre à niveau</span>
-            </Link>
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
+        {/* Upgrade */}
+        <DropdownMenuItem className="gap-3 px-2 py-2 rounded-lg text-[13px] font-medium text-[hsl(var(--accent))] hover:bg-[hsl(var(--accent-muted))] cursor-pointer">
+          <Sparkles className="h-4 w-4" />
+          Mettre à niveau
+        </DropdownMenuItem>
 
-        <DropdownMenuSeparator className="bg-[hsl(var(--border-subtle))] my-1" />
+        <DropdownMenuSeparator className="bg-[hsl(var(--border-subtle))]" />
 
         {/* Sign Out */}
         <DropdownMenuItem
-          onClick={() => signOut({ callbackUrl: "/" })}
-          className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))] cursor-pointer transition-colors"
+          onClick={() => signOut()}
+          className="gap-3 px-2 py-2 rounded-lg text-[13px] font-medium text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))] cursor-pointer"
         >
           <LogOut className="h-4 w-4" />
-          <span className="text-sm font-medium">Déconnexion</span>
+          Déconnexion
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
