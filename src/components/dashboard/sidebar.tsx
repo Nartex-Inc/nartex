@@ -94,24 +94,25 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   Company Selector Component — Inspired by shadcn sidebar
+   Company Selector Component — With SINTO Logo
    ═══════════════════════════════════════════════════════════════════════════════ */
 function CompanySelector({ expanded }: { expanded: boolean }) {
   const [selectedCompany, setSelectedCompany] = React.useState(COMPANIES[0]);
 
+  // Collapsed state — just show SINTO logo
   if (!expanded) {
     return (
       <Tooltip delayDuration={0}>
         <TooltipTrigger asChild>
-          <button
-            className={cn(
-              "flex items-center justify-center w-10 h-10 mx-auto rounded-lg",
-              "bg-[hsl(var(--accent))] text-[hsl(var(--bg-base))]",
-              "hover:opacity-90 transition-opacity"
-            )}
-          >
-            <Building2 className="h-5 w-5" />
-          </button>
+          <div className="flex items-center justify-center">
+            <Image
+              src="/sinto-logo.svg"
+              alt="SINTO"
+              width={36}
+              height={36}
+              className="h-9 w-9 object-contain"
+            />
+          </div>
         </TooltipTrigger>
         <TooltipContent side="right" sideOffset={12}>
           {selectedCompany.name}
@@ -120,33 +121,25 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
     );
   }
 
+  // Expanded state — dropdown selector
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <button
           className={cn(
-            "flex items-center gap-3 w-full px-3 py-2.5 rounded-lg",
+            "flex items-center gap-3 w-full px-2 py-2 rounded-lg",
             "hover:bg-[hsl(var(--bg-elevated))] transition-colors",
             "outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent))]"
           )}
         >
-          {/* Company Logo/Icon */}
-          <div
-            className={cn(
-              "flex items-center justify-center w-8 h-8 rounded-lg shrink-0",
-              "bg-[hsl(var(--accent))] text-[hsl(var(--bg-base))]"
-            )}
-          >
+          {/* SINTO Logo */}
+          <div className="flex items-center justify-center w-9 h-9 shrink-0">
             <Image
-              src="/sinto-logo-icon.svg"
+              src="/sinto-logo.svg"
               alt={selectedCompany.name}
-              width={20}
-              height={20}
-              className="h-5 w-5 object-contain"
-              onError={(e) => {
-                // Fallback to Building2 icon if image fails
-                e.currentTarget.style.display = 'none';
-              }}
+              width={36}
+              height={36}
+              className="h-9 w-9 object-contain"
             />
           </div>
 
@@ -224,7 +217,7 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   Nav Link Component — Premium Micro-interactions
+   Nav Link Component — Premium Micro-interactions (GREEN accent)
    ═══════════════════════════════════════════════════════════════════════════════ */
 function NavLink({
   item,
@@ -250,7 +243,7 @@ function NavLink({
         "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-200",
         "outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--bg-surface))]",
         active
-          ? "bg-[hsl(var(--accent))] text-[hsl(var(--bg-base))] shadow-sm shadow-[hsl(var(--accent)/0.25)]"
+          ? "bg-[hsl(var(--accent))] text-white shadow-sm shadow-[hsl(var(--accent)/0.25)]"
           : "text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] hover:text-[hsl(var(--text-primary))]",
         !expanded && "justify-center px-0 w-10 mx-auto"
       )}
@@ -261,7 +254,7 @@ function NavLink({
           "shrink-0 transition-all duration-200",
           expanded ? "h-4 w-4" : "h-[18px] w-[18px]",
           active
-            ? "text-[hsl(var(--bg-base))]"
+            ? "text-white"
             : "text-[hsl(var(--text-tertiary))] group-hover:text-[hsl(var(--text-primary))] group-hover:scale-105"
         )}
         strokeWidth={active ? 2.5 : 2}
@@ -271,7 +264,7 @@ function NavLink({
       )}
       {/* Active indicator line */}
       {active && expanded && (
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 bg-[hsl(var(--bg-base))] rounded-r-full opacity-80" />
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 bg-white/80 rounded-r-full" />
       )}
     </Link>
   );
@@ -319,7 +312,7 @@ function NavGroup({
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   Main Sidebar Component — Inspired by shadcn/ui
+   Main Sidebar Component — Fixed collapsed state
    ═══════════════════════════════════════════════════════════════════════════════ */
 export function Sidebar({
   isOpen,
@@ -338,31 +331,31 @@ export function Sidebar({
   const sidebarContent = (isMobile: boolean) => (
     <div className="flex h-full flex-col">
       {/* ─────────────────────────────────────────────────────────────────────────
-         Header — Company Selector & Collapse Toggle
+         Header — Company Selector & Collapse Toggle (FIXED)
          ───────────────────────────────────────────────────────────────────────── */}
       <div
         className={cn(
-          "flex shrink-0 items-center border-b border-[hsl(var(--border-subtle))]",
-          expanded ? "h-14 justify-between px-3" : "h-14 justify-center px-2"
+          "shrink-0 border-b border-[hsl(var(--border-subtle))]",
+          expanded ? "px-3 py-3" : "px-2 py-3"
         )}
       >
         {expanded ? (
-          <>
+          <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
               <CompanySelector expanded={expanded} />
             </div>
             {!isMobile && (
               <button
                 onClick={toggleSidebar}
-                className="flex items-center justify-center h-7 w-7 rounded-md text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] transition-all ml-2 shrink-0"
+                className="flex items-center justify-center h-7 w-7 rounded-md text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] transition-all ml-1 shrink-0"
                 aria-label="Réduire la barre latérale"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
             )}
-          </>
+          </div>
         ) : (
-          <div className="flex flex-col items-center gap-2">
+          <div className="flex flex-col items-center gap-3">
             <CompanySelector expanded={false} />
             <button
               onClick={toggleSidebar}
