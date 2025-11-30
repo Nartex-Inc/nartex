@@ -414,7 +414,7 @@ export function Sidebar({
       <aside
         aria-label="Navigation principale"
         className={cn(
-          "fixed inset-y-0 left-0 z-30 hidden transition-[width] duration-200 ease-out lg:block",
+          "fixed inset-y-0 left-0 z-50 hidden transition-[width] duration-200 ease-out lg:block",
           "bg-[hsl(var(--bg-surface))] border-r border-[hsl(var(--border-subtle))]",
           desktopWidth
         )}
