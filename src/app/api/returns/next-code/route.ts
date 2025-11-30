@@ -1,11 +1,10 @@
 // src/app/api/returns/next-code/route.ts
 // Get next available code_retour - GET
-// PostgreSQL version
 
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { query } from "@/lib/db";
+import prisma from "@/lib/prisma";
+import { authOptions } from "@/app/api/auth/[...nextauth]/auth-options";
 
 export async function GET() {
   try {
@@ -14,12 +13,13 @@ export async function GET() {
       return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
-    // Get max code_retour + 1
-    const result = await query<{ next_code: number }>(
-      "SELECT COALESCE(MAX(code_retour), 0) + 1 AS next_code FROM returns"
-    );
+    // Get max id + 1
+    const maxReturn = await prisma.return.findFirst({
+      orderBy: { id: "desc" },
+      select: { id: true },
+    });
 
-    const nextCode = result[0]?.next_code || 1;
+    const nextCode = (maxReturn?.id || 0) + 1;
 
     return NextResponse.json({
       ok: true,
