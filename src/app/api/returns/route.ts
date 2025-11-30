@@ -1,369 +1,355 @@
 // src/app/api/returns/route.ts
-// ✅ GET list + POST create with "R#" that reuses the LOWEST free number,
-// and records the creator's name from NextAuth (createdByName).
+// Main returns API - GET (list with filters), POST (create new return)
+// PostgreSQL version - single AWS RDS database
 
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { query, withTransaction, PREXTRA_TABLES, NARTEX_TABLES } from "@/lib/db";
 import {
-  Prisma,
-  PrismaClient,
-  Reporter,
-  Cause,
-  ReturnStatus,
-} from "@prisma/client";
+  Return,
+  ReturnProduct,
+  Upload,
+  ReturnRow,
+  CreateReturnPayload,
+  getReturnStatus,
+} from "@/types/returns";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+/* =============================================================================
+   GET /api/returns - List returns with filters
+============================================================================= */
 
-declare global {
-  // eslint-disable-next-line no-var
-  var _prisma: PrismaClient | undefined;
-}
-const prisma =
-  global._prisma ??
-  new PrismaClient({
-    log:
-      process.env.NODE_ENV === "development"
-        ? ["query", "error", "warn"]
-        : ["error"],
-  });
-if (process.env.NODE_ENV !== "production") global._prisma = prisma;
-
-/* -----------------------------------------------------------------------------
-   Types expected by the frontend page
------------------------------------------------------------------------------ */
-type Attachment = { id: string; name: string; url: string };
-type ProductLine = {
-  id: string;
-  codeProduit: string;
-  descriptionProduit: string;
-  descriptionRetour?: string;
-  quantite: number;
-  // optional (not persisted)
-  poidsUnitaire?: number | null;
-  poidsTotal?: number | null;
-};
-type ReturnRow = {
-  id: string; // human code "R#"
-  reportedAt: string;
-  reporter: Reporter;
-  cause: Cause;
-  expert: string;
-  client: string;
-  noClient?: string;
-  noCommande?: string;
-  tracking?: string;
-  status: ReturnStatus;
-  standby?: boolean;
-  amount?: number | null;
-  dateCommande?: string | null;
-  transport?: string | null;
-  attachments?: Attachment[];
-  products?: ProductLine[];
-  description?: string;
-  createdBy?: { name: string; avatar?: string | null; at: string };
-};
-
-/* -----------------------------------------------------------------------------
-   Helpers
------------------------------------------------------------------------------ */
-const num = (v: unknown) => (v == null ? null : Number(v));
-const parseDate = (v?: string | null) => (v ? new Date(v) : null);
-
-async function fetchOneReturnDB(id: number) {
-  return prisma.return.findUniqueOrThrow({
-    where: { id },
-    include: { products: true, attachments: true },
-  });
-}
-
-// Map DB → API row the table expects
-function toReturnRow(
-  r: Awaited<ReturnType<typeof fetchOneReturnDB>>
-): ReturnRow {
-  return {
-    id: r.code ?? `R${r.id}`,
-    reportedAt: r.reportedAt.toISOString(),
-    reporter: r.reporter,
-    cause: r.cause,
-    expert: r.expert,
-    client: r.client,
-    noClient: r.noClient ?? undefined,
-    noCommande: r.noCommande ?? undefined,
-    tracking: r.tracking ?? undefined,
-    status: r.status,
-    standby: r.standby ?? undefined,
-    amount: r.amount == null ? null : Number(r.amount),
-    dateCommande: r.dateCommande
-      ? r.dateCommande.toISOString().slice(0, 10)
-      : null,
-    transport: r.transport ?? null,
-    description: r.description ?? undefined,
-    createdBy: r.createdByName
-      ? { name: r.createdByName, avatar: null, at: r.createdAt.toISOString() }
-      : undefined,
-    attachments: r.attachments.map((a) => ({
-      id: String(a.id),
-      name: a.name,
-      url: a.url,
-    })),
-    products: r.products.map((p) => ({
-      id: String(p.id),
-      codeProduit: p.codeProduit,
-      descriptionProduit: p.descriptionProduit,
-      descriptionRetour: p.descriptionRetour ?? undefined,
-      quantite: p.quantite,
-      // optional weights (not persisted)
-      poidsUnitaire: null,
-      poidsTotal: null,
-    })),
-  };
-}
-
-/**
- * Compute the smallest available positive integer N such that no row uses code "RN".
- * This lets codes restart at R1 when all rows are deleted, and also fills gaps (R1, R3 → next is R2).
- * Run inside a transaction to reduce the chance of races; on rare conflict, the caller retries.
- */
-async function nextReturnCode(
-  tx: Prisma.TransactionClient
-): Promise<string> {
-  const rows = await tx.return.findMany({ select: { code: true } });
-  const used = new Set<number>();
-  for (const r of rows) {
-    const m = /^R(\d+)$/.exec(r.code ?? "");
-    if (m) {
-      const n = parseInt(m[1], 10);
-      if (Number.isFinite(n) && n > 0) used.add(n);
-    }
-  }
-  let n = 1;
-  while (used.has(n)) n++;
-  return `R${n}`;
-}
-
-/** Safely read NextAuth session user and return a displayable name/image. */
-async function getCreatorFromSession(): Promise<{
-  name: string | null;
-  image: string | null;
-}> {
-  // NextAuth v5 (preferred): "@/auth"
+export async function GET(request: NextRequest) {
   try {
-    // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-    const m: any = await import("@/auth");
-    if (typeof m?.auth === "function") {
-      const session = await m.auth();
-      const u = session?.user || null;
-      const name =
-        u?.name ??
-        (u?.email ? String(u.email).split("@")[0] : null) ??
-        null;
-      const image = u?.image ?? null;
-      return { name, image };
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
-  } catch {
-    /* ignore and try v4 fallback below */
-  }
 
-  // NextAuth v4/v5 fallback: getServerSession()
-  try {
-    const { getServerSession } = await import("next-auth");
-    // Try without options (v5 style first)
-    let session: any = null;
-    try {
-      session = await getServerSession();
-    } catch {
-      // If v5 style fails, import authOptions from @/auth
-      try {
-        const { authOptions } = await import("@/auth");
-        if (authOptions) {
-          session = await getServerSession(authOptions);
-        }
-      } catch {
-        /* authOptions not available */
-      }
+    const { searchParams } = new URL(request.url);
+    const q = searchParams.get("q") || "";
+    const cause = searchParams.get("cause") || "";
+    const reporter = searchParams.get("reporter") || "";
+    const dateFrom = searchParams.get("dateFrom") || "";
+    const dateTo = searchParams.get("dateTo") || "";
+    const status = searchParams.get("status") || "";
+    const take = parseInt(searchParams.get("take") || "200");
+    const includeHistory = searchParams.get("history") === "true";
+
+    // Build WHERE conditions
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    let paramIndex = 1;
+
+    // Filter by final status (history vs active)
+    if (includeHistory) {
+      conditions.push("r.is_final = true");
+    } else {
+      conditions.push("r.is_final = false");
     }
-    
-    const u = session?.user || null;
-    const name =
-      u?.name ??
-      (u?.email ? String(u.email).split("@")[0] : null) ??
-      null;
-    const image = u?.image ?? null;
-    return { name, image };
-  } catch {
-    /* ignore */
-  }
 
-  return { name: null, image: null };
-}
+    // Expert role filter - only show their own returns
+    const userRole = (session.user as { role?: string }).role;
+    const userName = session.user.name || "";
+    if (userRole === "Expert") {
+      conditions.push(`r.expert ILIKE $${paramIndex++}`);
+      params.push(`%${userName}%`);
+    }
 
-/* -----------------------------------------------------------------------------
-   GET /api/returns  (list)
------------------------------------------------------------------------------ */
-export async function GET(req: NextRequest) {
-  try {
-    const url = new URL(req.url);
-    const q = url.searchParams.get("q") ?? undefined;
-    const cause = (url.searchParams.get("cause") ??
-      undefined) as Cause | "all" | undefined;
-    const reporter = (url.searchParams.get("reporter") ??
-      undefined) as Reporter | "all" | undefined;
-    const dateFrom = url.searchParams.get("dateFrom") ?? undefined;
-    const dateTo = url.searchParams.get("dateTo") ?? undefined;
-    const take = Math.min(
-      Number(url.searchParams.get("take") ?? 200) || 200,
-      500
-    );
-
-    const where: Prisma.ReturnWhereInput = {};
-
+    // Search query
     if (q) {
-      where.OR = [
-        { code: { contains: q, mode: "insensitive" } },
-        { client: { contains: q, mode: "insensitive" } },
-        { expert: { contains: q, mode: "insensitive" } },
-        { noClient: { contains: q, mode: "insensitive" } },
-        { noCommande: { contains: q, mode: "insensitive" } },
-        { tracking: { contains: q, mode: "insensitive" } },
-      ];
+      conditions.push(`(
+        r.code_retour::text LIKE $${paramIndex} OR
+        r.client ILIKE $${paramIndex} OR
+        r.no_commande ILIKE $${paramIndex} OR
+        r.no_client ILIKE $${paramIndex} OR
+        r.expert ILIKE $${paramIndex} OR
+        EXISTS (SELECT 1 FROM return_products p WHERE p.return_id = r.id AND p.code_produit ILIKE $${paramIndex})
+      )`);
+      params.push(`%${q}%`);
+      paramIndex++;
     }
 
-    if (cause && cause !== "all") where.cause = cause as Cause;
-    if (reporter && reporter !== "all") where.reporter = reporter as Reporter;
-
-    if (dateFrom || dateTo) {
-      const gte = dateFrom ? new Date(dateFrom) : undefined;
-      // include the entire end day
-      const lte = dateTo
-        ? new Date(new Date(dateTo).setHours(23, 59, 59, 999))
-        : undefined;
-      where.reportedAt = { gte, lte };
+    // Cause filter
+    if (cause && cause !== "all") {
+      conditions.push(`r.cause_retour = $${paramIndex++}`);
+      params.push(cause);
     }
 
-    const data = await prisma.return.findMany({
-      where,
-      orderBy: { reportedAt: "desc" },
-      include: { products: true, attachments: true },
-      take,
-    });
+    // Reporter filter
+    if (reporter && reporter !== "all") {
+      conditions.push(`r.signale_par = $${paramIndex++}`);
+      params.push(reporter);
+    }
 
-    const rows: ReturnRow[] = data.map((r) =>
-      toReturnRow(r as Awaited<ReturnType<typeof fetchOneReturnDB>>)
+    // Date range filter
+    if (dateFrom) {
+      conditions.push(`r.date_signalement >= $${paramIndex++}`);
+      params.push(dateFrom);
+    }
+    if (dateTo) {
+      conditions.push(`r.date_signalement <= $${paramIndex++}`);
+      params.push(dateTo);
+    }
+
+    // Status filter (draft, awaiting, received)
+    if (status === "draft") {
+      conditions.push("r.is_draft = true");
+    } else if (status === "awaiting") {
+      conditions.push("r.is_draft = false AND r.retour_physique = true AND r.is_verified = false");
+    } else if (status === "received") {
+      conditions.push("r.is_draft = false AND (r.retour_physique = false OR r.is_verified = true)");
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    // Main query
+    const sql = `
+      SELECT r.*,
+        (SELECT COUNT(*) FROM uploads u WHERE u.return_id = r.id) AS attachment_count
+      FROM returns r
+      ${whereClause}
+      ORDER BY r.date_signalement DESC, r.code_retour DESC
+      LIMIT $${paramIndex}
+    `;
+    params.push(take);
+
+    const rows = await query<Return & { attachment_count: number }>(sql, params);
+
+    // Fetch products and attachments for each return
+    const returnRows: ReturnRow[] = await Promise.all(
+      rows.map(async (row) => {
+        const products = await query<ReturnProduct>(
+          "SELECT * FROM return_products WHERE return_id = $1 ORDER BY id",
+          [row.id]
+        );
+
+        const attachments = await query<Upload>(
+          "SELECT * FROM uploads WHERE return_id = $1 ORDER BY id",
+          [row.id]
+        );
+
+        return mapToReturnRow(row, products, attachments);
+      })
     );
+
+    return NextResponse.json({ ok: true, rows: returnRows });
+  } catch (error) {
+    console.error("GET /api/returns error:", error);
     return NextResponse.json(
-      { ok: true, rows },
-      { headers: { "cache-control": "no-store, must-revalidate" } }
-    );
-  } catch (err: any) {
-    console.error(err);
-    return NextResponse.json(
-      { ok: false, error: err?.message ?? "Erreur" },
+      { ok: false, error: "Erreur lors du chargement des retours" },
       { status: 500 }
     );
   }
 }
 
-/* -----------------------------------------------------------------------------
-   POST /api/returns  (create)
-   - Generates a human code "R#" that reuses the LOWEST FREE number
-   - Records the creator's name from NextAuth in createdByName
------------------------------------------------------------------------------ */
-type CreatePayload = {
-  reporter: Reporter;
-  cause: Cause;
-  expert: string;
-  client: string;
-  noClient?: string | null;
-  noCommande?: string | null;
-  tracking?: string | null;
-  amount?: number | null;
-  dateCommande?: string | null; // "YYYY-MM-DD"
-  transport?: string | null;
-  description?: string | null;
-  products?: {
-    codeProduit: string;
-    descriptionProduit: string;
-    descriptionRetour?: string | null;
-    quantite: number;
-  }[];
-};
+/* =============================================================================
+   POST /api/returns - Create new return
+============================================================================= */
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const body = (await req.json()) as CreatePayload;
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
+    }
 
+    const body: CreateReturnPayload = await request.json();
+
+    // Validate required fields
     if (!body.expert?.trim() || !body.client?.trim()) {
       return NextResponse.json(
-        { ok: false, error: "Expert et client sont requis." },
+        { ok: false, error: "Expert et client sont requis" },
         { status: 400 }
       );
     }
 
-    // Who is creating? (best-effort)
-    const { name: sessionName } = await getCreatorFromSession();
-    const creatorName = sessionName ?? "Utilisateur";
+    const result = await withTransaction(async (client) => {
+      // Get next code_retour
+      const maxResult = await client.query(
+        "SELECT COALESCE(MAX(code_retour), 0) + 1 AS next_code FROM returns"
+      );
+      const nextCode = maxResult.rows[0].next_code;
 
-    // Try a couple of times in case two users race for the same "R#"
-    let attempts = 0;
-    while (true) {
-      attempts++;
-      try {
-        const created = await prisma.$transaction(async (tx) => {
-          const code = await nextReturnCode(tx);
+      // Determine if draft based on required fields
+      const hasRequiredFields =
+        body.reporter &&
+        body.cause &&
+        body.products &&
+        body.products.length > 0 &&
+        body.products.every((p) => p.codeProduit && p.quantite > 0);
 
-          const base = await tx.return.create({
-            data: {
-              code, // ✅ independent from autoincrement id
-              reporter: body.reporter,
-              cause: body.cause,
-              expert: body.expert.trim(),
-              client: body.client.trim(),
-              noClient: body.noClient?.trim() || null,
-              noCommande: body.noCommande?.trim() || null,
-              tracking: body.tracking?.trim() || null,
-              amount:
-                body.amount == null
-                  ? null
-                  : new Prisma.Decimal(num(body.amount) ?? 0),
-              dateCommande: parseDate(body.dateCommande),
-              transport: body.transport?.trim() || null,
-              description: body.description?.trim() || null,
-              createdByName: creatorName,
-              products: {
-                create:
-                  (body.products ?? []).map((p) => ({
-                    codeProduit: p.codeProduit.trim(),
-                    descriptionProduit: p.descriptionProduit.trim(),
-                    descriptionRetour: p.descriptionRetour?.trim() || null,
-                    quantite: p.quantite || 0,
-                  })) ?? [],
-              },
-            },
-            include: { products: true, attachments: true },
-          });
+      const isDraft = !hasRequiredFields;
 
-          return base;
-        });
+      // Insert into returns
+      const insertResult = await client.query(
+        `INSERT INTO returns (
+          code_retour, date_signalement, signale_par, cause_retour, expert, montant,
+          client, no_client, no_commande, no_tracking, date_commande, description,
+          transporteur, retour_physique, is_draft, is_final, is_verified, is_standby,
+          is_pickup, is_commande, is_reclamation, no_bill, no_bon_commande, no_reclamation,
+          initie_par, date_initialization
+        ) VALUES (
+          $1, CURRENT_DATE, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+          false, false, false, $15, $16, $17, $18, $19, $20, $21, NOW()
+        ) RETURNING id, code_retour`,
+        [
+          nextCode,
+          body.reporter || "expert",
+          body.cause || "production",
+          body.expert.trim(),
+          body.amount || null,
+          body.client.trim(),
+          body.noClient?.trim() || null,
+          body.noCommande?.trim() || null,
+          body.tracking?.trim() || null,
+          body.dateCommande || null,
+          body.description?.trim() || null,
+          body.transport?.trim() || null,
+          body.retourPhysique || false,
+          isDraft,
+          body.isPickup || false,
+          body.isCommande || false,
+          body.isReclamation || false,
+          body.noBill?.trim() || null,
+          body.noBonCommande?.trim() || null,
+          body.noReclamation?.trim() || null,
+          session.user.name || "Système",
+        ]
+      );
 
-        const row = toReturnRow(
-          created as Awaited<ReturnType<typeof fetchOneReturnDB>>
-        );
-        return NextResponse.json(
-          { ok: true, return: row },
-          { headers: { "cache-control": "no-store" } }
-        );
-      } catch (e: any) {
-        // Unique constraint on `code` might trip in a rare race; retry quickly.
-        if (e?.code === "P2002" && attempts < 3) continue;
-        throw e;
+      const returnId = insertResult.rows[0].id;
+      const codeRetour = insertResult.rows[0].code_retour;
+
+      // Insert products
+      if (body.products && body.products.length > 0) {
+        for (const product of body.products) {
+          await client.query(
+            `INSERT INTO return_products (return_id, code_retour, code_produit, quantite, descr_produit, description_retour)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+              returnId,
+              codeRetour,
+              product.codeProduit.trim(),
+              product.quantite,
+              product.descriptionProduit?.trim() || null,
+              product.descriptionRetour?.trim() || null,
+            ]
+          );
+        }
       }
-    }
-  } catch (err: any) {
-    console.error(err);
+
+      return { id: returnId, codeRetour };
+    });
+
+    return NextResponse.json({
+      ok: true,
+      return: {
+        id: `R${result.codeRetour}`,
+        code_retour: result.codeRetour,
+      },
+    });
+  } catch (error) {
+    console.error("POST /api/returns error:", error);
     return NextResponse.json(
-      { ok: false, error: err?.message ?? "Création échouée" },
+      { ok: false, error: "Erreur lors de la création du retour" },
       { status: 500 }
     );
   }
+}
+
+/* =============================================================================
+   Helper Functions
+============================================================================= */
+
+function mapToReturnRow(
+  row: Return & { attachment_count?: number },
+  products: ReturnProduct[],
+  attachments: Upload[]
+): ReturnRow {
+  const status = getReturnStatus(row);
+
+  return {
+    id: `R${row.code_retour}`,
+    codeRetour: row.code_retour,
+    reportedAt: row.date_signalement
+      ? new Date(row.date_signalement).toISOString()
+      : new Date().toISOString(),
+    reporter: row.signale_par,
+    cause: row.cause_retour,
+    expert: row.expert || "",
+    client: row.client || "",
+    noClient: row.no_client || undefined,
+    noCommande: row.no_commande || undefined,
+    tracking: row.no_tracking || undefined,
+    status,
+    standby: row.is_standby,
+    amount: row.montant,
+    dateCommande: row.date_commande,
+    transport: row.transporteur,
+    description: row.description || undefined,
+    attachments: attachments.map((a) => ({
+      id: a.file_path,
+      name: a.file_name,
+      url: `https://drive.google.com/file/d/${a.file_path}/preview`,
+      downloadUrl: `https://drive.google.com/uc?export=download&id=${a.file_path}`,
+    })),
+    products: products.map((p) => ({
+      id: String(p.id),
+      codeProduit: p.code_produit,
+      descriptionProduit: p.descr_produit || "",
+      descriptionRetour: p.description_retour || undefined,
+      quantite: p.quantite,
+      poidsUnitaire: p.weight_produit,
+      poidsTotal: p.poids,
+      quantiteRecue: p.quantite_recue,
+      qteInventaire: p.qte_inventaire,
+      qteDetruite: p.qte_detruite,
+      tauxRestock: p.taux_restock,
+    })),
+    createdBy: row.initie_par
+      ? {
+          name: row.initie_par,
+          avatar: null,
+          at: row.date_initialization
+            ? new Date(row.date_initialization).toISOString()
+            : new Date().toISOString(),
+        }
+      : undefined,
+    retourPhysique: row.retour_physique,
+    isPickup: row.is_pickup,
+    isCommande: row.is_commande,
+    isReclamation: row.is_reclamation,
+    noBill: row.no_bill,
+    noBonCommande: row.no_bon_commande,
+    noReclamation: row.no_reclamation,
+    verifiedBy: row.verifie_par
+      ? {
+          name: row.verifie_par,
+          at: row.date_verification
+            ? new Date(row.date_verification).toISOString()
+            : null,
+        }
+      : null,
+    finalizedBy: row.finalise_par
+      ? {
+          name: row.finalise_par,
+          at: row.date_finalisation
+            ? new Date(row.date_finalisation).toISOString()
+            : null,
+        }
+      : null,
+    entrepotDepart: row.entrepot_depart,
+    entrepotDestination: row.entrepot_destination,
+    noCredit: row.no_credit,
+    noCredit2: row.no_credit2,
+    noCredit3: row.no_credit3,
+    crediteA: row.credite_a,
+    crediteA2: row.credite_a2,
+    crediteA3: row.credite_a3,
+    villeShipto: row.ville_shipto,
+    poidsTotal: row.poids_total,
+    montantTransport: row.montant_transport,
+    montantRestocking: row.montant_restocking,
+  };
 }
