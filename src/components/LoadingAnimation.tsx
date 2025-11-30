@@ -28,7 +28,7 @@ const LoadingAnimation: React.FC<LoadingAnimationProps> = ({
   const isDark = mounted ? resolvedTheme === "dark" : true;
 
   const containerClasses = fullScreen
-    ? `fixed inset-0 flex items-center justify-center z-50 ${isDark ? "bg-[hsl(225,15%,6%)]" : "bg-white"}`
+    ? `fixed inset-0 flex items-center justify-center z-50 ${isDark ? "bg-[#0A0A0A]" : "bg-white"}`
     : `flex items-center justify-center ${className}`;
 
   return (
@@ -36,26 +36,26 @@ const LoadingAnimation: React.FC<LoadingAnimationProps> = ({
       <div className="flex flex-col items-center space-y-8">
         {/* Spinner Container */}
         <div className="relative w-28 h-28">
-          {/* Outer glow ring */}
+          {/* Outer glow ring — GREEN */}
           <div
             className={`absolute inset-0 rounded-full blur-xl ${
-              isDark ? "bg-cyan-500/20" : "bg-cyan-600/15"
+              isDark ? "bg-emerald-500/20" : "bg-emerald-600/15"
             }`}
           />
 
           {/* Outer static ring */}
           <div
             className={`absolute inset-0 rounded-full border-4 ${
-              isDark ? "border-cyan-400/10" : "border-cyan-600/10"
+              isDark ? "border-emerald-400/10" : "border-emerald-600/10"
             }`}
           />
 
-          {/* Primary spinning ring */}
+          {/* Primary spinning ring — GREEN */}
           <div
             className={`absolute inset-0 rounded-full border-4 border-t-transparent animate-spin ${
               isDark
-                ? "border-cyan-400"
-                : "border-cyan-600"
+                ? "border-emerald-400"
+                : "border-emerald-600"
             }`}
             style={{
               animationDuration: "1s",
@@ -63,12 +63,12 @@ const LoadingAnimation: React.FC<LoadingAnimationProps> = ({
             }}
           />
 
-          {/* Secondary spinning ring (reverse, smaller) */}
+          {/* Secondary spinning ring (reverse, smaller) — Teal for contrast */}
           <div
             className={`absolute inset-3 rounded-full border-4 border-b-transparent animate-spin ${
               isDark
-                ? "border-violet-400"
-                : "border-violet-600"
+                ? "border-teal-400"
+                : "border-teal-600"
             }`}
             style={{
               animationDuration: "1.5s",
@@ -77,11 +77,11 @@ const LoadingAnimation: React.FC<LoadingAnimationProps> = ({
             }}
           />
 
-          {/* Inner pulsing dot */}
+          {/* Inner pulsing dot — GREEN */}
           <div className="absolute inset-0 flex items-center justify-center">
             <div
               className={`w-3 h-3 rounded-full animate-pulse ${
-                isDark ? "bg-cyan-400" : "bg-cyan-600"
+                isDark ? "bg-emerald-400" : "bg-emerald-600"
               }`}
               style={{
                 animationDuration: "1s",
@@ -110,13 +110,13 @@ const LoadingAnimation: React.FC<LoadingAnimationProps> = ({
           )}
         </div>
 
-        {/* Loading dots animation */}
+        {/* Loading dots animation — GREEN */}
         <div className="flex items-center gap-1.5">
           {[0, 1, 2].map((i) => (
             <div
               key={i}
               className={`w-2 h-2 rounded-full animate-bounce ${
-                isDark ? "bg-cyan-400/60" : "bg-cyan-600/60"
+                isDark ? "bg-emerald-400/60" : "bg-emerald-600/60"
               }`}
               style={{
                 animationDelay: `${i * 0.15}s`,
