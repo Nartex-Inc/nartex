@@ -1,7 +1,6 @@
 // src/app/(dashboard)/page.tsx
 "use client";
 
-import LoadingAnimation from "@/components/LoadingAnimation";
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
@@ -20,7 +19,6 @@ import {
   LineChart,
   Line,
   ComposedChart,
-  Area,
 } from "recharts";
 import {
   TrendingUp,
@@ -31,16 +29,14 @@ import {
   Package,
   DollarSign,
   ChevronRight,
-  ChevronDown,
-  Activity,
   BarChart3,
   X as CloseIcon,
   ArrowUpDown,
   UserPlus,
   Sparkles,
   Target,
-  Filter,
   RotateCcw,
+  Loader2,
 } from "lucide-react";
 import { THEME, CHART_COLORS, ThemeTokens } from "@/lib/theme-tokens";
 
@@ -106,6 +102,34 @@ const percentage = (n: number) =>
 
 const formatNumber = (n: number) =>
   new Intl.NumberFormat("fr-CA").format(Math.round(n));
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   Skeleton Components — For loading states inside cards
+   ═══════════════════════════════════════════════════════════════════════════════ */
+const SkeletonPulse = ({ className = "" }: { className?: string }) => (
+  <div 
+    className={`animate-pulse rounded bg-[hsl(var(--bg-muted))] ${className}`}
+  />
+);
+
+const KpiSkeleton = ({ t }: { t: ThemeTokens }) => (
+  <div className="space-y-3">
+    <SkeletonPulse className="h-8 w-24" />
+    <div className="flex items-center gap-2 mt-3">
+      <SkeletonPulse className="h-6 w-16 rounded-md" />
+      <SkeletonPulse className="h-4 w-12" />
+    </div>
+  </div>
+);
+
+const ChartSkeleton = ({ height = 280 }: { height?: number }) => (
+  <div className="flex items-center justify-center" style={{ height }}>
+    <div className="flex flex-col items-center gap-3">
+      <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--accent))]" />
+      <span className="text-sm text-[hsl(var(--text-muted))]">Chargement...</span>
+    </div>
+  </div>
+);
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    Animated Number Component
@@ -297,9 +321,6 @@ function totalsByKey<T extends keyof SalesRecord>(records: SalesRecord[], key: T
    UI Components
    ═══════════════════════════════════════════════════════════════════════════════ */
 
-// Loading State
-const LoadingState = () => <LoadingAnimation />;
-
 // Error State
 const ErrorState = ({ message }: { message: string }) => (
   <div className="fixed inset-0 flex items-center justify-center p-4">
@@ -335,7 +356,7 @@ const AccessDenied = () => (
   </div>
 );
 
-// KPI Card
+// KPI Card — Now with loading state support
 function KpiCard({
   title,
   icon: Icon,
@@ -344,6 +365,7 @@ function KpiCard({
   t,
   onClick,
   accentColor,
+  isLoading = false,
 }: {
   title: string;
   icon?: any;
@@ -352,6 +374,7 @@ function KpiCard({
   t: ThemeTokens;
   onClick?: () => void;
   accentColor?: string;
+  isLoading?: boolean;
 }) {
   const isClickable = typeof onClick === "function";
   
@@ -394,10 +417,10 @@ function KpiCard({
         )}
       </div>
       
-      <div>{children}</div>
+      <div>{isLoading ? <KpiSkeleton t={t} /> : children}</div>
       
-      {isClickable && (
-        <p className="text-[10px] mt-3 opacity-50" style={{ color: t.textTertiary }}>
+      {isClickable && !isLoading && (
+        <p className="text-[11px] mt-3 opacity-50" style={{ color: t.textTertiary }}>
           Cliquer pour détails
         </p>
       )}
@@ -405,19 +428,23 @@ function KpiCard({
   );
 }
 
-// Chart Card
+// Chart Card — Now with loading state support
 function ChartCard({
   title,
   children,
   className = "",
   t,
   action,
+  isLoading = false,
+  height = 320,
 }: {
   title: React.ReactNode;
   children: React.ReactNode;
   className?: string;
   t: ThemeTokens;
   action?: React.ReactNode;
+  isLoading?: boolean;
+  height?: number;
 }) {
   return (
     <div
@@ -428,12 +455,14 @@ function ChartCard({
       }}
     >
       <div className="flex items-center justify-between mb-5">
-        <h3 className="text-sm font-semibold tracking-tight" style={{ color: t.textPrimary }}>
+        <h3 className="text-[0.9375rem] font-semibold tracking-tight" style={{ color: t.textPrimary }}>
           {title}
         </h3>
         {action}
       </div>
-      <div className="flex-grow">{children}</div>
+      <div className="flex-grow">
+        {isLoading ? <ChartSkeleton height={height} /> : children}
+      </div>
     </div>
   );
 }
@@ -461,7 +490,7 @@ function SegmentedControl({
           <button
             key={opt.key}
             onClick={() => onChange(opt.key)}
-            className="px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200"
+            className="px-3 py-1.5 rounded-md text-[0.8125rem] font-medium transition-all duration-200"
             style={{
               background: active ? (opt.color || t.accent) : "transparent",
               color: active ? t.void : t.textTertiary,
@@ -950,9 +979,8 @@ const DashboardContent = () => {
     return { growth, loss, eligible, pct: eligible > 0 ? growth.length / eligible : null };
   }, [filteredDataNoYoy, filteredPreviousDataNoYoy]);
 
-  // Guard rails
+  // Error state only
   if (error) return <ErrorState message={error.message} />;
-  if (!mounted || isLoading) return <LoadingState />;
 
   return (
     <div className="space-y-6">
@@ -988,7 +1016,7 @@ const DashboardContent = () => {
             {/* YOY Toggle */}
             <button
               onClick={() => setShowYOYComparison(!showYOYComparison)}
-              className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+              className="px-4 py-2 rounded-lg text-[0.875rem] font-medium transition-all duration-200"
               style={{
                 background: showYOYComparison ? `${t.accent}20` : t.surface2,
                 color: showYOYComparison ? t.accent : t.textSecondary,
@@ -1015,7 +1043,7 @@ const DashboardContent = () => {
             <select
               value={stagedSelectedRep}
               onChange={(e) => setStagedSelectedRep(e.target.value)}
-              className="rounded-lg px-3 py-2 text-sm transition-all focus:outline-none"
+              className="rounded-lg px-3 py-2 text-[0.875rem] transition-all focus:outline-none"
               style={{
                 background: t.surface2,
                 border: `1px solid ${t.borderSubtle}`,
@@ -1034,7 +1062,7 @@ const DashboardContent = () => {
                 type="date"
                 value={stagedDateRange.start}
                 onChange={(e) => setStagedDateRange((p) => ({ ...p, start: e.target.value }))}
-                className="rounded-lg px-3 py-2 text-sm focus:outline-none"
+                className="rounded-lg px-3 py-2 text-[0.875rem] focus:outline-none"
                 style={{
                   background: t.surface2,
                   border: `1px solid ${t.borderSubtle}`,
@@ -1046,7 +1074,7 @@ const DashboardContent = () => {
                 type="date"
                 value={stagedDateRange.end}
                 onChange={(e) => setStagedDateRange((p) => ({ ...p, end: e.target.value }))}
-                className="rounded-lg px-3 py-2 text-sm focus:outline-none"
+                className="rounded-lg px-3 py-2 text-[0.875rem] focus:outline-none"
                 style={{
                   background: t.surface2,
                   border: `1px solid ${t.borderSubtle}`,
@@ -1066,7 +1094,7 @@ const DashboardContent = () => {
                     end: today.toISOString().slice(0, 10),
                   });
                 }}
-                className="px-2 py-1.5 rounded text-xs font-medium transition-all"
+                className="px-2 py-1.5 rounded text-[0.8125rem] font-medium transition-all"
                 style={{ background: t.surface2, color: t.textTertiary }}
               >
                 YTD
@@ -1081,7 +1109,7 @@ const DashboardContent = () => {
                     end: today.toISOString().slice(0, 10),
                   });
                 }}
-                className="px-2 py-1.5 rounded text-xs font-medium transition-all"
+                className="px-2 py-1.5 rounded text-[0.8125rem] font-medium transition-all"
                 style={{ background: t.surface2, color: t.textTertiary }}
               >
                 TTM
@@ -1091,7 +1119,7 @@ const DashboardContent = () => {
             {/* Apply */}
             <button
               onClick={applyFilters}
-              className="px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 hover:scale-105"
+              className="px-5 py-2 rounded-lg text-[0.875rem] font-semibold transition-all duration-200 hover:scale-105"
               style={{
                 background: t.accent,
                 color: t.void,
@@ -1116,7 +1144,7 @@ const DashboardContent = () => {
       </header>
 
       {/* ═══════════════════════════════════════════════════════════════════════════
-         KPI Grid
+         KPI Grid — Cards always visible, content shows skeleton when loading
          ═══════════════════════════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <KpiCard
@@ -1125,8 +1153,9 @@ const DashboardContent = () => {
           t={t}
           accentColor={t.accent}
           className="animate-slide-up stagger-1"
+          isLoading={isLoading}
         >
-          <p className="text-2xl font-bold font-mono-data tracking-tight" style={{ color: t.textPrimary }}>
+          <p className="text-[1.625rem] font-bold font-mono-data tracking-tight" style={{ color: t.textPrimary }}>
             <AnimatedNumber value={totalSales} format={currency} />
           </p>
           {showYOYComparison && previousTotalSales > 0 && (
@@ -1140,8 +1169,9 @@ const DashboardContent = () => {
           t={t}
           accentColor={chartColors[1]}
           className="animate-slide-up stagger-2"
+          isLoading={isLoading}
         >
-          <p className="text-2xl font-bold font-mono-data tracking-tight" style={{ color: t.textPrimary }}>
+          <p className="text-[1.625rem] font-bold font-mono-data tracking-tight" style={{ color: t.textPrimary }}>
             <AnimatedNumber value={transactionCount} format={formatNumber} />
           </p>
           {showYOYComparison && previousTransactionCount > 0 && (
@@ -1154,10 +1184,11 @@ const DashboardContent = () => {
           icon={TrendingUp}
           t={t}
           accentColor={t.success}
-          onClick={() => setShowRepGrowthModal(true)}
+          onClick={isLoading ? undefined : () => setShowRepGrowthModal(true)}
           className="animate-slide-up stagger-3"
+          isLoading={isLoading}
         >
-          <p className="text-2xl font-bold font-mono-data tracking-tight" style={{ color: t.textPrimary }}>
+          <p className="text-[1.625rem] font-bold font-mono-data tracking-tight" style={{ color: t.textPrimary }}>
             {repsPerf.pct === null ? "—" : percentage(repsPerf.pct)}
           </p>
           <p className="text-caption mt-2">
@@ -1170,10 +1201,11 @@ const DashboardContent = () => {
           icon={Users}
           t={t}
           accentColor={chartColors[5]}
-          onClick={() => setShowCustomerGrowthModal(true)}
+          onClick={isLoading ? undefined : () => setShowCustomerGrowthModal(true)}
           className="animate-slide-up stagger-4"
+          isLoading={isLoading}
         >
-          <p className="text-2xl font-bold font-mono-data tracking-tight" style={{ color: t.textPrimary }}>
+          <p className="text-[1.625rem] font-bold font-mono-data tracking-tight" style={{ color: t.textPrimary }}>
             {customersPerf.pct === null ? "—" : percentage(customersPerf.pct)}
           </p>
           <p className="text-caption mt-2">
@@ -1186,10 +1218,11 @@ const DashboardContent = () => {
           icon={Target}
           t={t}
           accentColor={chartColors[3]}
-          onClick={() => setShowRetentionTable(true)}
+          onClick={isLoading ? undefined : () => setShowRetentionTable(true)}
           className="animate-slide-up stagger-5"
+          isLoading={isLoading}
         >
-          <p className="text-2xl font-bold font-mono-data tracking-tight" style={{ color: t.textPrimary }}>
+          <p className="text-[1.625rem] font-bold font-mono-data tracking-tight" style={{ color: t.textPrimary }}>
             {retentionAverage.avg === null ? "—" : percentage(retentionAverage.avg)}
           </p>
           <p className="text-caption mt-2">
@@ -1202,10 +1235,11 @@ const DashboardContent = () => {
           icon={UserPlus}
           t={t}
           accentColor={chartColors[4]}
-          onClick={() => setShowNewCustomersModal(true)}
+          onClick={isLoading ? undefined : () => setShowNewCustomersModal(true)}
           className="animate-slide-up stagger-6"
+          isLoading={isLoading}
         >
-          <p className="text-2xl font-bold font-mono-data tracking-tight" style={{ color: t.textPrimary }}>
+          <p className="text-[1.625rem] font-bold font-mono-data tracking-tight" style={{ color: t.textPrimary }}>
             {formatNumber(newCustomersCount)}
           </p>
           <p className="text-caption mt-2">
@@ -1215,24 +1249,24 @@ const DashboardContent = () => {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════════════
-         YOY Comparison Row
+         YOY Comparison Row — Charts show skeleton when loading
          ═══════════════════════════════════════════════════════════════════════════ */}
       {showYOYComparison && (
         <div className="grid grid-cols-12 gap-4">
-          <ChartCard title="Comparaison YOY — Chiffre d'affaires" className="col-span-12 lg:col-span-8" t={t}>
+          <ChartCard title="Comparaison YOY — Chiffre d'affaires" className="col-span-12 lg:col-span-8" t={t} isLoading={isLoading} height={280}>
             <ResponsiveContainer width="100%" height={280}>
               <ComposedChart data={salesComparisonByMonth}>
                 <CartesianGrid strokeDasharray="3 3" stroke={t.borderSubtle} strokeOpacity={0.5} />
                 <XAxis
                   dataKey="name"
-                  tick={{ fill: t.textTertiary, fontSize: 11 }}
+                  tick={{ fill: t.textTertiary, fontSize: 12 }}
                   stroke={t.borderSubtle}
                   tickLine={false}
                 />
                 <YAxis
                   yAxisId="left"
                   tickFormatter={compactCurrency}
-                  tick={{ fill: t.textTertiary, fontSize: 11 }}
+                  tick={{ fill: t.textTertiary, fontSize: 12 }}
                   stroke={t.borderSubtle}
                   tickLine={false}
                   axisLine={false}
@@ -1241,13 +1275,13 @@ const DashboardContent = () => {
                   yAxisId="right"
                   orientation="right"
                   tickFormatter={percentage}
-                  tick={{ fill: t.textTertiary, fontSize: 11 }}
+                  tick={{ fill: t.textTertiary, fontSize: 12 }}
                   stroke={t.borderSubtle}
                   tickLine={false}
                   axisLine={false}
                 />
                 <Tooltip content={<CustomTooltip t={t} />} />
-                <Legend wrapperStyle={{ paddingTop: 16, fontSize: 12 }} />
+                <Legend wrapperStyle={{ paddingTop: 16, fontSize: 13 }} />
                 <Bar
                   yAxisId="left"
                   dataKey="previous"
@@ -1276,7 +1310,7 @@ const DashboardContent = () => {
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Performance comparative" className="col-span-12 lg:col-span-4" t={t}>
+          <ChartCard title="Performance comparative" className="col-span-12 lg:col-span-4" t={t} isLoading={isLoading}>
             <div className="space-y-4 h-full flex flex-col justify-between">
               <div
                 className="p-4 rounded-lg"
@@ -1286,7 +1320,7 @@ const DashboardContent = () => {
                   <span className="text-label">Période actuelle</span>
                   <Sparkles className="w-4 h-4" style={{ color: t.accent }} />
                 </div>
-                <div className="text-xl font-bold font-mono-data" style={{ color: t.textPrimary }}>
+                <div className="text-[1.25rem] font-bold font-mono-data" style={{ color: t.textPrimary }}>
                   {currency(totalSales)}
                 </div>
               </div>
@@ -1299,7 +1333,7 @@ const DashboardContent = () => {
                   <span className="text-label">Année précédente</span>
                   <Calendar className="w-4 h-4" style={{ color: t.textTertiary }} />
                 </div>
-                <div className="text-xl font-bold font-mono-data" style={{ color: t.textSecondary }}>
+                <div className="text-[1.25rem] font-bold font-mono-data" style={{ color: t.textSecondary }}>
                   {currency(previousTotalSales)}
                 </div>
               </div>
@@ -1309,7 +1343,7 @@ const DashboardContent = () => {
                 style={{ background: `${t.accent}10`, border: `1px solid ${t.accent}30` }}
               >
                 <span className="text-label">Variation YOY</span>
-                <div className="text-2xl font-bold font-mono-data mt-1" style={{ color: t.textPrimary }}>
+                <div className="text-[1.625rem] font-bold font-mono-data mt-1" style={{ color: t.textPrimary }}>
                   {previousTotalSales > 0
                     ? percentage((totalSales - previousTotalSales) / previousTotalSales)
                     : "—"}
@@ -1324,11 +1358,11 @@ const DashboardContent = () => {
       )}
 
       {/* ═══════════════════════════════════════════════════════════════════════════
-         Main Charts
+         Main Charts — Show skeleton when loading
          ═══════════════════════════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-12 gap-4">
         {/* Pie Chart */}
-        <ChartCard title="Répartition par expert" className="col-span-12 lg:col-span-5" t={t}>
+        <ChartCard title="Répartition par expert" className="col-span-12 lg:col-span-5" t={t} isLoading={isLoading}>
           <ResponsiveContainer width="100%" height={320}>
             <PieChart>
               <Pie
@@ -1382,24 +1416,24 @@ const DashboardContent = () => {
         </ChartCard>
 
         {/* Line Chart */}
-        <ChartCard title="Évolution des transactions" className="col-span-12 lg:col-span-7" t={t}>
+        <ChartCard title="Évolution des transactions" className="col-span-12 lg:col-span-7" t={t} isLoading={isLoading}>
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={transactionsByMonth}>
               <CartesianGrid strokeDasharray="3 3" stroke={t.borderSubtle} strokeOpacity={0.5} />
               <XAxis
                 dataKey="name"
-                tick={{ fill: t.textTertiary, fontSize: 11 }}
+                tick={{ fill: t.textTertiary, fontSize: 12 }}
                 stroke={t.borderSubtle}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fill: t.textTertiary, fontSize: 11 }}
+                tick={{ fill: t.textTertiary, fontSize: 12 }}
                 stroke={t.borderSubtle}
                 tickLine={false}
                 axisLine={false}
               />
               <Tooltip content={<CustomTooltip format="number" t={t} />} />
-              <Legend wrapperStyle={{ paddingTop: 16, fontSize: 12 }} />
+              <Legend wrapperStyle={{ paddingTop: 16, fontSize: 13 }} />
               {showYOYComparison && (
                 <Line
                   type="monotone"
@@ -1429,10 +1463,12 @@ const DashboardContent = () => {
           title={`Top ${showAllProducts ? "" : "10 "}produits`}
           className="col-span-12 xl:col-span-6"
           t={t}
+          isLoading={isLoading}
+          height={360}
           action={
             <button
               onClick={() => setShowAllProducts(!showAllProducts)}
-              className="text-xs flex items-center gap-1 transition-colors"
+              className="text-[0.8125rem] flex items-center gap-1 transition-colors"
               style={{ color: t.accent }}
             >
               {showAllProducts ? "Moins" : "Tout voir"}
@@ -1449,7 +1485,7 @@ const DashboardContent = () => {
               <XAxis
                 type="number"
                 tickFormatter={compactCurrency}
-                tick={{ fill: t.textTertiary, fontSize: 11 }}
+                tick={{ fill: t.textTertiary, fontSize: 12 }}
                 stroke={t.borderSubtle}
                 tickLine={false}
               />
@@ -1457,7 +1493,7 @@ const DashboardContent = () => {
                 type="category"
                 dataKey="name"
                 width={90}
-                tick={{ fill: t.textSecondary, fontSize: 11 }}
+                tick={{ fill: t.textSecondary, fontSize: 12 }}
                 stroke="none"
               />
               <Tooltip content={<CustomTooltip t={t} />} />
@@ -1485,10 +1521,12 @@ const DashboardContent = () => {
           title={`Top ${showAllCustomers ? "" : "10 "}clients`}
           className="col-span-12 xl:col-span-6"
           t={t}
+          isLoading={isLoading}
+          height={360}
           action={
             <button
               onClick={() => setShowAllCustomers(!showAllCustomers)}
-              className="text-xs flex items-center gap-1 transition-colors"
+              className="text-[0.8125rem] flex items-center gap-1 transition-colors"
               style={{ color: t.accent }}
             >
               {showAllCustomers ? "Moins" : "Tout voir"}
@@ -1505,7 +1543,7 @@ const DashboardContent = () => {
               <XAxis
                 type="number"
                 tickFormatter={compactCurrency}
-                tick={{ fill: t.textTertiary, fontSize: 11 }}
+                tick={{ fill: t.textTertiary, fontSize: 12 }}
                 stroke={t.borderSubtle}
                 tickLine={false}
               />
@@ -1513,7 +1551,7 @@ const DashboardContent = () => {
                 type="category"
                 dataKey="name"
                 width={140}
-                tick={{ fill: t.textSecondary, fontSize: 11 }}
+                tick={{ fill: t.textSecondary, fontSize: 12 }}
                 stroke="none"
               />
               <Tooltip content={<CustomTooltip t={t} />} />
@@ -1538,7 +1576,7 @@ const DashboardContent = () => {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════════════
-         Modals
+         Modals (unchanged, just show when data is loaded)
          ═══════════════════════════════════════════════════════════════════════════ */}
 
       {/* Retention Modal */}
@@ -1550,7 +1588,7 @@ const DashboardContent = () => {
         t={t}
       >
         <div className="max-h-[60vh] overflow-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-[0.875rem]">
             <thead className="sticky top-0" style={{ background: t.surface1 }}>
               <tr style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
                 <th className="text-left px-6 py-3 text-label">Représentant</th>
@@ -1603,7 +1641,7 @@ const DashboardContent = () => {
           </table>
         </div>
         <div
-          className="flex items-center justify-between px-6 py-4 text-xs"
+          className="flex items-center justify-between px-6 py-4 text-[0.8125rem]"
           style={{ borderTop: `1px solid ${t.borderSubtle}`, color: t.textTertiary }}
         >
           <span>
@@ -1642,7 +1680,7 @@ const DashboardContent = () => {
 
         {newTab === "list" ? (
           <div className="max-h-[60vh] overflow-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-[0.875rem]">
               <thead className="sticky top-0" style={{ background: t.surface1 }}>
                 <tr style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
                   <th className="text-left px-6 py-3 text-label">Client</th>
@@ -1703,15 +1741,15 @@ const DashboardContent = () => {
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={newCustomersByRep}>
                   <CartesianGrid strokeDasharray="3 3" stroke={t.borderSubtle} strokeOpacity={0.5} />
-                  <XAxis dataKey="rep" tick={{ fill: t.textTertiary, fontSize: 11 }} stroke={t.borderSubtle} />
-                  <YAxis tick={{ fill: t.textTertiary, fontSize: 11 }} stroke={t.borderSubtle} />
+                  <XAxis dataKey="rep" tick={{ fill: t.textTertiary, fontSize: 12 }} stroke={t.borderSubtle} />
+                  <YAxis tick={{ fill: t.textTertiary, fontSize: 12 }} stroke={t.borderSubtle} />
                   <Tooltip content={<CustomTooltip format="number" t={t} />} />
                   <Bar dataKey="count" radius={[4, 4, 0, 0]} fill={t.accent} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
             <div className="col-span-12 lg:col-span-5">
-              <table className="w-full text-sm">
+              <table className="w-full text-[0.875rem]">
                 <thead>
                   <tr style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
                     <th className="text-left px-4 py-2 text-label">Représentant</th>
@@ -1779,7 +1817,7 @@ const DashboardContent = () => {
         </div>
 
         <div className="max-h-[60vh] overflow-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-[0.875rem]">
             <thead className="sticky top-0" style={{ background: t.surface1 }}>
               <tr style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
                 <th className="text-left px-6 py-3 text-label">Représentant</th>
@@ -1852,7 +1890,7 @@ const DashboardContent = () => {
         </div>
 
         <div className="max-h-[60vh] overflow-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-[0.875rem]">
             <thead className="sticky top-0" style={{ background: t.surface1 }}>
               <tr style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
                 <th className="text-left px-6 py-3 text-label">Client</th>
@@ -1916,7 +1954,11 @@ export default function DashboardPage() {
 
   useEffect(() => setMounted(true), []);
 
-  if (!mounted || status === "loading") return <LoadingState />;
+  // Only show access denied after auth check completes
+  if (!mounted || status === "loading") {
+    return null; // Layout still shows, just empty content area
+  }
+  
   if (status === "unauthenticated" || (session as any)?.user?.role !== "ventes-exec") {
     return <AccessDenied />;
   }
