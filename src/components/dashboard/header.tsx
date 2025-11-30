@@ -4,7 +4,6 @@
 import * as React from "react";
 import Link from "next/link";
 import { Bell, Menu, Search } from "lucide-react";
-import { ModeToggle } from "@/components/theme-toggle";
 import { UserNav } from "@/components/dashboard/user-nav";
 import NartexLogo from "@/components/nartex-logo";
 import { cn } from "@/lib/utils";
@@ -16,13 +15,15 @@ interface HeaderProps {
 
 /**
  * Premium header - Clean, centered layout.
- * Uses NartexLogo component with currentColor for proper dark/light mode.
+ * Theme toggle moved to UserNav dropdown.
+ * Improved search bar contrast.
  */
 export function Header({
   onToggleMobileSidebar,
   notificationCount = 0,
 }: HeaderProps) {
   const [scrolled, setScrolled] = React.useState(false);
+  const [searchFocused, setSearchFocused] = React.useState(false);
 
   // Detect scroll for subtle elevation
   React.useEffect(() => {
@@ -59,34 +60,47 @@ export function Header({
               <Menu className="h-5 w-5" />
             </button>
 
-            {/* Nartex Logo — Uses NartexLogo component with currentColor */}
+            {/* Nartex Logo — Scaled down ~25% (h-5 instead of h-6) */}
             <Link
               href="/dashboard"
               className="flex items-center group"
             >
               <NartexLogo 
-                className="h-6 w-auto text-[hsl(var(--text-primary))] transition-opacity group-hover:opacity-70" 
+                className="h-5 w-auto text-[hsl(var(--text-primary))] transition-opacity group-hover:opacity-70" 
                 title="Nartex"
               />
             </Link>
           </div>
 
           {/* ─────────────────────────────────────────────────────────────────────
-             Center Section: Search (Desktop only)
+             Center Section: Search (Desktop only) — Higher contrast
              ───────────────────────────────────────────────────────────────────── */}
           <div className="hidden md:flex flex-1 justify-center max-w-md mx-8">
             <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-muted))]" />
+              <Search 
+                className={cn(
+                  "absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors",
+                  searchFocused 
+                    ? "text-[hsl(var(--accent))]" 
+                    : "text-[hsl(var(--text-secondary))]"
+                )} 
+              />
               <input
                 type="search"
                 placeholder="Rechercher..."
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
                 className={cn(
                   "w-full h-9 pl-10 pr-4 rounded-lg text-sm font-medium",
-                  "bg-[hsl(var(--bg-muted))]",
-                  "text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))]",
-                  "border border-transparent",
-                  "focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))] focus:ring-offset-1 focus:ring-offset-[hsl(var(--bg-base))]",
-                  "hover:bg-[hsl(var(--bg-elevated))]",
+                  // Higher contrast background
+                  "bg-[hsl(var(--bg-elevated))]",
+                  "text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-secondary))]",
+                  // Visible border for better contrast
+                  "border border-[hsl(var(--border-default))]",
+                  // Focus state
+                  "focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))] focus:border-[hsl(var(--accent))]",
+                  // Hover state
+                  "hover:border-[hsl(var(--border-strong))]",
                   "transition-all duration-200"
                 )}
                 aria-label="Rechercher"
@@ -95,12 +109,9 @@ export function Header({
           </div>
 
           {/* ─────────────────────────────────────────────────────────────────────
-             Right Section: Actions
+             Right Section: Actions (Theme toggle now in UserNav)
              ───────────────────────────────────────────────────────────────────── */}
           <div className="flex items-center gap-1.5">
-            {/* Theme Toggle */}
-            <ModeToggle />
-
             {/* Notifications */}
             <button
               className="relative flex items-center justify-center h-9 w-9 rounded-lg text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] hover:text-[hsl(var(--text-primary))] transition-colors"
@@ -118,7 +129,7 @@ export function Header({
             {/* Divider */}
             <div className="w-px h-6 bg-[hsl(var(--border-subtle))] mx-1" />
 
-            {/* User Menu */}
+            {/* User Menu (includes theme toggle) */}
             <UserNav />
           </div>
         </div>
