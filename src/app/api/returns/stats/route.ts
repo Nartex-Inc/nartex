@@ -1,11 +1,11 @@
 // src/app/api/returns/stats/route.ts
 // Dashboard statistics - GET
-// PostgreSQL version
 
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { query } from "@/lib/db";
+import prisma from "@/lib/prisma";
+import { authOptions } from "@/app/api/auth/[...nextauth]/auth-options";
+import type { Prisma } from "@prisma/client";
 
 export async function GET() {
   try {
@@ -18,85 +18,91 @@ export async function GET() {
     const userName = session.user.name || "";
 
     // Build expert filter for role-based access
-    let expertFilter = "";
-    const params: unknown[] = [];
-
-    if (userRole === "Expert") {
-      expertFilter = "AND expert ILIKE $1";
-      params.push(`%${userName}%`);
-    }
+    const expertFilter: Prisma.ReturnWhereInput = userRole === "Expert"
+      ? { expert: { contains: userName, mode: "insensitive" } }
+      : {};
 
     // Total active returns (not finalized, not draft)
-    const totalActiveResult = await query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM returns WHERE is_final = false AND is_draft = false ${expertFilter}`,
-      params
-    );
-    const totalActive = parseInt(totalActiveResult[0]?.count || "0", 10);
+    const totalActive = await prisma.return.count({
+      where: { isFinal: false, isDraft: false, ...expertFilter },
+    });
 
     // Awaiting physical verification
-    const awaitingPhysicalResult = await query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM returns 
-       WHERE is_final = false AND retour_physique = true AND is_verified = false ${expertFilter}`,
-      params
-    );
-    const awaitingPhysical = parseInt(awaitingPhysicalResult[0]?.count || "0", 10);
+    const awaitingPhysical = await prisma.return.count({
+      where: {
+        isFinal: false,
+        retourPhysique: true,
+        isVerified: false,
+        ...expertFilter,
+      },
+    });
 
-    // Ready for finalization (verified or no physical return needed)
-    const readyForFinalizationResult = await query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM returns 
-       WHERE is_final = false AND is_draft = false 
-       AND (retour_physique = false OR is_verified = true) ${expertFilter}`,
-      params
-    );
-    const readyForFinalization = parseInt(readyForFinalizationResult[0]?.count || "0", 10);
+    // Ready for finalization
+    const readyForFinalization = await prisma.return.count({
+      where: {
+        isFinal: false,
+        isDraft: false,
+        OR: [{ retourPhysique: false }, { isVerified: true }],
+        ...expertFilter,
+      },
+    });
 
     // Drafts
-    const draftsResult = await query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM returns WHERE is_draft = true AND is_final = false ${expertFilter}`,
-      params
-    );
-    const drafts = parseInt(draftsResult[0]?.count || "0", 10);
+    const drafts = await prisma.return.count({
+      where: { isDraft: true, isFinal: false, ...expertFilter },
+    });
 
     // Finalized (last 30 days)
-    const finalizedResult = await query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM returns 
-       WHERE is_final = true AND date_finalisation >= NOW() - INTERVAL '30 days' ${expertFilter}`,
-      params
-    );
-    const finalized = parseInt(finalizedResult[0]?.count || "0", 10);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    // Standby returns
-    const standbyResult = await query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM returns WHERE is_standby = true ${expertFilter}`,
-      params
-    );
-    const standby = parseInt(standbyResult[0]?.count || "0", 10);
+    const finalized = await prisma.return.count({
+      where: {
+        isFinal: true,
+        dateFinalisation: { gte: thirtyDaysAgo },
+        ...expertFilter,
+      },
+    });
 
-    // By cause (for chart)
-    const byCauseResult = await query<{ cause_retour: string; count: string }>(
-      `SELECT cause_retour, COUNT(*) as count FROM returns 
-       WHERE is_final = false ${expertFilter}
-       GROUP BY cause_retour ORDER BY count DESC`,
-      params
-    );
-    const byCause = byCauseResult.map((r) => ({
-      cause: r.cause_retour,
-      count: parseInt(r.count, 10),
+    // Standby
+    const standby = await prisma.return.count({
+      where: { isStandby: true, ...expertFilter },
+    });
+
+    // By cause (for chart) - using raw query for grouping
+    const byCauseRaw = await prisma.return.groupBy({
+      by: ["cause"],
+      where: { isFinal: false, ...expertFilter },
+      _count: true,
+    });
+
+    const byCause = byCauseRaw.map((r) => ({
+      cause: r.cause,
+      count: r._count,
     }));
 
     // By month (last 12 months)
-    const byMonthResult = await query<{ month: string; count: string }>(
-      `SELECT TO_CHAR(date_signalement, 'YYYY-MM') as month, COUNT(*) as count 
-       FROM returns 
-       WHERE date_signalement >= NOW() - INTERVAL '12 months' ${expertFilter}
-       GROUP BY TO_CHAR(date_signalement, 'YYYY-MM')
-       ORDER BY month ASC`,
-      params
-    );
-    const byMonth = byMonthResult.map((r) => ({
-      month: r.month,
-      count: parseInt(r.count, 10),
-    }));
+    const twelveMonthsAgo = new Date();
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+
+    const returns = await prisma.return.findMany({
+      where: {
+        reportedAt: { gte: twelveMonthsAgo },
+        ...expertFilter,
+      },
+      select: { reportedAt: true },
+    });
+
+    // Group by month
+    const monthCounts: Record<string, number> = {};
+    for (const r of returns) {
+      const month = r.reportedAt.toISOString().slice(0, 7); // YYYY-MM
+      monthCounts[month] = (monthCounts[month] || 0) + 1;
+    }
+
+    const byMonth = Object.entries(monthCounts)
+      .map(([month, count]) => ({ month, count }))
+      .sort((a, b) => a.month.localeCompare(b.month));
 
     return NextResponse.json({
       ok: true,
