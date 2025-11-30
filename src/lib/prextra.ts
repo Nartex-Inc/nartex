@@ -1,0 +1,171 @@
+// src/lib/prextra.ts
+// Helper functions for querying Prextra replicated tables
+// Uses raw pg pool because DMS creates case-sensitive quoted column names
+
+import { pg } from "./db";
+
+/* =============================================================================
+   Prextra Table References (DMS-replicated with quoted identifiers)
+   These tables are in the default schema but have CamelCase names
+============================================================================= */
+
+export const PREXTRA_TABLES = {
+  ITEMS: '"Items"',
+  CUSTOMERS: '"Customers"',
+  SO_HEADER: '"SOHeader"',
+  SALESREP: '"Salesrep"',
+  SITES: '"Sites"',
+  CARRIERS: '"carriers"',
+  SHIPMENT_HDR: '"ShipmentHdr"',
+  INV_HEADER: '"InvHeader"',
+  SHIPTO: '"Shipto"',
+  CITY: '"_City"',
+  CITY_SETTING: '"_CitySetting"',
+  TRANSPORT_CHART: '"_TransportChartDTL"',
+} as const;
+
+/* =============================================================================
+   Query Helpers
+============================================================================= */
+
+/**
+ * Execute a query against the Prextra replicated tables
+ */
+export async function queryPrextra<T = Record<string, unknown>>(
+  text: string,
+  params?: unknown[]
+): Promise<T[]> {
+  const result = await pg.query(text, params);
+  return result.rows as T[];
+}
+
+/* =============================================================================
+   Experts (Sales Reps)
+============================================================================= */
+
+export async function getExperts(): Promise<string[]> {
+  const result = await queryPrextra<{ Name: string }>(
+    `SELECT DISTINCT "Name" FROM ${PREXTRA_TABLES.SALESREP} 
+     WHERE "Name" IS NOT NULL AND "Name" != ''
+     ORDER BY "Name" ASC`
+  );
+  return result.map((r) => r.Name);
+}
+
+/* =============================================================================
+   Sites (Warehouses)
+============================================================================= */
+
+export async function getSites(): Promise<string[]> {
+  const result = await queryPrextra<{ Name: string }>(
+    `SELECT "Name" FROM ${PREXTRA_TABLES.SITES} 
+     WHERE "Name" IS NOT NULL AND "Name" != ''
+     ORDER BY "Name" ASC`
+  );
+  return result.map((r) => r.Name);
+}
+
+/* =============================================================================
+   Order Lookup
+============================================================================= */
+
+export interface OrderLookupResult {
+  sonbr: string;
+  OrderDate: Date | null;
+  totalamt: number | null;
+  customerName: string | null;
+  custCode: string | null;
+  carrierName: string | null;
+  salesrepName: string | null;
+  tracking: string | null;
+}
+
+export async function lookupOrder(noCommande: string): Promise<OrderLookupResult | null> {
+  const result = await queryPrextra<OrderLookupResult>(
+    `SELECT 
+      so."sonbr"::text as "sonbr",
+      so."OrderDate",
+      so."totalamt",
+      c."Name" AS "customerName",
+      c."CustCode" AS "custCode",
+      ca."name" AS "carrierName",
+      sr."Name" AS "salesrepName",
+      sh."WayBill" AS "tracking"
+     FROM ${PREXTRA_TABLES.SO_HEADER} so
+     LEFT JOIN ${PREXTRA_TABLES.CUSTOMERS} c ON so."custid" = c."CustId"
+     LEFT JOIN ${PREXTRA_TABLES.CARRIERS} ca ON so."Carrid" = ca."carrid"
+     LEFT JOIN ${PREXTRA_TABLES.SALESREP} sr ON so."SRid" = sr."SRId"
+     LEFT JOIN ${PREXTRA_TABLES.SHIPMENT_HDR} sh ON so."sonbr" = sh."sonbr"
+     WHERE so."sonbr"::text = $1
+     LIMIT 1`,
+    [noCommande]
+  );
+
+  return result.length > 0 ? result[0] : null;
+}
+
+/* =============================================================================
+   Item Search
+============================================================================= */
+
+export interface ItemSearchResult {
+  ItemCode: string;
+  Descr: string | null;
+  ShipWeight: number | null;
+}
+
+export async function searchItems(query: string, limit = 10): Promise<ItemSearchResult[]> {
+  if (query.length < 2) return [];
+
+  return queryPrextra<ItemSearchResult>(
+    `SELECT "ItemCode", "Descr", "ShipWeight" 
+     FROM ${PREXTRA_TABLES.ITEMS}
+     WHERE "ItemCode" ILIKE $1
+     ORDER BY "ItemCode" ASC
+     LIMIT $2`,
+    [`${query}%`, limit]
+  );
+}
+
+export async function getItemByCode(code: string): Promise<ItemSearchResult | null> {
+  const result = await queryPrextra<ItemSearchResult>(
+    `SELECT "ItemCode", "Descr", "ShipWeight" 
+     FROM ${PREXTRA_TABLES.ITEMS}
+     WHERE "ItemCode" = $1
+     LIMIT 1`,
+    [code]
+  );
+  return result.length > 0 ? result[0] : null;
+}
+
+/* =============================================================================
+   City / Transport Zone Lookup
+============================================================================= */
+
+export interface CityZoneResult {
+  City: string;
+  _Code: string;
+}
+
+export async function getCityAndZone(sonbr: string): Promise<CityZoneResult | null> {
+  try {
+    const result = await queryPrextra<CityZoneResult>(
+      `SELECT 
+        shipto."City",
+        tc."_Code"
+       FROM ${PREXTRA_TABLES.INV_HEADER} inv
+       INNER JOIN ${PREXTRA_TABLES.SHIPTO} shipto ON inv."shiptoid" = shipto."ShipToId"
+       INNER JOIN ${PREXTRA_TABLES.CITY} city ON shipto."City" = city."_Name"
+       INNER JOIN ${PREXTRA_TABLES.CITY_SETTING} cs ON city."_cityid" = cs."_CityId"
+       INNER JOIN ${PREXTRA_TABLES.TRANSPORT_CHART} tc ON cs."_ChartDtlId" = tc."_ChartDtlId"
+       WHERE inv."sonbr"::text = $1
+       LIMIT 1`,
+      [sonbr]
+    );
+    return result.length > 0 ? result[0] : null;
+  } catch (error) {
+    // Tables might not be replicated yet
+    console.error("getCityAndZone error:", error);
+    return null;
+  }
+}
