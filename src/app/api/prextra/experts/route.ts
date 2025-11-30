@@ -1,11 +1,10 @@
 // src/app/api/prextra/experts/route.ts
 // Get list of sales representatives (experts) - GET
-// PostgreSQL version - queries replicated dbo."Salesrep" table
 
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { query, PREXTRA_TABLES } from "@/lib/db";
+import { authOptions } from "@/app/api/auth/[...nextauth]/auth-options";
+import { getExperts } from "@/lib/prextra";
 
 export async function GET() {
   try {
@@ -14,14 +13,7 @@ export async function GET() {
       return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
-    // Query replicated Prextra Salesrep table
-    const result = await query<{ Name: string }>(
-      `SELECT DISTINCT "Name" FROM ${PREXTRA_TABLES.SALESREP} 
-       WHERE "Name" IS NOT NULL AND "Name" != ''
-       ORDER BY "Name" ASC`
-    );
-
-    const experts = result.map((r) => r.Name);
+    const experts = await getExperts();
 
     return NextResponse.json({ ok: true, experts });
   } catch (error) {
