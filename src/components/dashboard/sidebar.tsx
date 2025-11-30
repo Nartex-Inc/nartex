@@ -5,7 +5,6 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
 import {
   ListChecks,
   Briefcase,
@@ -16,14 +15,10 @@ import {
   Network,
   PlusCircle,
   Ticket,
-  LogOut,
   ChevronLeft,
   FolderTree,
   LayoutDashboard,
   ChevronRight,
-  ChevronsUpDown,
-  Settings,
-  Sparkles,
 } from "lucide-react";
 import {
   Tooltip,
@@ -31,15 +26,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -184,132 +170,6 @@ function NavGroup({
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   User Account Switcher — Premium Dropdown
-   ═══════════════════════════════════════════════════════════════════════════════ */
-function UserAccountSwitcher({
-  user,
-  expanded,
-}: {
-  user: { name?: string | null; email?: string | null; image?: string | null };
-  expanded: boolean;
-}) {
-  const display = user?.name || user?.email?.split("@")[0] || "Utilisateur";
-  const initials = display
-    .split(" ")
-    .map((p) => p[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase() || "U";
-
-  const trigger = (
-    <button
-      className={cn(
-        "flex items-center gap-3 w-full rounded-lg transition-all duration-200",
-        "hover:bg-[hsl(var(--bg-elevated))] active:scale-[0.98]",
-        "outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent))]",
-        expanded ? "p-2" : "p-2 justify-center"
-      )}
-    >
-      <Avatar className={cn("ring-2 ring-[hsl(var(--border-subtle))]", expanded ? "h-9 w-9" : "h-8 w-8")}>
-        <AvatarImage src={user?.image ?? ""} alt={display} />
-        <AvatarFallback className="text-[10px] font-bold bg-gradient-to-br from-[hsl(var(--accent))] to-[hsl(187,100%,40%)] text-white">
-          {initials}
-        </AvatarFallback>
-      </Avatar>
-      {expanded && (
-        <>
-          <div className="flex-1 min-w-0 text-left">
-            <p className="truncate text-sm font-semibold text-[hsl(var(--text-primary))] leading-tight">
-              {display}
-            </p>
-            <p className="truncate text-[11px] text-[hsl(var(--text-muted))] leading-tight mt-0.5">
-              {user?.email}
-            </p>
-          </div>
-          <ChevronsUpDown className="h-4 w-4 text-[hsl(var(--text-muted))] shrink-0" />
-        </>
-      )}
-    </button>
-  );
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        {expanded ? (
-          trigger
-        ) : (
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-            <TooltipContent
-              side="right"
-              sideOffset={12}
-              className="px-3 py-2 bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] shadow-lg"
-            >
-              <p className="text-sm font-semibold text-[hsl(var(--text-primary))]">{display}</p>
-              <p className="text-xs text-[hsl(var(--text-tertiary))]">{user?.email}</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
-      </DropdownMenuTrigger>
-
-      <DropdownMenuContent
-        side={expanded ? "top" : "right"}
-        align={expanded ? "start" : "center"}
-        sideOffset={8}
-        className="w-64 p-1.5 bg-[hsl(var(--bg-surface))] border-[hsl(var(--border-default))] shadow-xl rounded-xl"
-      >
-        <DropdownMenuLabel className="px-2 py-2">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10 ring-2 ring-[hsl(var(--border-subtle))]">
-              <AvatarImage src={user?.image ?? ""} alt={display} />
-              <AvatarFallback className="text-xs font-bold bg-gradient-to-br from-[hsl(var(--accent))] to-[hsl(187,100%,40%)] text-white">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="truncate text-sm font-semibold text-[hsl(var(--text-primary))]">{display}</p>
-              <p className="truncate text-xs text-[hsl(var(--text-tertiary))]">{user?.email}</p>
-            </div>
-          </div>
-        </DropdownMenuLabel>
-
-        <DropdownMenuSeparator className="bg-[hsl(var(--border-subtle))] my-1" />
-
-        <DropdownMenuItem asChild>
-          <Link
-            href="/dashboard/settings"
-            className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] hover:text-[hsl(var(--text-primary))] cursor-pointer"
-          >
-            <Settings className="h-4 w-4" />
-            <span className="text-sm font-medium">Paramètres</span>
-          </Link>
-        </DropdownMenuItem>
-
-        <DropdownMenuItem asChild>
-          <Link
-            href="/dashboard/upgrade"
-            className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] hover:text-[hsl(var(--text-primary))] cursor-pointer"
-          >
-            <Sparkles className="h-4 w-4" />
-            <span className="text-sm font-medium">Mettre à niveau</span>
-          </Link>
-        </DropdownMenuItem>
-
-        <DropdownMenuSeparator className="bg-[hsl(var(--border-subtle))] my-1" />
-
-        <DropdownMenuItem
-          onClick={() => signOut({ callbackUrl: "/" })}
-          className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))] cursor-pointer"
-        >
-          <LogOut className="h-4 w-4" />
-          <span className="text-sm font-medium">Déconnexion</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════════
    Main Sidebar Component
    ═══════════════════════════════════════════════════════════════════════════════ */
 export function Sidebar({
@@ -318,8 +178,6 @@ export function Sidebar({
   toggleSidebar,
   closeMobileSidebar,
 }: SidebarProps) {
-  const { data } = useSession();
-  const user = data?.user;
   const expanded = isOpen || isMobileOpen;
   const desktopWidth = isOpen ? "lg:w-60" : "lg:w-[68px]";
 
@@ -335,20 +193,21 @@ export function Sidebar({
          ───────────────────────────────────────────────────────────────────────── */}
       <div
         className={cn(
-          "flex h-14 shrink-0 items-center border-b border-[hsl(var(--border-subtle))]",
+          "flex h-16 shrink-0 items-center border-b border-[hsl(var(--border-subtle))]",
           expanded ? "justify-between px-4" : "justify-center px-2"
         )}
       >
         {expanded ? (
           <>
             <Link href="/dashboard" className="flex items-center gap-2 group">
+              {/* SINTO Logo — TWICE AS BIG (200x56 instead of 100x28) */}
               <Image
                 src="/sinto-logo.svg"
                 alt="SINTO"
-                width={88}
-                height={24}
+                width={200}
+                height={56}
                 priority
-                className="h-6 w-auto object-contain transition-opacity group-hover:opacity-80"
+                className="h-12 w-auto object-contain transition-opacity group-hover:opacity-80"
               />
             </Link>
             {!isMobile && (
@@ -377,7 +236,7 @@ export function Sidebar({
          ───────────────────────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
         <div className="flex flex-col gap-6">
-          {NAV_GROUPS.map((group, idx) => (
+          {NAV_GROUPS.map((group) => (
             <NavGroup key={group.title} title={group.title} expanded={expanded}>
               {group.items.map((item) => (
                 <NavLink
@@ -393,12 +252,7 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* ─────────────────────────────────────────────────────────────────────────
-         Footer — User Account
-         ───────────────────────────────────────────────────────────────────────── */}
-      <div className="shrink-0 border-t border-[hsl(var(--border-subtle))] p-3">
-        {user && <UserAccountSwitcher user={user} expanded={expanded} />}
-      </div>
+      {/* No user section — moved to header */}
     </div>
   );
 
