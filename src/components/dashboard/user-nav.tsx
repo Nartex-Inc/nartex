@@ -35,7 +35,8 @@ import { cn } from "@/lib/utils";
 /**
  * Premium user navigation dropdown.
  * Includes theme toggle inside the menu.
- * Fixed: No body scroll lock to prevent layout shift.
+ * Fixed: modal={false} prevents body scroll lock and layout shift.
+ * Uses SUCCESS GREEN accent.
  */
 export function UserNav() {
   const { data: session } = useSession();
@@ -73,8 +74,8 @@ export function UserNav() {
             <AvatarFallback
               className="text-xs font-bold"
               style={{
-                background: "linear-gradient(135deg, hsl(var(--accent)), hsl(187, 100%, 40%))",
-                color: "hsl(var(--bg-base))",
+                background: "linear-gradient(135deg, hsl(var(--accent)), hsl(152, 76%, 55%))",
+                color: "white",
               }}
             >
               {initials}
@@ -100,8 +101,8 @@ export function UserNav() {
               <AvatarFallback
                 className="text-sm font-bold"
                 style={{
-                  background: "linear-gradient(135deg, hsl(var(--accent)), hsl(187, 100%, 40%))",
-                  color: "hsl(var(--bg-base))",
+                  background: "linear-gradient(135deg, hsl(var(--accent)), hsl(152, 76%, 55%))",
+                  color: "white",
                 }}
               >
                 {initials}
