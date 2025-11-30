@@ -1,16 +1,12 @@
 // src/app/api/items/route.ts
 // Item search and details - GET
-// PostgreSQL version - queries replicated dbo."Items" table
-//
-// Usage:
-//   GET /api/items?q=ABC     - Autocomplete search (returns up to 10 suggestions)
-//   GET /api/items?code=ABC  - Get specific item details
+// Uses raw pg queries for Prextra replicated tables
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { query, PREXTRA_TABLES } from "@/lib/db";
-import { ItemSuggestion, ItemDetail } from "@/types/returns";
+import { authOptions } from "@/app/api/auth/[...nextauth]/auth-options";
+import { searchItems, getItemByCode } from "@/lib/prextra";
+import type { ItemSuggestion, ItemDetail } from "@/types/returns";
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,15 +21,9 @@ export async function GET(request: NextRequest) {
 
     if (code) {
       // Get specific item details
-      const result = await query<{ ItemCode: string; Descr: string | null; ShipWeight: number | null }>(
-        `SELECT "ItemCode", "Descr", "ShipWeight" 
-         FROM ${PREXTRA_TABLES.ITEMS}
-         WHERE "ItemCode" = $1
-         LIMIT 1`,
-        [code]
-      );
+      const result = await getItemByCode(code);
 
-      if (result.length === 0) {
+      if (!result) {
         return NextResponse.json({
           ok: true,
           found: false,
@@ -41,11 +31,10 @@ export async function GET(request: NextRequest) {
         });
       }
 
-      const row = result[0];
       const item: ItemDetail = {
-        code: row.ItemCode,
-        descr: row.Descr,
-        weight: row.ShipWeight,
+        code: result.ItemCode,
+        descr: result.Descr,
+        weight: result.ShipWeight,
       };
 
       return NextResponse.json({
@@ -57,33 +46,18 @@ export async function GET(request: NextRequest) {
 
     if (q) {
       // Autocomplete search
-      const searchTerm = q.trim();
-      
-      if (searchTerm.length < 2) {
-        return NextResponse.json({
-          ok: true,
-          suggestions: [],
-        });
+      if (q.trim().length < 2) {
+        return NextResponse.json({ ok: true, suggestions: [] });
       }
 
-      const result = await query<{ ItemCode: string; Descr: string | null }>(
-        `SELECT "ItemCode", "Descr" 
-         FROM ${PREXTRA_TABLES.ITEMS}
-         WHERE "ItemCode" ILIKE $1
-         ORDER BY "ItemCode" ASC
-         LIMIT 10`,
-        [`${searchTerm}%`]
-      );
+      const results = await searchItems(q.trim());
 
-      const suggestions: ItemSuggestion[] = result.map((r) => ({
+      const suggestions: ItemSuggestion[] = results.map((r) => ({
         code: r.ItemCode,
         descr: r.Descr,
       }));
 
-      return NextResponse.json({
-        ok: true,
-        suggestions,
-      });
+      return NextResponse.json({ ok: true, suggestions });
     }
 
     return NextResponse.json(
