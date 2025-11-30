@@ -1,12 +1,11 @@
 // src/app/api/returns/[code]/standby/route.ts
 // Standby toggle - POST
-// PostgreSQL version
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { query } from "@/lib/db";
-import { Return } from "@/types/returns";
+import prisma from "@/lib/prisma";
+import { authOptions } from "@/app/api/auth/[...nextauth]/auth-options";
+import { parseReturnCode } from "@/types/returns";
 
 type RouteParams = { params: Promise<{ code: string }> };
 
@@ -28,11 +27,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const { code } = await params;
-    const codeRetour = parseInt(code.replace(/^R/i, ""), 10);
+    const returnId = parseReturnCode(code);
     const body = await request.json();
     const action = body.action as "standby" | "reactivate";
 
-    if (isNaN(codeRetour)) {
+    if (isNaN(returnId)) {
       return NextResponse.json({ ok: false, error: "Code retour invalide" }, { status: 400 });
     }
 
@@ -43,43 +42,41 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Get existing return
-    const returns = await query<Return>(
-      "SELECT * FROM returns WHERE code_retour = $1",
-      [codeRetour]
-    );
+    const existing = await prisma.return.findFirst({
+      where: { OR: [{ id: returnId }, { code: code.toUpperCase() }] },
+    });
 
-    if (returns.length === 0) {
+    if (!existing) {
       return NextResponse.json({ ok: false, error: "Retour non trouvé" }, { status: 404 });
     }
 
-    const existing = returns[0];
-
     if (action === "standby") {
-      // Put into standby mode ("entre deux chaises")
-      // is_final=1, is_draft=1, is_standby=1 creates a special state
-      await query(
-        `UPDATE returns SET
-          is_final = true,
-          is_draft = true,
-          is_standby = true
-        WHERE id = $1`,
-        [existing.id]
-      );
+      // Put into standby mode
+      await prisma.return.update({
+        where: { id: existing.id },
+        data: {
+          isFinal: true,
+          isDraft: true,
+          isStandby: true,
+        },
+      });
 
       return NextResponse.json({ ok: true, message: "Retour mis en standby" });
     } else {
-      // Reactivate - put back to active state
-      await query(
-        `UPDATE returns SET
-          is_final = false,
-          is_draft = false,
-          is_standby = false,
-          finalise_par = NULL,
-          date_finalisation = NULL
-        WHERE id = $1`,
-        [existing.id]
-      );
+      // Reactivate
+      await prisma.return.update({
+        where: { id: existing.id },
+        data: {
+          isFinal: false,
+          isDraft: false,
+          isStandby: false,
+          finalisePar: null,
+          dateFinalisation: null,
+          status: existing.retourPhysique && !existing.isVerified 
+            ? "awaiting_physical" 
+            : "received_or_no_physical",
+        },
+      });
 
       return NextResponse.json({ ok: true, message: "Retour réactivé" });
     }
