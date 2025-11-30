@@ -1,63 +1,100 @@
 // src/app/api/items/route.ts
-// GET /api/items?q=ip4&take=10      -> autocomplete (prefix, case-insensitive)
-// GET /api/items?code=IP4            -> exact lookup (case-insensitive)
+// Item search and details - GET
+// PostgreSQL version - queries replicated dbo."Items" table
 //
-// Returns:
-// - autocomplete: { ok:true, items:[{ code, descr }] }
-// - exact:        { ok:true, item:{ code, descr, weight } } or { ok:true, item:null }
+// Usage:
+//   GET /api/items?q=ABC     - Autocomplete search (returns up to 10 suggestions)
+//   GET /api/items?code=ABC  - Get specific item details
 
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { query, PREXTRA_TABLES } from "@/lib/db";
+import { ItemSuggestion, ItemDetail } from "@/types/returns";
 
-export async function GET(req: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const url = new URL(req.url);
-    const q = (url.searchParams.get("q") || "").trim();
-    const code = (url.searchParams.get("code") || "").trim();
-    const take = Math.max(1, Math.min(50, Number(url.searchParams.get("take") || "10")));
-
-    // 1) Autocomplete (prefix)
-    if (q) {
-      const pattern = `${q}%`; // prefix
-      const rows = await prisma.$queryRaw<
-        { code: string; descr: string | null }[]
-      >(Prisma.sql`
-        SELECT "ItemCode" AS code, "Descr" AS descr
-        FROM "Items"
-        WHERE "ItemCode" ILIKE ${pattern}
-        ORDER BY "ItemCode" ASC
-        LIMIT ${take}
-      `);
-
-      return NextResponse.json({ ok: true, items: rows ?? [] });
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
-    // 2) Exact lookup
+    const { searchParams } = new URL(request.url);
+    const q = searchParams.get("q"); // Autocomplete query
+    const code = searchParams.get("code"); // Specific item code
+
     if (code) {
-      const rows = await prisma.$queryRaw<
-        { code: string; descr: string | null; weight: number | null }[]
-      >(Prisma.sql`
-        SELECT
-          "ItemCode" AS code,
-          "Descr"    AS descr,
-          CAST("ShipWeight" AS double precision) AS weight
-        FROM "Items"
-        WHERE "ItemCode" = ${code}
-        LIMIT 1
-      `);
+      // Get specific item details
+      const result = await query<{ ItemCode: string; Descr: string | null; ShipWeight: number | null }>(
+        `SELECT "ItemCode", "Descr", "ShipWeight" 
+         FROM ${PREXTRA_TABLES.ITEMS}
+         WHERE "ItemCode" = $1
+         LIMIT 1`,
+        [code]
+      );
 
-      const item = rows?.[0] ?? null;
-      return NextResponse.json({ ok: true, item });
+      if (result.length === 0) {
+        return NextResponse.json({
+          ok: true,
+          found: false,
+          item: null,
+        });
+      }
+
+      const row = result[0];
+      const item: ItemDetail = {
+        code: row.ItemCode,
+        descr: row.Descr,
+        weight: row.ShipWeight,
+      };
+
+      return NextResponse.json({
+        ok: true,
+        found: true,
+        item,
+      });
     }
 
-    // Nothing provided
+    if (q) {
+      // Autocomplete search
+      const searchTerm = q.trim();
+      
+      if (searchTerm.length < 2) {
+        return NextResponse.json({
+          ok: true,
+          suggestions: [],
+        });
+      }
+
+      const result = await query<{ ItemCode: string; Descr: string | null }>(
+        `SELECT "ItemCode", "Descr" 
+         FROM ${PREXTRA_TABLES.ITEMS}
+         WHERE "ItemCode" ILIKE $1
+         ORDER BY "ItemCode" ASC
+         LIMIT 10`,
+        [`${searchTerm}%`]
+      );
+
+      const suggestions: ItemSuggestion[] = result.map((r) => ({
+        code: r.ItemCode,
+        descr: r.Descr,
+      }));
+
+      return NextResponse.json({
+        ok: true,
+        suggestions,
+      });
+    }
+
     return NextResponse.json(
-      { ok: false, error: "Provide either ?q= for autocomplete or ?code= for exact lookup." },
+      { ok: false, error: "Paramètre 'q' (recherche) ou 'code' (détails) requis" },
       { status: 400 }
     );
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unexpected server error.";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  } catch (error) {
+    console.error("GET /api/items error:", error);
+    return NextResponse.json(
+      { ok: false, error: "Erreur lors de la recherche d'articles" },
+      { status: 500 }
+    );
   }
 }
