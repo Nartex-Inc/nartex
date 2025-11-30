@@ -1,12 +1,12 @@
 // src/app/api/returns/[code]/verify/route.ts
 // Verify physical return - POST
-// PostgreSQL version
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { query, withTransaction } from "@/lib/db";
-import { Return, VerifyReturnPayload } from "@/types/returns";
+import prisma from "@/lib/prisma";
+import { authOptions } from "@/app/api/auth/[...nextauth]/auth-options";
+import type { VerifyReturnPayload } from "@/types/returns";
+import { parseReturnCode } from "@/types/returns";
 
 type RouteParams = { params: Promise<{ code: string }> };
 
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Role check
     const userRole = (session.user as { role?: string }).role;
-    const allowedRoles = ["Vérificateur", "Gestionnaire", "Facturation"];
+    const allowedRoles = ["Verificateur", "Gestionnaire", "Facturation"];
     if (!userRole || !allowedRoles.includes(userRole)) {
       return NextResponse.json(
         { ok: false, error: "Vous n'êtes pas autorisé à vérifier les retours" },
@@ -28,75 +28,64 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const { code } = await params;
-    const codeRetour = parseInt(code.replace(/^R/i, ""), 10);
+    const returnId = parseReturnCode(code);
     const body: VerifyReturnPayload = await request.json();
 
-    if (isNaN(codeRetour)) {
+    if (isNaN(returnId)) {
       return NextResponse.json({ ok: false, error: "Code retour invalide" }, { status: 400 });
     }
 
-    // Get existing return
-    const returns = await query<Return>(
-      "SELECT * FROM returns WHERE code_retour = $1",
-      [codeRetour]
-    );
+    const existing = await prisma.return.findFirst({
+      where: { OR: [{ id: returnId }, { code: code.toUpperCase() }] },
+    });
 
-    if (returns.length === 0) {
+    if (!existing) {
       return NextResponse.json({ ok: false, error: "Retour non trouvé" }, { status: 404 });
     }
 
-    const existing = returns[0];
-
     // Validate state
-    if (!existing.retour_physique) {
+    if (!existing.retourPhysique) {
       return NextResponse.json(
         { ok: false, error: "Ce retour n'est pas marqué comme retour physique" },
         { status: 400 }
       );
     }
 
-    if (existing.is_verified) {
+    if (existing.isVerified) {
       return NextResponse.json(
         { ok: false, error: "Ce retour a déjà été vérifié" },
         { status: 400 }
       );
     }
 
-    if (existing.is_final) {
+    if (existing.isFinal) {
       return NextResponse.json(
         { ok: false, error: "Ce retour est déjà finalisé" },
         { status: 400 }
       );
     }
 
-    await withTransaction(async (client) => {
-      // Update product quantities
-      for (const product of body.products) {
-        await client.query(
-          `UPDATE return_products SET
-            quantite_recue = $1,
-            qte_inventaire = $2,
-            qte_detruite = $3
-          WHERE return_id = $4 AND code_produit = $5`,
-          [
-            product.quantiteRecue,
-            product.qteInventaire,
-            product.qteDetruite,
-            existing.id,
-            product.codeProduit,
-          ]
-        );
-      }
+    // Update product quantities
+    for (const product of body.products) {
+      await prisma.returnProduct.updateMany({
+        where: { returnId: existing.id, codeProduit: product.codeProduit },
+        data: {
+          quantiteRecue: product.quantiteRecue,
+          qteInventaire: product.qteInventaire,
+          qteDetruite: product.qteDetruite,
+        },
+      });
+    }
 
-      // Mark return as verified
-      await client.query(
-        `UPDATE returns SET
-          is_verified = true,
-          verifie_par = $1,
-          date_verification = NOW()
-        WHERE id = $2`,
-        [session.user?.name || "Système", existing.id]
-      );
+    // Mark return as verified
+    await prisma.return.update({
+      where: { id: existing.id },
+      data: {
+        isVerified: true,
+        verifiePar: session.user.name || "Système",
+        dateVerification: new Date(),
+        status: "received_or_no_physical",
+      },
     });
 
     return NextResponse.json({ ok: true, message: "Retour vérifié avec succès" });
