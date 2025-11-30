@@ -146,6 +146,8 @@
     @apply bg-[hsl(var(--bg-base))] text-[hsl(var(--text-secondary))];
     font-feature-settings: "rlig" 1, "calt" 1;
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    font-size: 15px; /* Base font size increased */
+    line-height: 1.6;
   }
   
   /* Smooth transitions for theme changes */
@@ -163,25 +165,25 @@
 @layer components {
   /* Headlines */
   .text-headline {
-    @apply text-2xl font-bold tracking-tight;
+    @apply text-[1.625rem] font-bold tracking-tight; /* 26px */
     color: hsl(var(--text-primary));
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
   
   .text-title {
-    @apply text-lg font-semibold tracking-tight;
+    @apply text-[1.1875rem] font-semibold tracking-tight; /* 19px */
     color: hsl(var(--text-primary));
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
   
   .text-label {
-    @apply text-xs font-semibold uppercase tracking-wider;
+    @apply text-[0.6875rem] font-semibold uppercase tracking-wider; /* 11px */
     color: hsl(var(--text-tertiary));
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
   
   .text-caption {
-    @apply text-sm;
+    @apply text-[0.9375rem]; /* 15px */
     color: hsl(var(--text-muted));
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
