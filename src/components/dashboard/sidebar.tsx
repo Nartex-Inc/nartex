@@ -94,12 +94,12 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   Company Selector Component — With SINTO Logo
+   Company Selector Component — With SINTO Logo (2X BIGGER)
    ═══════════════════════════════════════════════════════════════════════════════ */
 function CompanySelector({ expanded }: { expanded: boolean }) {
   const [selectedCompany, setSelectedCompany] = React.useState(COMPANIES[0]);
 
-  // Collapsed state — just show SINTO logo
+  // Collapsed state — show SINTO logo (smaller for collapsed)
   if (!expanded) {
     return (
       <Tooltip delayDuration={0}>
@@ -108,9 +108,9 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
             <Image
               src="/sinto-logo.svg"
               alt="SINTO"
-              width={36}
-              height={36}
-              className="h-9 w-9 object-contain"
+              width={48}
+              height={48}
+              className="h-12 w-12 object-contain"
             />
           </div>
         </TooltipTrigger>
@@ -121,7 +121,7 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
     );
   }
 
-  // Expanded state — dropdown selector
+  // Expanded state — dropdown selector with BIG SINTO logo
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
@@ -132,14 +132,14 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
             "outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent))]"
           )}
         >
-          {/* SINTO Logo */}
-          <div className="flex items-center justify-center w-9 h-9 shrink-0">
+          {/* SINTO Logo — TWICE AS BIG (h-16 = 64px) */}
+          <div className="flex items-center justify-center shrink-0">
             <Image
               src="/sinto-logo.svg"
               alt={selectedCompany.name}
-              width={36}
-              height={36}
-              className="h-9 w-9 object-contain"
+              width={64}
+              height={64}
+              className="h-16 w-16 object-contain"
             />
           </div>
 
@@ -321,10 +321,10 @@ export function Sidebar({
   closeMobileSidebar,
 }: SidebarProps) {
   const expanded = isOpen || isMobileOpen;
-  const desktopWidth = isOpen ? "lg:w-60" : "lg:w-[68px]";
+  const desktopWidth = isOpen ? "lg:w-64" : "lg:w-[68px]";
 
   React.useEffect(() => {
-    const w = isOpen ? "15rem" : "68px";
+    const w = isOpen ? "16rem" : "68px";
     document.documentElement.style.setProperty("--sidebar-w", w);
   }, [isOpen]);
 
@@ -336,7 +336,7 @@ export function Sidebar({
       <div
         className={cn(
           "shrink-0 border-b border-[hsl(var(--border-subtle))]",
-          expanded ? "px-3 py-3" : "px-2 py-3"
+          expanded ? "px-3 py-4" : "px-2 py-4"
         )}
       >
         {expanded ? (
@@ -398,7 +398,7 @@ export function Sidebar({
       {/* Mobile Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-60 -translate-x-full transition-transform duration-300 ease-out lg:hidden",
+          "fixed inset-y-0 left-0 z-50 w-64 -translate-x-full transition-transform duration-300 ease-out lg:hidden",
           "bg-[hsl(var(--bg-surface))] border-r border-[hsl(var(--border-subtle))]",
           "shadow-2xl shadow-black/20",
           isMobileOpen && "translate-x-0"
