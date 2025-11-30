@@ -1,24 +1,14 @@
 // src/app/api/returns/[code]/attachments/route.ts
 // File attachments - GET (list), POST (upload), DELETE (remove)
-// PostgreSQL version - uses Google Drive for file storage
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { query } from "@/lib/db";
-import { Return, Upload, Attachment } from "@/types/returns";
-import { google } from "googleapis";
+import prisma from "@/lib/prisma";
+import { authOptions } from "@/app/api/auth/[...nextauth]/auth-options";
+import { parseReturnCode } from "@/types/returns";
+import type { AttachmentResponse } from "@/types/returns";
 
 type RouteParams = { params: Promise<{ code: string }> };
-
-// Initialize Google Drive API
-function getDriveClient() {
-  const auth = new google.auth.GoogleAuth({
-    credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY || "{}"),
-    scopes: ["https://www.googleapis.com/auth/drive.file"],
-  });
-  return google.drive({ version: "v3", auth });
-}
 
 /* =============================================================================
    GET /api/returns/[code]/attachments - List attachments
@@ -32,33 +22,26 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const { code } = await params;
-    const codeRetour = parseInt(code.replace(/^R/i, ""), 10);
+    const returnId = parseReturnCode(code);
 
-    if (isNaN(codeRetour)) {
+    if (isNaN(returnId)) {
       return NextResponse.json({ ok: false, error: "Code retour invalide" }, { status: 400 });
     }
 
-    // Get return
-    const returns = await query<Return>(
-      "SELECT id FROM returns WHERE code_retour = $1",
-      [codeRetour]
-    );
+    const ret = await prisma.return.findFirst({
+      where: { OR: [{ id: returnId }, { code: code.toUpperCase() }] },
+      include: { attachments: { orderBy: { createdAt: "desc" } } },
+    });
 
-    if (returns.length === 0) {
+    if (!ret) {
       return NextResponse.json({ ok: false, error: "Retour non trouvé" }, { status: 404 });
     }
 
-    // Get attachments
-    const uploads = await query<Upload>(
-      "SELECT * FROM uploads WHERE return_id = $1 ORDER BY uploaded_at DESC",
-      [returns[0].id]
-    );
-
-    const attachments: Attachment[] = uploads.map((u) => ({
-      id: u.file_path,
-      name: u.file_name,
-      url: `https://drive.google.com/file/d/${u.file_path}/preview`,
-      downloadUrl: `https://drive.google.com/uc?export=download&id=${u.file_path}`,
+    const attachments: AttachmentResponse[] = ret.attachments.map((a) => ({
+      id: a.url,
+      name: a.name,
+      url: `https://drive.google.com/file/d/${a.url}/preview`,
+      downloadUrl: `https://drive.google.com/uc?export=download&id=${a.url}`,
     }));
 
     return NextResponse.json({ ok: true, attachments });
@@ -73,6 +56,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 /* =============================================================================
    POST /api/returns/[code]/attachments - Upload attachment
+   Note: This expects fileId (Google Drive file ID) and fileName from client
+   The actual file upload to Google Drive should be handled separately
 ============================================================================= */
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
@@ -83,111 +68,63 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const { code } = await params;
-    const codeRetour = parseInt(code.replace(/^R/i, ""), 10);
+    const returnId = parseReturnCode(code);
 
-    if (isNaN(codeRetour)) {
+    if (isNaN(returnId)) {
       return NextResponse.json({ ok: false, error: "Code retour invalide" }, { status: 400 });
     }
 
-    // Get return
-    const returns = await query<Return>(
-      "SELECT * FROM returns WHERE code_retour = $1",
-      [codeRetour]
-    );
+    const ret = await prisma.return.findFirst({
+      where: { OR: [{ id: returnId }, { code: code.toUpperCase() }] },
+    });
 
-    if (returns.length === 0) {
+    if (!ret) {
       return NextResponse.json({ ok: false, error: "Retour non trouvé" }, { status: 404 });
     }
 
-    const existing = returns[0];
-
-    // Check if can upload (not finalized unless standby)
-    if (existing.is_final && !existing.is_standby) {
+    // Check if can upload
+    if (ret.isFinal && !ret.isStandby) {
       return NextResponse.json(
         { ok: false, error: "Impossible d'ajouter des pièces jointes à un retour finalisé" },
         { status: 400 }
       );
     }
 
-    // Get form data
-    const formData = await request.formData();
-    const file = formData.get("file") as File | null;
+    const body = await request.json();
+    const { fileId, fileName, mimeType, fileSize } = body;
 
-    if (!file) {
-      return NextResponse.json({ ok: false, error: "Aucun fichier fourni" }, { status: 400 });
-    }
-
-    // Validate file type
-    const allowedTypes = ["application/pdf", "image/jpeg", "image/png", "image/jpg"];
-    if (!allowedTypes.includes(file.type)) {
+    if (!fileId || !fileName) {
       return NextResponse.json(
-        { ok: false, error: "Type de fichier non autorisé. Utilisez PDF, JPG ou PNG." },
+        { ok: false, error: "fileId et fileName sont requis" },
         { status: 400 }
       );
     }
 
-    // Upload to Google Drive
-    const drive = getDriveClient();
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
-
-    const driveResponse = await drive.files.create({
-      requestBody: {
-        name: `R${codeRetour}_${file.name}`,
-        parents: [process.env.GOOGLE_DRIVE_FOLDER_ID || ""],
-      },
-      media: {
-        mimeType: file.type,
-        body: require("stream").Readable.from(fileBuffer),
-      },
-      fields: "id",
-    });
-
-    const fileId = driveResponse.data.id;
-
-    if (!fileId) {
-      return NextResponse.json(
-        { ok: false, error: "Échec de l'upload vers Google Drive" },
-        { status: 500 }
-      );
-    }
-
-    // Make file publicly accessible
-    await drive.permissions.create({
-      fileId,
-      requestBody: {
-        role: "reader",
-        type: "anyone",
-      },
-    });
-
     // Save to database
-    await query(
-      `INSERT INTO uploads (return_id, code_retour, file_name, file_path, mime_type, file_size, uploaded_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [
-        existing.id,
-        codeRetour,
-        file.name,
-        fileId,
-        file.type,
-        file.size,
-        session.user.name || "Système",
-      ]
-    );
+    const upload = await prisma.upload.create({
+      data: {
+        returnId: ret.id,
+        name: fileName,
+        url: fileId, // Google Drive file ID
+        mimeType: mimeType || null,
+        fileSize: fileSize || null,
+        uploadedBy: session.user.name || "Système",
+      },
+    });
 
     return NextResponse.json({
       ok: true,
       attachment: {
-        id: fileId,
-        name: file.name,
-        url: `https://drive.google.com/file/d/${fileId}/preview`,
-        downloadUrl: `https://drive.google.com/uc?export=download&id=${fileId}`,
+        id: upload.url,
+        name: upload.name,
+        url: `https://drive.google.com/file/d/${upload.url}/preview`,
+        downloadUrl: `https://drive.google.com/uc?export=download&id=${upload.url}`,
       },
     });
   } catch (error) {
     console.error("POST /api/returns/[code]/attachments error:", error);
     return NextResponse.json(
-      { ok: false, error: "Erreur lors de l'upload du fichier" },
+      { ok: false, error: "Erreur lors de l'ajout de la pièce jointe" },
       { status: 500 }
     );
   }
@@ -204,9 +141,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
-    // Role check - Expert and Vérificateur cannot delete
+    // Role check
     const userRole = (session.user as { role?: string }).role;
-    if (userRole === "Expert" || userRole === "Vérificateur") {
+    if (userRole === "Expert" || userRole === "Verificateur") {
       return NextResponse.json(
         { ok: false, error: "Vous n'êtes pas autorisé à supprimer des pièces jointes" },
         { status: 403 }
@@ -214,11 +151,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     const { code } = await params;
-    const codeRetour = parseInt(code.replace(/^R/i, ""), 10);
+    const returnId = parseReturnCode(code);
     const { searchParams } = new URL(request.url);
     const fileId = searchParams.get("fileId");
 
-    if (isNaN(codeRetour)) {
+    if (isNaN(returnId)) {
       return NextResponse.json({ ok: false, error: "Code retour invalide" }, { status: 400 });
     }
 
@@ -226,40 +163,26 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "ID de fichier requis" }, { status: 400 });
     }
 
-    // Get return
-    const returns = await query<Return>(
-      "SELECT * FROM returns WHERE code_retour = $1",
-      [codeRetour]
-    );
+    const ret = await prisma.return.findFirst({
+      where: { OR: [{ id: returnId }, { code: code.toUpperCase() }] },
+    });
 
-    if (returns.length === 0) {
+    if (!ret) {
       return NextResponse.json({ ok: false, error: "Retour non trouvé" }, { status: 404 });
     }
 
-    const existing = returns[0];
-
     // Check if can delete
-    if (existing.is_final && !existing.is_standby) {
+    if (ret.isFinal && !ret.isStandby) {
       return NextResponse.json(
         { ok: false, error: "Impossible de supprimer des pièces jointes d'un retour finalisé" },
         { status: 400 }
       );
     }
 
-    // Delete from Google Drive
-    try {
-      const drive = getDriveClient();
-      await drive.files.delete({ fileId });
-    } catch (driveError) {
-      console.error("Google Drive delete error:", driveError);
-      // Continue with database deletion even if Drive fails
-    }
-
     // Delete from database
-    await query(
-      "DELETE FROM uploads WHERE return_id = $1 AND file_path = $2",
-      [existing.id, fileId]
-    );
+    await prisma.upload.deleteMany({
+      where: { returnId: ret.id, url: fileId },
+    });
 
     return NextResponse.json({ ok: true, message: "Pièce jointe supprimée" });
   } catch (error) {
