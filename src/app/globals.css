@@ -1,11 +1,17 @@
 /* ═══════════════════════════════════════════════════════════════════════════════
    Nartex Design System — "Dark Luxe Terminal" with SUCCESS GREEN Accent
    Premium enterprise-grade design tokens
+   Neutral dark backgrounds (no blue tint)
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   Font Face Declarations — Plus Jakarta Sans
+   ───────────────────────────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* ─────────────────────────────────────────────────────────────────────────────────
    CSS Custom Properties — Design Tokens
@@ -19,20 +25,20 @@
     
     /* Background Hierarchy */
     --bg-base: 0 0% 100%;           /* #FFFFFF - Main canvas */
-    --bg-surface: 210 20% 98%;      /* #F8FAFC - Cards, panels */
-    --bg-elevated: 210 14% 95%;     /* #F1F5F9 - Hover states, dropdowns */
-    --bg-muted: 210 14% 93%;        /* #E9EEF3 - Subtle backgrounds */
+    --bg-surface: 0 0% 98%;         /* #FAFAFA - Cards, panels */
+    --bg-elevated: 0 0% 96%;        /* #F5F5F5 - Hover states, dropdowns */
+    --bg-muted: 0 0% 94%;           /* #F0F0F0 - Subtle backgrounds */
     
     /* Text Hierarchy */
-    --text-primary: 222 47% 11%;    /* #0F172A - Headlines, important text */
-    --text-secondary: 215 16% 35%;  /* #475569 - Body text */
-    --text-tertiary: 215 14% 45%;   /* #64748B - Secondary info */
-    --text-muted: 215 13% 60%;      /* #94A3B8 - Placeholders, hints */
+    --text-primary: 0 0% 9%;        /* #171717 - Headlines, important text */
+    --text-secondary: 0 0% 32%;     /* #525252 - Body text */
+    --text-tertiary: 0 0% 45%;      /* #737373 - Secondary info */
+    --text-muted: 0 0% 60%;         /* #999999 - Placeholders, hints */
     
     /* Border Hierarchy */
-    --border-subtle: 214 14% 92%;   /* #E5E9EF - Subtle dividers */
-    --border-default: 214 18% 85%;  /* #CBD5E1 - Default borders */
-    --border-strong: 215 16% 70%;   /* #94A3B8 - Emphasized borders */
+    --border-subtle: 0 0% 92%;      /* #EBEBEB - Subtle dividers */
+    --border-default: 0 0% 85%;     /* #D9D9D9 - Default borders */
+    --border-strong: 0 0% 70%;      /* #B3B3B3 - Emphasized borders */
     
     /* ═══════════════════════════════════════════════════════════════════════════
        ACCENT — SUCCESS GREEN (Spotify/Success inspired)
@@ -55,67 +61,67 @@
     --ring: 152 76% 40%;
     --radius: 0.75rem;
     
-    /* Sidebar (slightly darker in light mode) */
-    --sidebar: 210 20% 98%;
-    --sidebar-foreground: 222 47% 11%;
+    /* Sidebar */
+    --sidebar: 0 0% 98%;
+    --sidebar-foreground: 0 0% 9%;
     --sidebar-primary: 152 76% 40%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 14% 93%;
-    --sidebar-accent-foreground: 222 47% 11%;
-    --sidebar-border: 214 14% 92%;
+    --sidebar-accent: 0 0% 94%;
+    --sidebar-accent-foreground: 0 0% 9%;
+    --sidebar-border: 0 0% 92%;
     --sidebar-ring: 152 76% 40%;
   }
 
   .dark {
     /* ═══════════════════════════════════════════════════════════════════════════
-       DARK MODE — Rich, premium with green accents
+       DARK MODE — Neutral dark greys, NO blue tint
        ═══════════════════════════════════════════════════════════════════════════ */
     
-    /* Background Hierarchy - Deep, rich darks */
-    --bg-base: 222 47% 6%;          /* #080B12 - Main canvas */
-    --bg-surface: 222 40% 8%;       /* #0D1117 - Cards, panels */
-    --bg-elevated: 222 35% 11%;     /* #151B26 - Hover states */
-    --bg-muted: 222 30% 14%;        /* #1C2432 - Subtle backgrounds */
+    /* Background Hierarchy - Pure dark greys */
+    --bg-base: 0 0% 4%;             /* #0A0A0A - Main canvas (almost black) */
+    --bg-surface: 0 0% 7%;          /* #121212 - Cards, panels */
+    --bg-elevated: 0 0% 10%;        /* #1A1A1A - Hover states */
+    --bg-muted: 0 0% 14%;           /* #242424 - Subtle backgrounds */
     
     /* Text Hierarchy */
-    --text-primary: 210 40% 98%;    /* #F8FAFC - Headlines */
-    --text-secondary: 215 20% 75%;  /* #B4BCD0 - Body text */
-    --text-tertiary: 215 15% 55%;   /* #7E8A9F - Secondary info */
-    --text-muted: 215 12% 40%;      /* #5B6577 - Placeholders */
+    --text-primary: 0 0% 98%;       /* #FAFAFA - Headlines */
+    --text-secondary: 0 0% 70%;     /* #B3B3B3 - Body text */
+    --text-tertiary: 0 0% 50%;      /* #808080 - Secondary info */
+    --text-muted: 0 0% 35%;         /* #595959 - Placeholders */
     
     /* Border Hierarchy */
-    --border-subtle: 222 20% 15%;   /* #1E2736 - Subtle dividers */
-    --border-default: 222 18% 20%;  /* #2A3444 - Default borders */
-    --border-strong: 222 15% 30%;   /* #404D61 - Emphasized borders */
+    --border-subtle: 0 0% 12%;      /* #1F1F1F - Subtle dividers */
+    --border-default: 0 0% 18%;     /* #2E2E2E - Default borders */
+    --border-strong: 0 0% 28%;      /* #474747 - Emphasized borders */
     
     /* ═══════════════════════════════════════════════════════════════════════════
        ACCENT — SUCCESS GREEN (Brighter for dark mode)
        ═══════════════════════════════════════════════════════════════════════════ */
     --accent: 152 76% 46%;          /* #1ED760 - Bright green */
     --accent-hover: 152 76% 52%;    /* Even brighter on hover */
-    --accent-muted: 152 50% 12%;    /* Dark green background */
+    --accent-muted: 152 50% 10%;    /* Dark green background */
     
     /* Semantic Colors */
     --success: 152 76% 46%;
-    --success-muted: 152 50% 12%;
+    --success-muted: 152 50% 10%;
     --warning: 38 92% 55%;
-    --warning-muted: 38 50% 12%;
+    --warning-muted: 38 50% 10%;
     --danger: 0 84% 60%;
-    --danger-muted: 0 50% 12%;
+    --danger-muted: 0 50% 10%;
     --info: 199 89% 55%;
-    --info-muted: 199 50% 12%;
+    --info-muted: 199 50% 10%;
     
     /* Component Specific */
     --ring: 152 76% 46%;
     
     /* Sidebar */
-    --sidebar: 222 40% 8%;
-    --sidebar-foreground: 210 40% 98%;
+    --sidebar: 0 0% 7%;
+    --sidebar-foreground: 0 0% 98%;
     --sidebar-primary: 152 76% 46%;
-    --sidebar-primary-foreground: 222 47% 6%;
-    --sidebar-accent: 222 35% 11%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 222 20% 15%;
+    --sidebar-primary-foreground: 0 0% 4%;
+    --sidebar-accent: 0 0% 10%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 0 0% 12%;
     --sidebar-ring: 152 76% 46%;
   }
 }
@@ -133,11 +139,13 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   }
   
   body {
     @apply bg-[hsl(var(--bg-base))] text-[hsl(var(--text-secondary))];
     font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   }
   
   /* Smooth transitions for theme changes */
@@ -150,24 +158,137 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────────
-   Typography
+   Typography Classes — Semantic text styles
    ───────────────────────────────────────────────────────────────────────────────── */
-@layer base {
-  h1, h2, h3, h4, h5, h6 {
-    @apply text-[hsl(var(--text-primary))] font-semibold tracking-tight;
+@layer components {
+  /* Headlines */
+  .text-headline {
+    @apply text-2xl font-bold tracking-tight;
+    color: hsl(var(--text-primary));
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
   
-  h1 { @apply text-3xl lg:text-4xl; }
-  h2 { @apply text-2xl lg:text-3xl; }
-  h3 { @apply text-xl lg:text-2xl; }
-  h4 { @apply text-lg lg:text-xl; }
-  
-  p {
-    @apply leading-relaxed;
+  .text-title {
+    @apply text-lg font-semibold tracking-tight;
+    color: hsl(var(--text-primary));
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
   
-  a {
-    @apply text-[hsl(var(--accent))] hover:underline underline-offset-4;
+  .text-label {
+    @apply text-xs font-semibold uppercase tracking-wider;
+    color: hsl(var(--text-tertiary));
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+  
+  .text-caption {
+    @apply text-sm;
+    color: hsl(var(--text-muted));
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+  
+  /* Monospace for data */
+  .font-mono-data {
+    font-family: 'JetBrains Mono', 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+    font-feature-settings: "tnum" 1, "zero" 1;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   Surface & Card Components
+   ───────────────────────────────────────────────────────────────────────────────── */
+@layer components {
+  .surface-card {
+    background: hsl(var(--bg-surface));
+    border: 1px solid hsl(var(--border-subtle));
+    border-radius: 0.75rem;
+  }
+  
+  .surface-inset {
+    background: hsl(var(--bg-muted));
+    border: 1px solid hsl(var(--border-subtle));
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   Badge Components
+   ───────────────────────────────────────────────────────────────────────────────── */
+@layer components {
+  .badge-positive {
+    background: hsl(var(--success-muted));
+    color: hsl(var(--success));
+    border: 1px solid hsl(var(--success) / 0.2);
+  }
+  
+  .badge-negative {
+    background: hsl(var(--danger-muted));
+    color: hsl(var(--danger));
+    border: 1px solid hsl(var(--danger) / 0.2);
+  }
+  
+  .badge-neutral {
+    background: hsl(var(--bg-muted));
+    color: hsl(var(--text-tertiary));
+    border: 1px solid hsl(var(--border-subtle));
+  }
+  
+  .badge-accent {
+    background: hsl(var(--accent-muted));
+    color: hsl(var(--accent));
+    border: 1px solid hsl(var(--accent) / 0.2);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────────
+   Animation Utilities
+   ───────────────────────────────────────────────────────────────────────────────── */
+@layer utilities {
+  /* Fade in animation */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  /* Slide up animation */
+  .animate-slide-up {
+    animation: slideUp 0.4s ease-out;
+  }
+  
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  /* Stagger delays */
+  .stagger-1 { animation-delay: 0.05s; }
+  .stagger-2 { animation-delay: 0.1s; }
+  .stagger-3 { animation-delay: 0.15s; }
+  .stagger-4 { animation-delay: 0.2s; }
+  .stagger-5 { animation-delay: 0.25s; }
+  .stagger-6 { animation-delay: 0.3s; }
+  
+  /* Scale in */
+  .animate-scale-in {
+    animation: scaleIn 0.2s ease-out;
+  }
+  
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  
+  /* Pulse glow */
+  .animate-pulse-glow {
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+  
+  @keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 0 0 hsl(var(--accent) / 0.4); }
+    50% { box-shadow: 0 0 0 8px hsl(var(--accent) / 0); }
   }
 }
 
@@ -259,51 +380,6 @@
   /* Subtle border glow on focus */
   .border-glow:focus-within {
     box-shadow: 0 0 0 1px hsl(var(--accent) / 0.5), 0 0 8px hsl(var(--accent) / 0.2);
-  }
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────────
-   Animation Utilities
-   ───────────────────────────────────────────────────────────────────────────────── */
-@layer utilities {
-  /* Fade in animation */
-  .animate-fade-in {
-    animation: fadeIn 0.3s ease-out;
-  }
-  
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  
-  /* Slide in from left */
-  .animate-slide-in-left {
-    animation: slideInLeft 0.3s ease-out;
-  }
-  
-  @keyframes slideInLeft {
-    from { opacity: 0; transform: translateX(-8px); }
-    to { opacity: 1; transform: translateX(0); }
-  }
-  
-  /* Scale in */
-  .animate-scale-in {
-    animation: scaleIn 0.2s ease-out;
-  }
-  
-  @keyframes scaleIn {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
-  }
-  
-  /* Pulse glow */
-  .animate-pulse-glow {
-    animation: pulseGlow 2s ease-in-out infinite;
-  }
-  
-  @keyframes pulseGlow {
-    0%, 100% { box-shadow: 0 0 0 0 hsl(var(--accent) / 0.4); }
-    50% { box-shadow: 0 0 0 8px hsl(var(--accent) / 0); }
   }
 }
 
