@@ -1,31 +1,17 @@
 // src/types/returns.ts
-// TypeScript types for the returns management system (PostgreSQL version)
+// TypeScript types for the returns management system
+
+import type { Return, ReturnProduct, Upload, Reporter, Cause, ReturnStatus } from "@prisma/client";
 
 /* =============================================================================
-   Enums & Constants
+   Re-export Prisma types for convenience
 ============================================================================= */
 
-export type Reporter = "expert" | "transporteur" | "client" | "autre" | "prise_commande";
-export type Cause =
-  | "production"
-  | "pompe"
-  | "autre_cause"
-  | "exposition_sinto"
-  | "transporteur"
-  | "client"
-  | "expert"
-  | "expedition"
-  | "analyse"
-  | "defect"
-  | "surplus_inventaire"
-  | "prise_commande"
-  | "rappel"
-  | "redirection"
-  | "fournisseur"
-  | "autre";
+export type { Return, ReturnProduct, Upload, Reporter, Cause, ReturnStatus };
 
-export type ReturnStatus = "draft" | "awaiting_physical" | "received_or_no_physical";
-export type UserRole = "Gestionnaire" | "Analyste" | "Vérificateur" | "Facturation" | "Expert";
+/* =============================================================================
+   Label Maps
+============================================================================= */
 
 export const REPORTER_LABELS: Record<Reporter, string> = {
   expert: "Expert",
@@ -55,154 +41,6 @@ export const CAUSE_LABELS: Record<Cause, string> = {
 };
 
 /* =============================================================================
-   Database Models (PostgreSQL)
-============================================================================= */
-
-// public.returns table
-export interface Return {
-  id: number;
-  code_retour: number;
-  date_signalement: Date | string;
-  signale_par: Reporter;
-  cause_retour: Cause;
-  expert: string | null;
-  montant: number | null;
-  client: string | null;
-  no_client: string | null;
-  no_commande: string | null;
-  no_tracking: string | null;
-  date_commande: string | null;
-  description: string | null;
-  transporteur: string | null;
-  retour_physique: boolean;
-  is_draft: boolean;
-  is_final: boolean;
-  is_verified: boolean;
-  is_standby: boolean;
-  is_pickup: boolean;
-  is_commande: boolean;
-  is_reclamation: boolean;
-  no_bill: string | null;
-  no_bon_commande: string | null;
-  no_reclamation: string | null;
-  initie_par: string | null;
-  date_initialization: Date | string | null;
-  verifie_par: string | null;
-  date_verification: Date | string | null;
-  finalise_par: string | null;
-  date_finalisation: Date | string | null;
-  entrepot_depart: string | null;
-  entrepot_destination: string | null;
-  no_credit: string | null;
-  no_credit2: string | null;
-  no_credit3: string | null;
-  credite_a: string | null;
-  credite_a2: string | null;
-  credite_a3: string | null;
-  ville_shipto: string | null;
-  poids_total: number | null;
-  montant_transport: number | null;
-  montant_restocking: number | null;
-  created_at: Date | string;
-  updated_at: Date | string;
-}
-
-// public.return_products table
-export interface ReturnProduct {
-  id: number;
-  return_id: number;
-  code_retour: number;
-  code_produit: string;
-  quantite: number;
-  descr_produit: string | null;
-  description_retour: string | null;
-  quantite_recue: number | null;
-  qte_inventaire: number | null;
-  qte_detruite: number | null;
-  taux_restock: number | null;
-  poids: number | null;
-  weight_produit: number | null;
-  created_at: Date | string;
-  updated_at: Date | string;
-}
-
-// public.uploads table
-export interface Upload {
-  id: number;
-  return_id: number;
-  code_retour: number;
-  file_name: string;
-  file_path: string; // Google Drive file ID
-  mime_type: string | null;
-  file_size: number | null;
-  uploaded_by: string | null;
-  uploaded_at: Date | string;
-}
-
-// public.users table
-export interface User {
-  id: number;
-  name: string;
-  email: string;
-  password_hash?: string;
-  role: UserRole;
-  avatar_url: string | null;
-  created_at: Date | string;
-  updated_at: Date | string;
-}
-
-/* =============================================================================
-   Prextra Replicated Tables (dbo schema)
-============================================================================= */
-
-// dbo."Items" table
-export interface PrextraItem {
-  ItemCode: string;
-  Descr: string | null;
-  ShipWeight: number | null;
-}
-
-// dbo."SOHeader" table
-export interface PrextraSOHeader {
-  sonbr: string;
-  OrderDate: Date | string | null;
-  totalamt: number | null;
-  custid: number | null;
-  Carrid: number | null;
-  SRid: number | null;
-}
-
-// dbo."Customers" table
-export interface PrextraCustomer {
-  CustId: number;
-  CustCode: string | null;
-  Name: string | null;
-}
-
-// dbo."carriers" table
-export interface PrextraCarrier {
-  carrid: number;
-  name: string | null;
-}
-
-// dbo."Salesrep" table
-export interface PrextraSalesrep {
-  SRId: number;
-  Name: string | null;
-}
-
-// dbo."Sites" table
-export interface PrextraSite {
-  Name: string;
-}
-
-// dbo."ShipmentHdr" table
-export interface PrextraShipmentHdr {
-  sonbr: string;
-  WayBill: string | null;
-}
-
-/* =============================================================================
    API Response Types
 ============================================================================= */
 
@@ -214,18 +52,18 @@ export interface ReturnRow {
   cause: Cause;
   expert: string;
   client: string;
-  noClient?: string;
-  noCommande?: string;
-  tracking?: string;
+  noClient?: string | null;
+  noCommande?: string | null;
+  tracking?: string | null;
   status: ReturnStatus;
   standby?: boolean;
   amount?: number | null;
   dateCommande?: string | null;
   transport?: string | null;
-  attachments?: Attachment[];
-  products?: ProductLine[];
-  description?: string;
-  createdBy?: { name: string; avatar?: string | null; at: string };
+  attachments?: AttachmentResponse[];
+  products?: ProductLineResponse[];
+  description?: string | null;
+  createdBy?: { name: string; avatar?: string | null; at: string } | null;
   retourPhysique?: boolean;
   isPickup?: boolean;
   isCommande?: boolean;
@@ -249,18 +87,18 @@ export interface ReturnRow {
   montantRestocking?: number | null;
 }
 
-export interface Attachment {
+export interface AttachmentResponse {
   id: string;
   name: string;
   url: string;
   downloadUrl?: string;
 }
 
-export interface ProductLine {
+export interface ProductLineResponse {
   id: string;
   codeProduit: string;
   descriptionProduit: string;
-  descriptionRetour?: string;
+  descriptionRetour?: string | null;
   quantite: number;
   poidsUnitaire?: number | null;
   poidsTotal?: number | null;
@@ -293,12 +131,14 @@ export interface CreateReturnPayload {
   noBill?: string | null;
   noBonCommande?: string | null;
   noReclamation?: string | null;
-  products?: {
-    codeProduit: string;
-    descriptionProduit: string;
-    descriptionRetour?: string;
-    quantite: number;
-  }[];
+  products?: ProductInput[];
+}
+
+export interface ProductInput {
+  codeProduit: string;
+  descriptionProduit: string;
+  descriptionRetour?: string;
+  quantite: number;
 }
 
 export interface UpdateReturnPayload extends Partial<CreateReturnPayload> {
@@ -336,7 +176,7 @@ export interface FinalizeReturnPayload {
 }
 
 /* =============================================================================
-   Prextra Lookup Response Types
+   Prextra Lookup Types
 ============================================================================= */
 
 export interface OrderLookup {
@@ -366,16 +206,51 @@ export interface ItemDetail {
    Helper Functions
 ============================================================================= */
 
-export function getReturnStatus(row: Return): ReturnStatus {
-  if (row.is_draft) return "draft";
-  if (row.retour_physique && !row.is_verified) return "awaiting_physical";
+export function getReturnStatus(ret: Return): ReturnStatus {
+  if (ret.isDraft) return "draft";
+  if (ret.retourPhysique && !ret.isVerified) return "awaiting_physical";
   return "received_or_no_physical";
 }
 
-export function formatReturnCode(code: number): string {
-  return `R${code}`;
+export function formatReturnCode(id: number): string {
+  return `R${id}`;
 }
 
 export function parseReturnCode(formatted: string): number {
   return parseInt(formatted.replace(/^R/i, ""), 10);
+}
+
+/* =============================================================================
+   Transport Calculation
+============================================================================= */
+
+export const TRANSPORT_RATES: Record<string, number[]> = {
+  A: [15.0, 0.08, 0.07, 0.06, 0.05],
+  B: [18.0, 0.10, 0.09, 0.08, 0.07],
+  C: [22.0, 0.12, 0.11, 0.10, 0.09],
+  D: [28.0, 0.15, 0.14, 0.12, 0.11],
+  E: [35.0, 0.18, 0.16, 0.14, 0.12],
+  Z: [50.0, 0.25, 0.22, 0.20, 0.18],
+};
+
+export function calculateShippingCost(zone: string, weightLbs: number): number {
+  const rates = TRANSPORT_RATES[zone.toUpperCase()] || TRANSPORT_RATES.Z;
+
+  if (weightLbs <= 10) {
+    return rates[0];
+  } else if (weightLbs <= 400) {
+    return rates[0] + (weightLbs - 10) * rates[1];
+  } else if (weightLbs <= 800) {
+    return rates[0] + 390 * rates[1] + (weightLbs - 400) * rates[2];
+  } else if (weightLbs <= 1000) {
+    return rates[0] + 390 * rates[1] + 400 * rates[2] + (weightLbs - 800) * rates[3];
+  } else {
+    return (
+      rates[0] +
+      390 * rates[1] +
+      400 * rates[2] +
+      200 * rates[3] +
+      (weightLbs - 1000) * rates[4]
+    );
+  }
 }
