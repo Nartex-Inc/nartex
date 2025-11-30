@@ -15,8 +15,8 @@ interface HeaderProps {
 
 /**
  * Premium header - Clean, centered layout.
- * Theme toggle moved to UserNav dropdown.
- * Improved search bar contrast.
+ * Theme toggle in UserNav dropdown.
+ * SUCCESS GREEN accent color.
  */
 export function Header({
   onToggleMobileSidebar,
@@ -60,7 +60,7 @@ export function Header({
               <Menu className="h-5 w-5" />
             </button>
 
-            {/* Nartex Logo — Scaled down ~25% (h-5 instead of h-6) */}
+            {/* Nartex Logo — Scaled down (h-5) */}
             <Link
               href="/dashboard"
               className="flex items-center group"
@@ -97,7 +97,7 @@ export function Header({
                   "text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-secondary))]",
                   // Visible border for better contrast
                   "border border-[hsl(var(--border-default))]",
-                  // Focus state
+                  // Focus state with GREEN accent
                   "focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))] focus:border-[hsl(var(--accent))]",
                   // Hover state
                   "hover:border-[hsl(var(--border-strong))]",
@@ -109,7 +109,7 @@ export function Header({
           </div>
 
           {/* ─────────────────────────────────────────────────────────────────────
-             Right Section: Actions (Theme toggle now in UserNav)
+             Right Section: Actions
              ───────────────────────────────────────────────────────────────────── */}
           <div className="flex items-center gap-1.5">
             {/* Notifications */}
