@@ -1,122 +1,151 @@
 // src/lib/theme-tokens.ts
-// NARTEX — Dark Luxe Terminal Design System
+/**
+ * Nartex Design System — Theme Tokens
+ * Centralized theme configuration for charts and components
+ * Uses SUCCESS GREEN as primary accent
+ */
 
-export const THEME = {
-  dark: {
-    // Surfaces
-    void: "hsl(0, 0%, 4%)",
-    surface0: "hsl(0, 0%, 6%)",
-    surface1: "hsl(0, 0%, 9%)",
-    surface2: "hsl(0, 0%, 12%)",
-    surface3: "hsl(0, 0%, 16%)",
+export type ThemeTokens = {
+  // Backgrounds
+  void: string;
+  surface1: string;
+  surface2: string;
+  surface3: string;
+  
+  // Text
+  textPrimary: string;
+  textSecondary: string;
+  textTertiary: string;
+  textMuted: string;
+  
+  // Borders
+  borderSubtle: string;
+  borderDefault: string;
+  
+  // Accent (SUCCESS GREEN)
+  accent: string;
+  accentMuted: string;
+  
+  // Semantic
+  success: string;
+  danger: string;
+  warning: string;
+  
+  // Tooltip
+  tooltipBg: string;
+};
 
-    // Borders
-    borderSubtle: "hsl(0, 0%, 14%)",
-    borderDefault: "hsl(0, 0%, 18%)",
-    borderEmphasis: "hsl(0, 0%, 24%)",
-
-    // Text
-    textPrimary: "hsl(0, 0%, 98%)",
-    textSecondary: "hsl(0, 0%, 70%)",
-    textTertiary: "hsl(0, 0%, 45%)",
-    textMuted: "hsl(0, 0%, 32%)",
-
-    // Accent
-    accent: "hsl(187, 100%, 50%)",
-    accentMuted: "hsl(187, 80%, 35%)",
-    accentSubtle: "hsl(187, 60%, 15%)",
-
-    // Semantic
-    success: "hsl(142, 76%, 46%)",
-    successMuted: "hsl(142, 50%, 20%)",
-    warning: "hsl(38, 92%, 50%)",
-    warningMuted: "hsl(38, 60%, 20%)",
-    danger: "hsl(0, 84%, 60%)",
-    dangerMuted: "hsl(0, 50%, 20%)",
-
-    // Chart grid
-    grid: "hsl(0, 0%, 18%)",
-
-    // Tooltip
-    tooltipBg: "hsl(0, 0%, 12%)",
-    tooltipBorder: "hsl(0, 0%, 18%)",
-  },
+/**
+ * Theme configurations — Pure neutral greys with SUCCESS GREEN accent
+ */
+export const THEME: Record<"light" | "dark", ThemeTokens> = {
   light: {
-    // Surfaces
-    void: "hsl(0, 0%, 100%)",
-    surface0: "hsl(0, 0%, 98%)",
-    surface1: "hsl(0, 0%, 100%)",
-    surface2: "hsl(0, 0%, 96%)",
-    surface3: "hsl(0, 0%, 92%)",
-
-    // Borders
-    borderSubtle: "hsl(0, 0%, 92%)",
-    borderDefault: "hsl(0, 0%, 88%)",
-    borderEmphasis: "hsl(0, 0%, 82%)",
-
+    // Backgrounds
+    void: "#FFFFFF",
+    surface1: "#FAFAFA",
+    surface2: "#F5F5F5",
+    surface3: "#F0F0F0",
+    
     // Text
-    textPrimary: "hsl(0, 0%, 9%)",
-    textSecondary: "hsl(0, 0%, 35%)",
-    textTertiary: "hsl(0, 0%, 50%)",
-    textMuted: "hsl(0, 0%, 65%)",
-
-    // Accent
-    accent: "hsl(187, 100%, 38%)",
-    accentMuted: "hsl(187, 60%, 85%)",
-    accentSubtle: "hsl(187, 40%, 95%)",
-
+    textPrimary: "#171717",
+    textSecondary: "#525252",
+    textTertiary: "#737373",
+    textMuted: "#999999",
+    
+    // Borders
+    borderSubtle: "#EBEBEB",
+    borderDefault: "#D9D9D9",
+    
+    // Accent (SUCCESS GREEN)
+    accent: "#1DB954",
+    accentMuted: "#E8F8ED",
+    
     // Semantic
-    success: "hsl(142, 76%, 36%)",
-    successMuted: "hsl(142, 50%, 90%)",
-    warning: "hsl(38, 92%, 45%)",
-    warningMuted: "hsl(38, 60%, 90%)",
-    danger: "hsl(0, 84%, 50%)",
-    dangerMuted: "hsl(0, 50%, 92%)",
-
-    // Chart grid
-    grid: "hsl(0, 0%, 88%)",
-
+    success: "#1DB954",
+    danger: "#EF4444",
+    warning: "#F59E0B",
+    
     // Tooltip
-    tooltipBg: "hsl(0, 0%, 100%)",
-    tooltipBorder: "hsl(0, 0%, 88%)",
+    tooltipBg: "#FFFFFF",
   },
-} as const;
+  dark: {
+    // Backgrounds - Pure dark greys (NO blue tint)
+    void: "#0A0A0A",
+    surface1: "#121212",
+    surface2: "#1A1A1A",
+    surface3: "#242424",
+    
+    // Text
+    textPrimary: "#FAFAFA",
+    textSecondary: "#B3B3B3",
+    textTertiary: "#808080",
+    textMuted: "#595959",
+    
+    // Borders
+    borderSubtle: "#1F1F1F",
+    borderDefault: "#2E2E2E",
+    
+    // Accent (SUCCESS GREEN - Brighter for dark mode)
+    accent: "#1ED760",
+    accentMuted: "#1A3D2A",
+    
+    // Semantic
+    success: "#1ED760",
+    danger: "#EF4444",
+    warning: "#FBBF24",
+    
+    // Tooltip
+    tooltipBg: "#1A1A1A",
+  },
+};
 
-export type ThemeMode = keyof typeof THEME;
-export type ThemeTokens = (typeof THEME)[ThemeMode];
-
-// Chart colors - sophisticated palette for data visualization
-export const CHART_COLORS = {
-  dark: [
-    "hsl(187, 100%, 50%)",  // Cyan (primary)
-    "hsl(262, 83%, 58%)",   // Violet
-    "hsl(142, 76%, 46%)",   // Emerald
-    "hsl(38, 92%, 50%)",    // Amber
-    "hsl(340, 82%, 52%)",   // Rose
-    "hsl(200, 98%, 39%)",   // Blue
-    "hsl(24, 95%, 53%)",    // Orange
-    "hsl(280, 65%, 60%)",   // Purple
-  ],
+/**
+ * Chart color palette — SUCCESS GREEN primary, complementary colors
+ */
+export const CHART_COLORS: Record<"light" | "dark", string[]> = {
   light: [
-    "hsl(187, 100%, 38%)",
-    "hsl(262, 83%, 48%)",
-    "hsl(142, 76%, 36%)",
-    "hsl(38, 92%, 45%)",
-    "hsl(340, 82%, 45%)",
-    "hsl(200, 98%, 35%)",
-    "hsl(24, 95%, 48%)",
-    "hsl(280, 65%, 50%)",
+    "#1DB954",  // Primary green (accent)
+    "#6366F1",  // Indigo
+    "#EC4899",  // Pink
+    "#F59E0B",  // Amber
+    "#14B8A6",  // Teal
+    "#8B5CF6",  // Violet
+    "#06B6D4",  // Cyan
+    "#F97316",  // Orange
+    "#84CC16",  // Lime
+    "#EF4444",  // Red
   ],
-} as const;
+  dark: [
+    "#1ED760",  // Primary green (accent - brighter)
+    "#818CF8",  // Indigo (brighter)
+    "#F472B6",  // Pink (brighter)
+    "#FBBF24",  // Amber (brighter)
+    "#2DD4BF",  // Teal (brighter)
+    "#A78BFA",  // Violet (brighter)
+    "#22D3EE",  // Cyan (brighter)
+    "#FB923C",  // Orange (brighter)
+    "#A3E635",  // Lime (brighter)
+    "#F87171",  // Red (brighter)
+  ],
+};
 
-// For backwards compatibility
-export const PIE_COLORS_DARK = CHART_COLORS.dark;
-export const PIE_COLORS_LIGHT = CHART_COLORS.light;
+/**
+ * Get chart gradient stops for area charts
+ */
+export const getGradientStops = (color: string, mode: "light" | "dark") => ({
+  start: mode === "dark" ? `${color}40` : `${color}30`,
+  end: mode === "dark" ? `${color}05` : `${color}00`,
+});
 
-// Gradient presets
-export const GRADIENTS = {
-  accent: "linear-gradient(135deg, hsl(187, 100%, 50%) 0%, hsl(262, 83%, 58%) 100%)",
-  success: "linear-gradient(135deg, hsl(142, 76%, 46%) 0%, hsl(187, 100%, 50%) 100%)",
-  danger: "linear-gradient(135deg, hsl(0, 84%, 60%) 0%, hsl(38, 92%, 50%) 100%)",
-  surface: "linear-gradient(135deg, hsl(0, 0%, 9%) 0%, hsl(0, 0%, 12%) 100%)",
-} as const;
+/**
+ * Semantic color helpers
+ */
+export const getSemanticColor = (
+  value: number,
+  mode: "light" | "dark"
+): string => {
+  const theme = THEME[mode];
+  if (value > 0) return theme.success;
+  if (value < 0) return theme.danger;
+  return theme.textMuted;
+};
