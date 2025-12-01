@@ -26,6 +26,9 @@ import {
   ArrowUpNarrowWide,
   ArrowDownNarrowWide,
   Loader2,
+  Check,
+  Archive,
+  AlertCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -72,6 +75,10 @@ type ReturnRow = {
   products?: ProductLine[];
   description?: string;
   createdBy?: { name: string; avatar?: string | null; at: string };
+  // New fields for logic
+  physicalReturn?: boolean; // retour_physique
+  verified?: boolean;
+  finalized?: boolean;
 };
 
 const REPORTER_LABEL: Record<Reporter, string> = {
@@ -183,6 +190,7 @@ async function createReturn(payload: {
   dateCommande?: string | null;
   transport?: string | null;
   description?: string | null;
+  physicalReturn?: boolean; // Added
   products?: {
     codeProduit: string;
     descriptionProduit: string;
@@ -281,6 +289,34 @@ function useDebounced<T>(value: T, delay = 300) {
     return () => clearTimeout(id);
   }, [value, delay]);
   return v;
+}
+
+/* =============================================================================
+   Switch Component
+============================================================================= */
+function Switch({ checked, onCheckedChange, label }: { checked: boolean; onCheckedChange: (c: boolean) => void; label?: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onCheckedChange(!checked)}
+        className={cn(
+          "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--bg-base))]",
+          checked ? "bg-[hsl(var(--accent))]" : "bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-default))]"
+        )}
+      >
+        <span
+          className={cn(
+            "pointer-events-none block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform",
+            checked ? "translate-x-5" : "translate-x-0"
+          )}
+        />
+      </button>
+      {label && <span className="text-sm font-medium text-[hsl(var(--text-primary))]">{label}</span>}
+    </div>
+  );
 }
 
 /* =============================================================================
@@ -416,6 +452,45 @@ export default function ReturnsPage() {
       setSortDir("asc");
       return key;
     });
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  ROW CLASS LOGIC
+  // ─────────────────────────────────────────────────────────────────────────────
+  const getRowClasses = (row: ReturnRow, isHovered: boolean) => {
+    const base = "transition-colors duration-150 border-b border-[hsl(var(--border-subtle))]";
+    
+    // 1. FINALIZED -> Archived (Usually grayed out)
+    if (row.finalized) {
+       return cn(base, "bg-gray-50 dark:bg-gray-900/50 opacity-60 grayscale");
+    }
+
+    // 2. VERIFIED -> Green (Verified but not finalized)
+    if (row.verified) {
+      return cn(
+        base, 
+        "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-100",
+        isHovered && "bg-emerald-100 dark:bg-emerald-950/60"
+      );
+    }
+
+    // 3. PHYSICAL RETURN & NOT VERIFIED -> Black (Needs verification)
+    if (row.physicalReturn) {
+      // "Black" background. In dark mode, this is standard, but we make it deeper/contrast.
+      // In light mode, this is dark gray/black.
+      return cn(
+        base,
+        "bg-neutral-900 text-white dark:bg-black",
+        isHovered && "bg-neutral-800 dark:bg-neutral-950"
+      );
+    }
+
+    // 4. Default -> Standard colors
+    return cn(
+      base,
+      row.standby && "opacity-50",
+      isHovered ? "bg-[hsl(var(--bg-elevated))]" : "bg-[hsl(var(--bg-surface))]"
+    );
   };
 
   return (
@@ -610,27 +685,27 @@ export default function ReturnsPage() {
                       const hasFiles = (row.attachments?.length ?? 0) > 0;
                       const statusConfig = STATUS_CONFIG[row.status];
                       const StatusIcon = statusConfig.icon;
+                      
+                      const isSpecialRow = row.physicalReturn || row.verified || row.finalized;
+                      const rowClass = getRowClasses(row, hovered === row.id);
 
                       return (
                         <tr
                           key={row.id}
                           onMouseEnter={() => setHovered(row.id)}
                           onMouseLeave={() => setHovered(null)}
-                          className={cn(
-                            "transition-colors duration-150",
-                            row.standby && "opacity-50",
-                            hovered === row.id ? "bg-[hsl(var(--bg-elevated))]" : "bg-[hsl(var(--bg-surface))]"
-                          )}
+                          className={rowClass}
                         >
                           <td className="px-4 py-3.5">
                             <div className="flex items-center gap-3">
+                              {/* If black row (physical return), hide the colored pill or adjust it? keeping it for now but it might look odd on black */}
                               <div className={cn("w-1.5 h-6 rounded-full", statusConfig.bgClass)} />
-                              <span className="font-mono font-semibold text-[hsl(var(--text-primary))]">
+                              <span className={cn("font-mono font-semibold", isSpecialRow ? "text-inherit" : "text-[hsl(var(--text-primary))]")}>
                                 {row.id}
                               </span>
                             </div>
                           </td>
-                          <td className="px-4 py-3.5 text-[hsl(var(--text-secondary))]">
+                          <td className={cn("px-4 py-3.5", isSpecialRow ? "text-inherit/80" : "text-[hsl(var(--text-secondary))]")}>
                             <div className="flex items-center gap-2">
                               <Calendar className="h-3.5 w-3.5 opacity-60" />
                               {new Date(row.reportedAt).toLocaleDateString("fr-CA")}
@@ -639,7 +714,9 @@ export default function ReturnsPage() {
                           <td className="px-4 py-3.5">
                             <span className={cn(
                               "inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium",
-                              "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))] border border-[hsl(var(--border-subtle))]"
+                              isSpecialRow 
+                                ? "bg-white/20 text-inherit border-white/20"
+                                : "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))] border border-[hsl(var(--border-subtle))]"
                             )}>
                               {REPORTER_LABEL[row.reporter]}
                             </span>
@@ -647,29 +724,31 @@ export default function ReturnsPage() {
                           <td className="px-4 py-3.5">
                             <span className={cn(
                               "inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium",
-                              "bg-[hsl(var(--accent-muted))] text-[hsl(var(--accent))] border border-[hsl(var(--accent)/0.2)]"
+                              isSpecialRow
+                                ? "bg-white/20 text-inherit border-white/20"
+                                : "bg-[hsl(var(--accent-muted))] text-[hsl(var(--accent))] border border-[hsl(var(--accent)/0.2)]"
                             )}>
                               {CAUSE_LABEL[row.cause]}
                             </span>
                           </td>
                           <td className="px-4 py-3.5">
-                            <div className="text-[hsl(var(--text-primary))] font-medium">{row.client}</div>
-                            <div className="text-[11px] text-[hsl(var(--text-muted))]">{row.expert}</div>
+                            <div className={cn("font-medium", isSpecialRow ? "text-inherit" : "text-[hsl(var(--text-primary))]")}>{row.client}</div>
+                            <div className={cn("text-[11px]", isSpecialRow ? "text-inherit/70" : "text-[hsl(var(--text-muted))]")}>{row.expert}</div>
                           </td>
-                          <td className="px-4 py-3.5 text-[hsl(var(--text-secondary))] font-mono">
+                          <td className={cn("px-4 py-3.5 font-mono", isSpecialRow ? "text-inherit/80" : "text-[hsl(var(--text-secondary))]")}>
                             {row.noCommande ?? "—"}
                           </td>
-                          <td className="px-4 py-3.5 text-[hsl(var(--text-secondary))]">
+                          <td className={cn("px-4 py-3.5", isSpecialRow ? "text-inherit/80" : "text-[hsl(var(--text-secondary))]")}>
                             {row.tracking ?? "—"}
                           </td>
                           <td className="px-4 py-3.5">
                             {hasFiles ? (
-                              <div className="inline-flex items-center gap-1.5 text-[hsl(var(--text-secondary))]">
+                              <div className={cn("inline-flex items-center gap-1.5", isSpecialRow ? "text-inherit" : "text-[hsl(var(--text-secondary))]")}>
                                 <Folder className="h-4 w-4" />
                                 <span className="text-xs font-medium">{row.attachments!.length}</span>
                               </div>
                             ) : (
-                              <span className="text-xs text-[hsl(var(--text-muted))]">—</span>
+                              <span className={cn("text-xs", isSpecialRow ? "text-inherit/50" : "text-[hsl(var(--text-muted))]")}>—</span>
                             )}
                           </td>
                           <td className="px-4 py-3.5">
@@ -679,21 +758,21 @@ export default function ReturnsPage() {
                             )}>
                               <button
                                 onClick={() => setOpenId(row.id)}
-                                className="p-2 rounded-lg text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-muted))] transition-colors"
+                                className={cn("p-2 rounded-lg transition-colors", isSpecialRow ? "hover:bg-white/20 text-inherit" : "text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-muted))]")}
                                 title="Consulter"
                               >
                                 <Eye className="h-4 w-4" />
                               </button>
                               <button
                                 onClick={() => onToggleStandby(row.id)}
-                                className="p-2 rounded-lg text-[hsl(var(--warning))] hover:bg-[hsl(var(--warning-muted))] transition-colors"
+                                className={cn("p-2 rounded-lg transition-colors", isSpecialRow ? "hover:bg-white/20 text-inherit" : "text-[hsl(var(--warning))] hover:bg-[hsl(var(--warning-muted))]")}
                                 title={row.standby ? "Retirer du standby" : "Mettre en standby"}
                               >
                                 <Pause className="h-4 w-4" />
                               </button>
                               <button
                                 onClick={() => onDelete(row.id)}
-                                className="p-2 rounded-lg text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))] transition-colors"
+                                className={cn("p-2 rounded-lg transition-colors", isSpecialRow ? "hover:bg-white/20 text-inherit" : "text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))]")}
                                 title="Supprimer"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -989,6 +1068,11 @@ function DetailModal({
   const hasFiles = (draft.attachments?.length ?? 0) > 0;
   const creatorName = draft.createdBy?.name ?? session?.user?.name ?? REPORTER_LABEL[draft.reporter];
 
+  // Helper for color logic display
+  const isPhysical = draft.physicalReturn;
+  const isVerified = draft.verified;
+  const isFinalized = draft.finalized;
+
   React.useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -1025,6 +1109,74 @@ function DetailModal({
 
           {/* Body */}
           <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-6 py-6 space-y-6">
+            
+            {/* LOGIC TOGGLES (Visual Test) */}
+            <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[hsl(var(--text-muted))]">Options de traitement</h4>
+              <div className="flex flex-wrap items-center gap-6">
+                 {/* 1. Retour Physique Toggle */}
+                <Switch 
+                  label="Retour physique de la marchandise"
+                  checked={draft.physicalReturn || false}
+                  onCheckedChange={(c) => setDraft({ ...draft, physicalReturn: c })}
+                />
+                
+                {/* 2. Verification (Only if physical) */}
+                {isPhysical && (
+                  <button
+                    onClick={() => setDraft({ ...draft, verified: !isVerified })}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
+                      isVerified
+                        ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                        : "bg-white border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]"
+                    )}
+                  >
+                    <CheckCircle className="h-4 w-4" />
+                    {isVerified ? "Vérifié (OK)" : "Marquer comme vérifié"}
+                  </button>
+                )}
+
+                {/* 3. Finalization */}
+                {isVerified && (
+                  <button
+                    onClick={() => setDraft({ ...draft, finalized: !isFinalized })}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
+                      isFinalized
+                        ? "bg-gray-100 text-gray-800 border-gray-200"
+                        : "bg-white border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]"
+                    )}
+                  >
+                    <Archive className="h-4 w-4" />
+                    {isFinalized ? "Finalisé (Archivé)" : "Finaliser le retour"}
+                  </button>
+                )}
+              </div>
+              
+              {/* Contextual Status Message */}
+              <div className="text-sm font-medium">
+                {isPhysical && !isVerified && (
+                  <span className="text-red-500 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4"/>
+                    En attente de vérification physique (Ligne noire)
+                  </span>
+                )}
+                {isPhysical && isVerified && !isFinalized && (
+                  <span className="text-emerald-600 flex items-center gap-2">
+                     <Check className="h-4 w-4"/>
+                     Marchandise vérifiée (Ligne verte)
+                  </span>
+                )}
+                {isFinalized && (
+                  <span className="text-gray-500 flex items-center gap-2">
+                    <Archive className="h-4 w-4"/>
+                    Dossier clos (Archivé)
+                  </span>
+                )}
+              </div>
+            </div>
+
             {/* Creator Info */}
             <div className="flex items-center gap-3 p-3 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))]">
               <Avatar className="h-9 w-9">
@@ -1180,6 +1332,7 @@ function NewReturnModal({
   const [amount, setAmount] = React.useState<string>("");
   const [dateCommande, setDateCommande] = React.useState<string>("");
   const [description, setDescription] = React.useState("");
+  const [physicalReturn, setPhysicalReturn] = React.useState(false); // New state
   const [products, setProducts] = React.useState<ProductLine[]>([]);
   const [busy, setBusy] = React.useState(false);
 
@@ -1220,6 +1373,7 @@ function NewReturnModal({
         dateCommande: dateCommande || null,
         transport: transport.trim() || null,
         description: description.trim() || null,
+        physicalReturn, // Pass new field
         products: products.map((p) => ({
           codeProduit: p.codeProduit.trim(),
           descriptionProduit: p.descriptionProduit.trim(),
@@ -1257,6 +1411,17 @@ function NewReturnModal({
           </div>
 
           <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-6 py-6 space-y-6">
+            
+            {/* Options block */}
+            <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))]">
+               <Switch 
+                  label="Retour physique de la marchandise"
+                  checked={physicalReturn}
+                  onCheckedChange={setPhysicalReturn}
+                />
+                {physicalReturn && <p className="mt-2 text-xs text-[hsl(var(--text-muted))]">Ce retour apparaîtra en évidence (ligne noire) jusqu'à sa réception.</p>}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Field
                 label="Signalé par"
