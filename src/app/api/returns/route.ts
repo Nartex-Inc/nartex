@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     const dateTo = searchParams.get("dateTo");
     const status = searchParams.get("status");
     const history = searchParams.get("history") === "true";
-    const take = parseInt(searchParams.get("take") || "50", 10);
+    const take = parseInt(searchParams.get("take") || "200", 10);
 
     const userRole = (session.user as { role?: string }).role;
     const userName = session.user.name || "";
@@ -56,12 +56,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Cause filter
-    if (cause) {
+    if (cause && cause !== "all") {
       AND.push({ cause: cause as Cause });
     }
 
     // Reporter filter
-    if (reporter) {
+    if (reporter && reporter !== "all") {
       AND.push({ reporter: reporter as Reporter });
     }
 
@@ -131,6 +131,8 @@ export async function GET(request: NextRequest) {
       transport: ret.transporteur,
       description: ret.description,
       returnPhysical: ret.returnPhysical,
+      verified: ret.isVerified,
+      finalized: ret.isFinal,
       products: ret.products.map((p) => ({
         id: String(p.id),
         codeProduit: p.codeProduit,
@@ -161,7 +163,7 @@ export async function GET(request: NextRequest) {
 }
 
 /* =============================================================================
-   POST /api/returns - Create new return
+   POST /api/returns - Create new return with Gap-Filling ID Logic
 ============================================================================= */
 
 export async function POST(request: NextRequest) {
@@ -182,7 +184,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Determine if this is a draft
-    // FIXED: Added null check for p.quantite
     const hasRequiredFields = body.reporter && body.cause && body.expert && body.client;
     const hasProducts = body.products 
       && body.products.length > 0 
@@ -190,9 +191,32 @@ export async function POST(request: NextRequest) {
     
     const isDraft = !(hasRequiredFields && hasProducts);
 
-    // Create the return
+    // ---------------------------------------------------------
+    // GAP FILLING LOGIC (PRISMA)
+    // ---------------------------------------------------------
+    // 1. Fetch all existing IDs (lightweight query) to check for holes
+    const existingIds = await prisma.return.findMany({
+      select: { id: true },
+      orderBy: { id: 'asc' }
+    });
+
+    // 2. Find the first missing number in the sequence (1, 2, 3...)
+    // This allows reusing an ID if a previous return was deleted.
+    let nextId = 1;
+    for (const record of existingIds) {
+      if (record.id === nextId) {
+        nextId++;
+      } else if (record.id > nextId) {
+        // Gap found! We will use nextId.
+        break;
+      }
+    }
+    // ---------------------------------------------------------
+
+    // Create the return with the calculated Gap ID
     const ret = await prisma.return.create({
       data: {
+        id: nextId, // Explicitly use the calculated ID
         reportedAt: new Date(),
         reporter: body.reporter || "expert",
         cause: body.cause || "production",
@@ -205,7 +229,7 @@ export async function POST(request: NextRequest) {
         dateCommande: body.dateCommande || null,
         transporteur: body.transport || null,
         description: body.description || null,
-        returnPhysical: body.returnPhysical ?? false,
+        returnPhysical: body.physicalReturn ?? false, // Mapped from frontend logic
         isPickup: body.isPickup ?? false,
         isCommande: body.isCommande ?? false,
         isReclamation: body.isReclamation ?? false,
@@ -218,21 +242,22 @@ export async function POST(request: NextRequest) {
         isStandby: false,
         initiatedBy: session.user.name || "Système",
         initializedAt: new Date(),
+        // Create products inline
+        products: {
+          create: (body.products && Array.isArray(body.products)) 
+            ? body.products.map((p: { codeProduit: string; descriptionProduit?: string; descriptionRetour?: string; quantite?: number }) => ({
+                codeProduit: p.codeProduit,
+                descrProduit: p.descriptionProduit || null,
+                descriptionRetour: p.descriptionRetour || null,
+                quantite: p.quantite || 0,
+              }))
+            : []
+        }
       },
+      include: {
+        products: true // Include products in the returned object so frontend updates immediately
+      }
     });
-
-    // Create products if provided
-    if (body.products && Array.isArray(body.products) && body.products.length > 0) {
-      await prisma.returnProduct.createMany({
-        data: body.products.map((p: { codeProduit: string; descriptionProduit?: string; descriptionRetour?: string; quantite?: number }) => ({
-          returnId: ret.id,
-          codeProduit: p.codeProduit,
-          descrProduit: p.descriptionProduit || null,
-          descriptionRetour: p.descriptionRetour || null,
-          quantite: p.quantite || 0,
-        })),
-      });
-    }
 
     return NextResponse.json({
       ok: true,
