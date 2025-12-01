@@ -1,15 +1,15 @@
 // src/lib/auth.ts
-import "server-only";
-import type { NextAuthConfig } from "next-auth";
+import type { NextAuthOptions } from "next-auth";
+import { PrismaAdapter } from "@next-auth/prisma-adapter";
+import prisma from "@/lib/prisma";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import AzureADProvider from "next-auth/providers/azure-ad";
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
-export const authOptions = {
-  adapter: PrismaAdapter(prisma),
+export const authOptions: NextAuthOptions = {
+  // Cast adapter to 'any' to fix the "not assignable" build error caused by version mismatch
+  adapter: PrismaAdapter(prisma) as any,
   session: { strategy: "jwt" },
   secret: process.env.NEXTAUTH_SECRET,
   pages: { 
@@ -23,12 +23,11 @@ export const authOptions = {
       allowDangerousEmailAccountLinking: true,
       profile(profile) {
         return {
-          id: profile.sub,
-          name: profile.name,
-          email: profile.email,
-          image: profile.picture,
-          // We set role to null here so the JWT callback knows to fetch it
-          role: null, 
+          id: profile.sub ?? "google_id",
+          name: profile.name ?? "",
+          email: profile.email ?? "",
+          image: profile.picture ?? null,
+          role: "user", // Must be a string to satisfy your custom User type
         };
       },
     }),
@@ -39,11 +38,11 @@ export const authOptions = {
       allowDangerousEmailAccountLinking: true,
       profile(profile) {
         return {
-          id: profile.sub ?? profile.oid,
-          name: profile.name,
-          email: profile.email ?? profile.preferred_username,
+          id: profile.sub ?? profile.oid ?? "azure_id",
+          name: profile.name ?? "",
+          email: profile.email ?? profile.preferred_username ?? "",
           image: null,
-          role: null,
+          role: "user", // Must be a string to satisfy your custom User type
         };
       },
     }),
@@ -63,12 +62,9 @@ export const authOptions = {
         });
 
         if (!user || !user.password) {
-          throw new Error("Aucun utilisateur trouvé ou mot de passe non configuré.");
+          throw new Error("Utilisateur introuvable.");
         }
         
-        // Optional: Comment out if you want to allow unverified users for now
-        // if (!user.emailVerified) throw new Error("Veuillez vérifier votre adresse e-mail.");
-
         const isPasswordCorrect = await bcrypt.compare(String(credentials.password), user.password);
         if (!isPasswordCorrect) throw new Error("Mot de passe incorrect.");
 
@@ -77,27 +73,23 @@ export const authOptions = {
           name: user.name,
           email: user.email,
           image: user.image,
-          role: user.role 
+          role: user.role // This fetches the real role from DB
         };
       },
     }),
   ],
   callbacks: {
     async jwt({ token, user, trigger, session }) {
-      // 1. Handle client-side updates
       if (trigger === "update" && session?.user) {
         token.role = session.user.role;
       }
 
-      // 2. Initial sign-in
       if (user) {
         token.id = user.id;
-        token.role = (user as any).role;
+        token.role = (user as any).role || "user";
       }
 
-      // 3. CRITICAL FIX: Always refresh role from DB using email
-      // This ensures that even if the provider returns null/undefined,
-      // we fetch the REAL role ("Gestionnaire") from Postgres.
+      // CRITICAL FIX: Refresh role from DB
       if (token.email) {
          try {
            const dbUser = await prisma.user.findUnique({ 
@@ -110,15 +102,15 @@ export const authOptions = {
                token.role = dbUser.role;
            }
          } catch (error) {
-           console.error("Error refreshing user role:", error);
+           console.error("Error refreshing role:", error);
          }
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as string;
+        (session.user as any).id = token.id as string;
+        (session.user as any).role = token.role as string;
       }
       return session;
     },
@@ -128,4 +120,4 @@ export const authOptions = {
       return baseUrl + "/dashboard";
     },
   },
-} satisfies NextAuthConfig;
+};
