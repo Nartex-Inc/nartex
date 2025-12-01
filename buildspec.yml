@@ -31,7 +31,7 @@ phases:
     runtime-versions:
       nodejs: 20
     commands:
-      # Memory fix for large builds
+      # --- MEMORY FIX (CRITICAL) ---
       - export NODE_OPTIONS="--max-old-space-size=4096"
       - export NEXT_TELEMETRY_DISABLED=1
 
@@ -45,10 +45,7 @@ phases:
   pre_build:
     commands:
       - echo "🔎 PRE_BUILD – detecting changes"
-      # --- FIX: Move auth.config.ts to src so @/auth.config works ---
-      - echo "🔧 FIXING FILE STRUCTURE..."
-      - "[ -f auth.config.ts ] && mv auth.config.ts src/ || true"
-      # -------------------------------------------------------------
+      # REMOVED THE FILE MOVE SCRIPT HERE - DO NOT PUT IT BACK
 
       - |
         /usr/bin/env bash -c '
