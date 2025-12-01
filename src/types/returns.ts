@@ -71,15 +71,25 @@ export interface ReturnRow {
   products?: ProductLineResponse[];
   description?: string | null;
   createdBy?: { name: string; avatar?: string | null; at: string } | null;
-  returnPhysical?: boolean;
+  
+  // Boolean flags matching API logic
+  returnPhysical?: boolean; 
+  physicalReturn?: boolean; // Alias often used in frontend logic
   isPickup?: boolean;
   isCommande?: boolean;
   isReclamation?: boolean;
+  
+  // Status flags (Fixes the build error)
+  verified?: boolean;
+  finalized?: boolean;
+
   noBill?: string | null;
   noBonCommande?: string | null;
   noReclamation?: string | null;
+  
   verifiedBy?: { name: string; at: string | null } | null;
   finalizedBy?: { name: string; at: string | null } | null;
+  
   warehouseOrigin?: string | null;
   warehouseDestination?: string | null;
   noCredit?: string | null;
@@ -89,6 +99,7 @@ export interface ReturnRow {
   creditedTo2?: string | null;
   creditedTo3?: string | null;
   villeShipto?: string | null;
+  
   totalWeight?: number | null;
   transportAmount?: number | null;
   restockingAmount?: number | null;
@@ -132,6 +143,7 @@ export interface CreateReturnPayload {
   transport?: string | null;
   description?: string | null;
   returnPhysical?: boolean;
+  physicalReturn?: boolean; // Alias for frontend compatibility
   isPickup?: boolean;
   isCommande?: boolean;
   isReclamation?: boolean;
@@ -150,6 +162,8 @@ export interface ProductInput {
 
 export interface UpdateReturnPayload extends Partial<CreateReturnPayload> {
   isDraft?: boolean;
+  verified?: boolean;   // Allow updating status flags directly
+  finalized?: boolean;
 }
 
 export interface VerifyReturnPayload {
