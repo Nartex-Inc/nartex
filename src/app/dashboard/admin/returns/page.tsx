@@ -150,7 +150,7 @@ async function fetchReturns(params: {
   });
   const json = await res.json();
   if (!json.ok) throw new Error("Erreur de chargement des retours");
-  return json.rows as ReturnRow[];
+  return json.data as ReturnRow[];
 }
 
 async function createReturn(payload: {
