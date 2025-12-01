@@ -258,10 +258,10 @@ model Return {
   finalizedAt         DateTime? @map("date_finalisation")
   
   // Logistics
-  warehouseOrigin       String?   @map("entrepot_depart")
-  warehouseDestination  String?   @map("entrepot_destination")
-  villeShipto           String?   @map("villeShipto")
-  totalWeight           Decimal?  @db.Decimal(10, 2) @map("poidsTotal")
+  warehouseOrigin     String?   @map("entrepot_depart")
+  warehouseDestination String?  @map("entrepot_destination")
+  villeShipto         String?   @map("villeShipto")
+  totalWeight         Decimal?  @db.Decimal(10, 2) @map("poidsTotal")
 
   // Credits
   noCredit            String?   @db.VarChar(50) @map("no_credit")
@@ -310,6 +310,7 @@ model ReturnProduct {
 
   return Return @relation(fields: [returnId], references: [id], onDelete: Cascade)
 
+  // UPDATED: Renamed map to avoid collision with Uploads table
   @@index([returnId], map: "idx_rp_code_retour")
   @@index([codeProduit], map: "idx_code_produit")
   
@@ -329,6 +330,7 @@ model Upload {
 
   return Return @relation(fields: [returnId], references: [id], onDelete: Cascade)
 
+  // UPDATED: Renamed map to avoid collision with ReturnProducts table
   @@index([returnId], map: "idx_upload_code_retour")
   
   // Matches table name `uploads`
