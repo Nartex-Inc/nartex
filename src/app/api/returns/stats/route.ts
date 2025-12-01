@@ -1,13 +1,13 @@
 // src/app/api/returns/stats/route.ts
-// Dashboard statistics - GET
+// Returns statistics - GET
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/app/api/auth/[...nextauth]/auth-options";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
@@ -17,104 +17,100 @@ export async function GET() {
     const userRole = (session.user as { role?: string }).role;
     const userName = session.user.name || "";
 
-    // Build expert filter for role-based access
+    // Expert filter
     const expertFilter: Prisma.ReturnWhereInput = userRole === "Expert"
       ? { expert: { contains: userName, mode: "insensitive" } }
       : {};
 
-    // Total active returns (not finalized, not draft)
-    const totalActive = await prisma.return.count({
-      where: { isFinal: false, isDraft: false, ...expertFilter },
-    });
+    // Get counts
+    const [
+      totalActive,
+      awaitingPhysical,
+      readyForFinalization,
+      drafts,
+      finalized,
+      standby,
+    ] = await Promise.all([
+      // Total active (not finalized or in standby)
+      prisma.return.count({
+        where: { ...expertFilter, isFinal: false },
+      }),
+      // Awaiting physical verification
+      prisma.return.count({
+        where: { ...expertFilter, returnPhysical: true, isVerified: false, isFinal: false, isDraft: false },
+      }),
+      // Ready for finalization
+      prisma.return.count({
+        where: {
+          ...expertFilter,
+          isDraft: false,
+          isFinal: false,
+          OR: [
+            { returnPhysical: false },
+            { returnPhysical: true, isVerified: true },
+          ],
+        },
+      }),
+      // Drafts
+      prisma.return.count({
+        where: { ...expertFilter, isDraft: true, isFinal: false },
+      }),
+      // Finalized in last 30 days
+      prisma.return.count({
+        where: {
+          ...expertFilter,
+          isFinal: true,
+          isStandby: false,
+          finalizedAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+        },
+      }),
+      // Standby
+      prisma.return.count({
+        where: { ...expertFilter, isStandby: true },
+      }),
+    ]);
 
-    // Awaiting physical verification
-    const awaitingPhysical = await prisma.return.count({
-      where: {
-        isFinal: false,
-        retourPhysique: true,
-        isVerified: false,
-        ...expertFilter,
-      },
-    });
-
-    // Ready for finalization
-    const readyForFinalization = await prisma.return.count({
-      where: {
-        isFinal: false,
-        isDraft: false,
-        OR: [{ retourPhysique: false }, { isVerified: true }],
-        ...expertFilter,
-      },
-    });
-
-    // Drafts
-    const drafts = await prisma.return.count({
-      where: { isDraft: true, isFinal: false, ...expertFilter },
-    });
-
-    // Finalized (last 30 days)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    const finalized = await prisma.return.count({
-      where: {
-        isFinal: true,
-        dateFinalisation: { gte: thirtyDaysAgo },
-        ...expertFilter,
-      },
-    });
-
-    // Standby
-    const standby = await prisma.return.count({
-      where: { isStandby: true, ...expertFilter },
-    });
-
-    // By cause (for chart) - using raw query for grouping
-    const byCauseRaw = await prisma.return.groupBy({
+    // Get by cause
+    const byCause = await prisma.return.groupBy({
       by: ["cause"],
-      where: { isFinal: false, ...expertFilter },
-      _count: true,
+      where: { ...expertFilter, isFinal: false },
+      _count: { id: true },
     });
 
-    const byCause = byCauseRaw.map((r) => ({
-      cause: r.cause,
-      count: r._count,
-    }));
-
-    // By month (last 12 months)
+    // Get by month (last 12 months)
     const twelveMonthsAgo = new Date();
     twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
 
-    const returns = await prisma.return.findMany({
+    const recentReturns = await prisma.return.findMany({
       where: {
-        reportedAt: { gte: twelveMonthsAgo },
         ...expertFilter,
+        reportedAt: { gte: twelveMonthsAgo },
       },
       select: { reportedAt: true },
     });
 
     // Group by month
-    const monthCounts: Record<string, number> = {};
-    for (const r of returns) {
-      const month = r.reportedAt.toISOString().slice(0, 7); // YYYY-MM
-      monthCounts[month] = (monthCounts[month] || 0) + 1;
+    const byMonth: Record<string, number> = {};
+    for (const ret of recentReturns) {
+      const monthKey = ret.reportedAt.toISOString().slice(0, 7); // "YYYY-MM"
+      byMonth[monthKey] = (byMonth[monthKey] || 0) + 1;
     }
-
-    const byMonth = Object.entries(monthCounts)
-      .map(([month, count]) => ({ month, count }))
-      .sort((a, b) => a.month.localeCompare(b.month));
 
     return NextResponse.json({
       ok: true,
-      stats: {
-        totalActive,
-        awaitingPhysical,
-        readyForFinalization,
-        drafts,
-        finalized,
-        standby,
-        byCause,
-        byMonth,
+      data: {
+        counts: {
+          totalActive,
+          awaitingPhysical,
+          readyForFinalization,
+          drafts,
+          finalized,
+          standby,
+        },
+        byCause: byCause.map((c) => ({ cause: c.cause, count: c._count.id })),
+        byMonth: Object.entries(byMonth)
+          .map(([month, count]) => ({ month, count }))
+          .sort((a, b) => a.month.localeCompare(b.month)),
       },
     });
   } catch (error) {
