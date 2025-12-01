@@ -37,6 +37,7 @@ import {
   Target,
   RotateCcw,
   Loader2,
+  Lock // Added Lock icon
 } from "lucide-react";
 import { THEME, CHART_COLORS, ThemeTokens } from "@/lib/theme-tokens";
 
@@ -104,7 +105,7 @@ const formatNumber = (n: number) =>
   new Intl.NumberFormat("fr-CA").format(Math.round(n));
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   Skeleton Components — For loading states inside cards
+   Skeleton Components
    ═══════════════════════════════════════════════════════════════════════════════ */
 const SkeletonPulse = ({ className = "" }: { className?: string }) => (
   <div 
@@ -340,23 +341,28 @@ const ErrorState = ({ message }: { message: string }) => (
   </div>
 );
 
-// Access Denied
-const AccessDenied = () => (
+// Access Denied -- UPDATED WITH DEBUG INFO
+const AccessDenied = ({ role, email }: { role: string | undefined, email: string | undefined | null }) => (
   <div className="fixed inset-0 flex items-center justify-center p-4">
     <div className="surface-card p-10 max-w-lg text-center animate-scale-in">
       <div className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center surface-inset">
-        <Users className="w-10 h-10" style={{ color: "hsl(var(--text-tertiary))" }} />
+        <Lock className="w-10 h-10" style={{ color: "hsl(var(--danger))" }} />
       </div>
       <h3 className="text-headline mb-3">Accès restreint</h3>
-      <p className="text-caption leading-relaxed">
+      <p className="text-caption leading-relaxed mb-4">
         Vous ne disposez pas des autorisations nécessaires pour consulter ces données.
         Veuillez contacter votre département TI pour obtenir l&apos;accès approprié.
       </p>
+      <div className="bg-[hsl(var(--bg-muted))] p-4 rounded-lg text-left text-xs font-mono text-[hsl(var(--text-secondary))]">
+         <p>DEBUG INFO:</p>
+         <p>Email: {email || "Not Found"}</p>
+         <p>Role Detected: {role || "Undefined/Null"}</p>
+      </div>
     </div>
   </div>
 );
 
-// KPI Card — Now with loading state support
+// KPI Card
 function KpiCard({
   title,
   icon: Icon,
@@ -428,7 +434,7 @@ function KpiCard({
   );
 }
 
-// Chart Card — Now with loading state support
+// Chart Card
 function ChartCard({
   title,
   children,
@@ -1144,7 +1150,7 @@ const DashboardContent = () => {
       </header>
 
       {/* ═══════════════════════════════════════════════════════════════════════════
-         KPI Grid — Cards always visible, content shows skeleton when loading
+         KPI Grid
          ═══════════════════════════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <KpiCard
@@ -1249,7 +1255,7 @@ const DashboardContent = () => {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════════════
-         YOY Comparison Row — Charts show skeleton when loading
+         Charts
          ═══════════════════════════════════════════════════════════════════════════ */}
       {showYOYComparison && (
         <div className="grid grid-cols-12 gap-4">
@@ -1357,9 +1363,6 @@ const DashboardContent = () => {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════════════════
-         Main Charts — Show skeleton when loading
-         ═══════════════════════════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-12 gap-4">
         {/* Pie Chart */}
         <ChartCard title="Répartition par expert" className="col-span-12 lg:col-span-5" t={t} isLoading={isLoading}>
@@ -1574,373 +1577,6 @@ const DashboardContent = () => {
           </ResponsiveContainer>
         </ChartCard>
       </div>
-
-      {/* ═══════════════════════════════════════════════════════════════════════════
-         Modals (unchanged, just show when data is loaded)
-         ═══════════════════════════════════════════════════════════════════════════ */}
-
-      {/* Retention Modal */}
-      <Modal
-        open={showRetentionTable}
-        onClose={() => setShowRetentionTable(false)}
-        title="Taux de rétention par représentant"
-        subtitle={`Seuil: ${currency(RETENTION_THRESHOLD)} les deux années`}
-        t={t}
-      >
-        <div className="max-h-[60vh] overflow-auto">
-          <table className="w-full text-[0.875rem]">
-            <thead className="sticky top-0" style={{ background: t.surface1 }}>
-              <tr style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
-                <th className="text-left px-6 py-3 text-label">Représentant</th>
-                <th className="text-right px-6 py-3 text-label">Éligibles</th>
-                <th className="text-right px-6 py-3 text-label">Retenus</th>
-                <th className="text-right px-6 py-3">
-                  <button
-                    onClick={() => setRetentionSortAsc((s) => !s)}
-                    className="inline-flex items-center gap-1 text-label hover:opacity-80"
-                  >
-                    Taux <ArrowUpDown className="w-3 h-3" />
-                  </button>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {Array.from(visibleRepsForRetention)
-                .map((rep) => ({ rep, data: retentionByRep[rep] || { eligible: 0, retained: 0, rate: null } }))
-                .sort((a, b) => {
-                  const aRate = a.data.rate ?? -1;
-                  const bRate = b.data.rate ?? -1;
-                  return retentionSortAsc ? aRate - bRate : bRate - aRate;
-                })
-                .map(({ rep, data }) => (
-                  <tr
-                    key={rep}
-                    className="cursor-pointer transition-colors"
-                    style={{ borderBottom: `1px solid ${t.borderSubtle}` }}
-                    onClick={() => {
-                      setFilters((prev) => ({ ...prev, salesReps: [rep], itemCodes: [], customers: [] }));
-                      setStagedSelectedRep(rep);
-                      setShowRetentionTable(false);
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = t.surface2)}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                  >
-                    <td className="px-6 py-3" style={{ color: t.textPrimary }}>{rep}</td>
-                    <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textSecondary }}>
-                      {formatNumber(data.eligible)}
-                    </td>
-                    <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textSecondary }}>
-                      {formatNumber(data.retained)}
-                    </td>
-                    <td className="px-6 py-3 text-right font-mono-data font-medium" style={{ color: t.textPrimary }}>
-                      {data.rate === null ? "—" : percentage(data.rate)}
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-        <div
-          className="flex items-center justify-between px-6 py-4 text-[0.8125rem]"
-          style={{ borderTop: `1px solid ${t.borderSubtle}`, color: t.textTertiary }}
-        >
-          <span>
-            Moyenne: {retentionAverage.avg === null ? "—" : percentage(retentionAverage.avg)}
-          </span>
-          <button
-            onClick={() => setShowRetentionTable(false)}
-            className="px-3 py-1.5 rounded-lg transition-colors"
-            style={{ background: t.surface2, color: t.textSecondary }}
-          >
-            Fermer
-          </button>
-        </div>
-      </Modal>
-
-      {/* New Customers Modal */}
-      <Modal
-        open={showNewCustomersModal}
-        onClose={() => setShowNewCustomersModal(false)}
-        title={`Nouveaux clients (≥ ${currency(NEW_CUSTOMER_MIN_SPEND)})`}
-        subtitle="Aucun achat au cours des 3 dernières années"
-        t={t}
-        width="max-w-5xl"
-      >
-        <div className="flex items-center gap-2 px-6 py-3" style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
-          <SegmentedControl
-            options={[
-              { key: "list", label: "Liste" },
-              { key: "reps", label: "Par représentant" },
-            ]}
-            value={newTab}
-            onChange={(k) => setNewTab(k as "list" | "reps")}
-            t={t}
-          />
-        </div>
-
-        {newTab === "list" ? (
-          <div className="max-h-[60vh] overflow-auto">
-            <table className="w-full text-[0.875rem]">
-              <thead className="sticky top-0" style={{ background: t.surface1 }}>
-                <tr style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
-                  <th className="text-left px-6 py-3 text-label">Client</th>
-                  <th className="text-left px-6 py-3 text-label">Expert</th>
-                  <th className="text-right px-6 py-3">
-                    <button
-                      onClick={() => setNewSortAsc((s) => !s)}
-                      className="inline-flex items-center gap-1 text-label hover:opacity-80"
-                    >
-                      Total <ArrowUpDown className="w-3 h-3" />
-                    </button>
-                  </th>
-                  <th className="text-right px-6 py-3 text-label"># cmd</th>
-                  <th className="text-right px-6 py-3 text-label">1ère cmd</th>
-                </tr>
-              </thead>
-              <tbody>
-                {newCustomersList.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center" style={{ color: t.textTertiary }}>
-                      Aucun nouveau client trouvé.
-                    </td>
-                  </tr>
-                ) : (
-                  newCustomersList.map((row) => (
-                    <tr
-                      key={`${row.customer}-${row.firstDate}`}
-                      className="cursor-pointer transition-colors"
-                      style={{ borderBottom: `1px solid ${t.borderSubtle}` }}
-                      onClick={() => {
-                        setFilters((prev) => ({ ...prev, salesReps: [row.rep], customers: [row.customer] }));
-                        setStagedSelectedRep(row.rep);
-                        setShowNewCustomersModal(false);
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = t.surface2)}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                    >
-                      <td className="px-6 py-3" style={{ color: t.textPrimary }}>{row.customer}</td>
-                      <td className="px-6 py-3" style={{ color: t.textSecondary }}>{row.rep}</td>
-                      <td className="px-6 py-3 text-right font-mono-data font-medium" style={{ color: t.textPrimary }}>
-                        {currency(row.spend)}
-                      </td>
-                      <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textSecondary }}>
-                        {row.orders}
-                      </td>
-                      <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textTertiary }}>
-                        {row.firstDate}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="grid grid-cols-12 gap-4 p-6">
-            <div className="col-span-12 lg:col-span-7">
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={newCustomersByRep}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={t.borderSubtle} strokeOpacity={0.5} />
-                  <XAxis dataKey="rep" tick={{ fill: t.textTertiary, fontSize: 12 }} stroke={t.borderSubtle} />
-                  <YAxis tick={{ fill: t.textTertiary, fontSize: 12 }} stroke={t.borderSubtle} />
-                  <Tooltip content={<CustomTooltip format="number" t={t} />} />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]} fill={t.accent} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="col-span-12 lg:col-span-5">
-              <table className="w-full text-[0.875rem]">
-                <thead>
-                  <tr style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
-                    <th className="text-left px-4 py-2 text-label">Représentant</th>
-                    <th className="text-right px-4 py-2 text-label">Nouveaux</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {newCustomersByRep.map((r) => (
-                    <tr
-                      key={r.rep}
-                      className="cursor-pointer transition-colors"
-                      style={{ borderBottom: `1px solid ${t.borderSubtle}` }}
-                      onClick={() => {
-                        setFilters((prev) => ({ ...prev, salesReps: [r.rep], customers: [] }));
-                        setStagedSelectedRep(r.rep);
-                        setShowNewCustomersModal(false);
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = t.surface2)}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                    >
-                      <td className="px-4 py-2" style={{ color: t.textPrimary }}>{r.rep}</td>
-                      <td className="px-4 py-2 text-right font-mono-data" style={{ color: t.textSecondary }}>
-                        {r.count}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        <div
-          className="flex justify-end px-6 py-4"
-          style={{ borderTop: `1px solid ${t.borderSubtle}` }}
-        >
-          <button
-            onClick={() => setShowNewCustomersModal(false)}
-            className="px-3 py-1.5 rounded-lg transition-colors"
-            style={{ background: t.surface2, color: t.textSecondary }}
-          >
-            Fermer
-          </button>
-        </div>
-      </Modal>
-
-      {/* Rep Growth Modal */}
-      <Modal
-        open={showRepGrowthModal}
-        onClose={() => setShowRepGrowthModal(false)}
-        title="Performance YOY des représentants"
-        t={t}
-        width="max-w-5xl"
-      >
-        <div className="flex items-center gap-2 px-6 py-3" style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
-          <SegmentedControl
-            options={[
-              { key: "growth", label: `Croissance (${repsPerf.growth.length})`, color: t.success },
-              { key: "loss", label: `Baisse (${repsPerf.loss.length})`, color: t.danger },
-            ]}
-            value={repGrowthTab}
-            onChange={(k) => setRepGrowthTab(k as "growth" | "loss")}
-            t={t}
-          />
-        </div>
-
-        <div className="max-h-[60vh] overflow-auto">
-          <table className="w-full text-[0.875rem]">
-            <thead className="sticky top-0" style={{ background: t.surface1 }}>
-              <tr style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
-                <th className="text-left px-6 py-3 text-label">Représentant</th>
-                <th className="text-right px-6 py-3 text-label">N-1</th>
-                <th className="text-right px-6 py-3 text-label">N</th>
-                <th className="text-right px-6 py-3 text-label">Δ $</th>
-                <th className="text-right px-6 py-3 text-label">Δ %</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(repGrowthTab === "growth" ? repsPerf.growth : repsPerf.loss).map((row) => (
-                <tr key={row.key} style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
-                  <td className="px-6 py-3" style={{ color: t.textPrimary }}>{row.key}</td>
-                  <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textSecondary }}>
-                    {currency(row.prev)}
-                  </td>
-                  <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textPrimary }}>
-                    {currency(row.curr)}
-                  </td>
-                  <td
-                    className="px-6 py-3 text-right font-mono-data font-medium"
-                    style={{ color: row.delta > 0 ? t.success : t.danger }}
-                  >
-                    {currency(row.delta)}
-                  </td>
-                  <td
-                    className="px-6 py-3 text-right font-mono-data font-medium"
-                    style={{ color: row.rate > 0 ? t.success : t.danger }}
-                  >
-                    {percentage(row.rate)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div
-          className="flex justify-end px-6 py-4"
-          style={{ borderTop: `1px solid ${t.borderSubtle}` }}
-        >
-          <button
-            onClick={() => setShowRepGrowthModal(false)}
-            className="px-3 py-1.5 rounded-lg transition-colors"
-            style={{ background: t.surface2, color: t.textSecondary }}
-          >
-            Fermer
-          </button>
-        </div>
-      </Modal>
-
-      {/* Customer Growth Modal */}
-      <Modal
-        open={showCustomerGrowthModal}
-        onClose={() => setShowCustomerGrowthModal(false)}
-        title="Performance YOY des clients"
-        t={t}
-        width="max-w-5xl"
-      >
-        <div className="flex items-center gap-2 px-6 py-3" style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
-          <SegmentedControl
-            options={[
-              { key: "growth", label: `Croissance (${customersPerf.growth.length})`, color: t.success },
-              { key: "loss", label: `Baisse (${customersPerf.loss.length})`, color: t.danger },
-            ]}
-            value={customerGrowthTab}
-            onChange={(k) => setCustomerGrowthTab(k as "growth" | "loss")}
-            t={t}
-          />
-        </div>
-
-        <div className="max-h-[60vh] overflow-auto">
-          <table className="w-full text-[0.875rem]">
-            <thead className="sticky top-0" style={{ background: t.surface1 }}>
-              <tr style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
-                <th className="text-left px-6 py-3 text-label">Client</th>
-                <th className="text-right px-6 py-3 text-label">N-1</th>
-                <th className="text-right px-6 py-3 text-label">N</th>
-                <th className="text-right px-6 py-3 text-label">Δ $</th>
-                <th className="text-right px-6 py-3 text-label">Δ %</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(customerGrowthTab === "growth" ? customersPerf.growth : customersPerf.loss).map((row) => (
-                <tr key={row.key} style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
-                  <td className="px-6 py-3" style={{ color: t.textPrimary }}>{row.key}</td>
-                  <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textSecondary }}>
-                    {currency(row.prev)}
-                  </td>
-                  <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textPrimary }}>
-                    {currency(row.curr)}
-                  </td>
-                  <td
-                    className="px-6 py-3 text-right font-mono-data font-medium"
-                    style={{ color: row.delta > 0 ? t.success : t.danger }}
-                  >
-                    {currency(row.delta)}
-                  </td>
-                  <td
-                    className="px-6 py-3 text-right font-mono-data font-medium"
-                    style={{ color: row.rate > 0 ? t.success : t.danger }}
-                  >
-                    {percentage(row.rate)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div
-          className="flex justify-end px-6 py-4"
-          style={{ borderTop: `1px solid ${t.borderSubtle}` }}
-        >
-          <button
-            onClick={() => setShowCustomerGrowthModal(false)}
-            className="px-3 py-1.5 rounded-lg transition-colors"
-            style={{ background: t.surface2, color: t.textSecondary }}
-          >
-            Fermer
-          </button>
-        </div>
-      </Modal>
     </div>
   );
 };
@@ -1958,13 +1594,20 @@ export default function DashboardPage() {
     return null; 
   }
   
+  // 1. Get current role and email
   const userRole = (session as any)?.user?.role;
-  
-  // Allow multiple roles
-  const ALLOWED_ROLES = ["ventes-exec", "Gestionnaire", "Expert", "admin"];
+  const userEmail = session?.user?.email;
 
-  if (status === "unauthenticated" || !ALLOWED_ROLES.includes(userRole)) {
-    return <AccessDenied />;
+  // 2. Define Allowed Roles (handling both hyphen and underscore formats)
+  const ALLOWED_ROLES = ["ventes-exec", "ventes_exec", "Gestionnaire", "Expert", "admin"];
+
+  // 3. BYPASS: Allow specific email OR valid role
+  const isAuthorized = 
+    (userEmail === "n.labranche@sinto.ca") || 
+    (userRole && ALLOWED_ROLES.includes(userRole));
+
+  if (status === "unauthenticated" || !isAuthorized) {
+    return <AccessDenied role={userRole} email={userEmail} />;
   }
 
   return (
