@@ -25,6 +25,7 @@ import {
   Clock,
   ArrowUpNarrowWide,
   ArrowDownNarrowWide,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -251,13 +252,15 @@ type ItemSuggestion = { code: string; descr?: string | null };
 
 async function searchItems(q: string): Promise<ItemSuggestion[]> {
   if (!q.trim()) return [];
-  const res = await fetch(`/api/items?q=${encodeURIComponent(q)}&take=10`, {
+  // Use the 'q' parameter and match the API response structure (json.suggestions)
+  const res = await fetch(`/api/items?q=${encodeURIComponent(q)}`, {
     cache: "no-store",
     credentials: "include",
   });
   if (!res.ok) return [];
   const json = await res.json();
-  return (json.items ?? []) as ItemSuggestion[];
+  // FIXED: Access 'suggestions' instead of 'items'
+  return (json.suggestions ?? []) as ItemSuggestion[];
 }
 
 async function getItem(code: string): Promise<{ code: string; descr?: string | null; weight?: number | null } | null> {
@@ -419,8 +422,8 @@ export default function ReturnsPage() {
     <div className="min-h-[100dvh] bg-[hsl(var(--bg-base))]">
       <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8 py-6">
         {/* ─────────────────────────────────────────────────────────────────────
-           Header Card
-           ───────────────────────────────────────────────────────────────────── */}
+            Header Card
+            ───────────────────────────────────────────────────────────────────── */}
         <div className="rounded-2xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-surface))] overflow-hidden">
           <div className="px-6 py-5">
             {/* Title Row */}
@@ -564,8 +567,8 @@ export default function ReturnsPage() {
         </div>
 
         {/* ─────────────────────────────────────────────────────────────────────
-           Table
-           ───────────────────────────────────────────────────────────────────── */}
+            Table
+            ───────────────────────────────────────────────────────────────────── */}
         <div className="mt-6 rounded-2xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-surface))] overflow-hidden">
           {loading && (
             <div className="py-16 text-center">
@@ -835,6 +838,139 @@ function SortTh({
 }
 
 /* =============================================================================
+   Product Row Component (with Autocomplete)
+============================================================================= */
+function ProductRow({
+  product,
+  onChange,
+  onRemove
+}: {
+  product: ProductLine;
+  onChange: (p: ProductLine) => void;
+  onRemove: () => void;
+}) {
+  const [suggestions, setSuggestions] = React.useState<ItemSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(false);
+  
+  // Use debounced value for API search
+  const debouncedCode = useDebounced(product.codeProduit, 300);
+
+  // Trigger search when debounced code changes
+  React.useEffect(() => {
+    let active = true;
+
+    const fetchSuggestions = async () => {
+      if (!showSuggestions || debouncedCode.trim().length < 2) {
+        setSuggestions([]);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const results = await searchItems(debouncedCode);
+        if (active) {
+          setSuggestions(results);
+        }
+      } catch (error) {
+        console.error("Autocomplete error:", error);
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    };
+
+    fetchSuggestions();
+    return () => { active = false; };
+  }, [debouncedCode, showSuggestions]);
+
+  const selectSuggestion = (s: ItemSuggestion) => {
+    onChange({
+      ...product,
+      codeProduit: s.code,
+      descriptionProduit: s.descr || product.descriptionProduit
+    });
+    setSuggestions([]);
+    setShowSuggestions(false);
+  };
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-[200px_1fr_1fr_100px_40px] gap-2 items-start p-3 rounded-xl bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))] relative">
+      {/* Code Product Input + Autocomplete Dropdown */}
+      <div className="relative">
+        <input
+          className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
+          placeholder="Code produit"
+          value={product.codeProduit}
+          onChange={(e) => {
+            onChange({ ...product, codeProduit: e.target.value });
+            setShowSuggestions(true);
+          }}
+          onFocus={() => {
+            if (product.codeProduit.length >= 2) setShowSuggestions(true);
+          }}
+          onBlur={() => {
+            // Delay hide to allow click on suggestion
+            setTimeout(() => setShowSuggestions(false), 200);
+          }}
+          autoComplete="off"
+        />
+        {/* Dropdown */}
+        {showSuggestions && (suggestions.length > 0 || isLoading) && (
+          <div className="absolute z-50 top-full left-0 mt-1 w-[300px] max-h-60 overflow-y-auto rounded-lg border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-elevated))] shadow-xl">
+            {isLoading && suggestions.length === 0 && (
+               <div className="flex items-center gap-2 px-3 py-2 text-xs text-[hsl(var(--text-muted))]">
+                 <Loader2 className="h-3 w-3 animate-spin" />
+                 Recherche...
+               </div>
+            )}
+            {suggestions.map((s) => (
+              <button
+                key={s.code}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-[hsl(var(--bg-muted))] border-b border-[hsl(var(--border-subtle))] last:border-0"
+                onClick={(e) => {
+                  e.preventDefault(); // Prevent blur from firing too early if possible, though timeout handles it
+                  selectSuggestion(s);
+                }}
+              >
+                <div className="font-semibold text-[hsl(var(--text-primary))]">{s.code}</div>
+                {s.descr && <div className="text-xs text-[hsl(var(--text-secondary))] truncate">{s.descr}</div>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <input
+        className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
+        placeholder="Description produit"
+        value={product.descriptionProduit}
+        onChange={(e) => onChange({ ...product, descriptionProduit: e.target.value })}
+      />
+      <input
+        className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
+        placeholder="Description retour"
+        value={product.descriptionRetour ?? ""}
+        onChange={(e) => onChange({ ...product, descriptionRetour: e.target.value })}
+      />
+      <input
+        type="number"
+        min={0}
+        className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
+        placeholder="Qté"
+        value={product.quantite}
+        onChange={(e) => onChange({ ...product, quantite: Number(e.target.value || 0) })}
+      />
+      <button
+        className="p-2 rounded-lg text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))]"
+        onClick={onRemove}
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+/* =============================================================================
    Detail Modal
 ============================================================================= */
 function DetailModal({
@@ -954,62 +1090,19 @@ function DetailModal({
 
               <div className="space-y-2">
                 {(draft.products ?? []).map((p, idx) => (
-                  <div
+                  <ProductRow
                     key={p.id}
-                    className="grid grid-cols-1 md:grid-cols-[200px_1fr_1fr_100px_40px] gap-2 items-center p-3 rounded-xl bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))]"
-                  >
-                    <input
-                      className="rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
-                      placeholder="Code produit"
-                      value={p.codeProduit}
-                      onChange={(e) => {
-                        const arr = (draft.products ?? []).slice();
-                        arr[idx] = { ...arr[idx], codeProduit: e.target.value };
-                        setDraft({ ...draft, products: arr });
-                      }}
-                    />
-                    <input
-                      className="rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
-                      placeholder="Description produit"
-                      value={p.descriptionProduit}
-                      onChange={(e) => {
-                        const arr = (draft.products ?? []).slice();
-                        arr[idx] = { ...arr[idx], descriptionProduit: e.target.value };
-                        setDraft({ ...draft, products: arr });
-                      }}
-                    />
-                    <input
-                      className="rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
-                      placeholder="Description retour"
-                      value={p.descriptionRetour ?? ""}
-                      onChange={(e) => {
-                        const arr = (draft.products ?? []).slice();
-                        arr[idx] = { ...arr[idx], descriptionRetour: e.target.value };
-                        setDraft({ ...draft, products: arr });
-                      }}
-                    />
-                    <input
-                      type="number"
-                      min={0}
-                      className="rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
-                      placeholder="Qté"
-                      value={p.quantite}
-                      onChange={(e) => {
-                        const arr = (draft.products ?? []).slice();
-                        arr[idx] = { ...arr[idx], quantite: Number(e.target.value || 0) };
-                        setDraft({ ...draft, products: arr });
-                      }}
-                    />
-                    <button
-                      className="p-2 rounded-lg text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))]"
-                      onClick={() => {
-                        const arr = (draft.products ?? []).filter((x) => x.id !== p.id);
-                        setDraft({ ...draft, products: arr });
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
+                    product={p}
+                    onChange={(updatedProduct) => {
+                      const arr = (draft.products ?? []).slice();
+                      arr[idx] = updatedProduct;
+                      setDraft({ ...draft, products: arr });
+                    }}
+                    onRemove={() => {
+                      const arr = (draft.products ?? []).filter((x) => x.id !== p.id);
+                      setDraft({ ...draft, products: arr });
+                    }}
+                  />
                 ))}
                 {(draft.products?.length ?? 0) === 0 && (
                   <div className="text-sm text-[hsl(var(--text-muted))] py-6 text-center">Aucun produit.</div>
@@ -1207,59 +1300,16 @@ function NewReturnModal({
               <h4 className="font-semibold text-[hsl(var(--text-primary))]">Produits</h4>
               <div className="space-y-2">
                 {products.map((p, idx) => (
-                  <div
+                  <ProductRow
                     key={p.id}
-                    className="grid grid-cols-1 md:grid-cols-[200px_1fr_1fr_100px_40px] gap-2 items-center p-3 rounded-xl bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))]"
-                  >
-                    <input
-                      className="rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
-                      placeholder="Code produit"
-                      value={p.codeProduit}
-                      onChange={(e) => {
-                        const arr = products.slice();
-                        arr[idx] = { ...arr[idx], codeProduit: e.target.value };
-                        setProducts(arr);
-                      }}
-                    />
-                    <input
-                      className="rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
-                      placeholder="Description produit"
-                      value={p.descriptionProduit}
-                      onChange={(e) => {
-                        const arr = products.slice();
-                        arr[idx] = { ...arr[idx], descriptionProduit: e.target.value };
-                        setProducts(arr);
-                      }}
-                    />
-                    <input
-                      className="rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
-                      placeholder="Description retour"
-                      value={p.descriptionRetour ?? ""}
-                      onChange={(e) => {
-                        const arr = products.slice();
-                        arr[idx] = { ...arr[idx], descriptionRetour: e.target.value };
-                        setProducts(arr);
-                      }}
-                    />
-                    <input
-                      type="number"
-                      min={0}
-                      className="rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
-                      placeholder="Qté"
-                      value={p.quantite}
-                      onChange={(e) => {
-                        const arr = products.slice();
-                        arr[idx] = { ...arr[idx], quantite: Number(e.target.value || 0) };
-                        setProducts(arr);
-                      }}
-                    />
-                    <button
-                      className="p-2 rounded-lg text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))]"
-                      onClick={() => removeProduct(p.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
+                    product={p}
+                    onChange={(updatedProduct) => {
+                      const arr = products.slice();
+                      arr[idx] = updatedProduct;
+                      setProducts(arr);
+                    }}
+                    onRemove={() => removeProduct(p.id)}
+                  />
                 ))}
                 {products.length === 0 && (
                   <div className="text-sm text-[hsl(var(--text-muted))] py-6 text-center">
