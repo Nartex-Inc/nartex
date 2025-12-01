@@ -1,5 +1,3 @@
-/home/claude/nartex-fixes/src/types/returns.ts
-
 // src/types/returns.ts
 // TypeScript types for the returns management system
 // Field names match prisma/schema.prisma
