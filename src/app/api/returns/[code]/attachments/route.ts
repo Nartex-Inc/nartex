@@ -28,9 +28,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Code retour invalide" }, { status: 400 });
     }
 
-    const ret = await prisma.return.findFirst({
-      where: { OR: [{ id: returnId }, { code: code.toUpperCase() }] },
-      include: { attachments: { orderBy: { createdAt: "desc" } } },
+    const ret = await prisma.return.findUnique({
+      where: { id: returnId },
+      include: { attachments: { orderBy: { uploadedAt: "desc" } } },
     });
 
     if (!ret) {
@@ -38,10 +38,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const attachments: AttachmentResponse[] = ret.attachments.map((a) => ({
-      id: a.url,
-      name: a.name,
-      url: `https://drive.google.com/file/d/${a.url}/preview`,
-      downloadUrl: `https://drive.google.com/uc?export=download&id=${a.url}`,
+      id: a.filePath,
+      name: a.fileName,
+      url: `https://drive.google.com/file/d/${a.filePath}/preview`,
+      downloadUrl: `https://drive.google.com/uc?export=download&id=${a.filePath}`,
     }));
 
     return NextResponse.json({ ok: true, attachments });
@@ -56,8 +56,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 /* =============================================================================
    POST /api/returns/[code]/attachments - Upload attachment
-   Note: This expects fileId (Google Drive file ID) and fileName from client
-   The actual file upload to Google Drive should be handled separately
 ============================================================================= */
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
@@ -74,8 +72,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Code retour invalide" }, { status: 400 });
     }
 
-    const ret = await prisma.return.findFirst({
-      where: { OR: [{ id: returnId }, { code: code.toUpperCase() }] },
+    const ret = await prisma.return.findUnique({
+      where: { id: returnId },
     });
 
     if (!ret) {
@@ -104,21 +102,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const upload = await prisma.upload.create({
       data: {
         returnId: ret.id,
-        name: fileName,
-        url: fileId, // Google Drive file ID
-        mimeType: mimeType || null,
-        fileSize: fileSize || null,
-        uploadedBy: session.user.name || "Système",
+        fileName: fileName,
+        filePath: fileId, // Google Drive file ID
       },
     });
 
     return NextResponse.json({
       ok: true,
       attachment: {
-        id: upload.url,
-        name: upload.name,
-        url: `https://drive.google.com/file/d/${upload.url}/preview`,
-        downloadUrl: `https://drive.google.com/uc?export=download&id=${upload.url}`,
+        id: upload.filePath,
+        name: upload.fileName,
+        url: `https://drive.google.com/file/d/${upload.filePath}/preview`,
+        downloadUrl: `https://drive.google.com/uc?export=download&id=${upload.filePath}`,
       },
     });
   } catch (error) {
@@ -163,8 +158,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "ID de fichier requis" }, { status: 400 });
     }
 
-    const ret = await prisma.return.findFirst({
-      where: { OR: [{ id: returnId }, { code: code.toUpperCase() }] },
+    const ret = await prisma.return.findUnique({
+      where: { id: returnId },
     });
 
     if (!ret) {
@@ -181,7 +176,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     // Delete from database
     await prisma.upload.deleteMany({
-      where: { returnId: ret.id, url: fileId },
+      where: { returnId: ret.id, filePath: fileId },
     });
 
     return NextResponse.json({ ok: true, message: "Pièce jointe supprimée" });
