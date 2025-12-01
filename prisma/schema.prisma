@@ -23,25 +23,43 @@ enum ProductLifecycleStage {
   VIE_DU_PRODUIT
 }
 
+// Mapped from user.role
+enum UserRole {
+  Gestionnaire
+  Analyste
+  Verificateur @map("Vérificateur")
+  Facturation
+  Expert
+  user // Kept for backward compatibility with existing default
+}
+
+// Mapped from retour_ini.signale_par
 enum Reporter {
   expert
   transporteur
+  client
+  prise_commande
   autre
 }
 
+// Mapped from retour_ini.cause_retour
 enum Cause {
   production
   pompe
   autre_cause
   exposition_sinto
   transporteur
+  client
+  expert
+  expedition
+  analyse
+  defect
+  surplus_inventaire
+  prise_commande
+  rappel
+  redirection
+  fournisseur
   autre
-}
-
-enum ReturnStatus {
-  draft
-  awaiting_physical
-  received_or_no_physical
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -49,36 +67,42 @@ enum ReturnStatus {
 ////////////////////////////////////////////////////////////////////////////////
 
 model User {
-  id                   String    @id @default(cuid())
-  name                 String?
-  firstName            String?   @map("first_name")
-  lastName             String?   @map("last_name")
-  email                String?   @unique
-  emailVerified        DateTime? @map("email_verified")
-  image                String?
-  password             String?
-  role                 String    @default("user")
+  id            String    @id @default(cuid())
+  name          String?
+  firstName     String?   @map("first_name")
+  lastName      String?   @map("last_name")
+  email         String?   @unique
+  emailVerified DateTime? @map("email_verified")
+  image         String?
+  
+  // Mapped to `password_hash` concept, though NextAuth usually uses `password`
+  password      String?   @map("password_hash") 
+  
+  // Updated to use the specific Enum from your SQL
+  role          UserRole  @default(Expert) 
+  
   verificationToken    String?   @unique @map("verification_token")
   passwordResetToken   String?   @unique @map("password_reset_token")
   passwordResetExpires DateTime? @map("password_reset_expires")
-  createdAt            DateTime  @default(now()) @map("created_at")
-  updatedAt            DateTime  @updatedAt      @map("updated_at")
+  
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt      @map("updated_at")
 
   accounts Account[]
   sessions Session[]
   tenants  UserTenant[]
 
   @@map("users")
+  @@index([role])
+  @@index([email])
 }
 
 model Account {
   id                String  @id @default(cuid())
   userId            String  @map("user_id")
-
   type              String
   provider          String
   providerAccountId String  @map("provider_account_id")
-
   refresh_token     String? @db.Text
   access_token      String? @db.Text
   expires_at        Int?
@@ -125,9 +149,9 @@ model Tenant {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt      @map("updated_at")
 
-  users           UserTenant[]
-  projects        Project[]
-  sharePointNodes SharePointNode[]
+  users            UserTenant[]
+  projects         Project[]
+  sharePointNodes  SharePointNode[]
 
   @@map("tenants")
 }
@@ -146,12 +170,12 @@ model UserTenant {
 }
 
 model Project {
-  id        String                 @id @default(uuid())
+  id        String                @id @default(uuid())
   name      String
   stage     ProductLifecycleStage
   tenantId  String
-  createdAt DateTime               @default(now()) @map("created_at")
-  updatedAt DateTime               @updatedAt      @map("updated_at")
+  createdAt DateTime              @default(now()) @map("created_at")
+  updatedAt DateTime              @updatedAt      @map("updated_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -165,19 +189,15 @@ model SharePointNode {
   name         String
   type         String   @default("folder")
   icon         String?
-
   restricted   Boolean  @default(false)
   highSecurity Boolean  @default(false)
-
-  // Arrays (never null); empty arrays mean “inherit”
   editGroups   String[] @default([])
   readGroups   String[] @default([])
-
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  parent   SharePointNode?  @relation("SPChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent   SharePointNode? @relation("SPChildren", fields: [parentId], references: [id], onDelete: Cascade)
   children SharePointNode[] @relation("SPChildren")
 
   @@index([tenantId])
@@ -187,76 +207,140 @@ model SharePointNode {
 
 ////////////////////////////////////////////////////////////////////////////////
 // 3) RETURNS DOMAIN  (schema: public)
+// Implementation of `retour_ini`, `retour_products`, `uploads`
 ////////////////////////////////////////////////////////////////////////////////
 
 model Return {
-  id            Int           @id @default(autoincrement())
-  code          String        @unique                               // “R” + id
-  reportedAt    DateTime      @default(now())
-  reporter      Reporter
-  cause         Cause
-  expert        String
-  client        String
-  noClient      String?
-  noCommande    String?
-  tracking      String?
-  status        ReturnStatus  @default(draft)
-  standby       Boolean       @default(false)
-  amount        Decimal?      @db.Decimal(12, 2)
-  dateCommande  DateTime?
-  transport     String?
-  description   String?
+  // Originally `code_retour` int(11) AUTO_INCREMENT
+  id                  Int       @id @default(autoincrement()) @map("code_retour")
+  
+  // Basic info
+  reportedAt          DateTime  @map("date_signalement")
+  reporter            Reporter  @default(expert) @map("signale_par")
+  cause               Cause     @default(production) @map("cause_retour")
+  expert              String?   @map("expert")
+  
+  // Financials
+  amount              Decimal?  @db.Decimal(10, 2) @map("montant")
+  transportAmount     Decimal?  @db.Decimal(10, 2) @map("montant_transport")
+  restockingAmount    Decimal?  @db.Decimal(10, 2) @map("montant_restocking")
+  
+  // Client & Order Info
+  client              String?   @map("client")
+  noClient            String?   @db.VarChar(50) @map("no_client")
+  noCommande          String?   @db.VarChar(50) @map("no_commande")
+  noTracking          String?   @db.VarChar(100) @map("no_tracking")
+  dateCommande        String?   @db.VarChar(100) @map("date_commande") // Kept as String per SQL, consider DateTime
+  description         String?   @db.Text @map("description")
+  transporteur        String?   @map("transporteur")
+  
+  // Flags (tinyint(1) mapped to Boolean)
+  returnPhysical      Boolean   @default(false) @map("retour_physique")
+  isDraft             Boolean   @default(false) @map("is_draft")
+  isFinal             Boolean   @default(false) @map("is_final")
+  isVerified          Boolean   @default(false) @map("is_verified")
+  isStandby           Boolean   @default(false) @map("is_standby")
+  isPickup            Boolean   @default(false) @map("is_pickup")
+  isCommande          Boolean   @default(false) @map("is_commande")
+  isReclamation       Boolean   @default(false) @map("is_reclamation")
 
-  createdByName String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  // Documents / References
+  noBill              String?   @db.VarChar(50) @map("no_bill")
+  noBonCommande       String?   @db.VarChar(50) @map("no_bon_commande")
+  noReclamation       String?   @db.VarChar(50) @map("no_reclamation")
+  
+  // Workflow / People
+  initiatedBy         String?   @map("initie_par")
+  initializedAt       DateTime? @map("date_initialization")
+  verifiedBy          String?   @map("verifie_par")
+  verifiedAt          DateTime? @map("date_verification")
+  finalizedBy         String?   @map("finalise_par")
+  finalizedAt         DateTime? @map("date_finalisation")
+  
+  // Logistics
+  warehouseOrigin       String?   @map("entrepot_depart")
+  warehouseDestination  String?   @map("entrepot_destination")
+  villeShipto           String?   @map("villeShipto")
+  totalWeight           Decimal?  @db.Decimal(10, 2) @map("poidsTotal")
+
+  // Credits
+  noCredit            String?   @db.VarChar(50) @map("no_credit")
+  noCredit2           String?   @db.VarChar(50) @map("no_credit2")
+  noCredit3           String?   @db.VarChar(50) @map("no_credit3")
+  creditedTo          String?   @db.VarChar(50) @map("credite_a")
+  creditedTo2         String?   @db.VarChar(50) @map("credite_a2")
+  creditedTo3         String?   @db.VarChar(50) @map("credite_a3")
+
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt      @map("updated_at")
 
   products    ReturnProduct[]
   attachments Upload[]
 
-  @@index([reportedAt])
-  @@index([status])
-  @@index([noCommande])
-  @@map("returns")
+  @@index([reportedAt], map: "idx_date_signalement")
+  @@index([isDraft, isFinal, isVerified], map: "idx_status")
+  @@index([expert], map: "idx_expert")
+  @@index([client], map: "idx_client")
+  @@index([noCommande], map: "idx_no_commande")
+  
+  // Matches table name `retour_ini`
+  @@map("retour_ini")
 }
 
 model ReturnProduct {
-  id                 Int     @id @default(autoincrement())
-  returnId           Int
-  codeProduit        String
-  descriptionProduit String
-  descriptionRetour  String?
-  quantite           Int     @default(1)
+  // Originally `product_id`
+  id                  Int       @id @default(autoincrement()) @map("product_id")
+  returnId            Int       @map("code_retour")
+  
+  codeProduit         String    @db.VarChar(50) @map("code_produit")
+  quantite            Int       @default(0) @map("quantite")
+  descrProduit        String?   @db.VarChar(500) @map("descr_produit")
+  descriptionRetour   String?   @db.Text @map("description_retour")
+  
+  // Processing info
+  quantiteRecue       Int?      @map("quantite_recue")
+  qteInventaire       Int?      @map("qte_inventaire")
+  qteDetruite         Int?      @map("qte_detruite")
+  tauxRestock         Decimal?  @db.Decimal(5, 4) @map("taux_restock")
+  poids               Decimal?  @db.Decimal(10, 2) @map("poids")
+  weightProduit       Decimal?  @db.Decimal(10, 2) @map("weight_produit")
+  
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt      @map("updated_at")
 
   return Return @relation(fields: [returnId], references: [id], onDelete: Cascade)
 
-  @@index([returnId])
-  @@index([codeProduit])
-  @@map("return_products")
+  @@index([returnId], map: "idx_code_retour")
+  @@index([codeProduit], map: "idx_code_produit")
+  
+  // Matches table name `retour_products`
+  @@map("retour_products")
 }
 
 model Upload {
-  id        Int      @id @default(autoincrement())
-  returnId  Int
-  name      String
-  url       String
-  createdAt DateTime @default(now())
+  id          Int      @id @default(autoincrement())
+  returnId    Int      @map("code_retour")
+  fileName    String   @db.VarChar(500) @map("file_name")
+  
+  // Matches `file_path` comment 'Google Drive file ID'
+  filePath    String   @db.VarChar(500) @map("file_path") 
+  
+  uploadedAt  DateTime @default(now()) @map("uploaded_at")
 
   return Return @relation(fields: [returnId], references: [id], onDelete: Cascade)
 
-  @@index([returnId])
+  @@index([returnId], map: "idx_code_retour")
+  
+  // Matches table name `uploads`
   @@map("uploads")
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 4) PREXTRA REPLICAS (READ ONLY)  (schema: public)
-//    IMPORTANT: DMS created QUOTED CamelCase tables/columns.
-//    We map them exactly with @@map / @map so Prisma generates the right SQL.
+// 4) PREXTRA REPLICAS (READ ONLY)
 ////////////////////////////////////////////////////////////////////////////////
 
-/// Items table replicated as "Items"
 model Items {
-  itemid   Int     @id        @map("ItemId")
+  itemid   Int     @id @map("ItemId")
   itemcode String  @map("ItemCode")
   descr    String? @map("Descr")
 
@@ -264,16 +348,13 @@ model Items {
   @@map("Items")
 }
 
-/// Locations table replicated as "Locations"
 model Locations {
-  locid Int    @id   @map("LocId")
+  locid Int    @id @map("LocId")
   name  String @map("Name")
 
   @@map("Locations")
 }
 
-/// Sales orders header replicated as "SOHeader"
-/// NOTE: PK is composite (cieid, sonbr). Mixed casing on several columns.
 model SOHeader {
   cieid     Int       @map("cieid")
   sonbr     Int       @map("sonbr")
@@ -288,16 +369,14 @@ model SOHeader {
   @@map("SOHeader")
 }
 
-/// Customers replicated as "Customers"
 model Customers {
-  custid   Int     @id            @map("CustId")
+  custid   Int     @id @map("CustId")
   custcode String? @map("CustCode")
   name     String? @map("Name")
 
   @@map("Customers")
 }
 
-/// Carriers replicated as "carriers" (lowercase table/columns)
 model Carriers {
   carrid Int    @id
   name   String
@@ -305,30 +384,26 @@ model Carriers {
   @@map("carriers")
 }
 
-/// Sales reps replicated as "Salesrep"
 model Salesrep {
-  srid Int     @id   @map("SRId")
+  srid Int     @id @map("SRId")
   name String? @map("Name")
 
   @@map("Salesrep")
 }
 
-/// Shipments header replicated as "ShipmentHdr"
 model ShipmentHdr {
-  id       Int     @id @default(autoincrement()) @map("Id")     // DB column "Id"
-  cieid    Int     @map("cieid")                                // company id
-  sonbr    Int     @map("sonbr")
-  waybill  String? @map("WayBill")
+  id      Int     @id @default(autoincrement()) @map("Id")
+  cieid   Int     @map("cieid")
+  sonbr   Int     @map("sonbr")
+  waybill String? @map("WayBill")
 
   @@index([sonbr])
   @@index([cieid, sonbr])
   @@map("ShipmentHdr")
 }
 
-// If you don’t actually replicate these, remove later.
-// Keeping them mapped prevents accidental case mismatches.
 model Itemsite {
-  itemsiteid Int  @id          @map("ItemSiteId")
+  itemsiteid Int  @id @map("ItemSiteId")
   itemid     Int  @map("ItemId")
   siteid     Int  @map("SiteId")
   qtyonhand  Int? @map("QtyOnHand")
