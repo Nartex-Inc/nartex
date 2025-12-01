@@ -43,20 +43,20 @@ export async function GET(request: NextRequest) {
     // 3) Query the database for order info using raw SQL
     const query = `
       SELECT 
-        h."SoNbr" as "sonbr",
+        h."sonbr" as "sonbr",
         h."OrderDate" as "orderDate",
-        h."TotalAmt" as "totalamt",
+        h."totalamt" as "totalamt",
         c."Name" as "customerName",
         c."CustCode" as "custCode",
-        cr."Name" as "carrierName",
+        cr."name" as "carrierName",
         sr."Name" as "salesrepName",
         sh."WayBill" as "tracking"
-      FROM public."SoHeader" h
-      LEFT JOIN public."Customers" c ON h."CustId" = c."CustId"
-      LEFT JOIN public."Carriers" cr ON h."CarrId" = cr."CarrId"
+      FROM public."SOHeader" h
+      LEFT JOIN public."Customers" c ON h."custid" = c."CustId"
+      LEFT JOIN public."carriers" cr ON h."Carrid" = cr."carrid"
       LEFT JOIN public."Salesrep" sr ON h."SRId" = sr."SRId"
-      LEFT JOIN public."ShipmentHdr" sh ON h."SoNbr" = sh."SoNbr"
-      WHERE h."SoNbr" = $1
+      LEFT JOIN public."ShipmentHdr" sh ON h."sonbr" = sh."sonbr"
+      WHERE h."sonbr" = $1
       LIMIT 1
     `;
 
