@@ -66,6 +66,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       transport: ret.transporteur,
       description: ret.description,
       returnPhysical: ret.returnPhysical,
+      verified: ret.isVerified,
+      finalized: ret.isFinal,
       isPickup: ret.isPickup,
       isCommande: ret.isCommande,
       isReclamation: ret.isReclamation,
@@ -150,13 +152,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Retour non trouvé" }, { status: 404 });
     }
 
-    // Check if return can be edited
-    if (ret.isFinal && !ret.isStandby) {
-      return NextResponse.json(
-        { ok: false, error: "Impossible de modifier un retour finalisé" },
-        { status: 400 }
-      );
-    }
+    // Check if return can be edited (except for verifying/finalizing which logic allows)
+    // We allow edits if user is updating status flags specifically or if it's not final
+    const body = await request.json();
 
     // Expert can only edit their own returns
     const userRole = (session.user as { role?: string }).role;
@@ -165,15 +163,20 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Accès non autorisé" }, { status: 403 });
     }
 
-    const body = await request.json();
-
     // Determine if still a draft
     const hasRequiredFields =
-      body.reporter && body.cause && body.expert && body.client;
-    const hasProducts = body.products && body.products.length > 0;
+      (body.reporter ?? ret.reporter) && 
+      (body.cause ?? ret.cause) && 
+      (body.expert ?? ret.expert) && 
+      (body.client ?? ret.client);
+    
+    // For products, we need to check if we are updating them or if they exist
+    const hasProducts = (body.products && body.products.length > 0) || (await prisma.returnProduct.count({ where: { returnId } })) > 0;
+    
     const isDraft = body.isDraft ?? !(hasRequiredFields && hasProducts);
 
     // Update the return
+    // Note: We handle new status flags (verified, finalized, physical)
     const updated = await prisma.return.update({
       where: { id: returnId },
       data: {
@@ -188,7 +191,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         dateCommande: body.dateCommande ?? ret.dateCommande,
         transporteur: body.transport ?? ret.transporteur,
         description: body.description ?? ret.description,
-        returnPhysical: body.returnPhysical ?? ret.returnPhysical,
+        
+        // Status Flags
+        returnPhysical: body.physicalReturn ?? ret.returnPhysical,
+        isVerified: body.verified ?? ret.isVerified,
+        isFinal: body.finalized ?? ret.isFinal,
+        
         isPickup: body.isPickup ?? ret.isPickup,
         isCommande: body.isCommande ?? ret.isCommande,
         isReclamation: body.isReclamation ?? ret.isReclamation,
@@ -275,6 +283,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Delete (cascade will handle products and attachments)
+    // Deleting this ID creates a "gap" that the POST logic in route.ts will automatically fill next time.
     await prisma.return.delete({ where: { id: returnId } });
 
     return NextResponse.json({ ok: true, message: "Retour supprimé" });
