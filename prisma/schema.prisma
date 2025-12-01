@@ -394,7 +394,9 @@ model Salesrep {
 }
 
 model ShipmentHdr {
-  id      Int     @id @default(autoincrement()) @map("Id")
+  // CHANGE THIS LINE:
+  id      Int     @id @default(autoincrement()) @map("id")  // Changed "Id" to "id"
+  
   cieid   Int     @map("cieid")
   sonbr   Int     @map("sonbr")
   waybill String? @map("WayBill")
