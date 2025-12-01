@@ -35,7 +35,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const ret = product.return;
     const userRole = (session.user as { role?: string }).role;
 
-    // Check if return can be edited
+    // Check if return can be edited (using correct field names from schema)
     if (ret.isFinal && !ret.isStandby) {
       return NextResponse.json(
         { ok: false, error: "Impossible de modifier un retour finalisé" },
@@ -53,7 +53,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     // Expert can only modify their own returns
     const userName = session.user.name || "";
-    if (userRole === "Expert" && !ret.expert.toLowerCase().includes(userName.toLowerCase())) {
+    if (userRole === "Expert" && ret.expert && !ret.expert.toLowerCase().includes(userName.toLowerCase())) {
       return NextResponse.json({ ok: false, error: "Accès non autorisé" }, { status: 403 });
     }
 
