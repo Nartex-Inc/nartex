@@ -12,6 +12,8 @@ env:
     EMAIL_SERVER_USER: "n.labranche@nartex.ca"
     EMAIL_FROM: "Nartex <noreply@nartex.ca>"
     AZURE_AD_TENANT_ID: "organizations"
+    # Added Google Drive Folder ID
+    GOOGLE_DRIVE_FOLDER_ID: "1YbyviWr8UOZHpSPzg7pOgwHG1MZsOGTP"
 
   secrets-manager:
     DATABASE_URL:           nartex/prod/env:DATABASE_URL
@@ -21,6 +23,9 @@ env:
     GOOGLE_CLIENT_SECRET:   nartex/prod/env:GOOGLE_CLIENT_SECRET
     AZURE_AD_CLIENT_ID:     nartex/prod/env:AZURE_AD_CLIENT_ID
     AZURE_AD_CLIENT_SECRET: nartex/prod/env:AZURE_AD_CLIENT_SECRET
+    # Added Service Account Credentials
+    GOOGLE_CLIENT_EMAIL:    nartex/prod/env:GOOGLE_CLIENT_EMAIL
+    GOOGLE_PRIVATE_KEY:     nartex/prod/env:GOOGLE_PRIVATE_KEY
     RDS_CREDENTIALS:        nartex/prod/rds-credentials
 
 phases:
@@ -30,7 +35,6 @@ phases:
     commands:
       - echo "📦 INSTALL – clean cache and prep lockfile"
       - npm cache clean --force
-      # IMPORTANT: bring package-lock.json in sync with package.json (adds zod 4.1.5)
       - npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - echo "📦 INSTALL – install from clean lockfile"
       - npm ci
@@ -38,9 +42,6 @@ phases:
 
   pre_build:
     commands:
-      # ================================================================
-      # CHANGE DETECTION (run in bash; no pipefail/unbound-var traps)
-      # ================================================================
       - echo "🔎 PRE_BUILD – detecting changes"
       - |
         /usr/bin/env bash -c '
@@ -71,7 +72,7 @@ phases:
           NEEDS_MIGRATE=false
         fi
 
-        echo BUILD_TYPE=$BUILD_TYPE       >  /tmp/cb_env
+        echo BUILD_TYPE=$BUILD_TYPE        >  /tmp/cb_env
         echo NEEDS_MIGRATE=$NEEDS_MIGRATE >> /tmp/cb_env
         '
 
@@ -79,16 +80,9 @@ phases:
       - |
         cat > ci-prebuild.sh << 'SH'
         set -e
-        # Remove legacy file if present to avoid conflicts
         rm -f src/lib/auth.ts || true
-
-        # (Optional) Pin/add deps here if you choose to manage versions in CI
-        # npm pkg set dependencies.recharts="^2.12.7"
-        # npm pkg set dependencies.lucide-react="^0.452.0"
-        # npm pkg set devDependencies.prisma="6.8.2"
-        # npm pkg set dependencies.@prisma/client="6.8.2"
-
-        # shadcn config (safe if already exists)
+        
+        # shadcn config
         node <<'NODE'
         const fs = require('fs');
         const p = 'components.json';
@@ -103,7 +97,6 @@ phases:
 
         mkdir -p src/lib src/components/ui src/components/dashboard
 
-        # cn() helper if missing
         if [ ! -f src/lib/utils.ts ]; then
           cat > src/lib/utils.ts << 'TS'
         import type { ClassValue } from "clsx";
@@ -113,7 +106,7 @@ phases:
         TS
         fi
 
-        # ---- UI stubs used by page.tsx (Card + CardTitle) --------------------
+        # ---- UI stubs ----
         cat > src/components/ui/card.tsx << 'TSX'
         import * as React from "react";
         import { cn } from "@/lib/utils";
@@ -194,6 +187,9 @@ phases:
           --build-arg AZURE_AD_CLIENT_ID="$AZURE_AD_CLIENT_ID" \
           --build-arg AZURE_AD_CLIENT_SECRET="$AZURE_AD_CLIENT_SECRET" \
           --build-arg AZURE_AD_TENANT_ID="$AZURE_AD_TENANT_ID" \
+          --build-arg GOOGLE_CLIENT_EMAIL="$GOOGLE_CLIENT_EMAIL" \
+          --build-arg GOOGLE_PRIVATE_KEY="$GOOGLE_PRIVATE_KEY" \
+          --build-arg GOOGLE_DRIVE_FOLDER_ID="$GOOGLE_DRIVE_FOLDER_ID" \
           -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
           -t "$ECR_IMAGE_URI:latest" .
 
