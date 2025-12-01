@@ -14,13 +14,47 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { status } = useSession({
+  const { data: session, status } = useSession({
     required: true,
     onUnauthenticated: () => redirect("/"),
   });
 
   const [isDesktopOpen, setDesktopOpen] = React.useState(true);
   const [isMobileOpen, setMobileOpen] = React.useState(false);
+
+  // ---------------------------------------------------------------------------
+  // ROLE CHECK (The Fix)
+  // ---------------------------------------------------------------------------
+  React.useEffect(() => {
+    if (status === "authenticated" && session?.user) {
+      const userEmail = session.user.email;
+      const userRole = (session.user as any).role;
+      
+      // List of roles allowed to see the dashboard
+      const allowedRoles = [
+        "ventes-exec", 
+        "ventes_exec", 
+        "Gestionnaire", 
+        "Expert", 
+        "admin"
+      ];
+
+      // Specific bypass for your email
+      const isBypassed = userEmail === "n.labranche@sinto.ca";
+      const isAllowed = isBypassed || (userRole && allowedRoles.includes(userRole));
+
+      if (!isAllowed) {
+        console.warn("Access Denied by Layout. Role:", userRole);
+        // Optional: redirect to an unauthorized page or just let them stay 
+        // but they won't see data. 
+        // redirect("/unauthorized"); // Uncomment if you have this page
+      }
+    }
+  }, [status, session]);
+
+  // ---------------------------------------------------------------------------
+  // UI LOGIC
+  // ---------------------------------------------------------------------------
 
   // Lock body scroll when mobile nav is open
   React.useEffect(() => {
