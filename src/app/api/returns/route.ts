@@ -182,8 +182,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Determine if this is a draft
+    // FIXED: Added null check for p.quantite
     const hasRequiredFields = body.reporter && body.cause && body.expert && body.client;
-    const hasProducts = body.products && body.products.length > 0 && body.products.some((p: { quantite?: number }) => p.quantite > 0);
+    const hasProducts = body.products 
+      && body.products.length > 0 
+      && body.products.some((p: { quantite?: number }) => (p.quantite ?? 0) > 0);
+    
     const isDraft = !(hasRequiredFields && hasProducts);
 
     // Create the return
