@@ -1956,10 +1956,20 @@ export default function DashboardPage() {
 
   // Only show access denied after auth check completes
   if (!mounted || status === "loading") {
-    return null; // Layout still shows, just empty content area
+    return null; 
   }
   
-  if (status === "unauthenticated" || (session as any)?.user?.role !== "ventes-exec") {
+  // 1. Get the current role
+  const userRole = (session as any)?.user?.role;
+
+  // 2. Define who is allowed to see this page
+  // Add 'Gestionnaire' and 'Expert' to this list
+  const ALLOWED_ROLES = ["ventes-exec", "Gestionnaire", "Expert", "admin"];
+
+  // 3. Check if the user's role is in the allowed list
+  if (status === "unauthenticated" || !ALLOWED_ROLES.includes(userRole)) {
+    // Optional: Log the role to console to help debug if it fails again
+    console.log("Access Denied. Current User Role:", userRole);
     return <AccessDenied />;
   }
 
