@@ -1,25 +1,29 @@
-// middleware.ts
-
-import { withAuth } from 'next-auth/middleware';
-// FIX: Import from './auth.config' because the file is in the root, not src/
-import { authConfig } from './auth.config';
+// middleware.ts (root level)
+import { withAuth } from "next-auth/middleware";
 
 export default withAuth({
   pages: {
-    // Now we can safely use the variable from your config
-    signIn: authConfig.pages.signIn, 
+    signIn: "/auth/signin",
   },
   callbacks: {
     authorized({ req, token }) {
       const isLoggedIn = !!token;
-      const isOnDashboard = req.nextUrl.pathname.startsWith('/dashboard');
-      // If on dashboard, require login. Otherwise, allow access.
-      return isOnDashboard ? isLoggedIn : true;
+      const isOnDashboard = req.nextUrl.pathname.startsWith("/dashboard");
+      const isOnApi = req.nextUrl.pathname.startsWith("/api");
+      
+      // API routes handle their own auth
+      if (isOnApi) return true;
+      
+      // Dashboard requires login
+      if (isOnDashboard) return isLoggedIn;
+      
+      // Everything else is public
+      return true;
     },
   },
 });
 
 export const config = {
   // Protect everything except API, Next assets, and static files
-  matcher: ['/((?!api|_next/static|_next/image|.*\\.png$).*)'],
+  matcher: ["/((?!api|_next/static|_next/image|.*\\.png$).*)"],
 };
