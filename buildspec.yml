@@ -31,10 +31,9 @@ phases:
     runtime-versions:
       nodejs: 20
     commands:
-      # --- FIX START: PREVENT MEMORY CRASHES ---
+      # Memory fix for large builds
       - export NODE_OPTIONS="--max-old-space-size=4096"
       - export NEXT_TELEMETRY_DISABLED=1
-      # --- FIX END ---
 
       - echo "📦 INSTALL – clean cache and prep lockfile"
       - npm cache clean --force
@@ -46,6 +45,11 @@ phases:
   pre_build:
     commands:
       - echo "🔎 PRE_BUILD – detecting changes"
+      # --- FIX: Move auth.config.ts to src so @/auth.config works ---
+      - echo "🔧 FIXING FILE STRUCTURE..."
+      - "[ -f auth.config.ts ] && mv auth.config.ts src/ || true"
+      # -------------------------------------------------------------
+
       - |
         /usr/bin/env bash -c '
         set -e
