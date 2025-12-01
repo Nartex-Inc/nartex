@@ -35,7 +35,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const ret = product.return;
     const userRole = (session.user as { role?: string }).role;
 
-    // Check if return can be edited (using correct field names from schema)
+    // Check if return can be edited
     if (ret.isFinal && !ret.isStandby) {
       return NextResponse.json(
         { ok: false, error: "Impossible de modifier un retour finalisé" },
