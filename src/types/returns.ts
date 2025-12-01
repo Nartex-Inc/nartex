@@ -1,13 +1,22 @@
+/home/claude/nartex-fixes/src/types/returns.ts
+
 // src/types/returns.ts
 // TypeScript types for the returns management system
+// Field names match prisma/schema.prisma
 
-import type { Return, ReturnProduct, Upload, Reporter, Cause, ReturnStatus } from "@prisma/client";
+import type { Return, ReturnProduct, Upload, Reporter, Cause } from "@prisma/client";
 
 /* =============================================================================
    Re-export Prisma types for convenience
 ============================================================================= */
 
-export type { Return, ReturnProduct, Upload, Reporter, Cause, ReturnStatus };
+export type { Return, ReturnProduct, Upload, Reporter, Cause };
+
+/* =============================================================================
+   Return Status (derived from flags)
+============================================================================= */
+
+export type ReturnStatus = "draft" | "awaiting_physical" | "received_or_no_physical";
 
 /* =============================================================================
    Label Maps
@@ -50,8 +59,8 @@ export interface ReturnRow {
   reportedAt: string;
   reporter: Reporter;
   cause: Cause;
-  expert: string;
-  client: string;
+  expert: string | null;
+  client: string | null;
   noClient?: string | null;
   noCommande?: string | null;
   tracking?: string | null;
@@ -64,7 +73,7 @@ export interface ReturnRow {
   products?: ProductLineResponse[];
   description?: string | null;
   createdBy?: { name: string; avatar?: string | null; at: string } | null;
-  retourPhysique?: boolean;
+  returnPhysical?: boolean;
   isPickup?: boolean;
   isCommande?: boolean;
   isReclamation?: boolean;
@@ -73,18 +82,18 @@ export interface ReturnRow {
   noReclamation?: string | null;
   verifiedBy?: { name: string; at: string | null } | null;
   finalizedBy?: { name: string; at: string | null } | null;
-  entrepotDepart?: string | null;
-  entrepotDestination?: string | null;
+  warehouseOrigin?: string | null;
+  warehouseDestination?: string | null;
   noCredit?: string | null;
   noCredit2?: string | null;
   noCredit3?: string | null;
-  crediteA?: string | null;
-  crediteA2?: string | null;
-  crediteA3?: string | null;
+  creditedTo?: string | null;
+  creditedTo2?: string | null;
+  creditedTo3?: string | null;
   villeShipto?: string | null;
-  poidsTotal?: number | null;
-  montantTransport?: number | null;
-  montantRestocking?: number | null;
+  totalWeight?: number | null;
+  transportAmount?: number | null;
+  restockingAmount?: number | null;
 }
 
 export interface AttachmentResponse {
@@ -97,7 +106,7 @@ export interface AttachmentResponse {
 export interface ProductLineResponse {
   id: string;
   codeProduit: string;
-  descriptionProduit: string;
+  descriptionProduit: string | null;
   descriptionRetour?: string | null;
   quantite: number;
   poidsUnitaire?: number | null;
@@ -124,7 +133,7 @@ export interface CreateReturnPayload {
   dateCommande?: string | null;
   transport?: string | null;
   description?: string | null;
-  retourPhysique?: boolean;
+  returnPhysical?: boolean;
   isPickup?: boolean;
   isCommande?: boolean;
   isReclamation?: boolean;
@@ -162,17 +171,17 @@ export interface FinalizeReturnPayload {
     qteDetruite: number;
     tauxRestock: number;
   }[];
-  entrepotDepart?: string;
-  entrepotDestination?: string;
+  warehouseOrigin?: string;
+  warehouseDestination?: string;
   noCredit?: string;
   noCredit2?: string;
   noCredit3?: string;
-  crediteA?: string;
-  crediteA2?: string;
-  crediteA3?: string;
-  montantTransport?: number;
-  montantRestocking?: number;
-  chargerTransport?: boolean;
+  creditedTo?: string;
+  creditedTo2?: string;
+  creditedTo3?: string;
+  transportAmount?: number;
+  restockingAmount?: number;
+  chargeTransport?: boolean;
 }
 
 /* =============================================================================
@@ -206,9 +215,13 @@ export interface ItemDetail {
    Helper Functions
 ============================================================================= */
 
+/**
+ * Derive status from Return flags
+ * Uses field names from prisma schema: isDraft, returnPhysical, isVerified
+ */
 export function getReturnStatus(ret: Return): ReturnStatus {
   if (ret.isDraft) return "draft";
-  if (ret.retourPhysique && !ret.isVerified) return "awaiting_physical";
+  if (ret.returnPhysical && !ret.isVerified) return "awaiting_physical";
   return "received_or_no_physical";
 }
 
