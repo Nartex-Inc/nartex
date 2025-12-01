@@ -1,4 +1,4 @@
-// src/app/(dashboard)/page.tsx
+// src/app/dashboard/page.tsx
 "use client";
 
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
@@ -37,7 +37,7 @@ import {
   Target,
   RotateCcw,
   Loader2,
-  Lock // Added for AccessDenied
+  Lock
 } from "lucide-react";
 import { THEME, CHART_COLORS, ThemeTokens } from "@/lib/theme-tokens";
 
@@ -46,6 +46,19 @@ import { THEME, CHART_COLORS, ThemeTokens } from "@/lib/theme-tokens";
    ═══════════════════════════════════════════════════════════════════════════════ */
 const RETENTION_THRESHOLD = 300;
 const NEW_CUSTOMER_MIN_SPEND = 30;
+
+// Case-insensitive role checking
+const ALLOWED_ROLES = [
+  "ventes-exec",
+  "ventes_exec",
+  "gestionnaire",
+  "expert",
+  "admin",
+  "facturation",
+];
+
+// Bypass emails (always allowed)
+const BYPASS_EMAILS = ["n.labranche@sinto.ca"];
 
 type YoyFilter = "all" | "growth" | "loss";
 
@@ -103,6 +116,23 @@ const percentage = (n: number) =>
 
 const formatNumber = (n: number) =>
   new Intl.NumberFormat("fr-CA").format(Math.round(n));
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   Helper: Check if user is authorized
+   ═══════════════════════════════════════════════════════════════════════════════ */
+function isUserAuthorized(role: string | undefined | null, email: string | undefined | null): boolean {
+  // Check bypass emails first
+  if (email && BYPASS_EMAILS.includes(email.toLowerCase())) {
+    return true;
+  }
+  
+  // Check role (case-insensitive)
+  if (role && ALLOWED_ROLES.includes(role.toLowerCase().trim())) {
+    return true;
+  }
+  
+  return false;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    Skeleton Components — For loading states inside cards
@@ -341,7 +371,7 @@ const ErrorState = ({ message }: { message: string }) => (
   </div>
 );
 
-// Access Denied (Updated for better debugging)
+// Access Denied
 const AccessDenied = ({ role, email }: { role: string | undefined, email: string | undefined | null }) => (
   <div className="fixed inset-0 flex items-center justify-center p-4">
     <div className="surface-card p-10 max-w-lg text-center animate-scale-in">
@@ -357,12 +387,13 @@ const AccessDenied = ({ role, email }: { role: string | undefined, email: string
          <p>DEBUG INFO:</p>
          <p>Email: {email || "Not Found"}</p>
          <p>Role Detected: {role || "Undefined/Null"}</p>
+         <p>Allowed: {ALLOWED_ROLES.join(", ")}</p>
       </div>
     </div>
   </div>
 );
 
-// KPI Card — Now with loading state support
+// KPI Card
 function KpiCard({
   title,
   icon: Icon,
@@ -400,7 +431,6 @@ function KpiCard({
         border: `1px solid ${t.borderSubtle}`,
       }}
     >
-      {/* Accent line */}
       {accentColor && (
         <div
           className="absolute top-0 left-4 right-4 h-px"
@@ -434,7 +464,7 @@ function KpiCard({
   );
 }
 
-// Chart Card — Now with loading state support
+// Chart Card
 function ChartCard({
   title,
   children,
@@ -990,15 +1020,12 @@ const DashboardContent = () => {
 
   return (
     <div className="space-y-6">
-      {/* ═══════════════════════════════════════════════════════════════════════════
-         Header
-         ═══════════════════════════════════════════════════════════════════════════ */}
+      {/* Header */}
       <header
         className="rounded-xl p-6 animate-slide-up"
         style={{ background: t.surface1, border: `1px solid ${t.borderSubtle}` }}
       >
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-          {/* Title */}
           <div className="flex items-center gap-4">
             <div
               className="p-3 rounded-xl"
@@ -1017,9 +1044,7 @@ const DashboardContent = () => {
             </div>
           </div>
 
-          {/* Controls */}
           <div className="flex flex-wrap items-center gap-3">
-            {/* YOY Toggle */}
             <button
               onClick={() => setShowYOYComparison(!showYOYComparison)}
               className="px-4 py-2 rounded-lg text-[0.875rem] font-medium transition-all duration-200"
@@ -1033,7 +1058,6 @@ const DashboardContent = () => {
               YOY
             </button>
 
-            {/* YOY Segment */}
             <SegmentedControl
               options={[
                 { key: "all", label: "Tous", color: t.textTertiary },
@@ -1045,7 +1069,6 @@ const DashboardContent = () => {
               t={t}
             />
 
-            {/* Rep Select */}
             <select
               value={stagedSelectedRep}
               onChange={(e) => setStagedSelectedRep(e.target.value)}
@@ -1062,7 +1085,6 @@ const DashboardContent = () => {
               ))}
             </select>
 
-            {/* Date Inputs */}
             <div className="flex items-center gap-2">
               <input
                 type="date"
@@ -1089,7 +1111,6 @@ const DashboardContent = () => {
               />
             </div>
 
-            {/* Quick date buttons */}
             <div className="flex gap-1">
               <button
                 onClick={() => {
@@ -1122,7 +1143,6 @@ const DashboardContent = () => {
               </button>
             </div>
 
-            {/* Apply */}
             <button
               onClick={applyFilters}
               className="px-5 py-2 rounded-lg text-[0.875rem] font-semibold transition-all duration-200 hover:scale-105"
@@ -1134,7 +1154,6 @@ const DashboardContent = () => {
               Appliquer
             </button>
 
-            {/* Reset */}
             {hasActiveFilters && (
               <button
                 onClick={resetFilters}
@@ -1149,246 +1168,111 @@ const DashboardContent = () => {
         </div>
       </header>
 
-      {/* ═══════════════════════════════════════════════════════════════════════════
-         KPI Grid
-         ═══════════════════════════════════════════════════════════════════════════ */}
+      {/* KPI Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <KpiCard
-          title="Chiffre d'affaires"
-          icon={DollarSign}
-          t={t}
-          accentColor={t.accent}
-          className="animate-slide-up stagger-1"
-          isLoading={isLoading}
-        >
+        <KpiCard title="Chiffre d'affaires" icon={DollarSign} t={t} accentColor={t.accent} className="animate-slide-up stagger-1" isLoading={isLoading}>
           <p className="text-[1.625rem] font-bold font-mono-data tracking-tight" style={{ color: t.textPrimary }}>
             <AnimatedNumber value={totalSales} format={currency} />
           </p>
-          {showYOYComparison && previousTotalSales > 0 && (
-            <YOYBadge current={totalSales} previous={previousTotalSales} />
-          )}
+          {showYOYComparison && previousTotalSales > 0 && <YOYBadge current={totalSales} previous={previousTotalSales} />}
         </KpiCard>
 
-        <KpiCard
-          title="Transactions"
-          icon={Package}
-          t={t}
-          accentColor={chartColors[1]}
-          className="animate-slide-up stagger-2"
-          isLoading={isLoading}
-        >
+        <KpiCard title="Transactions" icon={Package} t={t} accentColor={chartColors[1]} className="animate-slide-up stagger-2" isLoading={isLoading}>
           <p className="text-[1.625rem] font-bold font-mono-data tracking-tight" style={{ color: t.textPrimary }}>
             <AnimatedNumber value={transactionCount} format={formatNumber} />
           </p>
-          {showYOYComparison && previousTransactionCount > 0 && (
-            <YOYBadge current={transactionCount} previous={previousTransactionCount} />
-          )}
+          {showYOYComparison && previousTransactionCount > 0 && <YOYBadge current={transactionCount} previous={previousTransactionCount} />}
         </KpiCard>
 
-        <KpiCard
-          title="% Reps croissance"
-          icon={TrendingUp}
-          t={t}
-          accentColor={t.success}
-          onClick={isLoading ? undefined : () => setShowRepGrowthModal(true)}
-          className="animate-slide-up stagger-3"
-          isLoading={isLoading}
-        >
+        <KpiCard title="% Reps croissance" icon={TrendingUp} t={t} accentColor={t.success} onClick={isLoading ? undefined : () => setShowRepGrowthModal(true)} className="animate-slide-up stagger-3" isLoading={isLoading}>
           <p className="text-[1.625rem] font-bold font-mono-data tracking-tight" style={{ color: t.textPrimary }}>
             {repsPerf.pct === null ? "—" : percentage(repsPerf.pct)}
           </p>
-          <p className="text-caption mt-2">
-            {repsPerf.growth.length}/{repsPerf.eligible} reps
-          </p>
+          <p className="text-caption mt-2">{repsPerf.growth.length}/{repsPerf.eligible} reps</p>
         </KpiCard>
 
-        <KpiCard
-          title="% Clients croissance"
-          icon={Users}
-          t={t}
-          accentColor={chartColors[5]}
-          onClick={isLoading ? undefined : () => setShowCustomerGrowthModal(true)}
-          className="animate-slide-up stagger-4"
-          isLoading={isLoading}
-        >
+        <KpiCard title="% Clients croissance" icon={Users} t={t} accentColor={chartColors[5]} onClick={isLoading ? undefined : () => setShowCustomerGrowthModal(true)} className="animate-slide-up stagger-4" isLoading={isLoading}>
           <p className="text-[1.625rem] font-bold font-mono-data tracking-tight" style={{ color: t.textPrimary }}>
             {customersPerf.pct === null ? "—" : percentage(customersPerf.pct)}
           </p>
-          <p className="text-caption mt-2">
-            {customersPerf.growth.length}/{customersPerf.eligible} clients
-          </p>
+          <p className="text-caption mt-2">{customersPerf.growth.length}/{customersPerf.eligible} clients</p>
         </KpiCard>
 
-        <KpiCard
-          title="Taux rétention"
-          icon={Target}
-          t={t}
-          accentColor={chartColors[3]}
-          onClick={isLoading ? undefined : () => setShowRetentionTable(true)}
-          className="animate-slide-up stagger-5"
-          isLoading={isLoading}
-        >
+        <KpiCard title="Taux rétention" icon={Target} t={t} accentColor={chartColors[3]} onClick={isLoading ? undefined : () => setShowRetentionTable(true)} className="animate-slide-up stagger-5" isLoading={isLoading}>
           <p className="text-[1.625rem] font-bold font-mono-data tracking-tight" style={{ color: t.textPrimary }}>
             {retentionAverage.avg === null ? "—" : percentage(retentionAverage.avg)}
           </p>
-          <p className="text-caption mt-2">
-            Moy. {retentionAverage.eligibleReps} reps
-          </p>
+          <p className="text-caption mt-2">Moy. {retentionAverage.eligibleReps} reps</p>
         </KpiCard>
 
-        <KpiCard
-          title="Nouveaux clients"
-          icon={UserPlus}
-          t={t}
-          accentColor={chartColors[4]}
-          onClick={isLoading ? undefined : () => setShowNewCustomersModal(true)}
-          className="animate-slide-up stagger-6"
-          isLoading={isLoading}
-        >
+        <KpiCard title="Nouveaux clients" icon={UserPlus} t={t} accentColor={chartColors[4]} onClick={isLoading ? undefined : () => setShowNewCustomersModal(true)} className="animate-slide-up stagger-6" isLoading={isLoading}>
           <p className="text-[1.625rem] font-bold font-mono-data tracking-tight" style={{ color: t.textPrimary }}>
             {formatNumber(newCustomersCount)}
           </p>
-          <p className="text-caption mt-2">
-            Aucun achat 3 ans
-          </p>
+          <p className="text-caption mt-2">Aucun achat 3 ans</p>
         </KpiCard>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════════════════
-         Charts
-         ═══════════════════════════════════════════════════════════════════════════ */}
+      {/* Charts - YOY Comparison */}
       {showYOYComparison && (
         <div className="grid grid-cols-12 gap-4">
           <ChartCard title="Comparaison YOY — Chiffre d'affaires" className="col-span-12 lg:col-span-8" t={t} isLoading={isLoading} height={280}>
             <ResponsiveContainer width="100%" height={280}>
               <ComposedChart data={salesComparisonByMonth}>
                 <CartesianGrid strokeDasharray="3 3" stroke={t.borderSubtle} strokeOpacity={0.5} />
-                <XAxis
-                  dataKey="name"
-                  tick={{ fill: t.textTertiary, fontSize: 12 }}
-                  stroke={t.borderSubtle}
-                  tickLine={false}
-                />
-                <YAxis
-                  yAxisId="left"
-                  tickFormatter={compactCurrency}
-                  tick={{ fill: t.textTertiary, fontSize: 12 }}
-                  stroke={t.borderSubtle}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  tickFormatter={percentage}
-                  tick={{ fill: t.textTertiary, fontSize: 12 }}
-                  stroke={t.borderSubtle}
-                  tickLine={false}
-                  axisLine={false}
-                />
+                <XAxis dataKey="name" tick={{ fill: t.textTertiary, fontSize: 12 }} stroke={t.borderSubtle} tickLine={false} />
+                <YAxis yAxisId="left" tickFormatter={compactCurrency} tick={{ fill: t.textTertiary, fontSize: 12 }} stroke={t.borderSubtle} tickLine={false} axisLine={false} />
+                <YAxis yAxisId="right" orientation="right" tickFormatter={percentage} tick={{ fill: t.textTertiary, fontSize: 12 }} stroke={t.borderSubtle} tickLine={false} axisLine={false} />
                 <Tooltip content={<CustomTooltip t={t} />} />
                 <Legend wrapperStyle={{ paddingTop: 16, fontSize: 13 }} />
-                <Bar
-                  yAxisId="left"
-                  dataKey="previous"
-                  fill={t.textMuted}
-                  name="N-1"
-                  radius={[4, 4, 0, 0]}
-                />
-                <Bar
-                  yAxisId="left"
-                  dataKey="current"
-                  fill={t.accent}
-                  name="Période actuelle"
-                  radius={[4, 4, 0, 0]}
-                />
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="growth"
-                  stroke={t.success}
-                  strokeWidth={2}
-                  dot={{ fill: t.success, r: 3 }}
-                  activeDot={{ r: 5 }}
-                  name="Croissance %"
-                />
+                <Bar yAxisId="left" dataKey="previous" fill={t.textMuted} name="N-1" radius={[4, 4, 0, 0]} />
+                <Bar yAxisId="left" dataKey="current" fill={t.accent} name="Période actuelle" radius={[4, 4, 0, 0]} />
+                <Line yAxisId="right" type="monotone" dataKey="growth" stroke={t.success} strokeWidth={2} dot={{ fill: t.success, r: 3 }} activeDot={{ r: 5 }} name="Croissance %" />
               </ComposedChart>
             </ResponsiveContainer>
           </ChartCard>
 
           <ChartCard title="Performance comparative" className="col-span-12 lg:col-span-4" t={t} isLoading={isLoading}>
             <div className="space-y-4 h-full flex flex-col justify-between">
-              <div
-                className="p-4 rounded-lg"
-                style={{ background: t.surface2, border: `1px solid ${t.borderSubtle}` }}
-              >
+              <div className="p-4 rounded-lg" style={{ background: t.surface2, border: `1px solid ${t.borderSubtle}` }}>
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-label">Période actuelle</span>
                   <Sparkles className="w-4 h-4" style={{ color: t.accent }} />
                 </div>
-                <div className="text-[1.25rem] font-bold font-mono-data" style={{ color: t.textPrimary }}>
-                  {currency(totalSales)}
-                </div>
+                <div className="text-[1.25rem] font-bold font-mono-data" style={{ color: t.textPrimary }}>{currency(totalSales)}</div>
               </div>
-
-              <div
-                className="p-4 rounded-lg"
-                style={{ background: t.surface2, border: `1px solid ${t.borderSubtle}` }}
-              >
+              <div className="p-4 rounded-lg" style={{ background: t.surface2, border: `1px solid ${t.borderSubtle}` }}>
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-label">Année précédente</span>
                   <Calendar className="w-4 h-4" style={{ color: t.textTertiary }} />
                 </div>
-                <div className="text-[1.25rem] font-bold font-mono-data" style={{ color: t.textSecondary }}>
-                  {currency(previousTotalSales)}
-                </div>
+                <div className="text-[1.25rem] font-bold font-mono-data" style={{ color: t.textSecondary }}>{currency(previousTotalSales)}</div>
               </div>
-
-              <div
-                className="p-4 rounded-lg border-glow"
-                style={{ background: `${t.accent}10`, border: `1px solid ${t.accent}30` }}
-              >
+              <div className="p-4 rounded-lg border-glow" style={{ background: `${t.accent}10`, border: `1px solid ${t.accent}30` }}>
                 <span className="text-label">Variation YOY</span>
                 <div className="text-[1.625rem] font-bold font-mono-data mt-1" style={{ color: t.textPrimary }}>
-                  {previousTotalSales > 0
-                    ? percentage((totalSales - previousTotalSales) / previousTotalSales)
-                    : "—"}
+                  {previousTotalSales > 0 ? percentage((totalSales - previousTotalSales) / previousTotalSales) : "—"}
                 </div>
-                <div className="text-caption mt-1">
-                  Δ {currency(totalSales - previousTotalSales)}
-                </div>
+                <div className="text-caption mt-1">Δ {currency(totalSales - previousTotalSales)}</div>
               </div>
             </div>
           </ChartCard>
         </div>
       )}
 
+      {/* Main Charts */}
       <div className="grid grid-cols-12 gap-4">
-        {/* Pie Chart */}
         <ChartCard title="Répartition par expert" className="col-span-12 lg:col-span-5" t={t} isLoading={isLoading}>
           <ResponsiveContainer width="100%" height={320}>
             <PieChart>
-              <Pie
-                data={salesByRep}
-                dataKey="value"
-                nameKey="name"
-                innerRadius="60%"
-                outerRadius="90%"
-                paddingAngle={2}
-                animationDuration={800}
-              >
+              <Pie data={salesByRep} dataKey="value" nameKey="name" innerRadius="60%" outerRadius="90%" paddingAngle={2} animationDuration={800}>
                 {salesByRep.map((entry) => (
                   <Cell
                     key={`cell-${entry.name}`}
                     fill={salesRepColorMap[entry.name]}
-                    onClick={(e) =>
-                      entry.name !== "Autres" && handleSelect("salesReps", entry.name, (e as any).shiftKey)
-                    }
+                    onClick={(e) => entry.name !== "Autres" && handleSelect("salesReps", entry.name, (e as any).shiftKey)}
                     className={entry.name === "Autres" ? "" : "cursor-pointer transition-opacity duration-200"}
-                    style={{
-                      opacity:
-                        filters.salesReps.length === 0 || filters.salesReps.includes(entry.name) ? 1 : 0.25,
-                    }}
+                    style={{ opacity: filters.salesReps.length === 0 || filters.salesReps.includes(entry.name) ? 1 : 0.25 }}
                   />
                 ))}
               </Pie>
@@ -1399,69 +1283,28 @@ const DashboardContent = () => {
                 verticalAlign="middle"
                 wrapperStyle={{ paddingLeft: 16 }}
                 content={(props: any) => {
-                  const patchedPayload =
-                    props?.payload?.map((p: any) => ({
-                      ...p,
-                      color: salesRepColorMap[p.value] || p.color,
-                    })) ?? [];
-                  return (
-                    <CustomLegend
-                      payload={patchedPayload}
-                      selectedItems={filters.salesReps}
-                      onLegendClick={(v: string) => v !== "Autres" && handleSelect("salesReps", v)}
-                      t={t}
-                    />
-                  );
+                  const patchedPayload = props?.payload?.map((p: any) => ({ ...p, color: salesRepColorMap[p.value] || p.color })) ?? [];
+                  return <CustomLegend payload={patchedPayload} selectedItems={filters.salesReps} onLegendClick={(v: string) => v !== "Autres" && handleSelect("salesReps", v)} t={t} />;
                 }}
               />
             </PieChart>
           </ResponsiveContainer>
         </ChartCard>
 
-        {/* Line Chart */}
         <ChartCard title="Évolution des transactions" className="col-span-12 lg:col-span-7" t={t} isLoading={isLoading}>
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={transactionsByMonth}>
               <CartesianGrid strokeDasharray="3 3" stroke={t.borderSubtle} strokeOpacity={0.5} />
-              <XAxis
-                dataKey="name"
-                tick={{ fill: t.textTertiary, fontSize: 12 }}
-                stroke={t.borderSubtle}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fill: t.textTertiary, fontSize: 12 }}
-                stroke={t.borderSubtle}
-                tickLine={false}
-                axisLine={false}
-              />
+              <XAxis dataKey="name" tick={{ fill: t.textTertiary, fontSize: 12 }} stroke={t.borderSubtle} tickLine={false} />
+              <YAxis tick={{ fill: t.textTertiary, fontSize: 12 }} stroke={t.borderSubtle} tickLine={false} axisLine={false} />
               <Tooltip content={<CustomTooltip format="number" t={t} />} />
               <Legend wrapperStyle={{ paddingTop: 16, fontSize: 13 }} />
-              {showYOYComparison && (
-                <Line
-                  type="monotone"
-                  dataKey="previous"
-                  stroke={t.textMuted}
-                  strokeWidth={2}
-                  strokeDasharray="5 5"
-                  name="N-1"
-                  dot={false}
-                />
-              )}
-              <Line
-                type="monotone"
-                dataKey="current"
-                stroke={chartColors[1]}
-                strokeWidth={2}
-                name="Période actuelle"
-                dot={{ fill: chartColors[1], r: 3 }}
-                activeDot={{ r: 5, fill: chartColors[1] }}
-              />
+              {showYOYComparison && <Line type="monotone" dataKey="previous" stroke={t.textMuted} strokeWidth={2} strokeDasharray="5 5" name="N-1" dot={false} />}
+              <Line type="monotone" dataKey="current" stroke={chartColors[1]} strokeWidth={2} name="Période actuelle" dot={{ fill: chartColors[1], r: 3 }} activeDot={{ r: 5, fill: chartColors[1] }} />
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
 
-        {/* Products Bar Chart */}
         <ChartCard
           title={`Top ${showAllProducts ? "" : "10 "}produits`}
           className="col-span-12 xl:col-span-6"
@@ -1469,57 +1312,27 @@ const DashboardContent = () => {
           isLoading={isLoading}
           height={360}
           action={
-            <button
-              onClick={() => setShowAllProducts(!showAllProducts)}
-              className="text-[0.8125rem] flex items-center gap-1 transition-colors"
-              style={{ color: t.accent }}
-            >
+            <button onClick={() => setShowAllProducts(!showAllProducts)} className="text-[0.8125rem] flex items-center gap-1 transition-colors" style={{ color: t.accent }}>
               {showAllProducts ? "Moins" : "Tout voir"}
               <ChevronRight className={`w-3 h-3 transition-transform ${showAllProducts ? "rotate-90" : ""}`} />
             </button>
           }
         >
-          <ResponsiveContainer
-            width="100%"
-            height={showAllProducts ? Math.max(360, salesByItem.length * 32) : 360}
-          >
+          <ResponsiveContainer width="100%" height={showAllProducts ? Math.max(360, salesByItem.length * 32) : 360}>
             <BarChart data={salesByItem} layout="vertical" margin={{ left: 20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={t.borderSubtle} strokeOpacity={0.5} />
-              <XAxis
-                type="number"
-                tickFormatter={compactCurrency}
-                tick={{ fill: t.textTertiary, fontSize: 12 }}
-                stroke={t.borderSubtle}
-                tickLine={false}
-              />
-              <YAxis
-                type="category"
-                dataKey="name"
-                width={90}
-                tick={{ fill: t.textSecondary, fontSize: 12 }}
-                stroke="none"
-              />
+              <XAxis type="number" tickFormatter={compactCurrency} tick={{ fill: t.textTertiary, fontSize: 12 }} stroke={t.borderSubtle} tickLine={false} />
+              <YAxis type="category" dataKey="name" width={90} tick={{ fill: t.textSecondary, fontSize: 12 }} stroke="none" />
               <Tooltip content={<CustomTooltip t={t} />} />
               <Bar dataKey="value" radius={[0, 4, 4, 0]} animationDuration={600}>
                 {salesByItem.map((entry, i) => (
-                  <Cell
-                    key={`item-${i}`}
-                    fill={t.accent}
-                    fillOpacity={1 - i * 0.07}
-                    onClick={(e) => handleSelect("itemCodes", entry.name, (e as any).shiftKey)}
-                    className="cursor-pointer transition-opacity"
-                    style={{
-                      opacity:
-                        filters.itemCodes.length === 0 || filters.itemCodes.includes(entry.name) ? 1 : 0.25,
-                    }}
-                  />
+                  <Cell key={`item-${i}`} fill={t.accent} fillOpacity={1 - i * 0.07} onClick={(e) => handleSelect("itemCodes", entry.name, (e as any).shiftKey)} className="cursor-pointer transition-opacity" style={{ opacity: filters.itemCodes.length === 0 || filters.itemCodes.includes(entry.name) ? 1 : 0.25 }} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
 
-        {/* Customers Bar Chart */}
         <ChartCard
           title={`Top ${showAllCustomers ? "" : "10 "}clients`}
           className="col-span-12 xl:col-span-6"
@@ -1527,50 +1340,21 @@ const DashboardContent = () => {
           isLoading={isLoading}
           height={360}
           action={
-            <button
-              onClick={() => setShowAllCustomers(!showAllCustomers)}
-              className="text-[0.8125rem] flex items-center gap-1 transition-colors"
-              style={{ color: t.accent }}
-            >
+            <button onClick={() => setShowAllCustomers(!showAllCustomers)} className="text-[0.8125rem] flex items-center gap-1 transition-colors" style={{ color: t.accent }}>
               {showAllCustomers ? "Moins" : "Tout voir"}
               <ChevronRight className={`w-3 h-3 transition-transform ${showAllCustomers ? "rotate-90" : ""}`} />
             </button>
           }
         >
-          <ResponsiveContainer
-            width="100%"
-            height={showAllCustomers ? Math.max(360, salesByCustomer.length * 32) : 360}
-          >
+          <ResponsiveContainer width="100%" height={showAllCustomers ? Math.max(360, salesByCustomer.length * 32) : 360}>
             <BarChart data={salesByCustomer} layout="vertical" margin={{ left: 20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={t.borderSubtle} strokeOpacity={0.5} />
-              <XAxis
-                type="number"
-                tickFormatter={compactCurrency}
-                tick={{ fill: t.textTertiary, fontSize: 12 }}
-                stroke={t.borderSubtle}
-                tickLine={false}
-              />
-              <YAxis
-                type="category"
-                dataKey="name"
-                width={140}
-                tick={{ fill: t.textSecondary, fontSize: 12 }}
-                stroke="none"
-              />
+              <XAxis type="number" tickFormatter={compactCurrency} tick={{ fill: t.textTertiary, fontSize: 12 }} stroke={t.borderSubtle} tickLine={false} />
+              <YAxis type="category" dataKey="name" width={140} tick={{ fill: t.textSecondary, fontSize: 12 }} stroke="none" />
               <Tooltip content={<CustomTooltip t={t} />} />
               <Bar dataKey="value" radius={[0, 4, 4, 0]} animationDuration={600}>
                 {salesByCustomer.map((entry, i) => (
-                  <Cell
-                    key={`cust-${i}`}
-                    fill={chartColors[1]}
-                    fillOpacity={1 - i * 0.07}
-                    onClick={(e) => handleSelect("customers", entry.name, (e as any).shiftKey)}
-                    className="cursor-pointer transition-opacity"
-                    style={{
-                      opacity:
-                        filters.customers.length === 0 || filters.customers.includes(entry.name) ? 1 : 0.25,
-                    }}
-                  />
+                  <Cell key={`cust-${i}`} fill={chartColors[1]} fillOpacity={1 - i * 0.07} onClick={(e) => handleSelect("customers", entry.name, (e as any).shiftKey)} className="cursor-pointer transition-opacity" style={{ opacity: filters.customers.length === 0 || filters.customers.includes(entry.name) ? 1 : 0.25 }} />
                 ))}
               </Bar>
             </BarChart>
@@ -1578,18 +1362,8 @@ const DashboardContent = () => {
         </ChartCard>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════════════════
-         Modals (unchanged, just show when data is loaded)
-         ═══════════════════════════════════════════════════════════════════════════ */}
-
-      {/* Retention Modal */}
-      <Modal
-        open={showRetentionTable}
-        onClose={() => setShowRetentionTable(false)}
-        title="Taux de rétention par représentant"
-        subtitle={`Seuil: ${currency(RETENTION_THRESHOLD)} les deux années`}
-        t={t}
-      >
+      {/* Modals - Retention */}
+      <Modal open={showRetentionTable} onClose={() => setShowRetentionTable(false)} title="Taux de rétention par représentant" subtitle={`Seuil: ${currency(RETENTION_THRESHOLD)} les deux années`} t={t}>
         <div className="max-h-[60vh] overflow-auto">
           <table className="w-full text-[0.875rem]">
             <thead className="sticky top-0" style={{ background: t.surface1 }}>
@@ -1598,10 +1372,7 @@ const DashboardContent = () => {
                 <th className="text-right px-6 py-3 text-label">Éligibles</th>
                 <th className="text-right px-6 py-3 text-label">Retenus</th>
                 <th className="text-right px-6 py-3">
-                  <button
-                    onClick={() => setRetentionSortAsc((s) => !s)}
-                    className="inline-flex items-center gap-1 text-label hover:opacity-80"
-                  >
+                  <button onClick={() => setRetentionSortAsc((s) => !s)} className="inline-flex items-center gap-1 text-label hover:opacity-80">
                     Taux <ArrowUpDown className="w-3 h-3" />
                   </button>
                 </th>
@@ -1629,58 +1400,25 @@ const DashboardContent = () => {
                     onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                   >
                     <td className="px-6 py-3" style={{ color: t.textPrimary }}>{rep}</td>
-                    <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textSecondary }}>
-                      {formatNumber(data.eligible)}
-                    </td>
-                    <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textSecondary }}>
-                      {formatNumber(data.retained)}
-                    </td>
-                    <td className="px-6 py-3 text-right font-mono-data font-medium" style={{ color: t.textPrimary }}>
-                      {data.rate === null ? "—" : percentage(data.rate)}
-                    </td>
+                    <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textSecondary }}>{formatNumber(data.eligible)}</td>
+                    <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textSecondary }}>{formatNumber(data.retained)}</td>
+                    <td className="px-6 py-3 text-right font-mono-data font-medium" style={{ color: t.textPrimary }}>{data.rate === null ? "—" : percentage(data.rate)}</td>
                   </tr>
                 ))}
             </tbody>
           </table>
         </div>
-        <div
-          className="flex items-center justify-between px-6 py-4 text-[0.8125rem]"
-          style={{ borderTop: `1px solid ${t.borderSubtle}`, color: t.textTertiary }}
-        >
-          <span>
-            Moyenne: {retentionAverage.avg === null ? "—" : percentage(retentionAverage.avg)}
-          </span>
-          <button
-            onClick={() => setShowRetentionTable(false)}
-            className="px-3 py-1.5 rounded-lg transition-colors"
-            style={{ background: t.surface2, color: t.textSecondary }}
-          >
-            Fermer
-          </button>
+        <div className="flex items-center justify-between px-6 py-4 text-[0.8125rem]" style={{ borderTop: `1px solid ${t.borderSubtle}`, color: t.textTertiary }}>
+          <span>Moyenne: {retentionAverage.avg === null ? "—" : percentage(retentionAverage.avg)}</span>
+          <button onClick={() => setShowRetentionTable(false)} className="px-3 py-1.5 rounded-lg transition-colors" style={{ background: t.surface2, color: t.textSecondary }}>Fermer</button>
         </div>
       </Modal>
 
       {/* New Customers Modal */}
-      <Modal
-        open={showNewCustomersModal}
-        onClose={() => setShowNewCustomersModal(false)}
-        title={`Nouveaux clients (≥ ${currency(NEW_CUSTOMER_MIN_SPEND)})`}
-        subtitle="Aucun achat au cours des 3 dernières années"
-        t={t}
-        width="max-w-5xl"
-      >
+      <Modal open={showNewCustomersModal} onClose={() => setShowNewCustomersModal(false)} title={`Nouveaux clients (≥ ${currency(NEW_CUSTOMER_MIN_SPEND)})`} subtitle="Aucun achat au cours des 3 dernières années" t={t} width="max-w-5xl">
         <div className="flex items-center gap-2 px-6 py-3" style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
-          <SegmentedControl
-            options={[
-              { key: "list", label: "Liste" },
-              { key: "reps", label: "Par représentant" },
-            ]}
-            value={newTab}
-            onChange={(k) => setNewTab(k as "list" | "reps")}
-            t={t}
-          />
+          <SegmentedControl options={[{ key: "list", label: "Liste" }, { key: "reps", label: "Par représentant" }]} value={newTab} onChange={(k) => setNewTab(k as "list" | "reps")} t={t} />
         </div>
-
         {newTab === "list" ? (
           <div className="max-h-[60vh] overflow-auto">
             <table className="w-full text-[0.875rem]">
@@ -1689,12 +1427,7 @@ const DashboardContent = () => {
                   <th className="text-left px-6 py-3 text-label">Client</th>
                   <th className="text-left px-6 py-3 text-label">Expert</th>
                   <th className="text-right px-6 py-3">
-                    <button
-                      onClick={() => setNewSortAsc((s) => !s)}
-                      className="inline-flex items-center gap-1 text-label hover:opacity-80"
-                    >
-                      Total <ArrowUpDown className="w-3 h-3" />
-                    </button>
+                    <button onClick={() => setNewSortAsc((s) => !s)} className="inline-flex items-center gap-1 text-label hover:opacity-80">Total <ArrowUpDown className="w-3 h-3" /></button>
                   </th>
                   <th className="text-right px-6 py-3 text-label"># cmd</th>
                   <th className="text-right px-6 py-3 text-label">1ère cmd</th>
@@ -1702,36 +1435,22 @@ const DashboardContent = () => {
               </thead>
               <tbody>
                 {newCustomersList.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center" style={{ color: t.textTertiary }}>
-                      Aucun nouveau client trouvé.
-                    </td>
-                  </tr>
+                  <tr><td colSpan={5} className="px-6 py-8 text-center" style={{ color: t.textTertiary }}>Aucun nouveau client trouvé.</td></tr>
                 ) : (
                   newCustomersList.map((row) => (
                     <tr
                       key={`${row.customer}-${row.firstDate}`}
                       className="cursor-pointer transition-colors"
                       style={{ borderBottom: `1px solid ${t.borderSubtle}` }}
-                      onClick={() => {
-                        setFilters((prev) => ({ ...prev, salesReps: [row.rep], customers: [row.customer] }));
-                        setStagedSelectedRep(row.rep);
-                        setShowNewCustomersModal(false);
-                      }}
+                      onClick={() => { setFilters((prev) => ({ ...prev, salesReps: [row.rep], customers: [row.customer] })); setStagedSelectedRep(row.rep); setShowNewCustomersModal(false); }}
                       onMouseEnter={(e) => (e.currentTarget.style.background = t.surface2)}
                       onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                     >
                       <td className="px-6 py-3" style={{ color: t.textPrimary }}>{row.customer}</td>
                       <td className="px-6 py-3" style={{ color: t.textSecondary }}>{row.rep}</td>
-                      <td className="px-6 py-3 text-right font-mono-data font-medium" style={{ color: t.textPrimary }}>
-                        {currency(row.spend)}
-                      </td>
-                      <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textSecondary }}>
-                        {row.orders}
-                      </td>
-                      <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textTertiary }}>
-                        {row.firstDate}
-                      </td>
+                      <td className="px-6 py-3 text-right font-mono-data font-medium" style={{ color: t.textPrimary }}>{currency(row.spend)}</td>
+                      <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textSecondary }}>{row.orders}</td>
+                      <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textTertiary }}>{row.firstDate}</td>
                     </tr>
                   ))
                 )}
@@ -1761,22 +1480,9 @@ const DashboardContent = () => {
                 </thead>
                 <tbody>
                   {newCustomersByRep.map((r) => (
-                    <tr
-                      key={r.rep}
-                      className="cursor-pointer transition-colors"
-                      style={{ borderBottom: `1px solid ${t.borderSubtle}` }}
-                      onClick={() => {
-                        setFilters((prev) => ({ ...prev, salesReps: [r.rep], customers: [] }));
-                        setStagedSelectedRep(r.rep);
-                        setShowNewCustomersModal(false);
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = t.surface2)}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                    >
+                    <tr key={r.rep} className="cursor-pointer transition-colors" style={{ borderBottom: `1px solid ${t.borderSubtle}` }} onClick={() => { setFilters((prev) => ({ ...prev, salesReps: [r.rep], customers: [] })); setStagedSelectedRep(r.rep); setShowNewCustomersModal(false); }} onMouseEnter={(e) => (e.currentTarget.style.background = t.surface2)} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
                       <td className="px-4 py-2" style={{ color: t.textPrimary }}>{r.rep}</td>
-                      <td className="px-4 py-2 text-right font-mono-data" style={{ color: t.textSecondary }}>
-                        {r.count}
-                      </td>
+                      <td className="px-4 py-2 text-right font-mono-data" style={{ color: t.textSecondary }}>{r.count}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1784,41 +1490,16 @@ const DashboardContent = () => {
             </div>
           </div>
         )}
-
-        <div
-          className="flex justify-end px-6 py-4"
-          style={{ borderTop: `1px solid ${t.borderSubtle}` }}
-        >
-          <button
-            onClick={() => setShowNewCustomersModal(false)}
-            className="px-3 py-1.5 rounded-lg transition-colors"
-            style={{ background: t.surface2, color: t.textSecondary }}
-          >
-            Fermer
-          </button>
+        <div className="flex justify-end px-6 py-4" style={{ borderTop: `1px solid ${t.borderSubtle}` }}>
+          <button onClick={() => setShowNewCustomersModal(false)} className="px-3 py-1.5 rounded-lg transition-colors" style={{ background: t.surface2, color: t.textSecondary }}>Fermer</button>
         </div>
       </Modal>
 
       {/* Rep Growth Modal */}
-      <Modal
-        open={showRepGrowthModal}
-        onClose={() => setShowRepGrowthModal(false)}
-        title="Performance YOY des représentants"
-        t={t}
-        width="max-w-5xl"
-      >
+      <Modal open={showRepGrowthModal} onClose={() => setShowRepGrowthModal(false)} title="Performance YOY des représentants" t={t} width="max-w-5xl">
         <div className="flex items-center gap-2 px-6 py-3" style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
-          <SegmentedControl
-            options={[
-              { key: "growth", label: `Croissance (${repsPerf.growth.length})`, color: t.success },
-              { key: "loss", label: `Baisse (${repsPerf.loss.length})`, color: t.danger },
-            ]}
-            value={repGrowthTab}
-            onChange={(k) => setRepGrowthTab(k as "growth" | "loss")}
-            t={t}
-          />
+          <SegmentedControl options={[{ key: "growth", label: `Croissance (${repsPerf.growth.length})`, color: t.success }, { key: "loss", label: `Baisse (${repsPerf.loss.length})`, color: t.danger }]} value={repGrowthTab} onChange={(k) => setRepGrowthTab(k as "growth" | "loss")} t={t} />
         </div>
-
         <div className="max-h-[60vh] overflow-auto">
           <table className="w-full text-[0.875rem]">
             <thead className="sticky top-0" style={{ background: t.surface1 }}>
@@ -1834,64 +1515,25 @@ const DashboardContent = () => {
               {(repGrowthTab === "growth" ? repsPerf.growth : repsPerf.loss).map((row) => (
                 <tr key={row.key} style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
                   <td className="px-6 py-3" style={{ color: t.textPrimary }}>{row.key}</td>
-                  <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textSecondary }}>
-                    {currency(row.prev)}
-                  </td>
-                  <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textPrimary }}>
-                    {currency(row.curr)}
-                  </td>
-                  <td
-                    className="px-6 py-3 text-right font-mono-data font-medium"
-                    style={{ color: row.delta > 0 ? t.success : t.danger }}
-                  >
-                    {currency(row.delta)}
-                  </td>
-                  <td
-                    className="px-6 py-3 text-right font-mono-data font-medium"
-                    style={{ color: row.rate > 0 ? t.success : t.danger }}
-                  >
-                    {percentage(row.rate)}
-                  </td>
+                  <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textSecondary }}>{currency(row.prev)}</td>
+                  <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textPrimary }}>{currency(row.curr)}</td>
+                  <td className="px-6 py-3 text-right font-mono-data font-medium" style={{ color: row.delta > 0 ? t.success : t.danger }}>{currency(row.delta)}</td>
+                  <td className="px-6 py-3 text-right font-mono-data font-medium" style={{ color: row.rate > 0 ? t.success : t.danger }}>{percentage(row.rate)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-
-        <div
-          className="flex justify-end px-6 py-4"
-          style={{ borderTop: `1px solid ${t.borderSubtle}` }}
-        >
-          <button
-            onClick={() => setShowRepGrowthModal(false)}
-            className="px-3 py-1.5 rounded-lg transition-colors"
-            style={{ background: t.surface2, color: t.textSecondary }}
-          >
-            Fermer
-          </button>
+        <div className="flex justify-end px-6 py-4" style={{ borderTop: `1px solid ${t.borderSubtle}` }}>
+          <button onClick={() => setShowRepGrowthModal(false)} className="px-3 py-1.5 rounded-lg transition-colors" style={{ background: t.surface2, color: t.textSecondary }}>Fermer</button>
         </div>
       </Modal>
 
       {/* Customer Growth Modal */}
-      <Modal
-        open={showCustomerGrowthModal}
-        onClose={() => setShowCustomerGrowthModal(false)}
-        title="Performance YOY des clients"
-        t={t}
-        width="max-w-5xl"
-      >
+      <Modal open={showCustomerGrowthModal} onClose={() => setShowCustomerGrowthModal(false)} title="Performance YOY des clients" t={t} width="max-w-5xl">
         <div className="flex items-center gap-2 px-6 py-3" style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
-          <SegmentedControl
-            options={[
-              { key: "growth", label: `Croissance (${customersPerf.growth.length})`, color: t.success },
-              { key: "loss", label: `Baisse (${customersPerf.loss.length})`, color: t.danger },
-            ]}
-            value={customerGrowthTab}
-            onChange={(k) => setCustomerGrowthTab(k as "growth" | "loss")}
-            t={t}
-          />
+          <SegmentedControl options={[{ key: "growth", label: `Croissance (${customersPerf.growth.length})`, color: t.success }, { key: "loss", label: `Baisse (${customersPerf.loss.length})`, color: t.danger }]} value={customerGrowthTab} onChange={(k) => setCustomerGrowthTab(k as "growth" | "loss")} t={t} />
         </div>
-
         <div className="max-h-[60vh] overflow-auto">
           <table className="w-full text-[0.875rem]">
             <thead className="sticky top-0" style={{ background: t.surface1 }}>
@@ -1907,41 +1549,17 @@ const DashboardContent = () => {
               {(customerGrowthTab === "growth" ? customersPerf.growth : customersPerf.loss).map((row) => (
                 <tr key={row.key} style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
                   <td className="px-6 py-3" style={{ color: t.textPrimary }}>{row.key}</td>
-                  <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textSecondary }}>
-                    {currency(row.prev)}
-                  </td>
-                  <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textPrimary }}>
-                    {currency(row.curr)}
-                  </td>
-                  <td
-                    className="px-6 py-3 text-right font-mono-data font-medium"
-                    style={{ color: row.delta > 0 ? t.success : t.danger }}
-                  >
-                    {currency(row.delta)}
-                  </td>
-                  <td
-                    className="px-6 py-3 text-right font-mono-data font-medium"
-                    style={{ color: row.rate > 0 ? t.success : t.danger }}
-                  >
-                    {percentage(row.rate)}
-                  </td>
+                  <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textSecondary }}>{currency(row.prev)}</td>
+                  <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textPrimary }}>{currency(row.curr)}</td>
+                  <td className="px-6 py-3 text-right font-mono-data font-medium" style={{ color: row.delta > 0 ? t.success : t.danger }}>{currency(row.delta)}</td>
+                  <td className="px-6 py-3 text-right font-mono-data font-medium" style={{ color: row.rate > 0 ? t.success : t.danger }}>{percentage(row.rate)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-
-        <div
-          className="flex justify-end px-6 py-4"
-          style={{ borderTop: `1px solid ${t.borderSubtle}` }}
-        >
-          <button
-            onClick={() => setShowCustomerGrowthModal(false)}
-            className="px-3 py-1.5 rounded-lg transition-colors"
-            style={{ background: t.surface2, color: t.textSecondary }}
-          >
-            Fermer
-          </button>
+        <div className="flex justify-end px-6 py-4" style={{ borderTop: `1px solid ${t.borderSubtle}` }}>
+          <button onClick={() => setShowCustomerGrowthModal(false)} className="px-3 py-1.5 rounded-lg transition-colors" style={{ background: t.surface2, color: t.textSecondary }}>Fermer</button>
         </div>
       </Modal>
     </div>
@@ -1964,26 +1582,18 @@ export default function DashboardPage() {
   const userRole = (session as any)?.user?.role;
   const userEmail = session?.user?.email;
 
-  // Allowed roles
-  const ALLOWED_ROLES = ["ventes-exec", "ventes_exec", "Gestionnaire", "Expert", "admin"];
-
-  // Bypass logic
-  const isAuthorized = 
-    (userEmail === "n.labranche@sinto.ca") || 
-    (userRole && ALLOWED_ROLES.includes(userRole));
+  // Use the centralized authorization check
+  const isAuthorized = isUserAuthorized(userRole, userEmail);
 
   if (status === "unauthenticated" || !isAuthorized) {
     return <AccessDenied role={userRole} email={userEmail} />;
   }
 
-  // Replace this with your actual DashboardContent component
-  // (Ensure you have the DashboardContent component defined above in this file)
   return (
     <main className="min-h-[100svh]">
       <div className="px-4 md:px-6 lg:px-8 py-6 md:py-8">
         <div className="mx-auto w-full max-w-[1920px]">
-             {/* @ts-ignore */}
-            <DashboardContent /> 
+          <DashboardContent /> 
         </div>
       </div>
     </main>
