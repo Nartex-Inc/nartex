@@ -150,18 +150,19 @@ async function fetchReturns(params: {
   });
 
   if (!res.ok) {
-    // If the server returns 500 or 404, throw error so the UI handles it gracefully
-    throw new Error(`Erreur HTTP: ${res.status}`);
+    // Prevent crash on 500 error
+    throw new Error(`Erreur serveur: ${res.status}`);
   }
 
   const json = await res.json();
-
-  if (!json.ok) {
-    throw new Error(json.error || "Erreur de chargement des retours");
-  }
   
-  // CRITICAL FIX: Ensure we return an array, even if data is missing
-  return Array.isArray(json.data) ? json.data : [];
+  if (!json.ok) {
+    throw new Error(json.error || "Erreur de chargement");
+  }
+
+  // CRITICAL FIX: The API returns 'data', not 'rows'.
+  // Also ensuring it is an array prevents the "undefined" crash.
+  return Array.isArray(json.data) ? (json.data as ReturnRow[]) : [];
 }
 
 async function createReturn(payload: {
