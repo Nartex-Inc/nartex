@@ -1,4 +1,3 @@
-// src/lib/auth.ts
 import type { NextAuthOptions } from "next-auth";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "@/lib/prisma";
@@ -8,7 +7,7 @@ import AzureADProvider from "next-auth/providers/azure-ad";
 import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
-  // Cast adapter to 'any' to fix the "not assignable" build error caused by version mismatch
+  // Cast to any to prevent version mismatch errors during build
   adapter: PrismaAdapter(prisma) as any,
   session: { strategy: "jwt" },
   secret: process.env.NEXTAUTH_SECRET,
@@ -23,11 +22,11 @@ export const authOptions: NextAuthOptions = {
       allowDangerousEmailAccountLinking: true,
       profile(profile) {
         return {
-          id: profile.sub ?? "google_id",
-          name: profile.name ?? "",
-          email: profile.email ?? "",
-          image: profile.picture ?? null,
-          role: "user", // Must be a string to satisfy your custom User type
+          id: profile.sub,
+          name: profile.name,
+          email: profile.email,
+          image: profile.picture,
+          role: "user",
         };
       },
     }),
@@ -38,11 +37,11 @@ export const authOptions: NextAuthOptions = {
       allowDangerousEmailAccountLinking: true,
       profile(profile) {
         return {
-          id: profile.sub ?? profile.oid ?? "azure_id",
-          name: profile.name ?? "",
-          email: profile.email ?? profile.preferred_username ?? "",
+          id: profile.sub ?? profile.oid,
+          name: profile.name,
+          email: profile.email ?? profile.preferred_username,
           image: null,
-          role: "user", // Must be a string to satisfy your custom User type
+          role: "user",
         };
       },
     }),
@@ -53,17 +52,13 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("Adresse e-mail et mot de passe requis.");
-        }
+        if (!credentials?.email || !credentials?.password) throw new Error("Adresse e-mail et mot de passe requis.");
         
         const user = await prisma.user.findUnique({ 
           where: { email: String(credentials.email).toLowerCase() } 
         });
 
-        if (!user || !user.password) {
-          throw new Error("Utilisateur introuvable.");
-        }
+        if (!user || !user.password) throw new Error("Aucun utilisateur trouvé ou mot de passe non configuré.");
         
         const isPasswordCorrect = await bcrypt.compare(String(credentials.password), user.password);
         if (!isPasswordCorrect) throw new Error("Mot de passe incorrect.");
@@ -73,7 +68,8 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           email: user.email,
           image: user.image,
-          role: user.role // This fetches the real role from DB
+          // Cast Enum to string to satisfy NextAuth type
+          role: user.role as string 
         };
       },
     }),
@@ -89,7 +85,7 @@ export const authOptions: NextAuthOptions = {
         token.role = (user as any).role || "user";
       }
 
-      // CRITICAL FIX: Refresh role from DB
+      // Always refresh role from DB
       if (token.email) {
          try {
            const dbUser = await prisma.user.findUnique({ 
@@ -99,7 +95,7 @@ export const authOptions: NextAuthOptions = {
            
            if (dbUser) {
                token.id = dbUser.id;
-               token.role = dbUser.role;
+               token.role = dbUser.role as string; // Cast Enum to string
            }
          } catch (error) {
            console.error("Error refreshing role:", error);
