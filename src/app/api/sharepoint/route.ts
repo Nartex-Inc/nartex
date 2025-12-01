@@ -4,7 +4,7 @@ export const revalidate = 0;
 
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/auth";
+import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 type Authed = { userId: string; role: string; tenantId: string };
