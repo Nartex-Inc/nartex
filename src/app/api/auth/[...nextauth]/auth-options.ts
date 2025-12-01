@@ -1,16 +1,31 @@
 // src/app/api/auth/[...nextauth]/auth-options.ts
 // NextAuth.js configuration with role support for returns management
-// Merge this with your existing auth-options if you have one
 
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
+import AzureADProvider from "next-auth/providers/azure-ad";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
+    // 1. Google Provider (For @sinto.ca users)
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      allowDangerousEmailAccountLinking: true,
+    }),
+    // 2. Azure AD Provider
+    AzureADProvider({
+      clientId: process.env.AZURE_AD_CLIENT_ID!,
+      clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
+      tenantId: process.env.AZURE_AD_TENANT_ID,
+      allowDangerousEmailAccountLinking: true,
+    }),
+    // 3. Credentials Provider
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -26,6 +41,7 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email.toLowerCase() },
         });
 
+        // Note: Prisma maps 'password' to 'password_hash' automatically in your schema
         if (!user || !user.password) {
           throw new Error("Utilisateur non trouvé");
         }
@@ -45,22 +61,39 @@ export const authOptions: NextAuthOptions = {
         };
       },
     }),
-    // Add other providers here (Google, Azure AD, etc.)
   ],
   callbacks: {
-    async jwt({ token, user }) {
-      // Add role to JWT token on sign in
-      if (user) {
-        token.role = (user as { role?: string }).role || "user";
-        token.id = user.id;
+    async jwt({ token, user, trigger, session }) {
+      // If session is updated via client-side update(), reflect changes
+      if (trigger === "update" && session?.user) {
+        token.role = session.user.role;
       }
+
+      if (user) {
+        token.id = user.id;
+        // Initial sign-in: use user object role or default
+        token.role = (user as any).role || "user";
+      }
+
+      // CRITICAL: Always refresh role from DB for existing tokens
+      // This ensures if you change a role in DB, the user gets it on next refresh/signin
+      if (token.email) {
+         const dbUser = await prisma.user.findUnique({ 
+            where: { email: token.email },
+            select: { role: true } 
+         });
+         if (dbUser) {
+             token.role = dbUser.role;
+         }
+      }
+
       return token;
     },
     async session({ session, token }) {
-      // Add role to session
+      // Pass properties to the client
       if (session.user) {
-        (session.user as { role?: string }).role = token.role as string;
-        (session.user as { id?: string }).id = token.id as string;
+        (session.user as any).id = token.id as string;
+        (session.user as any).role = token.role as string;
       }
       return session;
     },
