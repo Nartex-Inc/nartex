@@ -148,9 +148,20 @@ async function fetchReturns(params: {
     credentials: "include",
     cache: "no-store",
   });
+
+  if (!res.ok) {
+    // If the server returns 500 or 404, throw error so the UI handles it gracefully
+    throw new Error(`Erreur HTTP: ${res.status}`);
+  }
+
   const json = await res.json();
-  if (!json.ok) throw new Error("Erreur de chargement des retours");
-  return json.data as ReturnRow[];
+
+  if (!json.ok) {
+    throw new Error(json.error || "Erreur de chargement des retours");
+  }
+  
+  // CRITICAL FIX: Ensure we return an array, even if data is missing
+  return Array.isArray(json.data) ? json.data : [];
 }
 
 async function createReturn(payload: {
