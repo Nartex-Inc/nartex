@@ -1,13 +1,12 @@
 // src/app/api/returns/[code]/route.ts
-// Single return API - GET (detail), PUT (update), DELETE (remove)
+// Single return operations - GET (detail), PUT (update), DELETE (remove)
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/app/api/auth/[...nextauth]/auth-options";
-import type { UpdateReturnPayload, ReturnRow, AttachmentResponse, ProductLineResponse } from "@/types/returns";
-import { getReturnStatus, parseReturnCode } from "@/types/returns";
-import type { Return, ReturnProduct, Upload } from "@prisma/client";
+import { parseReturnCode, formatReturnCode, getReturnStatus } from "@/types/returns";
+import type { ReturnRow } from "@/types/returns";
 
 type RouteParams = { params: Promise<{ code: string }> };
 
@@ -23,31 +22,99 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const { code } = await params;
-    
-    // Support both "R123" and "123" formats
     const returnId = parseReturnCode(code);
+
     if (isNaN(returnId)) {
       return NextResponse.json({ ok: false, error: "Code retour invalide" }, { status: 400 });
     }
 
-    const ret = await prisma.return.findFirst({
-      where: { OR: [{ id: returnId }, { code: code.toUpperCase() }] },
-      include: { products: true, attachments: true },
+    const ret = await prisma.return.findUnique({
+      where: { id: returnId },
+      include: {
+        products: { orderBy: { id: "asc" } },
+        attachments: { orderBy: { uploadedAt: "desc" } },
+      },
     });
 
     if (!ret) {
       return NextResponse.json({ ok: false, error: "Retour non trouvé" }, { status: 404 });
     }
 
-    // Expert role check
+    // Expert can only see their own returns
     const userRole = (session.user as { role?: string }).role;
     const userName = session.user.name || "";
-    if (userRole === "Expert" && !ret.expert.toLowerCase().includes(userName.toLowerCase())) {
+    if (userRole === "Expert" && ret.expert && !ret.expert.toLowerCase().includes(userName.toLowerCase())) {
       return NextResponse.json({ ok: false, error: "Accès non autorisé" }, { status: 403 });
     }
 
-    const returnRow = mapToReturnRow(ret);
-    return NextResponse.json({ ok: true, return: returnRow });
+    // Map to response format
+    const response: ReturnRow = {
+      id: formatReturnCode(ret.id),
+      codeRetour: ret.id,
+      reportedAt: ret.reportedAt.toISOString(),
+      reporter: ret.reporter,
+      cause: ret.cause,
+      expert: ret.expert,
+      client: ret.client,
+      noClient: ret.noClient,
+      noCommande: ret.noCommande,
+      tracking: ret.noTracking,
+      status: getReturnStatus(ret),
+      standby: ret.isStandby,
+      amount: ret.amount ? Number(ret.amount) : null,
+      dateCommande: ret.dateCommande,
+      transport: ret.transporteur,
+      description: ret.description,
+      returnPhysical: ret.returnPhysical,
+      isPickup: ret.isPickup,
+      isCommande: ret.isCommande,
+      isReclamation: ret.isReclamation,
+      noBill: ret.noBill,
+      noBonCommande: ret.noBonCommande,
+      noReclamation: ret.noReclamation,
+      warehouseOrigin: ret.warehouseOrigin,
+      warehouseDestination: ret.warehouseDestination,
+      noCredit: ret.noCredit,
+      noCredit2: ret.noCredit2,
+      noCredit3: ret.noCredit3,
+      creditedTo: ret.creditedTo,
+      creditedTo2: ret.creditedTo2,
+      creditedTo3: ret.creditedTo3,
+      villeShipto: ret.villeShipto,
+      totalWeight: ret.totalWeight ? Number(ret.totalWeight) : null,
+      transportAmount: ret.transportAmount ? Number(ret.transportAmount) : null,
+      restockingAmount: ret.restockingAmount ? Number(ret.restockingAmount) : null,
+      createdBy: ret.initiatedBy
+        ? { name: ret.initiatedBy, at: ret.initializedAt?.toISOString() || "" }
+        : null,
+      verifiedBy: ret.verifiedBy
+        ? { name: ret.verifiedBy, at: ret.verifiedAt?.toISOString() || null }
+        : null,
+      finalizedBy: ret.finalizedBy
+        ? { name: ret.finalizedBy, at: ret.finalizedAt?.toISOString() || null }
+        : null,
+      products: ret.products.map((p) => ({
+        id: String(p.id),
+        codeProduit: p.codeProduit,
+        descriptionProduit: p.descrProduit,
+        descriptionRetour: p.descriptionRetour,
+        quantite: p.quantite,
+        quantiteRecue: p.quantiteRecue,
+        qteInventaire: p.qteInventaire,
+        qteDetruite: p.qteDetruite,
+        tauxRestock: p.tauxRestock ? Number(p.tauxRestock) : null,
+        poidsUnitaire: p.weightProduit ? Number(p.weightProduit) : null,
+        poidsTotal: p.poids ? Number(p.poids) : null,
+      })),
+      attachments: ret.attachments.map((a) => ({
+        id: a.filePath,
+        name: a.fileName,
+        url: `https://drive.google.com/file/d/${a.filePath}/preview`,
+        downloadUrl: `https://drive.google.com/uc?export=download&id=${a.filePath}`,
+      })),
+    };
+
+    return NextResponse.json({ ok: true, data: response });
   } catch (error) {
     console.error("GET /api/returns/[code] error:", error);
     return NextResponse.json(
@@ -70,91 +137,91 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const { code } = await params;
     const returnId = parseReturnCode(code);
-    const body: UpdateReturnPayload = await request.json();
 
     if (isNaN(returnId)) {
       return NextResponse.json({ ok: false, error: "Code retour invalide" }, { status: 400 });
     }
 
-    const existing = await prisma.return.findFirst({
-      where: { OR: [{ id: returnId }, { code: code.toUpperCase() }] },
+    const ret = await prisma.return.findUnique({
+      where: { id: returnId },
     });
 
-    if (!existing) {
+    if (!ret) {
       return NextResponse.json({ ok: false, error: "Retour non trouvé" }, { status: 404 });
     }
 
-    const userRole = (session.user as { role?: string }).role;
-
     // Check if return can be edited
-    if (existing.isFinal && !existing.isStandby) {
+    if (ret.isFinal && !ret.isStandby) {
       return NextResponse.json(
-        { ok: false, error: "Ce retour est finalisé et ne peut plus être modifié" },
+        { ok: false, error: "Impossible de modifier un retour finalisé" },
         { status: 400 }
       );
     }
 
     // Expert can only edit their own returns
+    const userRole = (session.user as { role?: string }).role;
     const userName = session.user.name || "";
-    if (userRole === "Expert" && !existing.expert.toLowerCase().includes(userName.toLowerCase())) {
+    if (userRole === "Expert" && ret.expert && !ret.expert.toLowerCase().includes(userName.toLowerCase())) {
       return NextResponse.json({ ok: false, error: "Accès non autorisé" }, { status: 403 });
     }
 
-    // Determine if still draft
+    const body = await request.json();
+
+    // Determine if still a draft
     const hasRequiredFields =
-      body.reporter &&
-      body.cause &&
-      body.expert?.trim() &&
-      body.client?.trim() &&
-      body.products &&
-      body.products.length > 0 &&
-      body.products.every((p) => p.codeProduit && p.quantite > 0);
+      body.reporter && body.cause && body.expert && body.client;
+    const hasProducts = body.products && body.products.length > 0;
+    const isDraft = body.isDraft ?? !(hasRequiredFields && hasProducts);
 
-    const isDraft = body.isDraft !== undefined ? body.isDraft : !hasRequiredFields;
-
-    // Update return
-    await prisma.return.update({
-      where: { id: existing.id },
+    // Update the return
+    const updated = await prisma.return.update({
+      where: { id: returnId },
       data: {
-        reporter: body.reporter ?? existing.reporter,
-        cause: body.cause ?? existing.cause,
-        expert: body.expert?.trim() ?? existing.expert,
-        client: body.client?.trim() ?? existing.client,
-        noClient: body.noClient?.trim() ?? existing.noClient,
-        noCommande: body.noCommande?.trim() ?? existing.noCommande,
-        tracking: body.tracking?.trim() ?? existing.tracking,
-        amount: body.amount ?? existing.amount,
-        dateCommande: body.dateCommande ? new Date(body.dateCommande) : existing.dateCommande,
-        transport: body.transport?.trim() ?? existing.transport,
-        description: body.description?.trim() ?? existing.description,
-        retourPhysique: body.retourPhysique ?? existing.retourPhysique,
+        reporter: body.reporter ?? ret.reporter,
+        cause: body.cause ?? ret.cause,
+        expert: body.expert ?? ret.expert,
+        client: body.client ?? ret.client,
+        noClient: body.noClient ?? ret.noClient,
+        noCommande: body.noCommande ?? ret.noCommande,
+        noTracking: body.tracking ?? ret.noTracking,
+        amount: body.amount !== undefined ? body.amount : ret.amount,
+        dateCommande: body.dateCommande ?? ret.dateCommande,
+        transporteur: body.transport ?? ret.transporteur,
+        description: body.description ?? ret.description,
+        returnPhysical: body.returnPhysical ?? ret.returnPhysical,
+        isPickup: body.isPickup ?? ret.isPickup,
+        isCommande: body.isCommande ?? ret.isCommande,
+        isReclamation: body.isReclamation ?? ret.isReclamation,
+        noBill: body.noBill ?? ret.noBill,
+        noBonCommande: body.noBonCommande ?? ret.noBonCommande,
+        noReclamation: body.noReclamation ?? ret.noReclamation,
         isDraft,
-        isPickup: body.isPickup ?? existing.isPickup,
-        isCommande: body.isCommande ?? existing.isCommande,
-        isReclamation: body.isReclamation ?? existing.isReclamation,
-        noBill: body.noBill?.trim() ?? existing.noBill,
-        noBonCommande: body.noBonCommande?.trim() ?? existing.noBonCommande,
-        noReclamation: body.noReclamation?.trim() ?? existing.noReclamation,
-        status: isDraft ? "draft" : (existing.retourPhysique && !existing.isVerified) ? "awaiting_physical" : "received_or_no_physical",
       },
     });
 
     // Update products if provided
-    if (body.products) {
-      // Delete existing and recreate
-      await prisma.returnProduct.deleteMany({ where: { returnId: existing.id } });
-      await prisma.returnProduct.createMany({
-        data: body.products.map((p) => ({
-          returnId: existing.id,
-          codeProduit: p.codeProduit.trim(),
-          descriptionProduit: p.descriptionProduit?.trim() || "",
-          descriptionRetour: p.descriptionRetour?.trim() || null,
-          quantite: p.quantite,
-        })),
-      });
+    if (body.products && Array.isArray(body.products)) {
+      // Delete existing products
+      await prisma.returnProduct.deleteMany({ where: { returnId: ret.id } });
+
+      // Create new products
+      if (body.products.length > 0) {
+        await prisma.returnProduct.createMany({
+          data: body.products.map((p: { codeProduit: string; descriptionProduit?: string; descriptionRetour?: string; quantite: number }) => ({
+            returnId: ret.id,
+            codeProduit: p.codeProduit,
+            descrProduit: p.descriptionProduit || null,
+            descriptionRetour: p.descriptionRetour || null,
+            quantite: p.quantite || 0,
+          })),
+        });
+      }
     }
 
-    return NextResponse.json({ ok: true, message: "Retour mis à jour" });
+    return NextResponse.json({
+      ok: true,
+      data: { id: formatReturnCode(updated.id), status: getReturnStatus(updated) },
+    });
   } catch (error) {
     console.error("PUT /api/returns/[code] error:", error);
     return NextResponse.json(
@@ -165,7 +232,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 }
 
 /* =============================================================================
-   DELETE /api/returns/[code] - Delete return (Gestionnaire only)
+   DELETE /api/returns/[code] - Delete return
 ============================================================================= */
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
@@ -175,10 +242,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
+    // Only Gestionnaire can delete
     const userRole = (session.user as { role?: string }).role;
     if (userRole !== "Gestionnaire") {
       return NextResponse.json(
-        { ok: false, error: "Seul un Gestionnaire peut supprimer un retour" },
+        { ok: false, error: "Seul un gestionnaire peut supprimer un retour" },
         { status: 403 }
       );
     }
@@ -190,23 +258,24 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Code retour invalide" }, { status: 400 });
     }
 
-    const existing = await prisma.return.findFirst({
-      where: { OR: [{ id: returnId }, { code: code.toUpperCase() }] },
+    const ret = await prisma.return.findUnique({
+      where: { id: returnId },
     });
 
-    if (!existing) {
+    if (!ret) {
       return NextResponse.json({ ok: false, error: "Retour non trouvé" }, { status: 404 });
     }
 
-    if (existing.isVerified || existing.isFinal) {
+    // Cannot delete verified or finalized returns
+    if (ret.isVerified || ret.isFinal) {
       return NextResponse.json(
         { ok: false, error: "Impossible de supprimer un retour vérifié ou finalisé" },
         { status: 400 }
       );
     }
 
-    // Cascade delete handled by Prisma schema
-    await prisma.return.delete({ where: { id: existing.id } });
+    // Delete (cascade will handle products and attachments)
+    await prisma.return.delete({ where: { id: returnId } });
 
     return NextResponse.json({ ok: true, message: "Retour supprimé" });
   } catch (error) {
@@ -216,83 +285,4 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       { status: 500 }
     );
   }
-}
-
-/* =============================================================================
-   Helper
-============================================================================= */
-
-type ReturnWithRelations = Return & {
-  products: ReturnProduct[];
-  attachments: Upload[];
-};
-
-function mapToReturnRow(r: ReturnWithRelations): ReturnRow {
-  const status = getReturnStatus(r);
-
-  return {
-    id: r.code,
-    codeRetour: r.id,
-    reportedAt: r.reportedAt.toISOString(),
-    reporter: r.reporter,
-    cause: r.cause,
-    expert: r.expert,
-    client: r.client,
-    noClient: r.noClient,
-    noCommande: r.noCommande,
-    tracking: r.tracking,
-    status,
-    standby: r.isStandby,
-    amount: r.amount ? Number(r.amount) : null,
-    dateCommande: r.dateCommande?.toISOString() || null,
-    transport: r.transport,
-    description: r.description,
-    attachments: r.attachments.map(
-      (a): AttachmentResponse => ({
-        id: a.url,
-        name: a.name,
-        url: `https://drive.google.com/file/d/${a.url}/preview`,
-        downloadUrl: `https://drive.google.com/uc?export=download&id=${a.url}`,
-      })
-    ),
-    products: r.products.map(
-      (p): ProductLineResponse => ({
-        id: String(p.id),
-        codeProduit: p.codeProduit,
-        descriptionProduit: p.descriptionProduit,
-        descriptionRetour: p.descriptionRetour,
-        quantite: p.quantite,
-        poidsUnitaire: p.weightProduit ? Number(p.weightProduit) : null,
-        poidsTotal: p.poids ? Number(p.poids) : null,
-        quantiteRecue: p.quantiteRecue,
-        qteInventaire: p.qteInventaire,
-        qteDetruite: p.qteDetruite,
-        tauxRestock: p.tauxRestock ? Number(p.tauxRestock) : null,
-      })
-    ),
-    createdBy: r.initiePar
-      ? { name: r.initiePar, avatar: null, at: r.dateInitialization?.toISOString() || r.createdAt.toISOString() }
-      : null,
-    retourPhysique: r.retourPhysique,
-    isPickup: r.isPickup,
-    isCommande: r.isCommande,
-    isReclamation: r.isReclamation,
-    noBill: r.noBill,
-    noBonCommande: r.noBonCommande,
-    noReclamation: r.noReclamation,
-    verifiedBy: r.verifiePar ? { name: r.verifiePar, at: r.dateVerification?.toISOString() || null } : null,
-    finalizedBy: r.finalisePar ? { name: r.finalisePar, at: r.dateFinalisation?.toISOString() || null } : null,
-    entrepotDepart: r.entrepotDepart,
-    entrepotDestination: r.entrepotDestination,
-    noCredit: r.noCredit,
-    noCredit2: r.noCredit2,
-    noCredit3: r.noCredit3,
-    crediteA: r.crediteA,
-    crediteA2: r.crediteA2,
-    crediteA3: r.crediteA3,
-    villeShipto: r.villeShipto,
-    poidsTotal: r.poidsTotal ? Number(r.poidsTotal) : null,
-    montantTransport: r.montantTransport ? Number(r.montantTransport) : null,
-    montantRestocking: r.montantRestocking ? Number(r.montantRestocking) : null,
-  };
 }
