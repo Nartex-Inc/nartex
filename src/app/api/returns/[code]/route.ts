@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
-import { authOptions } from "@/app/api/auth/[...nextauth]/auth-options";
+import { authOptions } from "@/lib/auth";
 import { parseReturnCode, formatReturnCode, getReturnStatus } from "@/types/returns";
 import type { ReturnRow } from "@/types/returns";
 
