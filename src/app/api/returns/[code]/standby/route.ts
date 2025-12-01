@@ -1,11 +1,11 @@
 // src/app/api/returns/[code]/standby/route.ts
-// Standby toggle - POST
+// Toggle standby status - POST
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/app/api/auth/[...nextauth]/auth-options";
-import { parseReturnCode } from "@/types/returns";
+import { parseReturnCode, formatReturnCode } from "@/types/returns";
 
 type RouteParams = { params: Promise<{ code: string }> };
 
@@ -18,42 +18,35 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Role check
     const userRole = (session.user as { role?: string }).role;
-    const allowedRoles = ["Gestionnaire", "Facturation"];
-    if (!userRole || !allowedRoles.includes(userRole)) {
+    if (!["Gestionnaire", "Facturation"].includes(userRole || "")) {
       return NextResponse.json(
-        { ok: false, error: "Vous n'êtes pas autorisé à mettre un retour en standby" },
+        { ok: false, error: "Vous n'êtes pas autorisé à modifier le statut standby" },
         { status: 403 }
       );
     }
 
     const { code } = await params;
     const returnId = parseReturnCode(code);
-    const body = await request.json();
-    const action = body.action as "standby" | "reactivate";
 
     if (isNaN(returnId)) {
       return NextResponse.json({ ok: false, error: "Code retour invalide" }, { status: 400 });
     }
 
-    if (!action || !["standby", "reactivate"].includes(action)) {
-      return NextResponse.json(
-        { ok: false, error: "Action invalide. Utilisez 'standby' ou 'reactivate'" },
-        { status: 400 }
-      );
-    }
-
-    const existing = await prisma.return.findFirst({
-      where: { OR: [{ id: returnId }, { code: code.toUpperCase() }] },
+    const ret = await prisma.return.findUnique({
+      where: { id: returnId },
     });
 
-    if (!existing) {
+    if (!ret) {
       return NextResponse.json({ ok: false, error: "Retour non trouvé" }, { status: 404 });
     }
 
+    const body = await request.json();
+    const { action } = body; // "standby" or "reactivate"
+
     if (action === "standby") {
-      // Put into standby mode
+      // Put in standby - special state: isFinal=true, isDraft=true, isStandby=true
       await prisma.return.update({
-        where: { id: existing.id },
+        where: { id: returnId },
         data: {
           isFinal: true,
           isDraft: true,
@@ -61,29 +54,39 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         },
       });
 
-      return NextResponse.json({ ok: true, message: "Retour mis en standby" });
-    } else {
-      // Reactivate
+      return NextResponse.json({
+        ok: true,
+        message: "Retour mis en standby",
+        data: { id: formatReturnCode(returnId), status: "standby" },
+      });
+    } else if (action === "reactivate") {
+      // Reactivate - reset to active state
       await prisma.return.update({
-        where: { id: existing.id },
+        where: { id: returnId },
         data: {
           isFinal: false,
           isDraft: false,
           isStandby: false,
-          finalisePar: null,
-          dateFinalisation: null,
-          status: existing.retourPhysique && !existing.isVerified 
-            ? "awaiting_physical" 
-            : "received_or_no_physical",
+          finalizedBy: null,
+          finalizedAt: null,
         },
       });
 
-      return NextResponse.json({ ok: true, message: "Retour réactivé" });
+      return NextResponse.json({
+        ok: true,
+        message: "Retour réactivé",
+        data: { id: formatReturnCode(returnId), status: "active" },
+      });
+    } else {
+      return NextResponse.json(
+        { ok: false, error: "Action invalide. Utilisez 'standby' ou 'reactivate'" },
+        { status: 400 }
+      );
     }
   } catch (error) {
     console.error("POST /api/returns/[code]/standby error:", error);
     return NextResponse.json(
-      { ok: false, error: "Erreur lors de la mise à jour du statut" },
+      { ok: false, error: "Erreur lors de la modification du statut" },
       { status: 500 }
     );
   }
