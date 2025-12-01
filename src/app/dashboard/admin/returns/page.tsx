@@ -144,25 +144,30 @@ async function fetchReturns(params: {
   if (params.dateTo) usp.set("dateTo", params.dateTo);
   usp.set("take", String(params.take ?? 200));
 
-  const res = await fetch(`/api/returns?${usp.toString()}`, {
-    credentials: "include",
-    cache: "no-store",
-  });
+  try {
+    const res = await fetch(`/api/returns?${usp.toString()}`, {
+      credentials: "include",
+      cache: "no-store",
+    });
 
-  if (!res.ok) {
-    // Prevent crash on 500 error
-    throw new Error(`Erreur serveur: ${res.status}`);
+    if (!res.ok) {
+      console.error(`API Error: ${res.status}`);
+      return []; // Return empty array instead of crashing
+    }
+
+    const json = await res.json();
+    
+    // The critical fix: check for 'data' property and ensure it is an array
+    if (json.ok && Array.isArray(json.data)) {
+      return json.data as ReturnRow[];
+    }
+    
+    console.warn("Invalid API response format", json);
+    return [];
+  } catch (error) {
+    console.error("Fetch error:", error);
+    return [];
   }
-
-  const json = await res.json();
-  
-  if (!json.ok) {
-    throw new Error(json.error || "Erreur de chargement");
-  }
-
-  // CRITICAL FIX: The API returns 'data', not 'rows'.
-  // Also ensuring it is an array prevents the "undefined" crash.
-  return Array.isArray(json.data) ? (json.data as ReturnRow[]) : [];
 }
 
 async function createReturn(payload: {
