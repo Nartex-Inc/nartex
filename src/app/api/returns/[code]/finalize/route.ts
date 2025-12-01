@@ -5,8 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/app/api/auth/[...nextauth]/auth-options";
-import type { FinalizeReturnPayload } from "@/types/returns";
-import { parseReturnCode } from "@/types/returns";
+import { parseReturnCode, formatReturnCode } from "@/types/returns";
 
 type RouteParams = { params: Promise<{ code: string }> };
 
@@ -19,8 +18,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Role check
     const userRole = (session.user as { role?: string }).role;
-    const allowedRoles = ["Gestionnaire", "Facturation"];
-    if (!userRole || !allowedRoles.includes(userRole)) {
+    if (!["Gestionnaire", "Facturation"].includes(userRole || "")) {
       return NextResponse.json(
         { ok: false, error: "Vous n'êtes pas autorisé à finaliser les retours" },
         { status: 403 }
@@ -29,89 +27,107 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const { code } = await params;
     const returnId = parseReturnCode(code);
-    const body: FinalizeReturnPayload = await request.json();
 
     if (isNaN(returnId)) {
       return NextResponse.json({ ok: false, error: "Code retour invalide" }, { status: 400 });
     }
 
-    const existing = await prisma.return.findFirst({
-      where: { OR: [{ id: returnId }, { code: code.toUpperCase() }] },
+    const ret = await prisma.return.findUnique({
+      where: { id: returnId },
       include: { products: true },
     });
 
-    if (!existing) {
+    if (!ret) {
       return NextResponse.json({ ok: false, error: "Retour non trouvé" }, { status: 404 });
     }
 
-    // Validate state
-    if (existing.retourPhysique && !existing.isVerified) {
+    // Validation
+    if (ret.returnPhysical && !ret.isVerified) {
       return NextResponse.json(
-        { ok: false, error: "Ce retour physique doit être vérifié avant la finalisation" },
+        { ok: false, error: "Un retour physique doit être vérifié avant la finalisation" },
         { status: 400 }
       );
     }
 
-    if (existing.isFinal && !existing.isStandby) {
+    if (ret.isFinal && !ret.isStandby) {
       return NextResponse.json(
         { ok: false, error: "Ce retour est déjà finalisé" },
         { status: 400 }
       );
     }
 
-    // Update product quantities and restock rates
-    let totalWeight = 0;
-    for (const product of body.products) {
-      const tauxRestockDecimal = product.tauxRestock ? product.tauxRestock / 100 : null;
-
-      await prisma.returnProduct.updateMany({
-        where: { returnId: existing.id, codeProduit: product.codeProduit },
-        data: {
-          quantiteRecue: product.quantiteRecue,
-          qteInventaire: product.qteInventaire,
-          qteDetruite: product.qteDetruite,
-          tauxRestock: tauxRestockDecimal,
-        },
-      });
-    }
+    const body = await request.json();
+    const { 
+      products, 
+      warehouseOrigin, 
+      warehouseDestination,
+      noCredit,
+      noCredit2,
+      noCredit3,
+      creditedTo,
+      creditedTo2,
+      creditedTo3,
+      transportAmount,
+      restockingAmount,
+      chargeTransport,
+    } = body;
 
     // Calculate total weight
-    const updatedProducts = await prisma.returnProduct.findMany({
-      where: { returnId: existing.id },
-    });
+    let totalWeight = 0;
+    
+    if (products && Array.isArray(products)) {
+      for (const p of products) {
+        // Update product with finalization data
+        const tauxRestock = p.tauxRestock !== undefined ? p.tauxRestock / 100 : null; // Convert percentage to decimal
+        
+        await prisma.returnProduct.updateMany({
+          where: { returnId: ret.id, codeProduit: p.codeProduit },
+          data: {
+            quantiteRecue: p.quantiteRecue ?? 0,
+            qteInventaire: p.qteInventaire ?? 0,
+            qteDetruite: p.qteDetruite ?? 0,
+            tauxRestock: tauxRestock,
+          },
+        });
 
-    for (const p of updatedProducts) {
-      if (p.poids) {
-        totalWeight += Number(p.poids);
-      } else if (p.weightProduit && p.quantiteRecue) {
-        totalWeight += Number(p.weightProduit) * p.quantiteRecue;
+        // Add to total weight
+        const product = ret.products.find(pr => pr.codeProduit === p.codeProduit);
+        if (product) {
+          const qty = p.quantiteRecue ?? product.quantiteRecue ?? product.quantite ?? 0;
+          const weight = product.weightProduit ? Number(product.weightProduit) : 0;
+          totalWeight += qty * weight;
+        }
       }
     }
 
     // Finalize the return
     await prisma.return.update({
-      where: { id: existing.id },
+      where: { id: returnId },
       data: {
         isFinal: true,
         isStandby: false,
         isDraft: false,
-        finalisePar: session.user.name || "Système",
-        dateFinalisation: new Date(),
-        entrepotDepart: body.entrepotDepart || null,
-        entrepotDestination: body.entrepotDestination || null,
-        noCredit: body.noCredit || null,
-        noCredit2: body.noCredit2 || null,
-        noCredit3: body.noCredit3 || null,
-        crediteA: body.crediteA || null,
-        crediteA2: body.crediteA2 || null,
-        crediteA3: body.crediteA3 || null,
-        poidsTotal: totalWeight || null,
-        montantTransport: body.chargerTransport ? body.montantTransport : null,
-        montantRestocking: body.montantRestocking || null,
+        finalizedBy: session.user.name || "Système",
+        finalizedAt: new Date(),
+        warehouseOrigin: warehouseOrigin ?? ret.warehouseOrigin,
+        warehouseDestination: warehouseDestination ?? ret.warehouseDestination,
+        noCredit: noCredit ?? ret.noCredit,
+        noCredit2: noCredit2 ?? ret.noCredit2,
+        noCredit3: noCredit3 ?? ret.noCredit3,
+        creditedTo: creditedTo ?? ret.creditedTo,
+        creditedTo2: creditedTo2 ?? ret.creditedTo2,
+        creditedTo3: creditedTo3 ?? ret.creditedTo3,
+        totalWeight: totalWeight > 0 ? totalWeight : ret.totalWeight,
+        transportAmount: chargeTransport ? transportAmount : null,
+        restockingAmount: restockingAmount ?? ret.restockingAmount,
       },
     });
 
-    return NextResponse.json({ ok: true, message: "Retour finalisé avec succès" });
+    return NextResponse.json({
+      ok: true,
+      message: "Retour finalisé avec succès",
+      data: { id: formatReturnCode(returnId) },
+    });
   } catch (error) {
     console.error("POST /api/returns/[code]/finalize error:", error);
     return NextResponse.json(
