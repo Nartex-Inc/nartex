@@ -310,7 +310,7 @@ model ReturnProduct {
 
   return Return @relation(fields: [returnId], references: [id], onDelete: Cascade)
 
-  @@index([returnId], map: "idx_code_retour")
+  @@index([returnId], map: "idx_rp_code_retour")
   @@index([codeProduit], map: "idx_code_produit")
   
   // Matches table name `retour_products`
@@ -329,7 +329,7 @@ model Upload {
 
   return Return @relation(fields: [returnId], references: [id], onDelete: Cascade)
 
-  @@index([returnId], map: "idx_code_retour")
+  @@index([returnId], map: "idx_upload_code_retour")
   
   // Matches table name `uploads`
   @@map("uploads")
