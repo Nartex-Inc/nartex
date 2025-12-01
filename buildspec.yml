@@ -45,7 +45,6 @@ phases:
   pre_build:
     commands:
       - echo "🔎 PRE_BUILD – detecting changes"
-      # REMOVED THE FILE MOVE SCRIPT HERE - DO NOT PUT IT BACK
 
       - |
         /usr/bin/env bash -c '
@@ -84,7 +83,7 @@ phases:
       - |
         cat > ci-prebuild.sh << 'SH'
         set -e
-        rm -f src/lib/auth.ts || true
+        # NOTE: Do NOT delete src/lib/auth.ts - it contains authOptions needed by all API routes
         
         # shadcn config
         node <<'NODE'
