@@ -21,6 +21,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch item types for the given product category with item counts
+    // Corrected logic: JOIN itemtypes with Items based on itemsubtypeid
+    // Filter Items by ProdId to ensure we only get relevant types
     const query = `
       SELECT 
         t."itemtypeid" as "itemTypeId",
