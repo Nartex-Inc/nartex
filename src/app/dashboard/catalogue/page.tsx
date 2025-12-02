@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { 
   Search, Package, Layers, Tag, X, Check, 
-  ArrowRight, Scale, ChevronRight, Zap, ArrowLeft, Trash2, Loader2 
+  ArrowRight, Scale, ChevronRight, Zap, ArrowLeft, Trash2, Loader2, AlertCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -73,7 +73,7 @@ export default function CataloguePage() {
   const [items, setItems] = useState<Item[]>([]);
   const [priceLists, setPriceLists] = useState<PriceList[]>([]);
   
-  // --- Selection State ---
+  // --- Selection State (Hierarchy) ---
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedType, setSelectedType] = useState<ItemType | null>(null);
   const [selectedPriceList, setSelectedPriceList] = useState<PriceList | null>(null);
@@ -82,7 +82,7 @@ export default function CataloguePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [compareList, setCompareList] = useState<Item[]>([]);
-  const [pricesMap, setPricesMap] = useState<Record<number, ItemPrices>>({}); // Cache for fetched prices
+  const [pricesMap, setPricesMap] = useState<Record<number, ItemPrices>>({}); 
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [loadingState, setLoadingState] = useState<"idle" | "loading_types" | "loading_items">("idle");
 
@@ -97,7 +97,6 @@ export default function CataloguePage() {
         
         if (prodRes.ok) {
           const prods: Product[] = await prodRes.json();
-          // Assign UI colors cyclically
           const coloredProds = prods.map((p, i) => ({
             ...p,
             ...UI_COLORS[i % UI_COLORS.length]
@@ -108,10 +107,11 @@ export default function CataloguePage() {
         if (plRes.ok) {
           const pls: PriceList[] = await plRes.json();
           setPriceLists(pls);
+          // Default to first list if available
           if (pls.length > 0) setSelectedPriceList(pls[0]);
         }
       } catch (err) {
-        console.error("Failed to load initial data", err);
+        console.error("Init data load failed", err);
       }
     }
     initData();
@@ -122,35 +122,34 @@ export default function CataloguePage() {
     const delayDebounceFn = setTimeout(async () => {
       if (searchQuery.length > 1) {
         setIsSearching(true);
+        // When searching, we MUST clear hierarchy to show results
+        setSelectedProduct(null);
+        setSelectedType(null);
+        
         try {
           const res = await fetch(`/api/catalogue/items?search=${encodeURIComponent(searchQuery)}`);
           if (res.ok) {
             const data = await res.json();
             setItems(data);
-            // Clear hierarchy selection when searching
-            setSelectedProduct(null);
-            setSelectedType(null);
           }
-        } catch (error) {
-          console.error("Search error", error);
         } finally {
           setIsSearching(false);
         }
       } else if (searchQuery === "") {
-        // Reset to empty items if search cleared and no hierarchy selected
         if (!selectedType) setItems([]);
       }
-    }, 500);
-
+    }, 400);
     return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery, selectedType]);
+  }, [searchQuery]);
 
   // --- Handlers ---
 
+  // LEVEL 1 -> 2
   const handleSelectProduct = async (product: Product) => {
     setSelectedProduct(product);
-    setSelectedType(null);
-    setSearchQuery("");
+    setSelectedType(null); // Reset lower levels
+    setItems([]); 
+    setSearchQuery(""); // Clear search if navigating manually
     setLoadingState("loading_types");
     
     try {
@@ -159,16 +158,16 @@ export default function CataloguePage() {
         const data = await res.json();
         setItemTypes(data);
       }
-    } catch (err) {
-      console.error(err);
     } finally {
       setLoadingState("idle");
     }
   };
 
+  // LEVEL 2 -> 3
   const handleSelectType = async (type: ItemType) => {
     setSelectedType(type);
     setLoadingState("loading_items");
+    setItems([]); // Clear previous items to avoid flicker
     
     try {
       const res = await fetch(`/api/catalogue/items?itemTypeId=${type.itemTypeId}`);
@@ -176,23 +175,27 @@ export default function CataloguePage() {
         const data = await res.json();
         setItems(data);
       }
-    } catch (err) {
-      console.error(err);
     } finally {
       setLoadingState("idle");
     }
   };
 
+  // Add/Remove item from comparison & Fetch Prices
   const toggleCompare = async (item: Item) => {
-    // 1. Update List
+    const alreadyIn = compareList.find(i => i.itemId === item.itemId);
+    
+    if (alreadyIn) {
+      setCompareList(prev => prev.filter(i => i.itemId !== item.itemId));
+      return;
+    }
+    
+    // Add to list (max 2)
     setCompareList(prev => {
-      const exists = prev.find(i => i.itemId === item.itemId);
-      if (exists) return prev.filter(i => i.itemId !== item.itemId);
-      if (prev.length >= 2) return [prev[1], item]; // Rotate max 2
+      if (prev.length >= 2) return [prev[1], item]; // Rotate
       return [...prev, item];
     });
 
-    // 2. Fetch Prices if not in cache
+    // Fetch price immediately if not cached
     if (!pricesMap[item.itemId]) {
       try {
         const res = await fetch(`/api/catalogue/prices?itemId=${item.itemId}`);
@@ -201,7 +204,7 @@ export default function CataloguePage() {
           setPricesMap(prev => ({ ...prev, [item.itemId]: priceData }));
         }
       } catch (err) {
-        console.error("Price fetch error", err);
+        console.error("Price fetch failed", err);
       }
     }
   };
@@ -213,14 +216,14 @@ export default function CataloguePage() {
     setItems([]);
   };
 
-  // --- Helper to get price for current selected list ---
+  // Helper to get ranges for the current selected Price List
   const getPriceForList = (itemId: number): PriceRange[] => {
     if (!selectedPriceList || !pricesMap[itemId]) return [];
-    const list = pricesMap[itemId].priceLists.find(pl => pl.priceId === selectedPriceList.priceId);
-    return list?.ranges || [];
+    const listData = pricesMap[itemId].priceLists.find(pl => pl.priceId === selectedPriceList.priceId);
+    return listData?.ranges || [];
   };
 
-  // --- View Logic ---
+  // --- Strict View Logic (prevents "poutine") ---
   const showCategories = !selectedProduct && !searchQuery;
   const showTypes = selectedProduct && !selectedType && !searchQuery;
   const showItems = (!!selectedType || searchQuery.length > 0);
@@ -228,28 +231,25 @@ export default function CataloguePage() {
   return (
     <div className="flex flex-col min-h-screen bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 font-sans">
       
-      {/* 1. Large Touch Header */}
+      {/* HEADER */}
       <div className="sticky top-0 z-30 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-800 px-6 py-5 shadow-sm">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-6 items-center justify-between">
           
           {/* Breadcrumbs */}
           <div className="flex items-center gap-4 w-full md:w-auto overflow-x-auto no-scrollbar">
-             <button 
-                onClick={resetNav}
-                className="flex-shrink-0 h-12 w-12 flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 rounded-2xl active:scale-95 transition-all"
-             >
+             <button onClick={resetNav} className="flex-shrink-0 h-12 w-12 flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 rounded-2xl active:scale-95 transition-all hover:bg-neutral-200 dark:hover:bg-neutral-700">
                 <Package className="w-6 h-6 text-emerald-600" />
              </button>
 
              <div className="flex items-center gap-2 text-lg whitespace-nowrap">
-                <span onClick={resetNav} className="font-medium cursor-pointer active:opacity-60">Catalogue</span>
+                <span onClick={resetNav} className="font-medium cursor-pointer hover:text-emerald-600 active:opacity-60">Catalogue</span>
                 
                 {selectedProduct && (
                    <>
                      <ChevronRight className="w-5 h-5 text-neutral-400" />
                      <button 
                         onClick={() => { setSelectedType(null); setSearchQuery(""); }}
-                        className="font-bold px-4 py-2 bg-neutral-100 dark:bg-neutral-800 rounded-xl active:scale-95 transition-all"
+                        className="font-bold px-4 py-2 bg-neutral-100 dark:bg-neutral-800 rounded-xl active:scale-95 transition-all hover:bg-neutral-200 dark:hover:bg-neutral-700"
                      >
                         {selectedProduct.name.split('-')[0]}
                      </button>
@@ -259,7 +259,7 @@ export default function CataloguePage() {
                 {selectedType && (
                    <>
                      <ChevronRight className="w-5 h-5 text-neutral-400" />
-                     <span className="font-bold text-emerald-600 px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
+                     <span className="font-bold text-emerald-600 px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-200 dark:border-emerald-900">
                         {selectedType.description.split('-')[1] || selectedType.description}
                      </span>
                    </>
@@ -281,7 +281,7 @@ export default function CataloguePage() {
                <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 animate-spin text-emerald-500" />
             ) : searchQuery && (
               <button 
-                onClick={() => { setSearchQuery(""); if(!selectedProduct) setItems([]); }} 
+                onClick={resetNav} 
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-2 active:bg-neutral-200 dark:active:bg-neutral-700 rounded-full"
               >
                 <X className="w-5 h-5 text-neutral-500" />
@@ -291,9 +291,10 @@ export default function CataloguePage() {
         </div>
       </div>
 
+      {/* MAIN CONTENT */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 pb-40">
         
-        {/* VIEW 1: CATEGORIES (Level 1) */}
+        {/* VIEW 1: CATEGORIES (Top Level) */}
         {showCategories && (
           <div className="animate-in fade-in slide-in-from-bottom-8 duration-500">
             <h2 className="text-3xl font-bold mb-8 flex items-center gap-3">
@@ -310,16 +311,12 @@ export default function CataloguePage() {
                     onClick={() => handleSelectProduct(prod)}
                     className="group relative h-48 bg-white dark:bg-neutral-800 rounded-3xl p-8 text-left border-2 border-transparent hover:border-emerald-500 transition-all shadow-md active:scale-[0.98]"
                   >
-                    {/* Dynamic Background Blob */}
                     <div className={cn("absolute top-0 right-0 w-40 h-40 opacity-10 rounded-bl-[100px] transition-transform group-hover:scale-110", prod.bg?.replace('bg-', 'bg-') || "bg-neutral-100")} />
-                    
                     <div className={cn("w-14 h-14 rounded-2xl mb-4 flex items-center justify-center shadow-sm", prod.bg || "bg-neutral-100")}>
                       <Package className={cn("w-7 h-7", prod.color || "text-neutral-600")} />
                     </div>
-                    
                     <h3 className="text-xl font-bold pr-10 leading-tight">{prod.name}</h3>
                     <p className="text-neutral-500 mt-2 font-medium">{prod.itemCount} articles</p>
-                    
                     <div className="absolute bottom-8 right-8 w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-colors">
                       <ArrowRight className="w-5 h-5" />
                     </div>
@@ -330,14 +327,11 @@ export default function CataloguePage() {
           </div>
         )}
 
-        {/* VIEW 2: TYPES (Level 2) */}
+        {/* VIEW 2: TYPES (Second Level) */}
         {showTypes && (
           <div className="animate-in fade-in slide-in-from-right-8 duration-300">
-             <button 
-                onClick={() => setSelectedProduct(null)}
-                className="mb-8 flex items-center gap-2 px-6 py-3 bg-white dark:bg-neutral-800 rounded-xl shadow-sm border border-neutral-200 dark:border-neutral-700 font-semibold active:scale-95 transition-transform"
-             >
-                <ArrowLeft className="w-5 h-5" /> Retour
+             <button onClick={() => setSelectedProduct(null)} className="mb-8 flex items-center gap-2 px-6 py-3 bg-white dark:bg-neutral-800 rounded-xl shadow-sm border border-neutral-200 dark:border-neutral-700 font-semibold active:scale-95 transition-transform hover:bg-neutral-50 dark:hover:bg-neutral-700">
+               <ArrowLeft className="w-5 h-5" /> Retour aux catégories
              </button>
 
             <h2 className="text-3xl font-bold mb-8 flex items-center gap-3">
@@ -347,6 +341,8 @@ export default function CataloguePage() {
 
             {loadingState === "loading_types" ? (
                <div className="flex justify-center p-12"><Loader2 className="w-10 h-10 animate-spin text-neutral-300" /></div>
+            ) : itemTypes.length === 0 ? (
+               <div className="text-center p-12 text-neutral-500">Aucun type trouvé.</div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {itemTypes.map((type) => (
@@ -370,13 +366,14 @@ export default function CataloguePage() {
           </div>
         )}
 
-        {/* VIEW 3: ITEMS (Level 3 or Search Results) */}
+        {/* VIEW 3: ITEMS (Bottom Level or Search) */}
         {showItems && (
           <div className="animate-in fade-in zoom-in-95 duration-300">
+             {/* Only show back button if we are in hierarchy mode, not search mode */}
              {!searchQuery && (
                <button 
                  onClick={() => setSelectedType(null)} 
-                 className="mb-8 flex items-center gap-2 px-6 py-3 bg-white dark:bg-neutral-800 rounded-xl shadow-sm border border-neutral-200 dark:border-neutral-700 font-semibold active:scale-95 transition-transform"
+                 className="mb-8 flex items-center gap-2 px-6 py-3 bg-white dark:bg-neutral-800 rounded-xl shadow-sm border border-neutral-200 dark:border-neutral-700 font-semibold active:scale-95 transition-transform hover:bg-neutral-50 dark:hover:bg-neutral-700"
                >
                  <ArrowLeft className="w-5 h-5" /> Retour aux types
                </button>
@@ -388,10 +385,6 @@ export default function CataloguePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {items.map((item) => {
                   const isCompared = compareList.some(c => c.itemId === item.itemId);
-                  // Ensure we have fetched price for this item if it's selected
-                  const prices = getPriceForList(item.itemId);
-                  const lowestPrice = prices.length > 0 ? prices[prices.length -1].unitPrice : 0; // Usually last tier is cheapest
-
                   return (
                     <div 
                         key={item.itemId}
@@ -415,22 +408,21 @@ export default function CataloguePage() {
                           </div>
                         </div>
                         
-                        <h3 className="font-semibold text-lg leading-snug mb-4 min-h-[3rem]">
+                        <h3 className="font-semibold text-lg leading-snug mb-4 min-h-[3rem] text-neutral-700 dark:text-neutral-200">
                           {item.description}
                         </h3>
                         
                         <div className="flex items-end justify-between">
                           <div>
-                              <p className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">
-                                {lowestPrice > 0 ? "Prix (Approx)" : "Sélectionner pour prix"}
+                              <p className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">Action</p>
+                              <p className="text-sm text-neutral-400 font-medium mt-0.5">
+                                {isCompared ? "Ajouté au comparateur" : "Toucher pour comparer"}
                               </p>
-                              {lowestPrice > 0 ? (
-                                <p className="text-2xl font-bold">{lowestPrice.toFixed(2)} $</p>
-                              ) : (
-                                <p className="text-lg text-neutral-400 font-medium">---</p>
-                              )}
                           </div>
-                          <button className="px-4 py-2 bg-neutral-100 dark:bg-neutral-700 rounded-lg text-sm font-semibold active:bg-neutral-200 transition-colors">
+                          <button className={cn(
+                            "px-4 py-2 rounded-lg text-sm font-semibold transition-colors",
+                            isCompared ? "bg-emerald-100 text-emerald-700" : "bg-neutral-100 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300"
+                          )}>
                               {isCompared ? "Sélectionné" : "Comparer"}
                           </button>
                         </div>
@@ -444,13 +436,14 @@ export default function CataloguePage() {
                 <div className="p-16 text-center text-neutral-500 bg-white dark:bg-neutral-800 rounded-3xl border-dashed border-2 border-neutral-300">
                   <Search className="w-16 h-16 mx-auto mb-4 opacity-20" />
                   <p className="text-xl font-medium">Aucun article trouvé.</p>
+                  <p className="text-sm mt-2">Essayez de modifier votre recherche ou naviguez dans les catégories.</p>
                 </div>
             )}
           </div>
         )}
       </main>
 
-      {/* FLOATING ACTION BAR (iPad Thumb Zone) */}
+      {/* FLOATING ACTION BAR */}
       {compareList.length > 0 && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 w-[90%] md:w-[600px] animate-in slide-in-from-bottom-24 duration-500">
           <div className="bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-[2rem] p-4 pr-5 shadow-2xl flex items-center justify-between gap-4 ring-4 ring-white/20 backdrop-blur-md">
@@ -464,7 +457,7 @@ export default function CataloguePage() {
                        onClick={() => {
                          setCompareList(prev => prev.filter(p => p.itemId !== item.itemId));
                        }}
-                       className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center border-2 border-neutral-900"
+                       className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center border-2 border-neutral-900 hover:scale-110 transition-transform"
                      >
                        <X className="w-3 h-3" />
                      </button>
@@ -484,7 +477,6 @@ export default function CataloguePage() {
             </div>
 
             <button 
-              // Enable for 1 item (view price) or 2 (compare)
               onClick={() => setShowCompareModal(true)}
               className="h-14 px-8 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-bold text-lg flex items-center gap-2 transition-all active:scale-95 shadow-lg"
             >
@@ -495,13 +487,13 @@ export default function CataloguePage() {
         </div>
       )}
 
-      {/* FULL SCREEN COMPARISON MODAL */}
+      {/* FULL SCREEN MODAL */}
       {showCompareModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-end md:items-center justify-center p-4 md:p-8">
           <div className="bg-white dark:bg-neutral-900 w-full max-w-5xl h-[90vh] md:h-auto max-h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 zoom-in-95">
             
             {/* Modal Header */}
-            <div className="p-6 md:p-8 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50">
+            <div className="p-6 md:p-8 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50 flex-shrink-0">
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
@@ -511,9 +503,9 @@ export default function CataloguePage() {
                   
                   {/* PRICE LIST DROPDOWN */}
                   <div className="mt-4 flex items-center gap-3">
-                    <span className="text-sm font-semibold text-neutral-500">Liste:</span>
+                    <span className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">Liste de prix:</span>
                     <select 
-                      className="bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-lg px-3 py-2 font-medium"
+                      className="bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-lg px-3 py-2 font-medium text-lg focus:ring-2 focus:ring-emerald-500 outline-none"
                       value={selectedPriceList?.priceId}
                       onChange={(e) => {
                         const pl = priceLists.find(p => p.priceId === parseInt(e.target.value));
@@ -536,57 +528,58 @@ export default function CataloguePage() {
               </div>
             </div>
 
-            {/* Comparison Content */}
+            {/* Comparison Columns */}
             <div className={`flex-1 overflow-y-auto grid ${compareList.length === 1 ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x"} divide-neutral-200 dark:divide-neutral-700`}>
               {compareList.map((item) => {
                 const ranges = getPriceForList(item.itemId);
                 return (
                   <div key={item.itemId} className="p-8 space-y-8">
-                    <div className="inline-block px-4 py-2 bg-neutral-100 dark:bg-neutral-800 rounded-lg text-sm font-mono font-bold mb-2">
-                      {item.itemCode}
+                    <div>
+                      <div className="inline-block px-4 py-2 bg-neutral-100 dark:bg-neutral-800 rounded-lg text-sm font-mono font-bold mb-2 text-emerald-600">
+                        {item.itemCode}
+                      </div>
+                      <h4 className="text-3xl font-bold leading-tight">{item.description}</h4>
                     </div>
-                    <h4 className="text-3xl font-bold leading-tight">{item.description}</h4>
                     
                     {/* PRICE MATRIX */}
                     <div className="bg-neutral-50 dark:bg-neutral-800 rounded-3xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
-                      <table className="w-full text-left">
-                        <thead className="bg-neutral-100 dark:bg-neutral-700/50">
-                          <tr>
-                            <th className="p-4 text-xs font-bold uppercase tracking-wider text-neutral-500">Quantité</th>
-                            <th className="p-4 text-xs font-bold uppercase tracking-wider text-neutral-500 text-right">Prix Unitaire</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
-                          {ranges.length > 0 ? (
-                            ranges.map((range) => (
-                              <tr key={range.id}>
-                                <td className="p-4 font-mono font-medium">
-                                  {range.qtyMin} {range.qtyMax ? `à ${range.qtyMax}` : "+"}
-                                </td>
-                                <td className="p-4 text-right font-mono font-bold text-lg text-emerald-600">
-                                  {range.unitPrice.toFixed(2)} $
-                                </td>
-                              </tr>
-                            ))
-                          ) : (
+                      {ranges.length > 0 ? (
+                        <table className="w-full text-left">
+                          <thead className="bg-neutral-100 dark:bg-neutral-700/50">
                             <tr>
-                              <td colSpan={2} className="p-8 text-center text-neutral-500">
-                                Aucun prix disponible pour cette liste.
-                              </td>
+                              <th className="p-4 text-xs font-bold uppercase tracking-wider text-neutral-500">Quantité</th>
+                              <th className="p-4 text-xs font-bold uppercase tracking-wider text-neutral-500 text-right">Prix Unitaire</th>
                             </tr>
-                          )}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
+                            {ranges.map((range) => (
+                                <tr key={range.id}>
+                                  <td className="p-4 font-mono font-medium text-lg">
+                                    {range.qtyMin} {range.qtyMax ? `à ${range.qtyMax}` : "+"}
+                                  </td>
+                                  <td className="p-4 text-right font-mono font-bold text-xl text-emerald-600">
+                                    {range.unitPrice.toFixed(2)} $
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <div className="p-8 text-center">
+                           <AlertCircle className="w-10 h-10 mx-auto text-neutral-300 mb-2" />
+                           <p className="text-neutral-500">Aucun prix défini pour cette liste.</p>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="space-y-6 pt-4">
+                    <div className="space-y-6 pt-4 opacity-50 hover:opacity-100 transition-opacity">
                       <div className="flex justify-between items-center border-b border-dashed border-neutral-200 dark:border-neutral-700 pb-4">
-                        <span className="text-lg text-neutral-500">ID Produit</span>
-                        <span className="text-lg font-mono font-bold">{item.prodId}</span>
+                        <span className="text-sm text-neutral-500">ID Produit (Interne)</span>
+                        <span className="text-sm font-mono font-bold">{item.prodId}</span>
                       </div>
                       <div className="flex justify-between items-center border-b border-dashed border-neutral-200 dark:border-neutral-700 pb-4">
-                        <span className="text-lg text-neutral-500">Sous-Type</span>
-                        <span className="text-lg font-mono font-bold">{item.itemSubTypeId}</span>
+                        <span className="text-sm text-neutral-500">ID Sous-Type</span>
+                        <span className="text-sm font-mono font-bold">{item.itemSubTypeId}</span>
                       </div>
                     </div>
                   </div>
@@ -595,14 +588,14 @@ export default function CataloguePage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-6 bg-neutral-50 dark:bg-neutral-800 flex justify-between items-center">
+            <div className="p-6 bg-neutral-50 dark:bg-neutral-800 flex justify-between items-center flex-shrink-0">
                <button 
                   onClick={() => { setCompareList([]); setShowCompareModal(false); }}
-                  className="px-6 py-3 text-red-500 font-bold hover:bg-red-50 rounded-xl transition-colors flex items-center gap-2"
+                  className="px-6 py-3 text-red-500 font-bold hover:bg-red-50 rounded-xl transition-colors flex items-center gap-2 hover:shadow-sm"
                >
                   <Trash2 className="w-5 h-5" /> Tout effacer
                </button>
-               <span className="text-sm text-neutral-400 hidden md:block">* Prix sujets à changement selon le volume.</span>
+               <span className="text-sm text-neutral-400 hidden md:block">* Prix sujets à changement selon le volume et la date.</span>
             </div>
 
           </div>
