@@ -10,29 +10,24 @@ export async function GET() {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
 
-    // Fetch all active price lists
     const query = `
       SELECT 
         "priceid" as "priceId",
         "Pricecode" as "code",
         "Descr" as "name",
-        "Descr" as "description",
         COALESCE(
           CASE WHEN "Currid" = 1 THEN 'CAD' 
                WHEN "Currid" = 2 THEN 'USD' 
-               WHEN "Currid" = 3 THEN 'EUR'
                ELSE 'CAD' 
           END, 
           'CAD'
-        ) as "currency",
-        "IsActive" as "isActive"
+        ) as "currency"
       FROM public."PriceList"
       WHERE "IsActive" = true
       ORDER BY "Descr" ASC
     `;
 
     const { rows } = await pg.query(query);
-
     return NextResponse.json(rows);
   } catch (error: any) {
     console.error("GET /api/catalogue/pricelists error:", error);
