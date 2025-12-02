@@ -1,6 +1,3 @@
-// src/app/api/catalogue/products/route.ts
-// Fetches all product categories (largest hierarchy level) with item counts
-
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
