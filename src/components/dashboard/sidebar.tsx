@@ -22,6 +22,7 @@ import {
   ChevronsUpDown,
   Building2,
   Check,
+  PackageSearch,
 } from "lucide-react";
 import {
   Tooltip,
@@ -53,7 +54,7 @@ interface SidebarProps {
 
 // Companies for the selector
 const COMPANIES = [
-  { id: "sinto", name: "SINTO", plan: "Groupe principal" },
+  { id: "sinto", name: "SINTO", plan: "Groupe" },
   { id: "prolab", name: "Prolab", plan: "Filiale" },
   { id: "lubrilab", name: "Lubri-Lab", plan: "Filiale" },
   { id: "otoprotec", name: "Otoprotec", plan: "Filiale" },
@@ -64,8 +65,7 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Général",
     items: [
       { href: "/dashboard", title: "Dashboard", icon: LayoutDashboard },
-      { href: "/dashboard/tasks", title: "Mes tâches", icon: ListChecks },
-      { href: "/dashboard/projects", title: "Mes projets", icon: Briefcase },
+      { href: "/dashboard/catalogue", title: "Catalogue de produits", icon: PackageSearch },
     ],
   },
   {
