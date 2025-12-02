@@ -1,6 +1,3 @@
-// src/app/api/catalogue/pricelists/route.ts
-// Fetches all active price lists
-
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
