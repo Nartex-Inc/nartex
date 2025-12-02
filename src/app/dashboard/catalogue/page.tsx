@@ -1,41 +1,31 @@
 // src/app/dashboard/catalogue/page.tsx
-// SINTO Premium Item Catalogue Navigation
-// Enhanced version with large intuitive buttons and dramatic price comparison
+// SINTO Premium Item Catalogue - iPad Optimized
+// Frontend skeleton with mock data - NO backend dependencies
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useSession } from "next-auth/react";
-import { useTheme } from "next-themes";
+import { useState, useEffect, useCallback } from "react";
 import {
   Search,
   ChevronRight,
-  ChevronDown,
   Package,
   Layers,
   Tag,
-  DollarSign,
-  ArrowLeftRight,
   X,
   Check,
-  Loader2,
-  BarChart3,
-  Sparkles,
   Home,
   Scale,
   Eye,
-  TrendingUp,
   Copy,
   CheckCheck,
   Info,
   Zap,
-  Star,
   ArrowRight,
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   Design Tokens - Industrial Premium Theme
+   Theme System
    ═══════════════════════════════════════════════════════════════════════════════ */
-type ThemeTokens = {
+interface ThemeTokens {
   void: string;
   surface1: string;
   surface2: string;
@@ -56,9 +46,9 @@ type ThemeTokens = {
   glass: string;
   gradientStart: string;
   gradientEnd: string;
-};
+}
 
-const THEME: Record<"light" | "dark", ThemeTokens> = {
+const THEME: { light: ThemeTokens; dark: ThemeTokens } = {
   light: {
     void: "#FFFFFF",
     surface1: "#FAFAFA",
@@ -77,7 +67,7 @@ const THEME: Record<"light" | "dark", ThemeTokens> = {
     success: "#10B981",
     warning: "#F59E0B",
     danger: "#EF4444",
-    glass: "rgba(255,255,255,0.7)",
+    glass: "rgba(255,255,255,0.85)",
     gradientStart: "#1DB954",
     gradientEnd: "#059669",
   },
@@ -99,33 +89,30 @@ const THEME: Record<"light" | "dark", ThemeTokens> = {
     success: "#34D399",
     warning: "#FBBF24",
     danger: "#F87171",
-    glass: "rgba(10,10,10,0.8)",
+    glass: "rgba(10,10,10,0.9)",
     gradientStart: "#1ED760",
     gradientEnd: "#10B981",
   },
-} as const;
-
-const CHART_PALETTE = {
-  light: ["#1DB954", "#6366F1", "#EC4899", "#F59E0B", "#14B8A6", "#8B5CF6"],
-  dark: ["#1ED760", "#818CF8", "#F472B6", "#FBBF24", "#2DD4BF", "#A78BFA"],
 };
+
+const COLORS = ["#1ED760", "#818CF8", "#F472B6", "#FBBF24", "#2DD4BF", "#A78BFA"];
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    Types
    ═══════════════════════════════════════════════════════════════════════════════ */
-type Product = {
+interface Product {
   prodId: number;
   name: string;
   itemCount: number;
-};
+}
 
-type ItemType = {
+interface ItemType {
   itemTypeId: number;
   description: string;
   itemCount: number;
-};
+}
 
-type Item = {
+interface Item {
   itemId: number;
   itemCode: string;
   description: string;
@@ -133,38 +120,124 @@ type Item = {
   itemSubTypeId: number;
   productName: string;
   typeDescription: string;
-  relevance?: number;
-};
+}
 
-type PriceList = {
+interface PriceList {
   priceId: number;
   name: string;
-  description: string | null;
   currency: string;
-  isActive: boolean;
-};
+}
 
-type PriceRange = {
-  id: number;
+interface PriceRange {
   qtyMin: number;
   qtyMax: number | null;
   unitPrice: number;
-};
+}
 
-type PriceData = {
+interface PriceData {
   priceId: number;
   priceListName: string;
   currency: string;
   ranges: PriceRange[];
-};
+}
 
-type ItemPrices = {
+interface ItemPrices {
   itemId: number;
   priceLists: PriceData[];
-};
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   Formatters & Hooks
+   Mock Data - Replace with API calls when ready
+   ═══════════════════════════════════════════════════════════════════════════════ */
+const MOCK_PRODUCTS: Product[] = [
+  { prodId: 1, name: "100(G)-TRAITEMENT DE CARBURANT", itemCount: 45 },
+  { prodId: 2, name: "110-HUILES MOTEUR", itemCount: 128 },
+  { prodId: 3, name: "120-HUILES HYDRAULIQUES", itemCount: 89 },
+  { prodId: 4, name: "130-HUILES TRANSMISSION", itemCount: 67 },
+  { prodId: 5, name: "140-GRAISSES INDUSTRIELLES", itemCount: 156 },
+  { prodId: 6, name: "150-LUBRIFIANTS ALIMENTAIRES", itemCount: 34 },
+  { prodId: 7, name: "160-FLUIDES DE COUPE", itemCount: 78 },
+  { prodId: 8, name: "170-NETTOYANTS INDUSTRIELS", itemCount: 92 },
+  { prodId: 9, name: "180-PRODUITS SPÉCIALISÉS", itemCount: 56 },
+  { prodId: 10, name: "190-ÉQUIPEMENTS", itemCount: 43 },
+  { prodId: 11, name: "200-ADDITIFS", itemCount: 67 },
+  { prodId: 12, name: "210-ANTIGELS", itemCount: 28 },
+];
+
+const MOCK_ITEM_TYPES: Record<number, ItemType[]> = {
+  1: [
+    { itemTypeId: 101, description: "100.1-DIESEL ADDITIFS", itemCount: 15 },
+    { itemTypeId: 102, description: "100.2-ESSENCE ADDITIFS", itemCount: 12 },
+    { itemTypeId: 103, description: "100.3-STABILISANTS CARBURANT", itemCount: 18 },
+  ],
+  2: [
+    { itemTypeId: 201, description: "110.1-HUILE HME 0W20", itemCount: 22 },
+    { itemTypeId: 202, description: "110.2-HUILE HME 5W30", itemCount: 35 },
+    { itemTypeId: 203, description: "110.3-HUILE HME 10W40", itemCount: 28 },
+    { itemTypeId: 204, description: "110.4-HUILE SYNTHÉTIQUE", itemCount: 43 },
+  ],
+  3: [
+    { itemTypeId: 301, description: "120.1-HYDRAULIQUE ISO 32", itemCount: 30 },
+    { itemTypeId: 302, description: "120.2-HYDRAULIQUE ISO 46", itemCount: 35 },
+    { itemTypeId: 303, description: "120.3-HYDRAULIQUE ISO 68", itemCount: 24 },
+  ],
+  4: [
+    { itemTypeId: 401, description: "130.1-ATF DEXRON", itemCount: 22 },
+    { itemTypeId: 402, description: "130.2-HUILE ENGRENAGES", itemCount: 25 },
+    { itemTypeId: 403, description: "130.3-FLUIDE CVT", itemCount: 20 },
+  ],
+  5: [
+    { itemTypeId: 501, description: "140.1-GRAISSE LITHIUM", itemCount: 45 },
+    { itemTypeId: 502, description: "140.2-GRAISSE COMPLEXE", itemCount: 38 },
+    { itemTypeId: 503, description: "140.3-GRAISSE HAUTE TEMP", itemCount: 42 },
+    { itemTypeId: 504, description: "140.4-GRAISSE ALIMENTAIRE", itemCount: 31 },
+  ],
+};
+
+const MOCK_ITEMS: Record<string, Item[]> = {
+  "1-101": [
+    { itemId: 1001, itemCode: "DC-001", description: "Additif diesel premium 1L", prodId: 1, itemSubTypeId: 101, productName: "TRAITEMENT CARBURANT", typeDescription: "DIESEL ADDITIFS" },
+    { itemId: 1002, itemCode: "DC-002", description: "Additif diesel premium 4L", prodId: 1, itemSubTypeId: 101, productName: "TRAITEMENT CARBURANT", typeDescription: "DIESEL ADDITIFS" },
+    { itemId: 1003, itemCode: "DC-003", description: "Nettoyant injecteurs diesel 500ml", prodId: 1, itemSubTypeId: 101, productName: "TRAITEMENT CARBURANT", typeDescription: "DIESEL ADDITIFS" },
+    { itemId: 1004, itemCode: "DC-004", description: "Anti-gel diesel concentré 1L", prodId: 1, itemSubTypeId: 101, productName: "TRAITEMENT CARBURANT", typeDescription: "DIESEL ADDITIFS" },
+  ],
+  "2-201": [
+    { itemId: 2001, itemCode: "HME-0W20-1L", description: "Huile moteur synthétique 0W20 1L", prodId: 2, itemSubTypeId: 201, productName: "HUILES MOTEUR", typeDescription: "HUILE HME 0W20" },
+    { itemId: 2002, itemCode: "HME-0W20-4L", description: "Huile moteur synthétique 0W20 4L", prodId: 2, itemSubTypeId: 201, productName: "HUILES MOTEUR", typeDescription: "HUILE HME 0W20" },
+    { itemId: 2003, itemCode: "HME-0W20-20L", description: "Huile moteur synthétique 0W20 20L", prodId: 2, itemSubTypeId: 201, productName: "HUILES MOTEUR", typeDescription: "HUILE HME 0W20" },
+    { itemId: 2004, itemCode: "HME-0W20-205L", description: "Huile moteur synthétique 0W20 Baril 205L", prodId: 2, itemSubTypeId: 201, productName: "HUILES MOTEUR", typeDescription: "HUILE HME 0W20" },
+  ],
+  "2-202": [
+    { itemId: 2101, itemCode: "HME-5W30-1L", description: "Huile moteur synthétique 5W30 1L", prodId: 2, itemSubTypeId: 202, productName: "HUILES MOTEUR", typeDescription: "HUILE HME 5W30" },
+    { itemId: 2102, itemCode: "HME-5W30-4L", description: "Huile moteur synthétique 5W30 4L", prodId: 2, itemSubTypeId: 202, productName: "HUILES MOTEUR", typeDescription: "HUILE HME 5W30" },
+    { itemId: 2103, itemCode: "HME-5W30-20L", description: "Huile moteur synthétique 5W30 20L", prodId: 2, itemSubTypeId: 202, productName: "HUILES MOTEUR", typeDescription: "HUILE HME 5W30" },
+  ],
+};
+
+const MOCK_PRICE_LISTS: PriceList[] = [
+  { priceId: 1, name: "01-DISTRIBUTEUR", currency: "CAD" },
+  { priceId: 2, name: "02-DÉTAILLANT", currency: "CAD" },
+  { priceId: 3, name: "03-COMMERCIAL", currency: "CAD" },
+  { priceId: 4, name: "04-INDUSTRIEL", currency: "CAD" },
+];
+
+const generateMockPrices = (itemId: number): ItemPrices => ({
+  itemId,
+  priceLists: MOCK_PRICE_LISTS.map((pl) => ({
+    priceId: pl.priceId,
+    priceListName: pl.name,
+    currency: pl.currency,
+    ranges: [
+      { qtyMin: 1, qtyMax: 5, unitPrice: 45.99 + (pl.priceId * 2) + (itemId % 10) },
+      { qtyMin: 6, qtyMax: 11, unitPrice: 42.99 + (pl.priceId * 2) + (itemId % 10) },
+      { qtyMin: 12, qtyMax: 47, unitPrice: 39.99 + (pl.priceId * 2) + (itemId % 10) },
+      { qtyMin: 48, qtyMax: null, unitPrice: 35.99 + (pl.priceId * 2) + (itemId % 10) },
+    ],
+  })),
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   Utilities
    ═══════════════════════════════════════════════════════════════════════════════ */
 const currency = (n: number, curr = "CAD") =>
   new Intl.NumberFormat("fr-CA", {
@@ -176,17 +249,8 @@ const currency = (n: number, curr = "CAD") =>
 
 const formatNumber = (n: number) => new Intl.NumberFormat("fr-CA").format(n);
 
-function useDebounce<T>(value: T, delay: number): T {
-  const [v, setV] = useState(value);
-  useEffect(() => {
-    const h = setTimeout(() => setV(value), delay);
-    return () => clearTimeout(h);
-  }, [value, delay]);
-  return v;
-}
-
 /* ═══════════════════════════════════════════════════════════════════════════════
-   CSS Animations (injected via style tag)
+   Global CSS
    ═══════════════════════════════════════════════════════════════════════════════ */
 const GlobalStyles = () => (
   <style jsx global>{`
@@ -207,23 +271,14 @@ const GlobalStyles = () => (
       50% { transform: scale(1.05); opacity: 0.2; }
       100% { transform: scale(1); opacity: 0.4; }
     }
-    @keyframes shimmer {
-      0% { background-position: -200% 0; }
-      100% { background-position: 200% 0; }
-    }
     @keyframes glow {
       0%, 100% { box-shadow: 0 0 20px rgba(30,215,96,0.3); }
       50% { box-shadow: 0 0 40px rgba(30,215,96,0.5); }
     }
-    .animate-fadeIn { animation: fadeIn 0.4s ease-out; }
-    .animate-slideUp { animation: slideUp 0.5s ease-out; }
-    .animate-scaleIn { animation: scaleIn 0.3s ease-out; }
+    .animate-fadeIn { animation: fadeIn 0.4s ease-out forwards; }
+    .animate-slideUp { animation: slideUp 0.5s ease-out forwards; }
+    .animate-scaleIn { animation: scaleIn 0.3s ease-out forwards; }
     .animate-pulse-ring { animation: pulse-ring 2s ease-in-out infinite; }
-    .animate-shimmer {
-      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
-      background-size: 200% 100%;
-      animation: shimmer 2s linear infinite;
-    }
     .animate-glow { animation: glow 2s ease-in-out infinite; }
     .glassmorphism {
       backdrop-filter: blur(20px);
@@ -233,44 +288,62 @@ const GlobalStyles = () => (
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .card-hover:hover {
-      transform: translateY(-4px) scale(1.02);
+      transform: translateY(-2px);
+    }
+    @media (hover: none) {
+      .card-hover:hover {
+        transform: none;
+      }
+    }
+    @media (pointer: coarse) {
+      button, .clickable {
+        min-height: 48px;
+        min-width: 48px;
+      }
+    }
+    .scroll-container {
+      -webkit-overflow-scrolling: touch;
+      scroll-behavior: smooth;
+    }
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
     }
   `}</style>
 );
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   Large Category Button (HERO STYLE)
+   Hero Category Card - Large touch-friendly buttons for iPad
    ═══════════════════════════════════════════════════════════════════════════════ */
-const HeroCategoryCard = ({
-  title,
-  count,
-  icon: Icon,
-  onClick,
-  isSelected,
-  color,
-  t,
-  index,
-}: {
+interface HeroCategoryCardProps {
   title: string;
   count: number;
-  icon: any;
   onClick: () => void;
   isSelected: boolean;
   color: string;
   t: ThemeTokens;
   index: number;
-}) => (
+}
+
+const HeroCategoryCard = ({
+  title,
+  count,
+  onClick,
+  isSelected,
+  color,
+  t,
+  index,
+}: HeroCategoryCardProps) => (
   <button
     onClick={onClick}
     className="group relative w-full text-left card-hover animate-fadeIn"
-    style={{
-      animationDelay: `${index * 50}ms`,
-      animationFillMode: "backwards",
-    }}
+    style={{ animationDelay: `${index * 40}ms` }}
   >
-    {/* Background with gradient border */}
     <div
-      className="relative overflow-hidden rounded-2xl p-[1px]"
+      className="relative overflow-hidden rounded-2xl p-[2px]"
       style={{
         background: isSelected
           ? `linear-gradient(135deg, ${color}, ${t.accent})`
@@ -278,68 +351,53 @@ const HeroCategoryCard = ({
       }}
     >
       <div
-        className="relative rounded-2xl p-6 overflow-hidden"
-        style={{
-          background: isSelected ? `${color}15` : t.surface2,
-        }}
+        className="relative rounded-2xl p-5 md:p-6 overflow-hidden min-h-[140px] md:min-h-[160px]"
+        style={{ background: isSelected ? `${color}15` : t.surface2 }}
       >
-        {/* Decorative background element */}
         <div
-          className="absolute -right-8 -top-8 w-32 h-32 rounded-full opacity-10 transition-all duration-500 group-hover:opacity-20 group-hover:scale-125"
+          className="absolute -right-6 -top-6 w-24 h-24 md:w-32 md:h-32 rounded-full opacity-10 transition-all duration-500"
           style={{ background: color }}
         />
         
-        {/* Selection indicator */}
         {isSelected && (
           <div
-            className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center animate-scaleIn"
+            className="absolute top-3 right-3 w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center animate-scaleIn"
             style={{ background: color }}
           >
-            <Check className="w-5 h-5" style={{ color: t.void }} />
+            <Check className="w-4 h-4 md:w-5 md:h-5" style={{ color: t.void }} />
           </div>
         )}
 
-        {/* Icon */}
         <div
-          className="relative w-14 h-14 rounded-xl flex items-center justify-center mb-4 transition-all duration-300 group-hover:scale-110"
+          className="relative w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center mb-3 md:mb-4"
           style={{
             background: `${color}20`,
             boxShadow: isSelected ? `0 0 30px ${color}40` : "none",
           }}
         >
-          <Icon className="w-7 h-7" style={{ color }} />
+          <Package className="w-6 h-6 md:w-7 md:h-7" style={{ color }} />
         </div>
 
-        {/* Title */}
         <h3
-          className="font-bold text-lg mb-2 line-clamp-2 transition-colors"
+          className="font-bold text-base md:text-lg mb-2 line-clamp-2"
           style={{ color: isSelected ? color : t.textPrimary }}
         >
           {title}
         </h3>
 
-        {/* Count badge */}
-        <div className="flex items-center gap-2">
-          <span
-            className="text-sm font-mono px-3 py-1 rounded-lg"
-            style={{
-              background: t.surface3,
-              color: t.textSecondary,
-            }}
-          >
-            {formatNumber(count)} articles
-          </span>
-        </div>
+        <span
+          className="text-xs md:text-sm font-mono px-2 py-1 md:px-3 md:py-1 rounded-lg inline-block"
+          style={{ background: t.surface3, color: t.textSecondary }}
+        >
+          {formatNumber(count)} articles
+        </span>
 
-        {/* Arrow indicator */}
         <div
-          className="absolute bottom-6 right-6 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 group-hover:translate-x-1"
-          style={{
-            background: isSelected ? color : t.surface3,
-          }}
+          className="absolute bottom-4 right-4 md:bottom-6 md:right-6 w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center"
+          style={{ background: isSelected ? color : t.surface3 }}
         >
           <ArrowRight
-            className="w-5 h-5"
+            className="w-4 h-4 md:w-5 md:h-5"
             style={{ color: isSelected ? t.void : t.textMuted }}
           />
         </div>
@@ -349,73 +407,62 @@ const HeroCategoryCard = ({
 );
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   Item Type Pill (Medium Level Navigation)
+   Item Type Pill
    ═══════════════════════════════════════════════════════════════════════════════ */
-const ItemTypePill = ({
-  type,
-  onClick,
-  isSelected,
-  color,
-  t,
-  index,
-}: {
+interface ItemTypePillProps {
   type: ItemType;
   onClick: () => void;
   isSelected: boolean;
   color: string;
   t: ThemeTokens;
   index: number;
-}) => (
+}
+
+const ItemTypePill = ({ type, onClick, isSelected, color, t, index }: ItemTypePillProps) => (
   <button
     onClick={onClick}
-    className="group relative text-left transition-all duration-300 animate-fadeIn"
-    style={{
-      animationDelay: `${index * 30}ms`,
-      animationFillMode: "backwards",
-    }}
+    className="group relative text-left transition-all duration-300 animate-fadeIn w-full"
+    style={{ animationDelay: `${index * 30}ms` }}
   >
     <div
-      className="relative overflow-hidden rounded-xl p-4 border transition-all duration-300"
+      className="relative overflow-hidden rounded-xl p-4 md:p-5 border transition-all duration-300"
       style={{
         background: isSelected ? `${color}15` : t.surface2,
         borderColor: isSelected ? `${color}50` : t.borderSubtle,
       }}
     >
-      {/* Selection ring */}
       {isSelected && (
         <div
-          className="absolute inset-0 rounded-xl animate-pulse-ring"
+          className="absolute inset-0 rounded-xl animate-pulse-ring pointer-events-none"
           style={{ border: `2px solid ${color}` }}
         />
       )}
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 md:gap-4">
         <div
-          className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-all group-hover:scale-110"
-          style={{
-            background: isSelected ? color : `${color}20`,
-          }}
+          className="w-11 h-11 md:w-12 md:h-12 rounded-lg flex items-center justify-center shrink-0"
+          style={{ background: isSelected ? color : `${color}20` }}
         >
           <Layers
-            className="w-5 h-5"
+            className="w-5 h-5 md:w-6 md:h-6"
             style={{ color: isSelected ? t.void : color }}
           />
         </div>
 
         <div className="flex-1 min-w-0">
           <p
-            className="font-semibold text-sm truncate"
+            className="font-semibold text-sm md:text-base truncate"
             style={{ color: isSelected ? color : t.textPrimary }}
           >
             {type.description}
           </p>
-          <p className="text-xs mt-0.5" style={{ color: t.textMuted }}>
+          <p className="text-xs md:text-sm mt-0.5" style={{ color: t.textMuted }}>
             {formatNumber(type.itemCount)} articles
           </p>
         </div>
 
         <ChevronRight
-          className="w-4 h-4 shrink-0 transition-transform group-hover:translate-x-1"
+          className="w-5 h-5 shrink-0"
           style={{ color: isSelected ? color : t.textMuted }}
         />
       </div>
@@ -424,17 +471,9 @@ const ItemTypePill = ({
 );
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   Item Selection Card
+   Item Card
    ═══════════════════════════════════════════════════════════════════════════════ */
-const ItemCard = ({
-  item,
-  onSelect,
-  isPrimary,
-  isCompare,
-  t,
-  colors,
-  index,
-}: {
+interface ItemCardProps {
   item: Item;
   onSelect: (item: Item, slot: "primary" | "compare") => void;
   isPrimary: boolean;
@@ -442,7 +481,9 @@ const ItemCard = ({
   t: ThemeTokens;
   colors: string[];
   index: number;
-}) => {
+}
+
+const ItemCard = ({ item, onSelect, isPrimary, isCompare, t, colors, index }: ItemCardProps) => {
   const [copied, setCopied] = useState(false);
   const isSelected = isPrimary || isCompare;
   const selectionColor = isPrimary ? colors[0] : isCompare ? colors[1] : t.accent;
@@ -456,41 +497,35 @@ const ItemCard = ({
 
   return (
     <div
-      className="group relative rounded-xl border transition-all duration-300 cursor-pointer card-hover animate-fadeIn"
+      className="group relative rounded-xl border transition-all duration-300 card-hover animate-fadeIn"
       style={{
         background: isSelected ? `${selectionColor}10` : t.surface2,
         borderColor: isSelected ? `${selectionColor}40` : t.borderSubtle,
         animationDelay: `${index * 40}ms`,
-        animationFillMode: "backwards",
       }}
-      onClick={() => onSelect(item, isPrimary ? "primary" : "primary")}
     >
-      {/* Selection badge */}
       {isSelected && (
         <div
-          className="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center z-10 animate-scaleIn"
+          className="absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center z-10 animate-scaleIn"
           style={{ background: selectionColor }}
         >
-          {isPrimary ? (
-            <span className="text-xs font-bold" style={{ color: t.void }}>1</span>
-          ) : (
-            <span className="text-xs font-bold" style={{ color: t.void }}>2</span>
-          )}
+          <span className="text-xs font-bold" style={{ color: t.void }}>
+            {isPrimary ? "1" : "2"}
+          </span>
         </div>
       )}
 
-      <div className="p-4">
-        {/* Header with code and copy */}
+      <div className="p-4 md:p-5">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              className="w-9 h-9 md:w-10 md:h-10 rounded-lg flex items-center justify-center"
               style={{ background: `${t.accent}20` }}
             >
-              <Tag className="w-4 h-4" style={{ color: t.accent }} />
+              <Tag className="w-4 h-4 md:w-5 md:h-5" style={{ color: t.accent }} />
             </div>
             <span
-              className="font-mono font-bold text-lg"
+              className="font-mono font-bold text-base md:text-lg"
               style={{ color: isSelected ? selectionColor : t.textPrimary }}
             >
               {item.itemCode}
@@ -499,27 +534,22 @@ const ItemCard = ({
           
           <button
             onClick={handleCopy}
-            className="p-2 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+            className="p-2 md:p-3 rounded-lg transition-all active:scale-95"
             style={{ background: t.surface3 }}
           >
             {copied ? (
-              <CheckCheck className="w-4 h-4" style={{ color: t.success }} />
+              <CheckCheck className="w-4 h-4 md:w-5 md:h-5" style={{ color: t.success }} />
             ) : (
-              <Copy className="w-4 h-4" style={{ color: t.textMuted }} />
+              <Copy className="w-4 h-4 md:w-5 md:h-5" style={{ color: t.textMuted }} />
             )}
           </button>
         </div>
 
-        {/* Description */}
-        <p
-          className="text-sm line-clamp-2 mb-3"
-          style={{ color: t.textSecondary }}
-        >
+        <p className="text-sm md:text-base line-clamp-2 mb-3" style={{ color: t.textSecondary }}>
           {item.description}
         </p>
 
-        {/* Tags */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 mb-4">
           {item.productName && (
             <span
               className="text-xs px-2 py-1 rounded-md"
@@ -528,43 +558,28 @@ const ItemCard = ({
               {item.productName}
             </span>
           )}
-          {item.typeDescription && (
-            <span
-              className="text-xs px-2 py-1 rounded-md"
-              style={{ background: t.surface3, color: t.textTertiary }}
-            >
-              {item.typeDescription}
-            </span>
-          )}
         </div>
 
-        {/* Action buttons */}
-        <div className="flex gap-2 mt-4 pt-3 border-t" style={{ borderColor: t.borderSubtle }}>
+        <div className="flex gap-2 pt-3 border-t" style={{ borderColor: t.borderSubtle }}>
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect(item, "primary");
-            }}
-            className="flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all"
+            onClick={(e) => { e.stopPropagation(); onSelect(item, "primary"); }}
+            className="flex-1 py-3 px-4 rounded-xl text-sm md:text-base font-semibold transition-all active:scale-98"
             style={{
               background: isPrimary ? colors[0] : t.surface3,
               color: isPrimary ? t.void : t.textSecondary,
             }}
           >
-            {isPrimary ? "Sélectionné" : "Sélectionner"}
+            {isPrimary ? "✓ Sélectionné" : "Sélectionner"}
           </button>
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect(item, "compare");
-            }}
-            className="flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all"
+            onClick={(e) => { e.stopPropagation(); onSelect(item, "compare"); }}
+            className="flex-1 py-3 px-4 rounded-xl text-sm md:text-base font-semibold transition-all active:scale-98"
             style={{
               background: isCompare ? colors[1] : t.surface3,
               color: isCompare ? t.void : t.textSecondary,
             }}
           >
-            {isCompare ? "Comparé" : "Comparer"}
+            {isCompare ? "✓ Comparé" : "Comparer"}
           </button>
         </div>
       </div>
@@ -573,249 +588,82 @@ const ItemCard = ({
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   Search Autocomplete (Premium)
+   Search Bar
    ═══════════════════════════════════════════════════════════════════════════════ */
-const SearchAutocomplete = ({
-  onSelect,
-  t,
-  colors,
-}: {
-  onSelect: (item: Item, slot: "primary" | "compare") => void;
+interface SearchBarProps {
+  value: string;
+  onChange: (value: string) => void;
   t: ThemeTokens;
-  colors: string[];
-}) => {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Item[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const debouncedQuery = useDebounce(query, 300);
+}
 
-  useEffect(() => {
-    if (debouncedQuery.length < 2) {
-      setResults([]);
-      setIsOpen(false);
-      return;
-    }
-
-    const fetchResults = async () => {
-      setIsLoading(true);
-      try {
-        const res = await fetch(`/api/catalogue/search?q=${encodeURIComponent(debouncedQuery)}`);
-        if (res.ok) {
-          const data = await res.json();
-          setResults(data);
-          setIsOpen(data.length > 0);
-        }
-      } catch (error) {
-        console.error("Search error:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchResults();
-  }, [debouncedQuery]);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!isOpen) return;
-    switch (e.key) {
-      case "ArrowDown":
-        e.preventDefault();
-        setHighlightedIndex((p) => Math.min(p + 1, results.length - 1));
-        break;
-      case "ArrowUp":
-        e.preventDefault();
-        setHighlightedIndex((p) => Math.max(p - 1, 0));
-        break;
-      case "Enter":
-        e.preventDefault();
-        if (highlightedIndex >= 0 && results[highlightedIndex]) {
-          onSelect(results[highlightedIndex], "primary");
-          setQuery("");
-          setIsOpen(false);
-        }
-        break;
-      case "Escape":
-        setIsOpen(false);
-        break;
-    }
-  };
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
-        inputRef.current && !inputRef.current.contains(e.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  return (
-    <div className="relative w-full">
-      {/* Premium search input */}
-      <div
-        className="relative rounded-2xl p-[1px] transition-all duration-300"
-        style={{
-          background: isOpen
-            ? `linear-gradient(135deg, ${t.accent}, ${colors[1]})`
-            : t.borderSubtle,
-        }}
-      >
-        <div
-          className="relative rounded-2xl overflow-hidden"
-          style={{ background: t.surface2 }}
+const SearchBar = ({ value, onChange, t }: SearchBarProps) => (
+  <div
+    className="relative rounded-2xl p-[1px] transition-all duration-300"
+    style={{
+      background: value ? `linear-gradient(135deg, ${t.accent}, ${t.secondary})` : t.borderSubtle,
+    }}
+  >
+    <div className="relative rounded-2xl overflow-hidden" style={{ background: t.surface2 }}>
+      <Search
+        className="absolute left-4 md:left-5 top-1/2 -translate-y-1/2 w-5 h-5 md:w-6 md:h-6 pointer-events-none"
+        style={{ color: t.textMuted }}
+      />
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Rechercher par code ou description..."
+        className="w-full pl-12 md:pl-14 pr-4 md:pr-6 py-4 md:py-5 text-base md:text-lg bg-transparent focus:outline-none"
+        style={{ color: t.textPrimary }}
+      />
+      {value && (
+        <button
+          onClick={() => onChange("")}
+          className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 p-2 rounded-lg"
+          style={{ background: t.surface3 }}
         >
-          <Search
-            className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 pointer-events-none"
-            style={{ color: t.textMuted }}
-          />
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onFocus={() => results.length > 0 && setIsOpen(true)}
-            placeholder="Rechercher par code article ou description..."
-            className="w-full pl-14 pr-14 py-5 text-lg bg-transparent focus:outline-none"
-            style={{ color: t.textPrimary }}
-          />
-          {isLoading && (
-            <Loader2
-              className="absolute right-5 top-1/2 -translate-y-1/2 w-6 h-6 animate-spin"
-              style={{ color: t.accent }}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Dropdown */}
-      {isOpen && results.length > 0 && (
-        <div
-          ref={dropdownRef}
-          className="absolute top-full left-0 right-0 mt-3 rounded-2xl overflow-hidden z-50 shadow-2xl glassmorphism animate-scaleIn"
-          style={{
-            background: t.glass,
-            border: `1px solid ${t.borderDefault}`,
-            maxHeight: "400px",
-            overflowY: "auto",
-          }}
-        >
-          {results.map((item, index) => (
-            <button
-              key={item.itemId}
-              onClick={() => {
-                onSelect(item, "primary");
-                setQuery("");
-                setIsOpen(false);
-              }}
-              className="w-full px-5 py-4 flex items-start gap-4 text-left transition-all"
-              style={{
-                background: index === highlightedIndex ? t.surface2 : "transparent",
-                borderBottom: index < results.length - 1 ? `1px solid ${t.borderSubtle}` : "none",
-              }}
-              onMouseEnter={() => setHighlightedIndex(index)}
-            >
-              <div
-                className="p-3 rounded-xl shrink-0"
-                style={{ background: `${t.accent}15` }}
-              >
-                <Tag className="w-5 h-5" style={{ color: t.accent }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span
-                    className="font-mono font-bold text-base"
-                    style={{ color: t.textPrimary }}
-                  >
-                    {item.itemCode}
-                  </span>
-                  {item.relevance && item.relevance >= 80 && (
-                    <span
-                      className="text-xs px-2 py-0.5 rounded-full font-medium"
-                      style={{ background: `${t.accent}20`, color: t.accent }}
-                    >
-                      Match exact
-                    </span>
-                  )}
-                </div>
-                <p
-                  className="text-sm truncate"
-                  style={{ color: t.textSecondary }}
-                >
-                  {item.description}
-                </p>
-                <div className="flex items-center gap-2 mt-2">
-                  {item.productName && (
-                    <span
-                      className="text-xs px-2 py-1 rounded-md"
-                      style={{ background: t.surface3, color: t.textTertiary }}
-                    >
-                      {item.productName}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 shrink-0 mt-1" style={{ color: t.textMuted }} />
-            </button>
-          ))}
-        </div>
+          <X className="w-4 h-4 md:w-5 md:h-5" style={{ color: t.textMuted }} />
+        </button>
       )}
     </div>
-  );
-};
+  </div>
+);
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   BIG COMPARE BUTTON
+   Floating Compare Button
    ═══════════════════════════════════════════════════════════════════════════════ */
-const CompareButton = ({
-  primaryItem,
-  compareItem,
-  onClear,
-  onTogglePanel,
-  isPanelOpen,
-  t,
-  colors,
-}: {
+interface CompareButtonProps {
   primaryItem: Item | null;
   compareItem: Item | null;
   onClear: (slot: "primary" | "compare" | "all") => void;
   onTogglePanel: () => void;
-  isPanelOpen: boolean;
   t: ThemeTokens;
   colors: string[];
-}) => {
+}
+
+const CompareButton = ({ primaryItem, compareItem, onClear, onTogglePanel, t, colors }: CompareButtonProps) => {
   const hasSelection = primaryItem || compareItem;
   const hasComparison = primaryItem && compareItem;
 
+  if (!hasSelection) return null;
+
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-slideUp">
+    <div className="fixed bottom-4 md:bottom-6 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-auto z-50 animate-slideUp">
       <div
         className="rounded-2xl p-[2px] shadow-2xl"
         style={{
           background: hasComparison
             ? `linear-gradient(135deg, ${colors[0]}, ${colors[1]})`
-            : hasSelection
-            ? colors[0]
-            : t.borderDefault,
+            : colors[0],
         }}
       >
         <div
-          className="rounded-2xl px-6 py-4 flex items-center gap-4 glassmorphism"
+          className="rounded-2xl px-4 md:px-6 py-4 flex items-center gap-3 md:gap-4 glassmorphism"
           style={{ background: t.glass }}
         >
-          {/* Selection indicators */}
-          <div className="flex items-center gap-3">
-            {/* Primary slot */}
+          <div className="flex items-center gap-2 md:gap-3 flex-1 md:flex-none overflow-hidden">
             <div
-              className="flex items-center gap-2 px-4 py-2 rounded-xl transition-all"
+              className="flex items-center gap-2 px-3 py-2 rounded-xl shrink-0"
               style={{
                 background: primaryItem ? `${colors[0]}20` : t.surface3,
                 border: `1px solid ${primaryItem ? colors[0] : t.borderSubtle}`,
@@ -823,33 +671,21 @@ const CompareButton = ({
             >
               {primaryItem ? (
                 <>
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ background: colors[0] }}
-                  />
-                  <span
-                    className="font-mono font-semibold text-sm"
-                    style={{ color: colors[0] }}
-                  >
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: colors[0] }} />
+                  <span className="font-mono font-semibold text-xs md:text-sm truncate max-w-[80px] md:max-w-none" style={{ color: colors[0] }}>
                     {primaryItem.itemCode}
                   </span>
-                  <button
-                    onClick={() => onClear("primary")}
-                    className="p-1 rounded-md transition-colors hover:bg-white/10"
-                  >
+                  <button onClick={() => onClear("primary")} className="p-1">
                     <X className="w-3 h-3" style={{ color: colors[0] }} />
                   </button>
                 </>
               ) : (
-                <span className="text-sm" style={{ color: t.textMuted }}>
-                  Article 1
-                </span>
+                <span className="text-xs md:text-sm" style={{ color: t.textMuted }}>Art. 1</span>
               )}
             </div>
 
-            {/* VS divider */}
             <div
-              className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm"
+              className="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold text-xs shrink-0"
               style={{
                 background: hasComparison ? `${colors[1]}20` : t.surface3,
                 color: hasComparison ? colors[1] : t.textMuted,
@@ -858,9 +694,8 @@ const CompareButton = ({
               VS
             </div>
 
-            {/* Compare slot */}
             <div
-              className="flex items-center gap-2 px-4 py-2 rounded-xl transition-all"
+              className="flex items-center gap-2 px-3 py-2 rounded-xl shrink-0"
               style={{
                 background: compareItem ? `${colors[1]}20` : t.surface3,
                 border: `1px solid ${compareItem ? colors[1] : t.borderSubtle}`,
@@ -868,80 +703,52 @@ const CompareButton = ({
             >
               {compareItem ? (
                 <>
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ background: colors[1] }}
-                  />
-                  <span
-                    className="font-mono font-semibold text-sm"
-                    style={{ color: colors[1] }}
-                  >
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: colors[1] }} />
+                  <span className="font-mono font-semibold text-xs md:text-sm truncate max-w-[80px] md:max-w-none" style={{ color: colors[1] }}>
                     {compareItem.itemCode}
                   </span>
-                  <button
-                    onClick={() => onClear("compare")}
-                    className="p-1 rounded-md transition-colors hover:bg-white/10"
-                  >
+                  <button onClick={() => onClear("compare")} className="p-1">
                     <X className="w-3 h-3" style={{ color: colors[1] }} />
                   </button>
                 </>
               ) : (
-                <span className="text-sm" style={{ color: t.textMuted }}>
-                  Article 2
-                </span>
+                <span className="text-xs md:text-sm" style={{ color: t.textMuted }}>Art. 2</span>
               )}
             </div>
           </div>
 
-          {/* Compare action button */}
           <button
             onClick={onTogglePanel}
-            disabled={!hasSelection}
-            className={`
-              relative px-8 py-3 rounded-xl font-bold text-base transition-all
-              ${hasComparison ? "animate-glow" : ""}
-            `}
+            className={`px-5 md:px-8 py-3 rounded-xl font-bold text-sm md:text-base transition-all active:scale-95 shrink-0 ${hasComparison ? "animate-glow" : ""}`}
             style={{
               background: hasComparison
                 ? `linear-gradient(135deg, ${colors[0]}, ${colors[1]})`
-                : hasSelection
-                ? colors[0]
-                : t.surface3,
-              color: hasSelection ? t.void : t.textMuted,
-              opacity: hasSelection ? 1 : 0.5,
-              cursor: hasSelection ? "pointer" : "not-allowed",
+                : colors[0],
+              color: t.void,
             }}
           >
             <span className="flex items-center gap-2">
               {hasComparison ? (
                 <>
-                  <Scale className="w-5 h-5" />
-                  Comparer les prix
-                </>
-              ) : hasSelection ? (
-                <>
-                  <Eye className="w-5 h-5" />
-                  Voir les prix
+                  <Scale className="w-4 h-4 md:w-5 md:h-5" />
+                  <span className="hidden md:inline">Comparer</span>
                 </>
               ) : (
                 <>
-                  <ArrowLeftRight className="w-5 h-5" />
-                  Sélectionnez
+                  <Eye className="w-4 h-4 md:w-5 md:h-5" />
+                  <span className="hidden md:inline">Voir prix</span>
                 </>
               )}
             </span>
           </button>
 
-          {/* Clear all */}
-          {hasSelection && (
-            <button
-              onClick={() => onClear("all")}
-              className="p-2 rounded-lg transition-colors"
-              style={{ background: t.surface3 }}
-            >
-              <X className="w-5 h-5" style={{ color: t.textMuted }} />
-            </button>
-          )}
+          <button
+            onClick={() => onClear("all")}
+            className="p-2 md:p-3 rounded-lg shrink-0"
+            style={{ background: t.surface3 }}
+          >
+            <X className="w-4 h-4 md:w-5 md:h-5" style={{ color: t.textMuted }} />
+          </button>
         </div>
       </div>
     </div>
@@ -949,8 +756,22 @@ const CompareButton = ({
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   Price Comparison Panel (Slide-up Modal)
+   Price Comparison Panel
    ═══════════════════════════════════════════════════════════════════════════════ */
+interface PriceComparisonPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+  primaryItem: Item | null;
+  compareItem: Item | null;
+  primaryPrices: ItemPrices | null;
+  comparePrices: ItemPrices | null;
+  priceLists: PriceList[];
+  selectedPriceList: PriceList | null;
+  onSelectPriceList: (pl: PriceList) => void;
+  t: ThemeTokens;
+  colors: string[];
+}
+
 const PriceComparisonPanel = ({
   isOpen,
   onClose,
@@ -961,23 +782,9 @@ const PriceComparisonPanel = ({
   priceLists,
   selectedPriceList,
   onSelectPriceList,
-  isLoading,
   t,
   colors,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  primaryItem: Item | null;
-  compareItem: Item | null;
-  primaryPrices: ItemPrices | null;
-  comparePrices: ItemPrices | null;
-  priceLists: PriceList[];
-  selectedPriceList: PriceList | null;
-  onSelectPriceList: (pl: PriceList) => void;
-  isLoading: boolean;
-  t: ThemeTokens;
-  colors: string[];
-}) => {
+}: PriceComparisonPanelProps) => {
   if (!isOpen) return null;
 
   const primaryPriceData = primaryPrices?.priceLists.find(
@@ -989,75 +796,49 @@ const PriceComparisonPanel = ({
 
   return (
     <div className="fixed inset-0 z-[100]">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Panel */}
       <div
-        className="absolute bottom-0 left-0 right-0 max-h-[85vh] rounded-t-3xl overflow-hidden animate-slideUp"
+        className="absolute bottom-0 left-0 right-0 max-h-[90vh] md:max-h-[85vh] rounded-t-3xl overflow-hidden animate-slideUp scroll-container"
         style={{ background: t.surface1 }}
       >
-        {/* Header */}
         <div
-          className="sticky top-0 z-10 px-6 py-5 border-b flex items-center justify-between"
+          className="sticky top-0 z-10 px-4 md:px-6 py-4 md:py-5 border-b flex items-center justify-between"
           style={{ background: t.surface2, borderColor: t.borderSubtle }}
         >
-          <div className="flex items-center gap-4">
-            <div
-              className="p-3 rounded-xl"
-              style={{ background: `${t.accent}20` }}
-            >
-              <Scale className="w-6 h-6" style={{ color: t.accent }} />
+          <div className="flex items-center gap-3 md:gap-4">
+            <div className="p-2.5 md:p-3 rounded-xl" style={{ background: `${t.accent}20` }}>
+              <Scale className="w-5 h-5 md:w-6 md:h-6" style={{ color: t.accent }} />
             </div>
             <div>
-              <h2
-                className="text-xl font-bold"
-                style={{ color: t.textPrimary }}
-              >
+              <h2 className="text-lg md:text-xl font-bold" style={{ color: t.textPrimary }}>
                 Comparaison des prix
               </h2>
-              <p className="text-sm mt-0.5" style={{ color: t.textSecondary }}>
+              <p className="text-xs md:text-sm mt-0.5" style={{ color: t.textSecondary }}>
                 {primaryItem?.itemCode}
                 {compareItem && ` vs ${compareItem.itemCode}`}
               </p>
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-3 rounded-xl transition-colors"
-            style={{ background: t.surface3 }}
-          >
+          <button onClick={onClose} className="p-3 rounded-xl" style={{ background: t.surface3 }}>
             <X className="w-5 h-5" style={{ color: t.textMuted }} />
           </button>
         </div>
 
-        {/* Price list selector */}
-        <div className="px-6 py-4 border-b" style={{ borderColor: t.borderSubtle }}>
-          <p
-            className="text-sm font-semibold mb-3"
-            style={{ color: t.textSecondary }}
-          >
+        <div className="px-4 md:px-6 py-4 border-b hide-scrollbar" style={{ borderColor: t.borderSubtle }}>
+          <p className="text-sm font-semibold mb-3" style={{ color: t.textSecondary }}>
             Liste de prix
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
             {priceLists.map((pl) => (
               <button
                 key={pl.priceId}
                 onClick={() => onSelectPriceList(pl)}
-                className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
+                className="px-4 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap shrink-0"
                 style={{
-                  background:
-                    selectedPriceList?.priceId === pl.priceId
-                      ? t.accent
-                      : t.surface3,
-                  color:
-                    selectedPriceList?.priceId === pl.priceId
-                      ? t.void
-                      : t.textSecondary,
+                  background: selectedPriceList?.priceId === pl.priceId ? t.accent : t.surface3,
+                  color: selectedPriceList?.priceId === pl.priceId ? t.void : t.textSecondary,
                 }}
               >
                 {pl.name}
@@ -1066,194 +847,112 @@ const PriceComparisonPanel = ({
           </div>
         </div>
 
-        {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(85vh-180px)]">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2
-                className="w-8 h-8 animate-spin"
-                style={{ color: t.accent }}
-              />
-            </div>
-          ) : (
-            <div className={`grid gap-6 ${compareItem ? "md:grid-cols-2" : "grid-cols-1"}`}>
-              {/* Primary item prices */}
-              {primaryItem && (
-                <div className="animate-fadeIn">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div
-                      className="w-4 h-4 rounded-full"
-                      style={{ background: colors[0] }}
-                    />
-                    <span
-                      className="font-mono font-bold text-lg"
-                      style={{ color: colors[0] }}
-                    >
-                      {primaryItem.itemCode}
-                    </span>
-                  </div>
-                  <p
-                    className="text-sm mb-4"
-                    style={{ color: t.textSecondary }}
-                  >
-                    {primaryItem.description}
-                  </p>
-
-                  {primaryPriceData ? (
-                    <div
-                      className="rounded-xl overflow-hidden"
-                      style={{ border: `1px solid ${t.borderSubtle}` }}
-                    >
-                      <table className="w-full">
-                        <thead>
-                          <tr style={{ background: t.surface3 }}>
-                            <th
-                              className="px-4 py-3 text-left text-xs font-semibold uppercase"
-                              style={{ color: t.textMuted }}
-                            >
-                              Quantité
-                            </th>
-                            <th
-                              className="px-4 py-3 text-right text-xs font-semibold uppercase"
-                              style={{ color: t.textMuted }}
-                            >
-                              Prix unitaire
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {primaryPriceData.ranges.map((range, i) => (
-                            <tr
-                              key={i}
-                              style={{
-                                borderTop: i > 0 ? `1px solid ${t.borderSubtle}` : undefined,
-                              }}
-                            >
-                              <td className="px-4 py-3">
-                                <span
-                                  className="font-mono text-sm"
-                                  style={{ color: t.textPrimary }}
-                                >
-                                  {range.qtyMin}
-                                  {range.qtyMax ? ` — ${range.qtyMax}` : "+"}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                <span
-                                  className="font-mono font-bold text-lg"
-                                  style={{ color: colors[0] }}
-                                >
-                                  {currency(range.unitPrice, primaryPriceData.currency)}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div
-                      className="p-8 rounded-xl text-center"
-                      style={{ background: t.surface2 }}
-                    >
-                      <Info className="w-10 h-10 mx-auto mb-3" style={{ color: t.warning }} />
-                      <p style={{ color: t.textSecondary }}>
-                        Aucun prix disponible pour cette liste
-                      </p>
-                    </div>
-                  )}
+        <div className="p-4 md:p-6 overflow-y-auto max-h-[calc(90vh-180px)] md:max-h-[calc(85vh-180px)]">
+          <div className={`grid gap-4 md:gap-6 ${compareItem ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}>
+            {primaryItem && (
+              <div className="animate-fadeIn">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-4 h-4 rounded-full" style={{ background: colors[0] }} />
+                  <span className="font-mono font-bold text-lg" style={{ color: colors[0] }}>
+                    {primaryItem.itemCode}
+                  </span>
                 </div>
-              )}
+                <p className="text-sm mb-4" style={{ color: t.textSecondary }}>
+                  {primaryItem.description}
+                </p>
 
-              {/* Compare item prices */}
-              {compareItem && (
-                <div className="animate-fadeIn" style={{ animationDelay: "100ms" }}>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div
-                      className="w-4 h-4 rounded-full"
-                      style={{ background: colors[1] }}
-                    />
-                    <span
-                      className="font-mono font-bold text-lg"
-                      style={{ color: colors[1] }}
-                    >
-                      {compareItem.itemCode}
-                    </span>
-                  </div>
-                  <p
-                    className="text-sm mb-4"
-                    style={{ color: t.textSecondary }}
-                  >
-                    {compareItem.description}
-                  </p>
-
-                  {comparePriceData ? (
-                    <div
-                      className="rounded-xl overflow-hidden"
-                      style={{ border: `1px solid ${t.borderSubtle}` }}
-                    >
-                      <table className="w-full">
-                        <thead>
-                          <tr style={{ background: t.surface3 }}>
-                            <th
-                              className="px-4 py-3 text-left text-xs font-semibold uppercase"
-                              style={{ color: t.textMuted }}
-                            >
-                              Quantité
-                            </th>
-                            <th
-                              className="px-4 py-3 text-right text-xs font-semibold uppercase"
-                              style={{ color: t.textMuted }}
-                            >
-                              Prix unitaire
-                            </th>
+                {primaryPriceData ? (
+                  <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${t.borderSubtle}` }}>
+                    <table className="w-full">
+                      <thead>
+                        <tr style={{ background: t.surface3 }}>
+                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase" style={{ color: t.textMuted }}>
+                            Quantité
+                          </th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold uppercase" style={{ color: t.textMuted }}>
+                            Prix unitaire
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {primaryPriceData.ranges.map((range, i) => (
+                          <tr key={i} style={{ borderTop: i > 0 ? `1px solid ${t.borderSubtle}` : undefined }}>
+                            <td className="px-4 py-3">
+                              <span className="font-mono text-sm" style={{ color: t.textPrimary }}>
+                                {range.qtyMin}{range.qtyMax ? ` — ${range.qtyMax}` : "+"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <span className="font-mono font-bold text-lg" style={{ color: colors[0] }}>
+                                {currency(range.unitPrice, primaryPriceData.currency)}
+                              </span>
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {comparePriceData.ranges.map((range, i) => (
-                            <tr
-                              key={i}
-                              style={{
-                                borderTop: i > 0 ? `1px solid ${t.borderSubtle}` : undefined,
-                              }}
-                            >
-                              <td className="px-4 py-3">
-                                <span
-                                  className="font-mono text-sm"
-                                  style={{ color: t.textPrimary }}
-                                >
-                                  {range.qtyMin}
-                                  {range.qtyMax ? ` — ${range.qtyMax}` : "+"}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                <span
-                                  className="font-mono font-bold text-lg"
-                                  style={{ color: colors[1] }}
-                                >
-                                  {currency(range.unitPrice, comparePriceData.currency)}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div
-                      className="p-8 rounded-xl text-center"
-                      style={{ background: t.surface2 }}
-                    >
-                      <Info className="w-10 h-10 mx-auto mb-3" style={{ color: t.warning }} />
-                      <p style={{ color: t.textSecondary }}>
-                        Aucun prix disponible pour cette liste
-                      </p>
-                    </div>
-                  )}
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="p-8 rounded-xl text-center" style={{ background: t.surface2 }}>
+                    <Info className="w-10 h-10 mx-auto mb-3" style={{ color: t.warning }} />
+                    <p style={{ color: t.textSecondary }}>Aucun prix disponible</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {compareItem && (
+              <div className="animate-fadeIn" style={{ animationDelay: "100ms" }}>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-4 h-4 rounded-full" style={{ background: colors[1] }} />
+                  <span className="font-mono font-bold text-lg" style={{ color: colors[1] }}>
+                    {compareItem.itemCode}
+                  </span>
                 </div>
-              )}
-            </div>
-          )}
+                <p className="text-sm mb-4" style={{ color: t.textSecondary }}>
+                  {compareItem.description}
+                </p>
+
+                {comparePriceData ? (
+                  <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${t.borderSubtle}` }}>
+                    <table className="w-full">
+                      <thead>
+                        <tr style={{ background: t.surface3 }}>
+                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase" style={{ color: t.textMuted }}>
+                            Quantité
+                          </th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold uppercase" style={{ color: t.textMuted }}>
+                            Prix unitaire
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {comparePriceData.ranges.map((range, i) => (
+                          <tr key={i} style={{ borderTop: i > 0 ? `1px solid ${t.borderSubtle}` : undefined }}>
+                            <td className="px-4 py-3">
+                              <span className="font-mono text-sm" style={{ color: t.textPrimary }}>
+                                {range.qtyMin}{range.qtyMax ? ` — ${range.qtyMax}` : "+"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <span className="font-mono font-bold text-lg" style={{ color: colors[1] }}>
+                                {currency(range.unitPrice, comparePriceData.currency)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="p-8 rounded-xl text-center" style={{ background: t.surface2 }}>
+                    <Info className="w-10 h-10 mx-auto mb-3" style={{ color: t.warning }} />
+                    <p style={{ color: t.textSecondary }}>Aucun prix disponible</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -1261,25 +960,21 @@ const PriceComparisonPanel = ({
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   Breadcrumb Navigation
+   Breadcrumb
    ═══════════════════════════════════════════════════════════════════════════════ */
-const Breadcrumb = ({
-  product,
-  itemType,
-  onReset,
-  onResetToProduct,
-  t,
-}: {
+interface BreadcrumbProps {
   product: Product | null;
   itemType: ItemType | null;
   onReset: () => void;
   onResetToProduct: () => void;
   t: ThemeTokens;
-}) => (
-  <nav className="flex items-center gap-2 text-sm flex-wrap mb-6">
+}
+
+const Breadcrumb = ({ product, itemType, onReset, onResetToProduct, t }: BreadcrumbProps) => (
+  <nav className="flex items-center gap-2 text-sm flex-wrap mb-6 overflow-x-auto hide-scrollbar pb-2">
     <button
       onClick={onReset}
-      className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all"
+      className="flex items-center gap-2 px-3 py-2.5 rounded-lg transition-all shrink-0"
       style={{
         background: !product ? `${t.accent}15` : "transparent",
         color: !product ? t.accent : t.textSecondary,
@@ -1291,30 +986,30 @@ const Breadcrumb = ({
 
     {product && (
       <>
-        <ChevronRight className="w-4 h-4" style={{ color: t.textMuted }} />
+        <ChevronRight className="w-4 h-4 shrink-0" style={{ color: t.textMuted }} />
         <button
           onClick={onResetToProduct}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all"
+          className="flex items-center gap-2 px-3 py-2.5 rounded-lg transition-all shrink-0"
           style={{
             background: !itemType ? `${t.accent}15` : "transparent",
             color: !itemType ? t.accent : t.textSecondary,
           }}
         >
           <Package className="w-4 h-4" />
-          <span className="font-medium">{product.name}</span>
+          <span className="font-medium truncate max-w-[150px]">{product.name}</span>
         </button>
       </>
     )}
 
     {itemType && (
       <>
-        <ChevronRight className="w-4 h-4" style={{ color: t.textMuted }} />
+        <ChevronRight className="w-4 h-4 shrink-0" style={{ color: t.textMuted }} />
         <div
-          className="flex items-center gap-2 px-3 py-2 rounded-lg"
+          className="flex items-center gap-2 px-3 py-2.5 rounded-lg shrink-0"
           style={{ background: `${t.accent}15`, color: t.accent }}
         >
           <Layers className="w-4 h-4" />
-          <span className="font-medium">{itemType.description}</span>
+          <span className="font-medium truncate max-w-[150px]">{itemType.description}</span>
         </div>
       </>
     )}
@@ -1325,182 +1020,77 @@ const Breadcrumb = ({
    MAIN PAGE COMPONENT
    ═══════════════════════════════════════════════════════════════════════════════ */
 export default function CataloguePage() {
-  const { status } = useSession();
-  const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [isDark, setIsDark] = useState(true);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+    if (typeof window !== "undefined") {
+      setIsDark(window.matchMedia("(prefers-color-scheme: dark)").matches);
+    }
+  }, []);
 
-  const mode = mounted && resolvedTheme === "light" ? "light" : "dark";
-  const t = THEME[mode];
-  const colors = CHART_PALETTE[mode];
+  const t = THEME[isDark ? "dark" : "light"];
+  const colors = COLORS;
 
   // Navigation state
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products] = useState<Product[]>(MOCK_PRODUCTS);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [items, setItems] = useState<Item[]>([]);
-  const [priceLists, setPriceLists] = useState<PriceList[]>([]);
+  const [priceLists] = useState<PriceList[]>(MOCK_PRICE_LISTS);
 
   // Selection state
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedItemType, setSelectedItemType] = useState<ItemType | null>(null);
   const [primaryItem, setPrimaryItem] = useState<Item | null>(null);
   const [compareItem, setCompareItem] = useState<Item | null>(null);
-  const [selectedPriceList, setSelectedPriceList] = useState<PriceList | null>(null);
+  const [selectedPriceList, setSelectedPriceList] = useState<PriceList>(MOCK_PRICE_LISTS[0]);
 
   // Prices state
   const [primaryPrices, setPrimaryPrices] = useState<ItemPrices | null>(null);
   const [comparePrices, setComparePrices] = useState<ItemPrices | null>(null);
 
   // UI state
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingTypes, setIsLoadingTypes] = useState(false);
-  const [isLoadingItems, setIsLoadingItems] = useState(false);
-  const [isLoadingPrices, setIsLoadingPrices] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
-
-  // Load initial data
-  useEffect(() => {
-    const fetchInitialData = async () => {
-      setIsLoading(true);
-      try {
-        const [productsRes, priceListsRes] = await Promise.all([
-          fetch("/api/catalogue/products"),
-          fetch("/api/catalogue/pricelists"),
-        ]);
-
-        if (productsRes.ok) setProducts(await productsRes.json());
-        if (priceListsRes.ok) {
-          const lists = await priceListsRes.json();
-          setPriceLists(lists);
-          if (lists.length > 0) setSelectedPriceList(lists[0]);
-        }
-      } catch (error) {
-        console.error("Error fetching initial data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (status === "authenticated") fetchInitialData();
-  }, [status]);
-
-  // Load item types when product is selected
-  useEffect(() => {
-    if (!selectedProduct) {
-      setItemTypes([]);
-      return;
-    }
-
-    const fetchItemTypes = async () => {
-      setIsLoadingTypes(true);
-      try {
-        const res = await fetch(`/api/catalogue/itemtypes?prodId=${selectedProduct.prodId}`);
-        if (res.ok) setItemTypes(await res.json());
-      } catch (error) {
-        console.error("Error fetching item types:", error);
-      } finally {
-        setIsLoadingTypes(false);
-      }
-    };
-
-    fetchItemTypes();
-  }, [selectedProduct]);
-
-  // Load items when item type is selected
-  useEffect(() => {
-    if (!selectedProduct || !selectedItemType) {
-      setItems([]);
-      return;
-    }
-
-    const fetchItems = async () => {
-      setIsLoadingItems(true);
-      try {
-        const res = await fetch(
-          `/api/catalogue/items?prodId=${selectedProduct.prodId}&itemTypeId=${selectedItemType.itemTypeId}`
-        );
-        if (res.ok) setItems(await res.json());
-      } catch (error) {
-        console.error("Error fetching items:", error);
-      } finally {
-        setIsLoadingItems(false);
-      }
-    };
-
-    fetchItems();
-  }, [selectedProduct, selectedItemType]);
-
-  // Load prices when primary item changes
-  useEffect(() => {
-    if (!primaryItem) {
-      setPrimaryPrices(null);
-      return;
-    }
-
-    const fetchPrices = async () => {
-      setIsLoadingPrices(true);
-      try {
-        const res = await fetch(`/api/catalogue/prices?itemId=${primaryItem.itemId}`);
-        if (res.ok) setPrimaryPrices(await res.json());
-      } catch (error) {
-        console.error("Error fetching prices:", error);
-      } finally {
-        setIsLoadingPrices(false);
-      }
-    };
-
-    fetchPrices();
-  }, [primaryItem]);
-
-  // Load compare prices
-  useEffect(() => {
-    if (!compareItem) {
-      setComparePrices(null);
-      return;
-    }
-
-    const fetchPrices = async () => {
-      try {
-        const res = await fetch(`/api/catalogue/prices?itemId=${compareItem.itemId}`);
-        if (res.ok) setComparePrices(await res.json());
-      } catch (error) {
-        console.error("Error fetching compare prices:", error);
-      }
-    };
-
-    fetchPrices();
-  }, [compareItem]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Handlers
-  const handleSelectProduct = (product: Product) => {
+  const handleSelectProduct = useCallback((product: Product) => {
     setSelectedProduct(product);
     setSelectedItemType(null);
-  };
+    setItems([]);
+    const types = MOCK_ITEM_TYPES[product.prodId] || [];
+    setItemTypes(types);
+  }, []);
 
-  const handleSelectItemType = (type: ItemType) => {
+  const handleSelectItemType = useCallback((type: ItemType) => {
     setSelectedItemType(type);
-  };
+    const key = `${selectedProduct?.prodId}-${type.itemTypeId}`;
+    const itemList = MOCK_ITEMS[key] || [];
+    setItems(itemList);
+  }, [selectedProduct]);
 
-  const handleSelectItem = (item: Item, slot: "primary" | "compare") => {
+  const handleSelectItem = useCallback((item: Item, slot: "primary" | "compare") => {
     if (slot === "primary") {
-      // If clicking on the same item, deselect it
       if (primaryItem?.itemId === item.itemId) {
         setPrimaryItem(null);
+        setPrimaryPrices(null);
       } else {
         setPrimaryItem(item);
+        setPrimaryPrices(generateMockPrices(item.itemId));
       }
     } else {
-      // If clicking on the same compare item, deselect it
       if (compareItem?.itemId === item.itemId) {
         setCompareItem(null);
+        setComparePrices(null);
       } else {
         setCompareItem(item);
+        setComparePrices(generateMockPrices(item.itemId));
       }
     }
-  };
+  }, [primaryItem, compareItem]);
 
-  const handleClear = (slot: "primary" | "compare" | "all") => {
+  const handleClear = useCallback((slot: "primary" | "compare" | "all") => {
     if (slot === "primary" || slot === "all") {
       setPrimaryItem(null);
       setPrimaryPrices(null);
@@ -1510,66 +1100,75 @@ export default function CataloguePage() {
       setComparePrices(null);
     }
     if (slot === "all") setIsPanelOpen(false);
-  };
+  }, []);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setSelectedProduct(null);
     setSelectedItemType(null);
     setItemTypes([]);
     setItems([]);
-  };
+  }, []);
 
-  const handleResetToProduct = () => {
+  const handleResetToProduct = useCallback(() => {
     setSelectedItemType(null);
     setItems([]);
-  };
+  }, []);
 
   // Determine current view
   const showCategories = !selectedProduct;
   const showTypes = selectedProduct && !selectedItemType;
   const showItems = selectedProduct && selectedItemType;
 
+  // Filter items by search
+  const filteredItems = items.filter((item) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      item.itemCode.toLowerCase().includes(q) ||
+      item.description.toLowerCase().includes(q)
+    );
+  });
+
   if (!mounted) return null;
 
   return (
-    <main
-      className="min-h-screen"
-      style={{ background: t.void, color: t.textPrimary }}
-    >
+    <main className="min-h-screen scroll-container" style={{ background: t.void, color: t.textPrimary }}>
       <GlobalStyles />
 
-      <div className="max-w-[1600px] mx-auto px-6 py-8 pb-32">
+      <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-6 md:py-8 pb-32">
         {/* Header */}
-        <header className="mb-8">
-          <div className="flex items-center gap-4 mb-2">
-            <div
+        <header className="mb-6 md:mb-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 md:gap-4">
+              <div className="p-2.5 md:p-3 rounded-xl" style={{ background: `${t.accent}20` }}>
+                <Zap className="w-6 h-6 md:w-7 md:h-7" style={{ color: t.accent }} />
+              </div>
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight" style={{ color: t.textPrimary }}>
+                  Catalogue Produits
+                </h1>
+                <p className="text-sm md:text-base mt-1" style={{ color: t.textSecondary }}>
+                  Explorez notre gamme complète
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsDark(!isDark)}
               className="p-3 rounded-xl"
-              style={{ background: `${t.accent}20` }}
+              style={{ background: t.surface2 }}
             >
-              <Zap className="w-7 h-7" style={{ color: t.accent }} />
-            </div>
-            <div>
-              <h1
-                className="text-3xl font-bold tracking-tight"
-                style={{ color: t.textPrimary }}
-              >
-                Catalogue Produits
-              </h1>
-              <p className="text-base mt-1" style={{ color: t.textSecondary }}>
-                Explorez notre gamme complète et comparez les prix
-              </p>
-            </div>
+              <span className="text-xl">{isDark ? "☀️" : "🌙"}</span>
+            </button>
           </div>
         </header>
 
         {/* Search */}
-        <div className="mb-8">
-          <SearchAutocomplete
-            onSelect={handleSelectItem}
-            t={t}
-            colors={colors}
-          />
-        </div>
+        {showItems && (
+          <div className="mb-6">
+            <SearchBar value={searchQuery} onChange={setSearchQuery} t={t} />
+          </div>
+        )}
 
         {/* Breadcrumb */}
         <Breadcrumb
@@ -1580,33 +1179,25 @@ export default function CataloguePage() {
           t={t}
         />
 
-        {/* Loading */}
-        {isLoading && (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-10 h-10 animate-spin" style={{ color: t.accent }} />
-          </div>
-        )}
-
         {/* Categories (Level 1) */}
-        {!isLoading && showCategories && (
+        {showCategories && (
           <section className="animate-fadeIn">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold flex items-center gap-3">
-                <Package className="w-6 h-6" style={{ color: t.accent }} />
+            <div className="flex items-center justify-between mb-4 md:mb-6">
+              <h2 className="text-lg md:text-xl font-bold flex items-center gap-2 md:gap-3">
+                <Package className="w-5 h-5 md:w-6 md:h-6" style={{ color: t.accent }} />
                 Catégories de produits
               </h2>
-              <span className="text-sm" style={{ color: t.textMuted }}>
+              <span className="text-xs md:text-sm" style={{ color: t.textMuted }}>
                 {products.length} catégories
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
               {products.map((product, index) => (
                 <HeroCategoryCard
                   key={product.prodId}
                   title={product.name}
                   count={product.itemCount}
-                  icon={Package}
                   onClick={() => handleSelectProduct(product)}
                   isSelected={selectedProduct?.prodId === product.prodId}
                   color={colors[index % colors.length]}
@@ -1619,34 +1210,30 @@ export default function CataloguePage() {
         )}
 
         {/* Item Types (Level 2) */}
-        {!isLoading && showTypes && (
+        {showTypes && (
           <section className="animate-fadeIn">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold flex items-center gap-3">
-                <Layers className="w-6 h-6" style={{ color: t.accent }} />
-                Types d'articles
+            <div className="flex items-center justify-between mb-4 md:mb-6">
+              <h2 className="text-lg md:text-xl font-bold flex items-center gap-2 md:gap-3">
+                <Layers className="w-5 h-5 md:w-6 md:h-6" style={{ color: t.accent }} />
+                Types d&apos;articles
               </h2>
-              <span className="text-sm" style={{ color: t.textMuted }}>
+              <span className="text-xs md:text-sm" style={{ color: t.textMuted }}>
                 {itemTypes.length} types
               </span>
             </div>
 
-            {isLoadingTypes ? (
-              <div className="flex items-center justify-center py-16">
-                <Loader2 className="w-8 h-8 animate-spin" style={{ color: t.accent }} />
-              </div>
-            ) : itemTypes.length === 0 ? (
+            {itemTypes.length === 0 ? (
               <div
-                className="p-12 rounded-2xl text-center"
+                className="p-10 md:p-12 rounded-2xl text-center"
                 style={{ background: t.surface2, border: `1px solid ${t.borderSubtle}` }}
               >
-                <Layers className="w-12 h-12 mx-auto mb-4" style={{ color: t.textMuted }} />
+                <Layers className="w-10 h-10 md:w-12 md:h-12 mx-auto mb-4" style={{ color: t.textMuted }} />
                 <p style={{ color: t.textSecondary }}>
-                  Aucun type d'article dans cette catégorie
+                  Aucun type d&apos;article dans cette catégorie
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 {itemTypes.map((type, index) => (
                   <ItemTypePill
                     key={type.itemTypeId}
@@ -1664,35 +1251,31 @@ export default function CataloguePage() {
         )}
 
         {/* Items (Level 3) */}
-        {!isLoading && showItems && (
+        {showItems && (
           <section className="animate-fadeIn">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold flex items-center gap-3">
-                <Tag className="w-6 h-6" style={{ color: t.accent }} />
+            <div className="flex items-center justify-between mb-4 md:mb-6">
+              <h2 className="text-lg md:text-xl font-bold flex items-center gap-2 md:gap-3">
+                <Tag className="w-5 h-5 md:w-6 md:h-6" style={{ color: t.accent }} />
                 Articles
               </h2>
-              <span className="text-sm" style={{ color: t.textMuted }}>
-                {items.length} articles
+              <span className="text-xs md:text-sm" style={{ color: t.textMuted }}>
+                {filteredItems.length} articles
               </span>
             </div>
 
-            {isLoadingItems ? (
-              <div className="flex items-center justify-center py-16">
-                <Loader2 className="w-8 h-8 animate-spin" style={{ color: t.accent }} />
-              </div>
-            ) : items.length === 0 ? (
+            {filteredItems.length === 0 ? (
               <div
-                className="p-12 rounded-2xl text-center"
+                className="p-10 md:p-12 rounded-2xl text-center"
                 style={{ background: t.surface2, border: `1px solid ${t.borderSubtle}` }}
               >
-                <Tag className="w-12 h-12 mx-auto mb-4" style={{ color: t.textMuted }} />
+                <Tag className="w-10 h-10 md:w-12 md:h-12 mx-auto mb-4" style={{ color: t.textMuted }} />
                 <p style={{ color: t.textSecondary }}>
-                  Aucun article dans cette catégorie
+                  {searchQuery ? "Aucun résultat pour cette recherche" : "Aucun article dans cette catégorie"}
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {items.map((item, index) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                {filteredItems.map((item, index) => (
                   <ItemCard
                     key={item.itemId}
                     item={item}
@@ -1716,7 +1299,6 @@ export default function CataloguePage() {
         compareItem={compareItem}
         onClear={handleClear}
         onTogglePanel={() => setIsPanelOpen(true)}
-        isPanelOpen={isPanelOpen}
         t={t}
         colors={colors}
       />
@@ -1732,7 +1314,6 @@ export default function CataloguePage() {
         priceLists={priceLists}
         selectedPriceList={selectedPriceList}
         onSelectPriceList={setSelectedPriceList}
-        isLoading={isLoadingPrices}
         t={t}
         colors={colors}
       />
