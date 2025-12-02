@@ -1,6 +1,3 @@
-// src/app/api/catalogue/prices/route.ts
-// Fetches pricing information for an item across all price lists
-
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
