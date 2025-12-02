@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     const itemTypeId = searchParams.get("itemTypeId");
     const search = searchParams.get("search");
 
+    // Base query selecting necessary fields from Items table
     let query = `
       SELECT 
         "ItemId" as "itemId",
@@ -25,25 +26,29 @@ export async function GET(request: NextRequest) {
       WHERE 1=1
     `;
     
-    const params: any[] = [];
+    // explicit typing for query parameters
+    const params: (string | number)[] = [];
+    let paramIndex = 1;
 
     if (search) {
-      // Search mode: Filter by Code or Description
-      query += ` AND ("ItemCode" ILIKE $1 OR "Descr" ILIKE $1)`;
+      // Search mode: Filter by Code or Description (Case Insensitive)
+      query += ` AND ("ItemCode" ILIKE $${paramIndex} OR "Descr" ILIKE $${paramIndex})`;
       params.push(`%${search}%`);
+      paramIndex++;
       query += ` LIMIT 50`; // Limit search results for performance
     } else if (itemTypeId) {
-      // Hierarchy mode: Filter by SubType
-      query += ` AND "itemsubtypeid" = $1`;
+      // Hierarchy mode: Filter by SubType (Level 2 -> Level 3 drill down)
+      query += ` AND "itemsubtypeid" = $${paramIndex}`;
       params.push(parseInt(itemTypeId, 10));
+      paramIndex++;
       query += ` ORDER BY "ItemCode" ASC`;
     } else {
-      return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
+      // If neither search nor itemTypeId is provided, we shouldn't return everything
+      return NextResponse.json({ error: "Paramètres manquants: itemTypeId ou search requis" }, { status: 400 });
     }
 
     const { rows } = await pg.query(query, params);
 
-    // Map rows to ensure strict typing if necessary, though aliases above handle most
     return NextResponse.json(rows);
   } catch (error: any) {
     console.error("GET /api/catalogue/items error:", error);
