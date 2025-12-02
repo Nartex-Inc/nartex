@@ -20,9 +20,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch all price ranges for this item with explicit JOINs to Items and PriceList
-    // We join ItemPriceRange -> Items to ensure item validity
-    // We join ItemPriceRange -> PriceList to get the list name/currency
+    // FIXED QUERY:
+    // 1. Uses INNER JOIN to ensure data integrity (only prices linked to valid Items/Lists).
+    // 2. Joins itempricerange -> Items (on ItemId).
+    // 3. Joins itempricerange -> PriceList (on priceid).
     const query = `
       SELECT 
         ipr."priceid" as "priceId",
@@ -41,14 +42,14 @@ export async function GET(request: NextRequest) {
         ipr."price" as "unitPrice"
       FROM public."itempricerange" ipr
       INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
-      INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid" AND ipr."cieid" = pl."cieid"
+      INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid" 
       WHERE i."ItemId" = $1 AND pl."IsActive" = true
       ORDER BY pl."Descr" ASC, ipr."fromqty" ASC
     `;
 
     const { rows } = await pg.query(query, [parseInt(itemId, 10)]);
 
-    // Group by price list
+    // Group by price list to make frontend consumption easier
     const priceListsMap: Record<number, {
       priceId: number;
       priceListName: string;
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
       if (!priceListsMap[priceId]) {
         priceListsMap[priceId] = {
           priceId: row.priceId,
-          priceListName: row.priceListName || "Liste de prix",
+          priceListName: row.priceListName || "Liste inconnue",
           currency: row.currency,
           ranges: [],
         };
