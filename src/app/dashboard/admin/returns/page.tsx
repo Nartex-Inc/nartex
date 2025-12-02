@@ -28,7 +28,10 @@ import {
   Loader2,
   Check,
   Archive,
-  AlertCircle
+  AlertCircle,
+  Paperclip,
+  UploadCloud,
+  File as FileIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -46,7 +49,7 @@ type Cause =
 
 type ReturnStatus = "draft" | "awaiting_physical" | "received_or_no_physical";
 
-type Attachment = { id: string; name: string; url: string };
+type Attachment = { id: string; name: string; url: string; downloadUrl?: string };
 type ProductLine = {
   id: string;
   codeProduit: string;
@@ -190,7 +193,7 @@ async function createReturn(payload: {
   dateCommande?: string | null;
   transport?: string | null;
   description?: string | null;
-  physicalReturn?: boolean; // Added
+  physicalReturn?: boolean; 
   products?: {
     codeProduit: string;
     descriptionProduit: string;
@@ -206,7 +209,7 @@ async function createReturn(payload: {
   });
   const json = await res.json();
   if (!json.ok) throw new Error("Création échouée");
-  return json.return;
+  return json.data; // Return the created object
 }
 
 async function deleteReturn(code: string): Promise<void> {
@@ -219,6 +222,37 @@ async function deleteReturn(code: string): Promise<void> {
   if (!res.ok || !json?.ok) {
     throw new Error(json?.error || "Suppression échouée");
   }
+}
+
+// === Attachment Utils ===
+
+async function uploadAttachment(returnId: string, file: File): Promise<Attachment> {
+  // NOTE: In a real Google Drive integration, you would upload the file to Drive here
+  // and get the ID. For now, we mock the ID generation to satisfy the API.
+  const mockFileId = `gdrive_mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  const res = await fetch(`/api/returns/${encodeURIComponent(returnId)}/attachments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      fileId: mockFileId,
+      fileName: file.name,
+      mimeType: file.type,
+      fileSize: file.size
+    })
+  });
+  
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || "Upload failed");
+  return json.attachment;
+}
+
+async function deleteAttachment(returnId: string, fileId: string): Promise<void> {
+  const res = await fetch(`/api/returns/${encodeURIComponent(returnId)}/attachments?fileId=${encodeURIComponent(fileId)}`, {
+    method: "DELETE"
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || "Delete failed");
 }
 
 type OrderLookup = {
@@ -1063,6 +1097,8 @@ function DetailModal({
 }) {
   const { data: session } = useSession();
   const [draft, setDraft] = React.useState<ReturnRow>(row);
+  const [isUploading, setIsUploading] = React.useState(false);
+  
   React.useEffect(() => setDraft(row), [row]);
 
   const hasFiles = (draft.attachments?.length ?? 0) > 0;
@@ -1072,6 +1108,46 @@ function DetailModal({
   const isPhysical = draft.physicalReturn;
   const isVerified = draft.verified;
   const isFinalized = draft.finalized;
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    setIsUploading(true);
+    const files = Array.from(e.target.files);
+    
+    try {
+      const newAttachments: Attachment[] = [];
+      for (const file of files) {
+        const uploaded = await uploadAttachment(draft.id, file);
+        newAttachments.push(uploaded);
+      }
+      
+      // Update local state and parent state
+      const updatedAttachments = [...(draft.attachments || []), ...newAttachments];
+      const patch = { attachments: updatedAttachments };
+      setDraft(prev => ({ ...prev, ...patch }));
+      onPatched(patch);
+      
+    } catch (err) {
+      alert("Erreur lors de l'upload: " + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setIsUploading(false);
+      // Reset input
+      e.target.value = "";
+    }
+  };
+
+  const handleDeleteAttachment = async (fileId: string) => {
+    if (!confirm("Supprimer cette pièce jointe ?")) return;
+    try {
+      await deleteAttachment(draft.id, fileId);
+      const updatedAttachments = (draft.attachments || []).filter(a => a.id !== fileId);
+      const patch = { attachments: updatedAttachments };
+      setDraft(prev => ({ ...prev, ...patch }));
+      onPatched(patch);
+    } catch (err) {
+      alert("Erreur lors de la suppression: " + (err instanceof Error ? err.message : String(err)));
+    }
+  };
 
   React.useEffect(() => {
     const prev = document.body.style.overflow;
@@ -1214,22 +1290,64 @@ function DetailModal({
 
             {/* Attachments */}
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Folder className="h-5 w-5 text-[hsl(var(--text-tertiary))]" />
-                <h4 className="font-semibold text-[hsl(var(--text-primary))]">Fichiers joints</h4>
-                <span className="text-xs text-[hsl(var(--text-muted))]">({draft.attachments?.length ?? 0})</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Folder className="h-5 w-5 text-[hsl(var(--text-tertiary))]" />
+                  <h4 className="font-semibold text-[hsl(var(--text-primary))]">Fichiers joints</h4>
+                  <span className="text-xs text-[hsl(var(--text-muted))]">({draft.attachments?.length ?? 0})</span>
+                </div>
+                
+                <div className="relative">
+                  <input 
+                    type="file" 
+                    id="attachment-upload" 
+                    multiple 
+                    className="hidden" 
+                    onChange={handleFileUpload}
+                    disabled={isUploading}
+                  />
+                  <label 
+                    htmlFor="attachment-upload"
+                    className={cn(
+                      "cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
+                      "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]",
+                      "hover:bg-[hsl(var(--bg-muted))]",
+                      isUploading && "opacity-50 cursor-wait"
+                    )}
+                  >
+                    {isUploading ? <Loader2 className="h-4 w-4 animate-spin"/> : <UploadCloud className="h-4 w-4" />}
+                    Ajouter un fichier
+                  </label>
+                </div>
               </div>
+              
               {hasFiles ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {draft.attachments!.map((a) => (
-                    <div key={a.id} className="rounded-xl border border-[hsl(var(--border-subtle))] overflow-hidden">
-                      <div className="px-3 py-2 text-sm border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))]">{a.name}</div>
-                      <iframe title={a.name} src={a.url} className="w-full h-72" />
+                    <div key={a.id} className="relative group rounded-xl border border-[hsl(var(--border-subtle))] overflow-hidden bg-[hsl(var(--bg-muted))]">
+                      <div className="px-3 py-2 text-sm border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-surface))] flex justify-between items-center">
+                        <span className="truncate max-w-[200px]" title={a.name}>{a.name}</span>
+                        <button 
+                          onClick={() => handleDeleteAttachment(a.id)}
+                          className="p-1 rounded-md text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))]"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      {/* Simple file preview placeholder for mock upload, iframe for real drive */}
+                      <div className="h-24 flex items-center justify-center text-[hsl(var(--text-tertiary))]">
+                         <div className="text-center">
+                           <FileIcon className="h-8 w-8 mx-auto mb-1 opacity-50" />
+                           <span className="text-xs">Aperçu non disponible</span>
+                         </div>
+                      </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-sm text-[hsl(var(--text-muted))]">Aucune pièce jointe.</div>
+                <div className="text-sm text-[hsl(var(--text-muted))] border border-dashed border-[hsl(var(--border-default))] rounded-xl p-6 text-center">
+                  Aucune pièce jointe.
+                </div>
               )}
             </div>
 
@@ -1334,6 +1452,9 @@ function NewReturnModal({
   const [description, setDescription] = React.useState("");
   const [physicalReturn, setPhysicalReturn] = React.useState(false); // New state
   const [products, setProducts] = React.useState<ProductLine[]>([]);
+  
+  // File upload state for new return
+  const [filesToUpload, setFilesToUpload] = React.useState<File[]>([]);
   const [busy, setBusy] = React.useState(false);
 
   const addProduct = () =>
@@ -1361,7 +1482,8 @@ function NewReturnModal({
     }
     setBusy(true);
     try {
-      await createReturn({
+      // 1. Create the return
+      const createdReturn = await createReturn({
         reporter,
         cause,
         expert: expert.trim(),
@@ -1381,6 +1503,14 @@ function NewReturnModal({
           quantite: p.quantite,
         })),
       });
+
+      // 2. Upload files if any, linking them to the new return ID
+      if (filesToUpload.length > 0 && createdReturn?.codeRetour) {
+        for (const file of filesToUpload) {
+          await uploadAttachment(String(createdReturn.codeRetour), file);
+        }
+      }
+
       await onCreated();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Erreur à la création";
@@ -1461,6 +1591,67 @@ function NewReturnModal({
               <Field label="Date commande" type="date" value={dateCommande} onChange={setDateCommande} />
             </div>
 
+            {/* Attachments (Queue) */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Folder className="h-5 w-5 text-[hsl(var(--text-tertiary))]" />
+                  <h4 className="font-semibold text-[hsl(var(--text-primary))]">Fichiers à joindre</h4>
+                  <span className="text-xs text-[hsl(var(--text-muted))]">({filesToUpload.length})</span>
+                </div>
+                
+                <div className="relative">
+                  <input 
+                    type="file" 
+                    id="new-return-upload" 
+                    multiple 
+                    className="hidden" 
+                    onChange={(e) => {
+                      if (e.target.files) {
+                        setFilesToUpload(prev => [...prev, ...Array.from(e.target.files || [])]);
+                        e.target.value = ""; // reset
+                      }
+                    }}
+                  />
+                  <label 
+                    htmlFor="new-return-upload"
+                    className={cn(
+                      "cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
+                      "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]",
+                      "hover:bg-[hsl(var(--bg-muted))]"
+                    )}
+                  >
+                    <UploadCloud className="h-4 w-4" />
+                    Ajouter un fichier
+                  </label>
+                </div>
+              </div>
+              
+              {filesToUpload.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filesToUpload.map((f, i) => (
+                    <div key={i} className="flex justify-between items-center px-3 py-2 text-sm rounded-lg border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))]">
+                      <div className="flex items-center gap-2 truncate">
+                        <Paperclip className="h-3.5 w-3.5 text-[hsl(var(--text-tertiary))]" />
+                        <span className="truncate max-w-[200px]">{f.name}</span>
+                        <span className="text-xs text-[hsl(var(--text-muted))]">({(f.size / 1024).toFixed(0)} KB)</span>
+                      </div>
+                      <button 
+                        onClick={() => setFilesToUpload(prev => prev.filter((_, idx) => idx !== i))}
+                        className="p-1 rounded-md text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))]"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-[hsl(var(--text-muted))] text-center py-2 italic">
+                  Les fichiers seront uploadés à la création du retour.
+                </div>
+              )}
+            </div>
+
             <div className="space-y-3">
               <h4 className="font-semibold text-[hsl(var(--text-primary))]">Produits</h4>
               <div className="space-y-2">
@@ -1534,7 +1725,7 @@ function NewReturnModal({
                     busy && "opacity-70 pointer-events-none"
                   )}
                 >
-                  <Send className="h-4 w-4" />
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4" />}
                   Créer le retour
                 </button>
               </div>
