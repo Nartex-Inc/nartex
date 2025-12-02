@@ -35,7 +35,30 @@ import {
 /* ═══════════════════════════════════════════════════════════════════════════════
    Design Tokens - Industrial Premium Theme
    ═══════════════════════════════════════════════════════════════════════════════ */
-const THEME = {
+type ThemeTokens = {
+  void: string;
+  surface1: string;
+  surface2: string;
+  surface3: string;
+  textPrimary: string;
+  textSecondary: string;
+  textTertiary: string;
+  textMuted: string;
+  borderSubtle: string;
+  borderDefault: string;
+  accent: string;
+  accentMuted: string;
+  secondary: string;
+  tertiary: string;
+  success: string;
+  warning: string;
+  danger: string;
+  glass: string;
+  gradientStart: string;
+  gradientEnd: string;
+};
+
+const THEME: Record<"light" | "dark", ThemeTokens> = {
   light: {
     void: "#FFFFFF",
     surface1: "#FAFAFA",
@@ -234,7 +257,7 @@ const HeroCategoryCard = ({
   onClick: () => void;
   isSelected: boolean;
   color: string;
-  t: typeof THEME.dark;
+  t: ThemeTokens;
   index: number;
 }) => (
   <button
@@ -340,7 +363,7 @@ const ItemTypePill = ({
   onClick: () => void;
   isSelected: boolean;
   color: string;
-  t: typeof THEME.dark;
+  t: ThemeTokens;
   index: number;
 }) => (
   <button
@@ -416,7 +439,7 @@ const ItemCard = ({
   onSelect: (item: Item, slot: "primary" | "compare") => void;
   isPrimary: boolean;
   isCompare: boolean;
-  t: typeof THEME.dark;
+  t: ThemeTokens;
   colors: string[];
   index: number;
 }) => {
@@ -558,7 +581,7 @@ const SearchAutocomplete = ({
   colors,
 }: {
   onSelect: (item: Item, slot: "primary" | "compare") => void;
-  t: typeof THEME.dark;
+  t: ThemeTokens;
   colors: string[];
 }) => {
   const [query, setQuery] = useState("");
@@ -766,7 +789,7 @@ const CompareButton = ({
   onClear: (slot: "primary" | "compare" | "all") => void;
   onTogglePanel: () => void;
   isPanelOpen: boolean;
-  t: typeof THEME.dark;
+  t: ThemeTokens;
   colors: string[];
 }) => {
   const hasSelection = primaryItem || compareItem;
@@ -952,7 +975,7 @@ const PriceComparisonPanel = ({
   selectedPriceList: PriceList | null;
   onSelectPriceList: (pl: PriceList) => void;
   isLoading: boolean;
-  t: typeof THEME.dark;
+  t: ThemeTokens;
   colors: string[];
 }) => {
   if (!isOpen) return null;
@@ -1251,7 +1274,7 @@ const Breadcrumb = ({
   itemType: ItemType | null;
   onReset: () => void;
   onResetToProduct: () => void;
-  t: typeof THEME.dark;
+  t: ThemeTokens;
 }) => (
   <nav className="flex items-center gap-2 text-sm flex-wrap mb-6">
     <button
