@@ -1,6 +1,3 @@
-// src/app/api/catalogue/itemtypes/route.ts
-// Fetches item types (second hierarchy level) for a given product category
-
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
