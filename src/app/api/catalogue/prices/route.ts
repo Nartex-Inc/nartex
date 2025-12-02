@@ -20,7 +20,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch all price ranges for this item
+    // Fetch all price ranges for this item with explicit JOINs to Items and PriceList
+    // We join ItemPriceRange -> Items to ensure item validity
+    // We join ItemPriceRange -> PriceList to get the list name/currency
     const query = `
       SELECT 
         ipr."priceid" as "priceId",
@@ -38,8 +40,9 @@ export async function GET(request: NextRequest) {
         ipr."toqty" as "qtyMax",
         ipr."price" as "unitPrice"
       FROM public."itempricerange" ipr
-      LEFT JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid" AND ipr."cieid" = pl."cieid"
-      WHERE ipr."itemid" = $1 AND pl."IsActive" = true
+      INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
+      INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid" AND ipr."cieid" = pl."cieid"
+      WHERE i."ItemId" = $1 AND pl."IsActive" = true
       ORDER BY pl."Descr" ASC, ipr."fromqty" ASC
     `;
 
