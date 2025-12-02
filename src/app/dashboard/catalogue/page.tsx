@@ -220,6 +220,11 @@ export default function CataloguePage() {
     return list?.ranges || [];
   };
 
+  // --- View Logic ---
+  const showCategories = !selectedProduct && !searchQuery;
+  const showTypes = selectedProduct && !selectedType && !searchQuery;
+  const showItems = (!!selectedType || searchQuery.length > 0);
+
   return (
     <div className="flex flex-col min-h-screen bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 font-sans">
       
@@ -289,7 +294,7 @@ export default function CataloguePage() {
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 pb-40">
         
         {/* VIEW 1: CATEGORIES (Level 1) */}
-        {!selectedProduct && !searchQuery && (
+        {showCategories && (
           <div className="animate-in fade-in slide-in-from-bottom-8 duration-500">
             <h2 className="text-3xl font-bold mb-8 flex items-center gap-3">
               <Layers className="w-8 h-8 text-neutral-400" /> 
@@ -326,7 +331,7 @@ export default function CataloguePage() {
         )}
 
         {/* VIEW 2: TYPES (Level 2) */}
-        {selectedProduct && !selectedType && !searchQuery && (
+        {showTypes && (
           <div className="animate-in fade-in slide-in-from-right-8 duration-300">
              <button 
                 onClick={() => setSelectedProduct(null)}
@@ -336,8 +341,8 @@ export default function CataloguePage() {
              </button>
 
             <h2 className="text-3xl font-bold mb-8 flex items-center gap-3">
-              <span className={cn("w-4 h-4 rounded-full", selectedProduct.bg?.split(' ')[0] || "bg-emerald-500")} />
-              {selectedProduct.name}
+              <span className={cn("w-4 h-4 rounded-full", selectedProduct?.bg?.split(' ')[0] || "bg-emerald-500")} />
+              {selectedProduct?.name}
             </h2>
 
             {loadingState === "loading_types" ? (
@@ -366,7 +371,7 @@ export default function CataloguePage() {
         )}
 
         {/* VIEW 3: ITEMS (Level 3 or Search Results) */}
-        {(selectedType || searchQuery) && (
+        {showItems && (
           <div className="animate-in fade-in zoom-in-95 duration-300">
              {!searchQuery && (
                <button 
