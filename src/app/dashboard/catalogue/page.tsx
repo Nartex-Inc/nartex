@@ -12,7 +12,6 @@ interface Product {
   prodId: number;
   name: string;
   itemCount: number;
-  // UI Helpers added on client side
   color?: string; 
   bg?: string; 
 }
@@ -76,7 +75,7 @@ export default function CataloguePage() {
   // --- Selection State (Hierarchy) ---
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedType, setSelectedType] = useState<ItemType | null>(null);
-  const [selectedPriceList, setSelectedPriceList] = useState<PriceList | null>(null);
+  const [selectedPriceListId, setSelectedPriceListId] = useState<number | null>(null);
   
   // --- Search & Compare State ---
   const [searchQuery, setSearchQuery] = useState("");
@@ -108,7 +107,7 @@ export default function CataloguePage() {
           const pls: PriceList[] = await plRes.json();
           setPriceLists(pls);
           // Default to first list if available
-          if (pls.length > 0) setSelectedPriceList(pls[0]);
+          if (pls.length > 0) setSelectedPriceListId(pls[0].priceId);
         }
       } catch (err) {
         console.error("Init data load failed", err);
@@ -182,9 +181,9 @@ export default function CataloguePage() {
 
   // Add/Remove item from comparison & Fetch Prices
   const toggleCompare = async (item: Item) => {
-    const alreadyIn = compareList.find(i => i.itemId === item.itemId);
+    const exists = compareList.find(i => i.itemId === item.itemId);
     
-    if (alreadyIn) {
+    if (exists) {
       setCompareList(prev => prev.filter(i => i.itemId !== item.itemId));
       return;
     }
@@ -217,10 +216,11 @@ export default function CataloguePage() {
   };
 
   // Helper to get ranges for the current selected Price List
-  const getPriceForList = (itemId: number): PriceRange[] => {
-    if (!selectedPriceList || !pricesMap[itemId]) return [];
-    const listData = pricesMap[itemId].priceLists.find(pl => pl.priceId === selectedPriceList.priceId);
-    return listData?.ranges || [];
+  const getRangesForItem = (itemId: number) => {
+    if (!selectedPriceListId || !pricesMap[itemId]) return [];
+    // Find the price data matching the selected list ID
+    const priceData = pricesMap[itemId].priceLists.find(pl => pl.priceId === selectedPriceListId);
+    return priceData?.ranges || [];
   };
 
   // --- Strict View Logic (prevents "poutine") ---
@@ -506,11 +506,8 @@ export default function CataloguePage() {
                     <span className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">Liste de prix:</span>
                     <select 
                       className="bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-lg px-3 py-2 font-medium text-lg focus:ring-2 focus:ring-emerald-500 outline-none"
-                      value={selectedPriceList?.priceId}
-                      onChange={(e) => {
-                        const pl = priceLists.find(p => p.priceId === parseInt(e.target.value));
-                        if (pl) setSelectedPriceList(pl);
-                      }}
+                      value={selectedPriceListId || ""}
+                      onChange={(e) => setSelectedPriceListId(parseInt(e.target.value))}
                     >
                       {priceLists.map(pl => (
                         <option key={pl.priceId} value={pl.priceId}>{pl.name}</option>
@@ -531,7 +528,7 @@ export default function CataloguePage() {
             {/* Comparison Columns */}
             <div className={`flex-1 overflow-y-auto grid ${compareList.length === 1 ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x"} divide-neutral-200 dark:divide-neutral-700`}>
               {compareList.map((item) => {
-                const ranges = getPriceForList(item.itemId);
+                const ranges = getRangesForItem(item.itemId);
                 return (
                   <div key={item.itemId} className="p-8 space-y-8">
                     <div>
