@@ -12,6 +12,7 @@ interface Product {
   prodId: number;
   name: string;
   itemCount: number;
+  // UI Helpers added on client side
   color?: string; 
   bg?: string; 
 }
@@ -72,7 +73,7 @@ export default function CataloguePage() {
   const [items, setItems] = useState<Item[]>([]);
   const [priceLists, setPriceLists] = useState<PriceList[]>([]);
   
-  // --- Selection State (Hierarchy) ---
+  // --- Selection State (Strict Hierarchy) ---
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedType, setSelectedType] = useState<ItemType | null>(null);
   const [selectedPriceListId, setSelectedPriceListId] = useState<number | null>(null);
@@ -81,7 +82,7 @@ export default function CataloguePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [compareList, setCompareList] = useState<Item[]>([]);
-  const [pricesMap, setPricesMap] = useState<Record<number, ItemPrices>>({}); 
+  const [pricesMap, setPricesMap] = useState<Record<number, ItemPrices>>({}); // Cache for fetched prices
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [loadingState, setLoadingState] = useState<"idle" | "loading_types" | "loading_items">("idle");
 
@@ -96,6 +97,7 @@ export default function CataloguePage() {
         
         if (prodRes.ok) {
           const prods: Product[] = await prodRes.json();
+          // Assign UI colors cyclically
           const coloredProds = prods.map((p, i) => ({
             ...p,
             ...UI_COLORS[i % UI_COLORS.length]
@@ -131,26 +133,30 @@ export default function CataloguePage() {
             const data = await res.json();
             setItems(data);
           }
+        } catch (error) {
+          console.error("Search error", error);
         } finally {
           setIsSearching(false);
         }
       } else if (searchQuery === "") {
+        // If search is cleared, and we have no hierarchy selected, clear items
         if (!selectedType) setItems([]);
       }
     }, 400);
+
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
 
   // --- Handlers ---
 
-  // LEVEL 1 -> 2
+  // LEVEL 1 -> 2: Select Product, Load Types
   const handleSelectProduct = async (product: Product) => {
     setSelectedProduct(product);
-    setSelectedType(null); // Reset lower levels
-    setItems([]); 
-    setSearchQuery(""); // Clear search if navigating manually
-    setLoadingState("loading_types");
+    setSelectedType(null); // Clear deeper levels
+    setItems([]);          // Clear deeper levels
+    setSearchQuery("");    // Clear search
     
+    setLoadingState("loading_types");
     try {
       const res = await fetch(`/api/catalogue/itemtypes?prodId=${product.prodId}`);
       if (res.ok) {
@@ -162,11 +168,11 @@ export default function CataloguePage() {
     }
   };
 
-  // LEVEL 2 -> 3
+  // LEVEL 2 -> 3: Select Type, Load Items
   const handleSelectType = async (type: ItemType) => {
     setSelectedType(type);
     setLoadingState("loading_items");
-    setItems([]); // Clear previous items to avoid flicker
+    setItems([]); // Clear previous items to prevent flicker
     
     try {
       const res = await fetch(`/api/catalogue/items?itemTypeId=${type.itemTypeId}`);
@@ -190,7 +196,7 @@ export default function CataloguePage() {
     
     // Add to list (max 2)
     setCompareList(prev => {
-      if (prev.length >= 2) return [prev[1], item]; // Rotate
+      if (prev.length >= 2) return [prev[1], item]; // Rotate max 2 (remove first, add new)
       return [...prev, item];
     });
 
@@ -216,28 +222,34 @@ export default function CataloguePage() {
   };
 
   // Helper to get ranges for the current selected Price List
-  const getRangesForItem = (itemId: number) => {
+  const getRangesForItem = (itemId: number): PriceRange[] => {
     if (!selectedPriceListId || !pricesMap[itemId]) return [];
     // Find the price data matching the selected list ID
     const priceData = pricesMap[itemId].priceLists.find(pl => pl.priceId === selectedPriceListId);
     return priceData?.ranges || [];
   };
 
-  // --- Strict View Logic (prevents "poutine") ---
-  const showCategories = !selectedProduct && !searchQuery;
-  const showTypes = selectedProduct && !selectedType && !searchQuery;
-  const showItems = (!!selectedType || searchQuery.length > 0);
+  // --- Strict View Logic (Prevents "Poutine") ---
+  const viewState = useMemo(() => {
+    if (searchQuery.length > 0) return "search"; // Search overrides everything
+    if (selectedType) return "items";            // Level 3
+    if (selectedProduct) return "types";         // Level 2
+    return "products";                           // Level 1 (Default)
+  }, [searchQuery, selectedType, selectedProduct]);
 
   return (
     <div className="flex flex-col min-h-screen bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 font-sans">
       
-      {/* HEADER */}
+      {/* 1. HEADER & BREADCRUMBS */}
       <div className="sticky top-0 z-30 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-800 px-6 py-5 shadow-sm">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-6 items-center justify-between">
           
-          {/* Breadcrumbs */}
+          {/* Breadcrumbs Area */}
           <div className="flex items-center gap-4 w-full md:w-auto overflow-x-auto no-scrollbar">
-             <button onClick={resetNav} className="flex-shrink-0 h-12 w-12 flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 rounded-2xl active:scale-95 transition-all hover:bg-neutral-200 dark:hover:bg-neutral-700">
+             <button 
+                onClick={resetNav}
+                className="flex-shrink-0 h-12 w-12 flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 rounded-2xl active:scale-95 transition-all hover:bg-neutral-200 dark:hover:bg-neutral-700"
+             >
                 <Package className="w-6 h-6 text-emerald-600" />
              </button>
 
@@ -291,11 +303,11 @@ export default function CataloguePage() {
         </div>
       </div>
 
-      {/* MAIN CONTENT */}
+      {/* MAIN CONTENT AREA */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 pb-40">
         
-        {/* VIEW 1: CATEGORIES (Top Level) */}
-        {showCategories && (
+        {/* VIEW 1: PRODUCTS (Level 1) */}
+        {viewState === "products" && (
           <div className="animate-in fade-in slide-in-from-bottom-8 duration-500">
             <h2 className="text-3xl font-bold mb-8 flex items-center gap-3">
               <Layers className="w-8 h-8 text-neutral-400" /> 
@@ -312,11 +324,14 @@ export default function CataloguePage() {
                     className="group relative h-48 bg-white dark:bg-neutral-800 rounded-3xl p-8 text-left border-2 border-transparent hover:border-emerald-500 transition-all shadow-md active:scale-[0.98]"
                   >
                     <div className={cn("absolute top-0 right-0 w-40 h-40 opacity-10 rounded-bl-[100px] transition-transform group-hover:scale-110", prod.bg?.replace('bg-', 'bg-') || "bg-neutral-100")} />
+                    
                     <div className={cn("w-14 h-14 rounded-2xl mb-4 flex items-center justify-center shadow-sm", prod.bg || "bg-neutral-100")}>
                       <Package className={cn("w-7 h-7", prod.color || "text-neutral-600")} />
                     </div>
+                    
                     <h3 className="text-xl font-bold pr-10 leading-tight">{prod.name}</h3>
                     <p className="text-neutral-500 mt-2 font-medium">{prod.itemCount} articles</p>
+                    
                     <div className="absolute bottom-8 right-8 w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-colors">
                       <ArrowRight className="w-5 h-5" />
                     </div>
@@ -327,11 +342,14 @@ export default function CataloguePage() {
           </div>
         )}
 
-        {/* VIEW 2: TYPES (Second Level) */}
-        {showTypes && (
+        {/* VIEW 2: TYPES (Level 2) */}
+        {viewState === "types" && (
           <div className="animate-in fade-in slide-in-from-right-8 duration-300">
-             <button onClick={() => setSelectedProduct(null)} className="mb-8 flex items-center gap-2 px-6 py-3 bg-white dark:bg-neutral-800 rounded-xl shadow-sm border border-neutral-200 dark:border-neutral-700 font-semibold active:scale-95 transition-transform hover:bg-neutral-50 dark:hover:bg-neutral-700">
-               <ArrowLeft className="w-5 h-5" /> Retour aux catégories
+             <button 
+                onClick={() => setSelectedProduct(null)}
+                className="mb-8 flex items-center gap-2 px-6 py-3 bg-white dark:bg-neutral-800 rounded-xl shadow-sm border border-neutral-200 dark:border-neutral-700 font-semibold active:scale-95 transition-transform hover:bg-neutral-50 dark:hover:bg-neutral-700"
+             >
+                <ArrowLeft className="w-5 h-5" /> Retour aux catégories
              </button>
 
             <h2 className="text-3xl font-bold mb-8 flex items-center gap-3">
@@ -366,11 +384,11 @@ export default function CataloguePage() {
           </div>
         )}
 
-        {/* VIEW 3: ITEMS (Bottom Level or Search) */}
-        {showItems && (
+        {/* VIEW 3: ITEMS (Level 3 or Search Results) */}
+        {(viewState === "items" || viewState === "search") && (
           <div className="animate-in fade-in zoom-in-95 duration-300">
              {/* Only show back button if we are in hierarchy mode, not search mode */}
-             {!searchQuery && (
+             {viewState === "items" && (
                <button 
                  onClick={() => setSelectedType(null)} 
                  className="mb-8 flex items-center gap-2 px-6 py-3 bg-white dark:bg-neutral-800 rounded-xl shadow-sm border border-neutral-200 dark:border-neutral-700 font-semibold active:scale-95 transition-transform hover:bg-neutral-50 dark:hover:bg-neutral-700"
@@ -379,12 +397,16 @@ export default function CataloguePage() {
                </button>
              )}
 
-             {loadingState === "loading_items" ? (
+             {loadingState === "loading_items" || isSearching ? (
                <div className="flex justify-center p-12"><Loader2 className="w-10 h-10 animate-spin text-neutral-300" /></div>
              ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {items.map((item) => {
                   const isCompared = compareList.some(c => c.itemId === item.itemId);
+                  // Ensure we have fetched price for this item if it's selected
+                  const ranges = getRangesForItem(item.itemId);
+                  const price = ranges.length > 0 ? ranges[ranges.length - 1].unitPrice : 0; // Usually last tier is cheapest
+
                   return (
                     <div 
                         key={item.itemId}
@@ -414,10 +436,14 @@ export default function CataloguePage() {
                         
                         <div className="flex items-end justify-between">
                           <div>
-                              <p className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">Action</p>
-                              <p className="text-sm text-neutral-400 font-medium mt-0.5">
-                                {isCompared ? "Ajouté au comparateur" : "Toucher pour comparer"}
+                              <p className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">
+                                {price > 0 ? "Prix (Approx)" : "Sélectionner"}
                               </p>
+                              {price > 0 ? (
+                                <p className="text-2xl font-bold">{price.toFixed(2)} $</p>
+                              ) : (
+                                <p className="text-lg text-neutral-400 font-medium">---</p>
+                              )}
                           </div>
                           <button className={cn(
                             "px-4 py-2 rounded-lg text-sm font-semibold transition-colors",
@@ -432,7 +458,7 @@ export default function CataloguePage() {
               </div>
              )}
 
-            {!loadingState && items.length === 0 && (
+            {!loadingState && !isSearching && items.length === 0 && (
                 <div className="p-16 text-center text-neutral-500 bg-white dark:bg-neutral-800 rounded-3xl border-dashed border-2 border-neutral-300">
                   <Search className="w-16 h-16 mx-auto mb-4 opacity-20" />
                   <p className="text-xl font-medium">Aucun article trouvé.</p>
@@ -443,7 +469,7 @@ export default function CataloguePage() {
         )}
       </main>
 
-      {/* FLOATING ACTION BAR */}
+      {/* FLOATING ACTION BAR (iPad Thumb Zone) */}
       {compareList.length > 0 && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 w-[90%] md:w-[600px] animate-in slide-in-from-bottom-24 duration-500">
           <div className="bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-[2rem] p-4 pr-5 shadow-2xl flex items-center justify-between gap-4 ring-4 ring-white/20 backdrop-blur-md">
@@ -477,6 +503,7 @@ export default function CataloguePage() {
             </div>
 
             <button 
+              // Enable for 1 item (view price) or 2 (compare)
               onClick={() => setShowCompareModal(true)}
               className="h-14 px-8 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-bold text-lg flex items-center gap-2 transition-all active:scale-95 shadow-lg"
             >
@@ -487,7 +514,7 @@ export default function CataloguePage() {
         </div>
       )}
 
-      {/* FULL SCREEN MODAL */}
+      {/* FULL SCREEN COMPARISON MODAL */}
       {showCompareModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-end md:items-center justify-center p-4 md:p-8">
           <div className="bg-white dark:bg-neutral-900 w-full max-w-5xl h-[90vh] md:h-auto max-h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 zoom-in-95">
