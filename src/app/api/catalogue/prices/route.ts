@@ -14,16 +14,13 @@ export async function GET(request: NextRequest) {
     const itemId = searchParams.get("itemId");
 
     if (!itemId) {
-      return NextResponse.json(
-        { error: "itemId est requis" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "itemId est requis" }, { status: 400 });
     }
 
-    // FIXED QUERY: Strict Case Sensitivity & Table Names
-    // 1. Table 'itempricerange' (lowercase)
-    // 2. Items."ItemId" (CamelCase) matches itempricerange."itemid" (lowercase)
-    // 3. PriceList."priceid" matches itempricerange."priceid"
+    // FIXED QUERY:
+    // 1. Joins itempricerange (ipr) -> Items (i) ON ipr.itemid = i.ItemId
+    // 2. Joins itempricerange (ipr) -> PriceList (pl) ON ipr.priceid = pl.priceid
+    // 3. Filters for the LATEST price list version using a subquery on MAX(itempricedateid)
     const query = `
       SELECT 
         ipr."priceid" as "priceId",
@@ -43,13 +40,22 @@ export async function GET(request: NextRequest) {
       FROM public."itempricerange" ipr
       INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
       INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
-      WHERE i."ItemId" = $1 AND pl."IsActive" = true
+      WHERE i."ItemId" = $1 
+        AND pl."IsActive" = true
+        -- Filter for latest price update per price list & item
+        AND ipr."itempricedateid" = (
+            SELECT MAX(ipr2."itempricedateid")
+            FROM public."itempricerange" ipr2
+            WHERE ipr2."itemid" = ipr."itemid" 
+              AND ipr2."priceid" = ipr."priceid"
+              AND ipr2."fromqty" = ipr."fromqty"
+        )
       ORDER BY pl."Descr" ASC, ipr."fromqty" ASC
     `;
 
     const { rows } = await pg.query(query, [parseInt(itemId, 10)]);
 
-    // Group by price list for the frontend
+    // Group by price list
     const priceListsMap: Record<number, {
       priceId: number;
       priceListName: string;
@@ -70,8 +76,7 @@ export async function GET(request: NextRequest) {
       priceListsMap[priceId].ranges.push({
         id: row.id,
         qtyMin: row.qtyMin,
-        // Handle 9999 or similar high numbers as "and up" (null) if needed, 
-        // otherwise keep the value. Assuming 9999 is a placeholder for max.
+        // If qtyMax is very large (e.g. 9999), treat as null (infinite)
         qtyMax: row.qtyMax >= 9999 ? null : row.qtyMax,
         unitPrice: parseFloat(row.unitPrice) || 0,
       });
@@ -83,9 +88,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("GET /api/catalogue/prices error:", error);
-    return NextResponse.json(
-      { error: "Erreur lors du chargement des prix" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Erreur chargement prix" }, { status: 500 });
   }
 }
