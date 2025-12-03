@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
         "itemsubtypeid" as "itemSubTypeId"
       FROM public."Items"
       WHERE 1=1
+        AND "ProdId" BETWEEN 1 AND 10 -- Security restriction
     `;
     
     // explicit typing for query parameters
@@ -32,10 +33,25 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       // Search mode: Filter by Code or Description (Case Insensitive)
+      // IMPROVED LOGIC: Prioritize matches starting with the search term
       query += ` AND ("ItemCode" ILIKE $${paramIndex} OR "Descr" ILIKE $${paramIndex})`;
       params.push(`%${search}%`);
       paramIndex++;
-      query += ` LIMIT 50`; // Limit search results for performance
+      
+      // Order by relevance: 
+      // 1. Exact match on ItemCode
+      // 2. Starts with search term on ItemCode
+      // 3. Starts with search term on Description
+      // 4. Any other match
+      query += ` 
+        ORDER BY 
+          CASE WHEN "ItemCode" ILIKE '${search}' THEN 1 
+               WHEN "ItemCode" ILIKE '${search}%' THEN 2 
+               WHEN "Descr" ILIKE '${search}%' THEN 3 
+               ELSE 4 
+          END,
+          "ItemCode" ASC
+        LIMIT 50`; 
     } else if (itemTypeId) {
       // Hierarchy mode: Filter by SubType (Level 2 -> Level 3 drill down)
       query += ` AND "itemsubtypeid" = $${paramIndex}`;
