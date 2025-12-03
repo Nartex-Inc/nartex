@@ -167,8 +167,7 @@ export default function CataloguePage() {
   };
 
   const fetchPricesForItem = async (itemId: number) => {
-    if (pricesCache[itemId]) return; // Use cache if available
-
+    // Always update cache to ensure we have latest data for comparison
     setLoadingStep("loading_prices");
     try {
       const res = await fetch(`/api/catalogue/prices?itemId=${itemId}`);
@@ -192,8 +191,10 @@ export default function CataloguePage() {
     setCompareList(prev => {
       const exists = prev.find(i => i.itemId === item.itemId);
       if (exists) return prev.filter(i => i.itemId !== item.itemId);
-      // Fetch prices for new compare item
+      
+      // Fetch prices for new compare item immediately
       fetchPricesForItem(item.itemId);
+      
       if (prev.length >= 2) return [prev[1], item]; // Rotate
       return [...prev, item];
     });
@@ -372,10 +373,7 @@ export default function CataloguePage() {
                           getCurrentPriceRanges(selectedItem.itemId).map((range) => (
                             <tr key={range.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
                               <td className="p-4">
-                                <span className="font-mono font-bold text-lg">{range.qtyMin}+</span>
-                                <span className="text-neutral-400 text-sm ml-2 font-normal">
-                                  {/* Implicit logic: 1+ means 1 to next break */}
-                                </span>
+                                <span className="font-mono font-bold text-lg">{Math.floor(range.qtyMin)}+</span>
                               </td>
                               <td className="p-4 text-right">
                                 <span className="font-mono font-bold text-xl text-emerald-600">
@@ -470,6 +468,20 @@ export default function CataloguePage() {
             </div>
             
             <div className="p-6 flex-1 overflow-auto">
+              {/* PRICE LIST SELECTION INSIDE MODAL */}
+              <div className="mb-6">
+                <label className="text-sm font-semibold text-neutral-500 uppercase tracking-wider block mb-2">Liste de prix</label>
+                <select 
+                  value={activePriceListId || ""}
+                  onChange={(e) => setActivePriceListId(parseInt(e.target.value))}
+                  className="w-full md:w-auto min-w-[300px] pl-4 pr-10 py-3 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl font-semibold appearance-none focus:ring-2 focus:ring-emerald-500 outline-none"
+                >
+                  {priceLists.map(pl => (
+                    <option key={pl.priceId} value={pl.priceId}>{pl.name}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {compareList.map(item => {
                   const ranges = getCurrentPriceRanges(item.itemId);
@@ -490,7 +502,7 @@ export default function CataloguePage() {
                         <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
                           {ranges.map(r => (
                             <tr key={r.id}>
-                              <td className="p-3 font-mono font-bold">{r.qtyMin}+</td>
+                              <td className="p-3 font-mono font-bold">{Math.floor(r.qtyMin)}+</td>
                               <td className="p-3 text-right font-mono text-emerald-600 font-bold">{r.unitPrice.toFixed(2)} $</td>
                             </tr>
                           ))}
