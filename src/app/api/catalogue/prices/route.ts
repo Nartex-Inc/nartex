@@ -18,9 +18,10 @@ export async function GET(request: NextRequest) {
     }
 
     // FIXED QUERY:
-    // 1. Joins itempricerange (ipr) -> Items (i) ON ipr.itemid = i.ItemId
-    // 2. Joins itempricerange (ipr) -> PriceList (pl) ON ipr.priceid = pl.priceid
-    // 3. Filters for the LATEST price list version using a subquery on MAX(itempricedateid)
+    // 1. Join itempricerange (ipr) -> Items (i) ON ipr.itemid = i.ItemId
+    // 2. Join itempricerange (ipr) -> PriceList (pl) ON ipr.priceid = pl.priceid
+    // 3. Filter for the LATEST price list version using a subquery on MAX(itempricedateid)
+    // 4. Ensure we select fromqty and toqty for the ranges
     const query = `
       SELECT 
         ipr."priceid" as "priceId",
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
       INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
       WHERE i."ItemId" = $1 
         AND pl."IsActive" = true
-        -- Filter for latest price update per price list & item
+        -- Filter for latest price update per price list & item & qty range
         AND ipr."itempricedateid" = (
             SELECT MAX(ipr2."itempricedateid")
             FROM public."itempricerange" ipr2
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
       priceListsMap[priceId].ranges.push({
         id: row.id,
         qtyMin: row.qtyMin,
-        // If qtyMax is very large (e.g. 9999), treat as null (infinite)
+        // Treat 9999 as null (infinite) for display logic
         qtyMax: row.qtyMax >= 9999 ? null : row.qtyMax,
         unitPrice: parseFloat(row.unitPrice) || 0,
       });
