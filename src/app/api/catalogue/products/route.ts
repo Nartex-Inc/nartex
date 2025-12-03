@@ -10,7 +10,7 @@ export async function GET() {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
 
-    // Fetch all product categories with item counts
+    // Fetch product categories, RESTRICTED to ProdId 1-10
     const query = `
       SELECT 
         p."ProdId" as "prodId",
@@ -18,6 +18,7 @@ export async function GET() {
         COUNT(i."ItemId")::int as "itemCount"
       FROM public."Products" p
       LEFT JOIN public."Items" i ON p."ProdId" = i."ProdId"
+      WHERE p."ProdId" BETWEEN 1 AND 10
       GROUP BY p."ProdId", p."Name"
       HAVING COUNT(i."ItemId") > 0
       ORDER BY p."Name" ASC
