@@ -10,6 +10,8 @@ export async function GET() {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
 
+    // STRICT filtering as requested: cieid = 2 AND PriceListType = 'customer'
+    // This ensures we only get relevant customer price lists and filter out "junk"
     const query = `
       SELECT 
         "priceid" as "priceId",
