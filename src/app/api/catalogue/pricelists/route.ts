@@ -24,6 +24,8 @@ export async function GET() {
         ) as "currency"
       FROM public."PriceList"
       WHERE "IsActive" = true
+        AND "cieid" = 2
+        AND "PriceListType" = 'customer'
       ORDER BY "Descr" ASC
     `;
 
