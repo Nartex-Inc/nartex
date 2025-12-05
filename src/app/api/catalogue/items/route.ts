@@ -14,7 +14,6 @@ export async function GET(request: NextRequest) {
     const itemTypeId = searchParams.get("itemTypeId");
     const search = searchParams.get("search");
 
-    // Base query with all fields needed for auto-fill
     let query = `
       SELECT 
         i."ItemId" as "itemId",
@@ -34,12 +33,10 @@ export async function GET(request: NextRequest) {
     let paramIndex = 1;
 
     if (search) {
-      // Search mode: Filter by ItemCode or Description
       query += ` AND (i."ItemCode" ILIKE $${paramIndex} OR i."Descr" ILIKE $${paramIndex})`;
       params.push(`%${search}%`);
       paramIndex++;
       
-      // Order by relevance - exact matches first
       query += ` 
         ORDER BY 
           CASE 
@@ -51,11 +48,10 @@ export async function GET(request: NextRequest) {
           i."ItemCode" ASC
         LIMIT 50
       `;
-      params.push(search); // exact match
-      params.push(`${search}%`); // starts with
+      params.push(search);
+      params.push(`${search}%`);
       
     } else if (itemTypeId) {
-      // Hierarchy mode: Filter by locitemtype
       query += ` AND i."locitemtype" = $${paramIndex}`;
       params.push(parseInt(itemTypeId, 10));
       paramIndex++;
@@ -68,7 +64,6 @@ export async function GET(request: NextRequest) {
     }
 
     const { rows } = await pg.query(query, params);
-
     return NextResponse.json(rows);
   } catch (error: any) {
     console.error("GET /api/catalogue/items error:", error);
