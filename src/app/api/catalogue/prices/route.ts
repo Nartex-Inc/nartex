@@ -25,34 +25,41 @@ export async function GET(request: NextRequest) {
     const priceIdNum = parseInt(priceId, 10);
     const prodIdNum = parseInt(prodId, 10);
 
-    // Build WHERE conditions
-    let whereConditions = `
-      ipr."priceid" = $1
-      AND i."ProdId" = $2
-      AND pl."IsActive" = true
-    `;
-    
-    const params: any[] = [priceIdNum, prodIdNum];
-    let paramIdx = 3;
+    // Build item filter for both queries
+    let itemFilterSQL = "";
+    const baseParams: any[] = [prodIdNum];
+    let paramIdx = 2;
 
     if (itemId) {
-      whereConditions += ` AND i."ItemId" = $${paramIdx}`;
-      params.push(parseInt(itemId, 10));
+      itemFilterSQL = `AND i."ItemId" = $${paramIdx}`;
+      baseParams.push(parseInt(itemId, 10));
       paramIdx++;
     } else if (typeId) {
-      whereConditions += ` AND i."locitemtype" = $${paramIdx}`;
-      params.push(parseInt(typeId, 10));
+      itemFilterSQL = `AND i."locitemtype" = $${paramIdx}`;
+      baseParams.push(parseInt(typeId, 10));
       paramIdx++;
     }
-    // If no typeId and no itemId, get ALL items for the prodId (all classes)
 
-    // Main query for selected price list
-    const query = `
+    // Step 1: Get MAX(itempricedateid) per item for the selected price list
+    // This ensures all qty ranges for an item use the same date
+    const mainQuery = `
+      WITH LatestDatePerItem AS (
+        SELECT 
+          ipr."itemid",
+          MAX(ipr."itempricedateid") as "latestDateId"
+        FROM public."itempricerange" ipr
+        INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
+        WHERE ipr."priceid" = $${paramIdx}
+          AND i."ProdId" = $1
+          ${itemFilterSQL}
+        GROUP BY ipr."itemid"
+      )
       SELECT 
         i."ItemId" as "itemId",
         i."ItemCode" as "itemCode",
         i."Descr" as "description",
-        i."NetWeight" as "udm",
+        i."NetWeight" as "caisse",
+        i."model" as "format",
         p."Name" as "categoryName",
         t."descr" as "className",
         ipr."fromqty" as "qtyMin",
@@ -64,85 +71,87 @@ export async function GET(request: NextRequest) {
       FROM public."itempricerange" ipr
       INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
       INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
+      INNER JOIN LatestDatePerItem ld ON ipr."itemid" = ld."itemid" AND ipr."itempricedateid" = ld."latestDateId"
       LEFT JOIN public."Products" p ON i."ProdId" = p."ProdId"
       LEFT JOIN public."itemtype" t ON i."locitemtype" = t."itemtypeid"
-      WHERE ${whereConditions}
-      ORDER BY i."ItemCode" ASC, ipr."fromqty" ASC, ipr."itempricedateid" DESC
+      WHERE ipr."priceid" = $${paramIdx}
+        AND i."ProdId" = $1
+        AND pl."IsActive" = true
+        ${itemFilterSQL}
+      ORDER BY i."ItemCode" ASC, ipr."fromqty" ASC
     `;
 
-    // Query for PDS prices (priceid=17)
-    let pdsWhereConditions = `
-      ipr."priceid" = ${PDS_PRICE_ID}
-      AND i."ProdId" = $1
-    `;
-    
-    const pdsParams: any[] = [prodIdNum];
-    let pdsParamIdx = 2;
+    const mainParams = [...baseParams, priceIdNum];
 
-    if (itemId) {
-      pdsWhereConditions += ` AND i."ItemId" = $${pdsParamIdx}`;
-      pdsParams.push(parseInt(itemId, 10));
-      pdsParamIdx++;
-    } else if (typeId) {
-      pdsWhereConditions += ` AND i."locitemtype" = $${pdsParamIdx}`;
-      pdsParams.push(parseInt(typeId, 10));
-      pdsParamIdx++;
-    }
-
+    // Step 2: Get PDS prices (priceid=17) with same logic
     const pdsQuery = `
+      WITH LatestDatePerItem AS (
+        SELECT 
+          ipr."itemid",
+          MAX(ipr."itempricedateid") as "latestDateId"
+        FROM public."itempricerange" ipr
+        INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
+        WHERE ipr."priceid" = ${PDS_PRICE_ID}
+          AND i."ProdId" = $1
+          ${itemFilterSQL}
+        GROUP BY ipr."itemid"
+      )
       SELECT 
         i."ItemId" as "itemId",
         ipr."fromqty" as "qtyMin",
-        ipr."price" as "pdsPrice",
-        ipr."itempricedateid" as "dateId"
+        ipr."price" as "pdsPrice"
       FROM public."itempricerange" ipr
       INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
       INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
-      WHERE ${pdsWhereConditions}
+      INNER JOIN LatestDatePerItem ld ON ipr."itemid" = ld."itemid" AND ipr."itempricedateid" = ld."latestDateId"
+      WHERE ipr."priceid" = ${PDS_PRICE_ID}
+        AND i."ProdId" = $1
         AND pl."IsActive" = true
-      ORDER BY i."ItemId" ASC, ipr."fromqty" ASC, ipr."itempricedateid" DESC
+        ${itemFilterSQL}
+      ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
     `;
 
-    // Execute both queries
+    console.log("Main query params:", mainParams);
+    console.log("PDS query params:", baseParams);
+
+    // Execute both queries in parallel
     const [mainResult, pdsResult] = await Promise.all([
-      pg.query(query, params),
-      pg.query(pdsQuery, pdsParams)
+      pg.query(mainQuery, mainParams),
+      pg.query(pdsQuery, baseParams)
     ]);
 
     const rows = mainResult.rows;
     const pdsRows = pdsResult.rows;
 
+    console.log(`Main query returned ${rows.length} rows`);
+    console.log(`PDS query returned ${pdsRows.length} rows`);
+
     // Build PDS price map: itemId -> { qtyMin -> pdsPrice }
     const pdsMap: Record<number, Record<number, number>> = {};
-    const seenPdsRanges: Set<string> = new Set();
     
     for (const row of pdsRows) {
-      const rangeKey = `${row.itemId}-${row.qtyMin}`;
-      if (seenPdsRanges.has(rangeKey)) continue;
-      seenPdsRanges.add(rangeKey);
+      const itemId = row.itemId;
+      const qtyMin = parseInt(row.qtyMin);
       
-      if (!pdsMap[row.itemId]) {
-        pdsMap[row.itemId] = {};
+      if (!pdsMap[itemId]) {
+        pdsMap[itemId] = {};
       }
-      pdsMap[row.itemId][row.qtyMin] = parseFloat(row.pdsPrice);
+      pdsMap[itemId][qtyMin] = parseFloat(row.pdsPrice);
     }
 
-    // Group main results by item and keep only latest price per qty range
+    console.log("PDS map keys:", Object.keys(pdsMap));
+
+    // Group main results by item
     const itemsMap: Record<number, any> = {};
-    const seenRanges: Set<string> = new Set();
     
     for (const row of rows) {
-      const rangeKey = `${row.itemId}-${row.qtyMin}`;
-      
-      if (seenRanges.has(rangeKey)) continue;
-      seenRanges.add(rangeKey);
-
       if (!itemsMap[row.itemId]) {
         itemsMap[row.itemId] = {
           itemId: row.itemId,
           itemCode: row.itemCode,
           description: row.description,
-          udm: row.udm ? parseFloat(row.udm) : null,
+          caisse: row.caisse ? parseFloat(row.caisse) : null,
+          format: row.format || null,
           categoryName: row.categoryName,
           className: row.className,
           priceListName: row.priceListName,
@@ -152,7 +161,7 @@ export async function GET(request: NextRequest) {
       }
       
       const qtyMin = parseInt(row.qtyMin);
-      const pdsPrice = pdsMap[row.itemId]?.[qtyMin] || null;
+      const pdsPrice = pdsMap[row.itemId]?.[qtyMin] ?? null;
       
       itemsMap[row.itemId].ranges.push({
         id: row.id,
@@ -167,6 +176,8 @@ export async function GET(request: NextRequest) {
       ...item,
       ranges: item.ranges.sort((a: any, b: any) => a.qtyMin - b.qtyMin)
     }));
+
+    console.log(`Returning ${result.length} items with prices`);
 
     return NextResponse.json(result);
     
