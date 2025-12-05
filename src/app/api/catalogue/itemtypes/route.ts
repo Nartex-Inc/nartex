@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     // FIXED JOIN: Uses 'locitemtype' instead of 'itemsubtypeid' as requested
+    // Joining ItemType (t) with Items (i) on t.itemtypeid = i.locitemtype
     const query = `
       SELECT 
         t."itemtypeid" as "itemTypeId",
