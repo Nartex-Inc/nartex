@@ -10,7 +10,6 @@ export async function GET() {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
 
-    // Fetch product categories, RESTRICTED to ProdId 1-10
     const query = `
       SELECT 
         p."ProdId" as "prodId",
@@ -25,7 +24,6 @@ export async function GET() {
     `;
 
     const { rows } = await pg.query(query);
-
     return NextResponse.json(rows);
   } catch (error: any) {
     console.error("GET /api/catalogue/products error:", error);
