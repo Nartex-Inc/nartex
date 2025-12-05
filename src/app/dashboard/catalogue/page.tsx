@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { 
-  Search, Package, Layers, Tag, X, ChevronDown, 
-  Loader2, AlertCircle, RefreshCw, FileText, Zap
+  Search, Package, Tag, X, ChevronDown, 
+  Loader2, AlertCircle, RefreshCw, FileText, Zap, Layers
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
