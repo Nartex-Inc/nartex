@@ -10,8 +10,8 @@ export async function GET() {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
 
-    // Include Pricecodes '01' through '08' AND priceid = 17 (08-PDS)
-    // Exclude priceid=17 from main list as it will be shown in a separate column
+    // Include Pricecodes '01' through '08'
+    // Exclude priceid=17 (PDS) from dropdown - it's shown in separate column
     const query = `
       SELECT 
         "priceid" as "priceId",
