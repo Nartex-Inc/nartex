@@ -86,8 +86,8 @@ export async function GET(request: NextRequest) {
              itemId: row.itemId,
              itemCode: row.itemCode,
              description: row.description,
-             format: row.format,
-             udm: row.udm || 'UN',
+             format: row.format ? parseFloat(row.format) : null,
+             udm: row.udm ? parseFloat(row.udm) : null, // NetWeight = units per case/box
              categoryName: row.categoryName,
              className: row.className,
              priceListName: row.priceListName,
