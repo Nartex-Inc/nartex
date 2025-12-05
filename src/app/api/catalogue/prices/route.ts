@@ -20,8 +20,38 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
     }
 
-    // Enhanced query with NetWeight as UDM (units per case/box)
-    let query = `
+    // Build item filter clause
+    let itemFilter = "";
+    const params: any[] = [parseInt(priceId, 10), parseInt(prodId, 10)];
+    let paramIdx = 3;
+
+    if (itemId) {
+      itemFilter = `AND i."ItemId" = $${paramIdx}`;
+      params.push(parseInt(itemId, 10));
+      paramIdx++;
+    } else if (typeId) {
+      itemFilter = `AND i."locitemtype" = $${paramIdx}`;
+      params.push(parseInt(typeId, 10));
+      paramIdx++;
+    }
+
+    // Optimized query using CTE with ROW_NUMBER to get latest prices
+    // This avoids the slow correlated subquery
+    const query = `
+      WITH LatestPrices AS (
+        SELECT 
+          ipr."itemid",
+          ipr."fromqty",
+          ipr."price",
+          ipr."itempricerangeid",
+          ipr."priceid",
+          ROW_NUMBER() OVER (
+            PARTITION BY ipr."itemid", ipr."priceid", ipr."fromqty" 
+            ORDER BY ipr."itempricedateid" DESC
+          ) as rn
+        FROM public."itempricerange" ipr
+        WHERE ipr."priceid" = $1
+      )
       SELECT 
         i."ItemId" as "itemId",
         i."ItemCode" as "itemCode",
@@ -30,9 +60,9 @@ export async function GET(request: NextRequest) {
         i."NetWeight" as "udm",
         p."Name" as "categoryName",
         t."descr" as "className",
-        ipr."fromqty" as "qtyMin",
-        ipr."price" as "unitPrice",
-        ipr."itempricerangeid" as "id",
+        lp."fromqty" as "qtyMin",
+        lp."price" as "unitPrice",
+        lp."itempricerangeid" as "id",
         pl."Descr" as "priceListName",
         pl."Pricecode" as "priceCode",
         COALESCE(
@@ -42,40 +72,24 @@ export async function GET(request: NextRequest) {
           END, 
           'CAD'
         ) as "currency"
-      FROM public."itempricerange" ipr
-      INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
-      INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
+      FROM LatestPrices lp
+      INNER JOIN public."Items" i ON lp."itemid" = i."ItemId"
+      INNER JOIN public."PriceList" pl ON lp."priceid" = pl."priceid"
       LEFT JOIN public."Products" p ON i."ProdId" = p."ProdId"
       LEFT JOIN public."itemtype" t ON i."locitemtype" = t."itemtypeid"
-      WHERE pl."priceid" = $1 
+      WHERE lp.rn = 1
         AND pl."IsActive" = true
         AND i."ProdId" = $2
-        AND ipr."itempricedateid" = (
-            SELECT MAX(ipr2."itempricedateid")
-            FROM public."itempricerange" ipr2
-            WHERE ipr2."itemid" = ipr."itemid" 
-              AND ipr2."priceid" = ipr."priceid"
-              AND ipr2."fromqty" = ipr."fromqty"
-        )
+        ${itemFilter}
+      ORDER BY i."ItemCode" ASC, lp."fromqty" ASC
     `;
 
-    const params: any[] = [parseInt(priceId, 10), parseInt(prodId, 10)];
-    let paramIdx = 3;
-
-    if (itemId) {
-      query += ` AND i."ItemId" = $${paramIdx}`;
-      params.push(parseInt(itemId, 10));
-      paramIdx++;
-    } else if (typeId) {
-      // FIXED: Use locitemtype for filtering
-      query += ` AND i."locitemtype" = $${paramIdx}`;
-      params.push(parseInt(typeId, 10));
-      paramIdx++;
-    }
-
-    query += ` ORDER BY i."ItemCode" ASC, ipr."fromqty" ASC`;
-
+    console.log("Executing prices query with params:", params);
+    const startTime = Date.now();
+    
     const { rows } = await pg.query(query, params);
+    
+    console.log(`Query returned ${rows.length} rows in ${Date.now() - startTime}ms`);
 
     // Group by item with enhanced data structure
     const itemsMap: Record<number, any> = {};
@@ -87,7 +101,7 @@ export async function GET(request: NextRequest) {
              itemCode: row.itemCode,
              description: row.description,
              format: row.format ? parseFloat(row.format) : null,
-             udm: row.udm ? parseFloat(row.udm) : null, // NetWeight = units per case/box
+             udm: row.udm ? parseFloat(row.udm) : null,
              categoryName: row.categoryName,
              className: row.className,
              priceListName: row.priceListName,
@@ -103,10 +117,13 @@ export async function GET(request: NextRequest) {
        });
     }
 
-    return NextResponse.json(Object.values(itemsMap));
+    const result = Object.values(itemsMap);
+    console.log(`Returning ${result.length} items with prices`);
+
+    return NextResponse.json(result);
     
   } catch (error: any) {
     console.error("Prices API error:", error);
-    return NextResponse.json({ error: "Erreur génération" }, { status: 500 });
+    return NextResponse.json({ error: error.message || "Erreur génération" }, { status: 500 });
   }
 }
