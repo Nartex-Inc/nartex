@@ -11,7 +11,7 @@ export async function GET() {
     }
 
     // STRICT filtering as requested: cieid = 2 AND PriceListType = 'customer'
-    // This ensures we only get relevant customer price lists and filter out "junk"
+    // AND Pricecode between '01' and '08'
     const query = `
       SELECT 
         "priceid" as "priceId",
