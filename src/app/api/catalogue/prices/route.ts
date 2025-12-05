@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const priceIdNum = parseInt(priceId, 10);
     const prodIdNum = parseInt(prodId, 10);
 
-    // Build item filter for both queries
+    // Build item filter for queries
     let itemFilterSQL = "";
     const baseParams: any[] = [prodIdNum];
     let paramIdx = 2;
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       paramIdx++;
     }
 
-    // Step 1: Get MAX(itempricedateid) per item for the selected price list
+    // Main query: Get prices with MAX(itempricedateid) per item
     // This ensures all qty ranges for an item use the same date
     const mainQuery = `
       WITH LatestDatePerItem AS (
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
 
     const mainParams = [...baseParams, priceIdNum];
 
-    // Step 2: Get PDS prices (priceid=17) with same logic
+    // PDS query: Get PDS prices with MAX(itempricedateid) per item
     const pdsQuery = `
       WITH LatestDatePerItem AS (
         SELECT 
@@ -130,16 +130,16 @@ export async function GET(request: NextRequest) {
     const pdsMap: Record<number, Record<number, number>> = {};
     
     for (const row of pdsRows) {
-      const itemId = row.itemId;
+      const itemIdVal = row.itemId;
       const qtyMin = parseInt(row.qtyMin);
       
-      if (!pdsMap[itemId]) {
-        pdsMap[itemId] = {};
+      if (!pdsMap[itemIdVal]) {
+        pdsMap[itemIdVal] = {};
       }
-      pdsMap[itemId][qtyMin] = parseFloat(row.pdsPrice);
+      pdsMap[itemIdVal][qtyMin] = parseFloat(row.pdsPrice);
     }
 
-    console.log("PDS map keys:", Object.keys(pdsMap));
+    console.log("PDS map item count:", Object.keys(pdsMap).length);
 
     // Group main results by item
     const itemsMap: Record<number, any> = {};
