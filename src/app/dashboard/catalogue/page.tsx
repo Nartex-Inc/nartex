@@ -44,7 +44,8 @@ interface ItemPriceData {
   itemId: number;
   itemCode: string;
   description: string;
-  udm: number | null;
+  caisse: number | null;
+  format: string | null;
   categoryName: string;
   className: string;
   priceListName: string;
@@ -191,13 +192,13 @@ function PriceModal({
                             Article
                           </th>
                           <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
-                            UDM
+                            CAISSE
+                          </th>
+                          <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
+                            Format
                           </th>
                           <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
                             Qte/Qty
-                          </th>
-                          <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
-                            (+) Unit
                           </th>
                           <th className="text-right p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
                             {selectedPriceList?.name || 'Prix'}
@@ -208,54 +209,72 @@ function PriceModal({
                         </tr>
                       </thead>
                       <tbody>
-                        {item.ranges.map((range, rIdx) => (
-                          <tr 
-                            key={range.id} 
-                            className={cn(
-                              "hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors",
-                              rIdx === 0 ? "bg-white dark:bg-neutral-900" : "bg-neutral-50 dark:bg-neutral-800/50"
-                            )}
-                          >
-                            <td className="p-3 border border-neutral-200 dark:border-neutral-700">
-                              <span className={cn(
-                                "font-mono",
-                                rIdx === 0 ? "font-black text-neutral-900 dark:text-white" : "text-neutral-400 text-sm pl-2"
-                              )}>
-                                {item.itemCode}
-                              </span>
-                            </td>
-                            <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700">
-                              <span className="font-bold text-neutral-700 dark:text-neutral-300">
-                                {item.udm || '-'}
-                              </span>
-                            </td>
-                            <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700">
-                              <span className="font-mono font-bold text-neutral-900 dark:text-white">
-                                {range.qtyMin}
-                              </span>
-                            </td>
-                            <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700">
-                              <span className="font-mono text-neutral-600 dark:text-neutral-400">
-                                {item.udm ? (item.udm * range.qtyMin).toFixed(2) : '-'}
-                              </span>
-                            </td>
-                            <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700">
-                              <span className={cn(
-                                "font-mono font-black",
-                                rIdx === 0 ? "text-lg text-emerald-600 dark:text-emerald-400" : "text-neutral-700 dark:text-neutral-300"
-                              )}>
-                                <AnimatedPrice value={range.unitPrice} />
-                              </span>
-                            </td>
-                            <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-amber-50/50 dark:bg-amber-900/10">
-                              <span className="font-mono font-bold text-amber-700 dark:text-amber-400">
-                                {range.pdsPrice !== null ? (
-                                  <AnimatedPrice value={range.pdsPrice} />
-                                ) : '-'}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                        {item.ranges.map((range, rIdx) => {
+                          const isFirstRow = rIdx === 0;
+                          
+                          return (
+                            <tr 
+                              key={range.id} 
+                              className={cn(
+                                "hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors",
+                                isFirstRow ? "bg-white dark:bg-neutral-900" : "bg-neutral-50 dark:bg-neutral-800/50"
+                              )}
+                            >
+                              {/* Article - only show on first row */}
+                              <td className="p-3 border border-neutral-200 dark:border-neutral-700">
+                                {isFirstRow ? (
+                                  <span className="font-mono font-black text-neutral-900 dark:text-white">
+                                    {item.itemCode}
+                                  </span>
+                                ) : null}
+                              </td>
+                              
+                              {/* CAISSE - only show on first row, bold */}
+                              <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700">
+                                {isFirstRow ? (
+                                  <span className="font-black text-neutral-900 dark:text-white">
+                                    {item.caisse || '-'}
+                                  </span>
+                                ) : null}
+                              </td>
+                              
+                              {/* Format - only show on first row, bold */}
+                              <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700">
+                                {isFirstRow ? (
+                                  <span className="font-black text-neutral-900 dark:text-white">
+                                    {item.format || '-'}
+                                  </span>
+                                ) : null}
+                              </td>
+                              
+                              {/* Qte/Qty - show on all rows */}
+                              <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700">
+                                <span className="font-mono font-bold text-neutral-900 dark:text-white">
+                                  {range.qtyMin}
+                                </span>
+                              </td>
+                              
+                              {/* Selected Price List Price */}
+                              <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700">
+                                <span className={cn(
+                                  "font-mono font-black",
+                                  isFirstRow ? "text-lg text-emerald-600 dark:text-emerald-400" : "text-neutral-700 dark:text-neutral-300"
+                                )}>
+                                  <AnimatedPrice value={range.unitPrice} />
+                                </span>
+                              </td>
+                              
+                              {/* PDS Price */}
+                              <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-amber-50/50 dark:bg-amber-900/10">
+                                <span className="font-mono font-bold text-amber-700 dark:text-amber-400">
+                                  {range.pdsPrice !== null ? (
+                                    <AnimatedPrice value={range.pdsPrice} />
+                                  ) : '-'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -377,7 +396,6 @@ export default function CataloguePage() {
       } else if (typeId) {
         url += `&typeId=${typeId}`;
       }
-      // If neither typeId nor itemId, API will return all items for the category
       
       const res = await fetch(url);
       
@@ -423,7 +441,6 @@ export default function CataloguePage() {
   };
 
   const handleTypeChange = async (typeId: string) => {
-    // Handle "Toutes les classes" selection
     if (!typeId) {
       setSelectedType(null);
       setSelectedItem(null);
@@ -456,7 +473,6 @@ export default function CataloguePage() {
     if (item) setSelectedItem(item);
   };
 
-  // --- Search Result Click - Auto-fill ALL dropdowns ---
   const handleSearchResultClick = async (item: Item) => {
     setSearchQuery("");
     setSearchResults([]);
@@ -523,7 +539,6 @@ export default function CataloguePage() {
     }
   };
 
-  // Can generate if we have priceList + product (class and article are now optional)
   const canGenerate = selectedPriceList && selectedProduct;
 
   return (
