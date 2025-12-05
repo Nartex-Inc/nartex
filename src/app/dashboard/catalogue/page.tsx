@@ -57,8 +57,14 @@ interface ItemPriceData {
 function AnimatedPrice({ value, duration = 600 }: { value: number; duration?: number }) {
   const [displayValue, setDisplayValue] = useState(0);
   const previousValue = useRef(0);
+  const animationRef = useRef<number | null>(null);
 
   useEffect(() => {
+    // Cancel any ongoing animation
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+    }
+
     const startValue = previousValue.current;
     const endValue = value;
     const startTime = performance.now();
@@ -74,13 +80,19 @@ function AnimatedPrice({ value, duration = 600 }: { value: number; duration?: nu
       setDisplayValue(current);
 
       if (progress < 1) {
-        requestAnimationFrame(animate);
+        animationRef.current = requestAnimationFrame(animate);
       } else {
         previousValue.current = endValue;
       }
     };
 
-    requestAnimationFrame(animate);
+    animationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
   }, [value, duration]);
 
   return <span>{displayValue.toFixed(2)}</span>;
@@ -95,16 +107,17 @@ interface PriceModalProps {
   selectedPriceList: PriceList | null;
   onPriceListChange: (priceId: number) => void;
   loading: boolean;
+  error: string | null;
 }
 
 function PriceModal({ 
   isOpen, onClose, data, priceLists, 
-  selectedPriceList, onPriceListChange, loading 
+  selectedPriceList, onPriceListChange, loading, error
 }: PriceModalProps) {
   if (!isOpen) return null;
 
   // Filter out items with no price ranges
-  const itemsWithPrices = data.filter(item => item.ranges.length > 0);
+  const itemsWithPrices = data.filter(item => item.ranges && item.ranges.length > 0);
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 md:p-4">
@@ -129,7 +142,8 @@ function PriceModal({
               <select
                 value={selectedPriceList?.priceId || ""}
                 onChange={(e) => onPriceListChange(parseInt(e.target.value))}
-                className="h-12 px-4 bg-white/20 text-white rounded-xl font-bold text-base border-2 border-white/30 focus:border-white outline-none min-w-[200px]"
+                disabled={loading}
+                className="h-12 px-4 bg-white/20 text-white rounded-xl font-bold text-base border-2 border-white/30 focus:border-white outline-none min-w-[200px] disabled:opacity-50"
               >
                 {priceLists.map(pl => (
                   <option key={pl.priceId} value={pl.priceId} className="text-neutral-900">
@@ -156,6 +170,18 @@ function PriceModal({
               <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
               <p className="text-neutral-500 font-medium">Chargement des prix...</p>
             </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center h-64 gap-4">
+              <div className="text-6xl text-red-300">!</div>
+              <div className="text-center">
+                <p className="text-xl font-bold text-red-600 dark:text-red-400">
+                  Erreur
+                </p>
+                <p className="text-neutral-500 mt-1">
+                  {error}
+                </p>
+              </div>
+            </div>
           ) : itemsWithPrices.length > 0 ? (
             <div className="space-y-4">
               {itemsWithPrices.map((item) => (
@@ -169,7 +195,7 @@ function PriceModal({
                       {item.description.split(' ')[0].toUpperCase()}
                     </h3>
                     <p className="text-red-100 text-sm">
-                      {item.className}
+                      {item.className || item.description}
                     </p>
                   </div>
                   
@@ -212,7 +238,7 @@ function PriceModal({
                                 "font-mono",
                                 rIdx === 0 ? "font-black text-neutral-900 dark:text-white" : "text-neutral-400 text-sm pl-2"
                               )}>
-                                {rIdx === 0 ? item.itemCode : item.itemCode}
+                                {item.itemCode}
                               </span>
                             </td>
                             <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700">
@@ -266,8 +292,8 @@ function PriceModal({
           )}
         </div>
         
-        {/* Footer with count */}
-        {itemsWithPrices.length > 0 && (
+        {/* Footer with count - only show when not loading and has data */}
+        {!loading && itemsWithPrices.length > 0 && (
           <div className="flex-shrink-0 bg-neutral-200 dark:bg-neutral-800 px-4 py-3 text-center">
             <span className="text-neutral-600 dark:text-neutral-400 font-medium">
               {itemsWithPrices.length} article(s) avec prix
@@ -302,6 +328,7 @@ export default function CataloguePage() {
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [priceData, setPriceData] = useState<ItemPriceData[]>([]);
   const [loadingPrices, setLoadingPrices] = useState(false);
+  const [priceError, setPriceError] = useState<string | null>(null);
   
   // For re-fetching with different price list in modal
   const [modalProdId, setModalProdId] = useState<number | null>(null);
@@ -354,21 +381,36 @@ export default function CataloguePage() {
 
   // --- Fetch Prices ---
   const fetchPrices = async (priceId: number, prodId: number, typeId?: number | null, itemId?: number | null) => {
+    // Clear previous data and error before loading
+    setPriceData([]);
+    setPriceError(null);
     setLoadingPrices(true);
+    
     try {
       let url = `/api/catalogue/prices?priceId=${priceId}&prodId=${prodId}`;
+      
       if (itemId) {
         url += `&itemId=${itemId}`;
       } else if (typeId) {
         url += `&typeId=${typeId}`;
       }
+      
+      console.log("Fetching prices from:", url);
+      
       const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        setPriceData(data);
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `Erreur ${res.status}`);
       }
-    } catch (err) {
-      console.error("Price fetch failed", err);
+      
+      const data = await res.json();
+      console.log("Received price data:", data.length, "items");
+      setPriceData(data);
+      
+    } catch (err: any) {
+      console.error("Price fetch failed:", err);
+      setPriceError(err.message || "Erreur lors du chargement des prix");
     } finally {
       setLoadingPrices(false);
     }
@@ -442,12 +484,16 @@ export default function CataloguePage() {
     setModalTypeId(selectedType?.itemTypeId || null);
     setModalItemId(selectedItem?.itemId || null);
     
+    // Clear previous data before opening modal
+    setPriceData([]);
+    setPriceError(null);
     setShowPriceModal(true);
+    
     await fetchPrices(
       selectedPriceList.priceId,
       selectedProduct.prodId,
-      selectedType?.itemTypeId,
-      selectedItem?.itemId
+      selectedType?.itemTypeId || null,
+      selectedItem?.itemId || null
     );
   };
 
@@ -678,6 +724,7 @@ export default function CataloguePage() {
         selectedPriceList={selectedPriceList}
         onPriceListChange={handleModalPriceListChange}
         loading={loadingPrices}
+        error={priceError}
       />
     </div>
   );
