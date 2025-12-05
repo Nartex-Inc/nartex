@@ -10,11 +10,7 @@ export async function GET() {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
 
-    // STRICT filtering: 
-    // 1. Active lists only
-    // 2. cieid = 2
-    // 3. Customer lists
-    // 4. Pricecode between '01' and '08' (Inclusive)
+    // STRICT filtering as requested: cieid = 2 AND PriceListType = 'customer'
     const query = `
       SELECT 
         "priceid" as "priceId",
@@ -39,6 +35,9 @@ export async function GET() {
     return NextResponse.json(rows);
   } catch (error: any) {
     console.error("GET /api/catalogue/pricelists error:", error);
-    return NextResponse.json({ error: "Erreur liste de prix" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Erreur lors du chargement des listes de prix" },
+      { status: 500 }
+    );
   }
 }
