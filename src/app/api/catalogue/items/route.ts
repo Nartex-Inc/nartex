@@ -14,8 +14,7 @@ export async function GET(request: NextRequest) {
     const itemTypeId = searchParams.get("itemTypeId");
     const search = searchParams.get("search");
 
-    // Base query selecting necessary fields from Items table
-    // FIXED: Using locitemtype to match itemtype.itemtypeid (not itemsubtypeid)
+    // Base query with all fields needed for auto-fill
     let query = `
       SELECT 
         i."ItemId" as "itemId",
@@ -28,35 +27,44 @@ export async function GET(request: NextRequest) {
       FROM public."Items" i
       LEFT JOIN public."itemtype" t ON i."locitemtype" = t."itemtypeid"
       LEFT JOIN public."Products" p ON i."ProdId" = p."ProdId"
-      WHERE 1=1
-        AND i."ProdId" BETWEEN 1 AND 10
+      WHERE i."ProdId" BETWEEN 1 AND 10
     `;
     
     const params: (string | number)[] = [];
     let paramIndex = 1;
 
     if (search) {
+      // Search mode: Filter by ItemCode or Description
       query += ` AND (i."ItemCode" ILIKE $${paramIndex} OR i."Descr" ILIKE $${paramIndex})`;
       params.push(`%${search}%`);
       paramIndex++;
       
+      // Order by relevance - exact matches first
       query += ` 
         ORDER BY 
-          CASE WHEN i."ItemCode" ILIKE '${search}' THEN 1 
-               WHEN i."ItemCode" ILIKE '${search}%' THEN 2 
-               WHEN i."Descr" ILIKE '${search}%' THEN 3 
-               ELSE 4 
+          CASE 
+            WHEN i."ItemCode" ILIKE $${paramIndex} THEN 1 
+            WHEN i."ItemCode" ILIKE $${paramIndex + 1} THEN 2 
+            WHEN i."Descr" ILIKE $${paramIndex + 1} THEN 3 
+            ELSE 4 
           END,
           i."ItemCode" ASC
-        LIMIT 50`; 
+        LIMIT 50
+      `;
+      params.push(search); // exact match
+      params.push(`${search}%`); // starts with
+      
     } else if (itemTypeId) {
-      // FIXED: Filter by locitemtype (which maps to itemtype.itemtypeid)
+      // Hierarchy mode: Filter by locitemtype
       query += ` AND i."locitemtype" = $${paramIndex}`;
       params.push(parseInt(itemTypeId, 10));
       paramIndex++;
       query += ` ORDER BY i."ItemCode" ASC`;
     } else {
-      return NextResponse.json({ error: "Paramètres manquants: itemTypeId ou search requis" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Paramètres manquants: itemTypeId ou search requis" }, 
+        { status: 400 }
+      );
     }
 
     const { rows } = await pg.query(query, params);
