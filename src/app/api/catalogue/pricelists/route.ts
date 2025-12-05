@@ -10,8 +10,11 @@ export async function GET() {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
 
-    // STRICT filtering as requested: cieid = 2 AND PriceListType = 'customer'
-    // This ensures we only get relevant customer price lists and filter out "junk"
+    // STRICT filtering as requested by your manager: 
+    // 1. Active lists only
+    // 2. cieid = 2
+    // 3. Customer lists only
+    // 4. Pricecode explicitly between '01' and '08' (inclusive) to remove internal/junk codes
     const query = `
       SELECT 
         "priceid" as "priceId",
@@ -28,16 +31,14 @@ export async function GET() {
       WHERE "IsActive" = true
         AND "cieid" = 2
         AND "PriceListType" = 'customer'
-      ORDER BY "Descr" ASC
+        AND "Pricecode" BETWEEN '01' AND '08'
+      ORDER BY "Pricecode" ASC
     `;
 
     const { rows } = await pg.query(query);
     return NextResponse.json(rows);
   } catch (error: any) {
     console.error("GET /api/catalogue/pricelists error:", error);
-    return NextResponse.json(
-      { error: "Erreur lors du chargement des listes de prix" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Erreur liste de prix" }, { status: 500 });
   }
 }
