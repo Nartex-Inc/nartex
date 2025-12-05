@@ -10,11 +10,11 @@ export async function GET() {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
 
-    // STRICT filtering as requested by your manager: 
+    // STRICT filtering: 
     // 1. Active lists only
     // 2. cieid = 2
-    // 3. Customer lists only
-    // 4. Pricecode explicitly between '01' and '08' (inclusive) to remove internal/junk codes
+    // 3. Customer lists
+    // 4. Pricecode between '01' and '08' (Inclusive)
     const query = `
       SELECT 
         "priceid" as "priceId",
