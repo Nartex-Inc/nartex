@@ -38,6 +38,8 @@ interface PriceRange {
   qtyMin: number;
   unitPrice: number;
   pdsPrice: number | null;
+  expBasePrice: number | null;
+  coutExp: number | null;
 }
 
 interface ItemPriceData {
@@ -46,10 +48,12 @@ interface ItemPriceData {
   description: string;
   caisse: number | null;
   format: string | null;
+  volume: number | null;
   categoryName: string;
   className: string;
   priceListName: string;
   priceCode: string;
+  discountAmt: number;
   ranges: PriceRange[];
 }
 
@@ -95,6 +99,29 @@ function AnimatedPrice({ value, duration = 600 }: { value: number; duration?: nu
   return <span>{displayValue.toFixed(2)}</span>;
 }
 
+// --- Toggle Component ---
+function Toggle({ enabled, onChange, label }: { enabled: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <label className="flex items-center gap-2 cursor-pointer select-none">
+      <span className="text-white text-sm font-medium hidden md:inline-block">{label}</span>
+      <div 
+        onClick={() => onChange(!enabled)} 
+        className={cn(
+          "relative w-12 h-6 rounded-full transition-colors", 
+          enabled ? "bg-white" : "bg-white/30"
+        )}
+      >
+        <div 
+          className={cn(
+            "absolute top-1 w-4 h-4 rounded-full transition-all shadow-sm", 
+            enabled ? "left-7 bg-red-600" : "left-1 bg-white"
+          )} 
+        />
+      </div>
+    </label>
+  );
+}
+
 // --- Price Modal Component ---
 interface PriceModalProps {
   isOpen: boolean;
@@ -111,9 +138,19 @@ function PriceModal({
   isOpen, onClose, data, priceLists, 
   selectedPriceList, onPriceListChange, loading, error
 }: PriceModalProps) {
+  const [showDetails, setShowDetails] = useState(false);
+
   if (!isOpen) return null;
 
   const itemsWithPrices = data.filter(item => item.ranges && item.ranges.length > 0);
+
+  // Calculation Helpers
+  const calcPricePerCaisse = (price: number, caisse: number | null) => caisse ? price * caisse : null;
+  const calcPricePerLitre = (price: number, volume: number | null) => volume ? price / volume : null;
+  // Margin based on PDS (Retailer Margin)
+  const calcMargin = (pds: number | null, unit: number) => pds ? ((pds - unit) / pds) * 100 : null;
+  // Margin based on Export Cost (Company Margin)
+  const calcMarginExp = (unit: number, cout: number | null) => cout && unit ? ((unit - cout) / unit) * 100 : null;
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 md:p-4">
@@ -122,15 +159,18 @@ function PriceModal({
         onClick={onClose}
       />
       
-      <div className="relative w-full max-w-[96vw] max-h-[94vh] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+      <div className="relative w-full max-w-[98vw] max-h-[94vh] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
         
-        <div className="flex-shrink-0 bg-emerald-600 px-4 md:px-6 py-4">
+        {/* Modal Header */}
+        <div className="flex-shrink-0 bg-red-600 px-4 md:px-6 py-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <h2 className="text-xl md:text-2xl font-bold text-white">
               Liste de Prix
             </h2>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
+              <Toggle enabled={showDetails} onChange={setShowDetails} label="Afficher détails" />
+
               <select
                 value={selectedPriceList?.priceId || ""}
                 onChange={(e) => onPriceListChange(parseInt(e.target.value))}
@@ -154,10 +194,11 @@ function PriceModal({
           </div>
         </div>
         
+        {/* Modal Content */}
         <div className="flex-1 overflow-auto p-3 md:p-5 bg-neutral-100 dark:bg-neutral-950">
           {loading ? (
             <div className="flex flex-col items-center justify-center h-64 gap-4">
-              <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
               <p className="text-neutral-500 font-medium">Chargement des prix...</p>
             </div>
           ) : error ? (
@@ -188,22 +229,44 @@ function PriceModal({
                     <table className="w-full text-sm md:text-base border-collapse">
                       <thead>
                         <tr className="bg-neutral-200 dark:bg-neutral-800">
-                          <th className="text-left p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
+                          <th className="text-left p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
                             Article
                           </th>
-                          <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
+                          <th className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
                             CAISSE
                           </th>
-                          <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
+                          <th className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
                             Format
                           </th>
-                          <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
+                          <th className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
                             Qte/Qty
                           </th>
-                          <th className="text-right p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
-                            {selectedPriceList?.name || 'Prix'}
+                          <th className="text-right p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
+                            {selectedPriceList?.code || 'Prix'}
                           </th>
-                          <th className="text-right p-3 font-bold text-amber-700 dark:text-amber-400 border border-neutral-300 dark:border-neutral-700 bg-amber-50 dark:bg-amber-900/20">
+                          
+                          {/* Expanded Details Columns */}
+                          {showDetails && (
+                            <>
+                              <th className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20">
+                                ($)/Caisse
+                              </th>
+                              <th className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20">
+                                ($)/L
+                              </th>
+                              <th className="text-right p-2 md:p-3 font-bold text-green-700 dark:text-green-400 border border-neutral-300 dark:border-neutral-700 bg-green-50 dark:bg-green-900/20">
+                                % Marge
+                              </th>
+                              <th className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20">
+                                Coût Exp
+                              </th>
+                              <th className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20">
+                                % Exp
+                              </th>
+                            </>
+                          )}
+                          
+                          <th className="text-right p-2 md:p-3 font-bold text-amber-700 dark:text-amber-400 border border-neutral-300 dark:border-neutral-700 bg-amber-50 dark:bg-amber-900/20">
                             PDS
                           </th>
                         </tr>
@@ -211,61 +274,82 @@ function PriceModal({
                       <tbody>
                         {item.ranges.map((range, rIdx) => {
                           const isFirstRow = rIdx === 0;
+                          const ppc = calcPricePerCaisse(range.unitPrice, item.caisse);
+                          const ppl = calcPricePerLitre(range.unitPrice, item.volume);
+                          const margin = calcMargin(range.pdsPrice, range.unitPrice);
+                          const marginExp = calcMarginExp(range.unitPrice, range.coutExp);
                           
                           return (
                             <tr 
                               key={range.id} 
                               className={cn(
-                                "hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors",
+                                "hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors",
                                 isFirstRow ? "bg-white dark:bg-neutral-900" : "bg-neutral-50 dark:bg-neutral-800/50"
                               )}
                             >
-                              {/* Article - only show on first row */}
-                              <td className="p-3 border border-neutral-200 dark:border-neutral-700">
-                                {isFirstRow ? (
-                                  <span className="font-mono font-black text-neutral-900 dark:text-white">
-                                    {item.itemCode}
-                                  </span>
-                                ) : null}
+                              {/* Basic Info */}
+                              <td className="p-2 md:p-3 border border-neutral-200 dark:border-neutral-700">
+                                {isFirstRow && <span className="font-mono font-black text-neutral-900 dark:text-white">{item.itemCode}</span>}
+                              </td>
+                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700">
+                                {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.caisse || '-'}</span>}
+                              </td>
+                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700">
+                                {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}
+                              </td>
+                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700">
+                                <span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span>
                               </td>
                               
-                              {/* CAISSE - only show on first row, bold */}
-                              <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700">
-                                {isFirstRow ? (
-                                  <span className="font-black text-neutral-900 dark:text-white">
-                                    {item.caisse || '-'}
-                                  </span>
-                                ) : null}
-                              </td>
-                              
-                              {/* Format - only show on first row, bold */}
-                              <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700">
-                                {isFirstRow ? (
-                                  <span className="font-black text-neutral-900 dark:text-white">
-                                    {item.format || '-'}
-                                  </span>
-                                ) : null}
-                              </td>
-                              
-                              {/* Qte/Qty - show on all rows */}
-                              <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700">
-                                <span className="font-mono font-bold text-neutral-900 dark:text-white">
-                                  {range.qtyMin}
-                                </span>
-                              </td>
-                              
-                              {/* Selected Price List Price */}
-                              <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700">
+                              {/* Unit Price */}
+                              <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700">
                                 <span className={cn(
                                   "font-mono font-black",
-                                  isFirstRow ? "text-lg text-emerald-600 dark:text-emerald-400" : "text-neutral-700 dark:text-neutral-300"
+                                  isFirstRow ? "text-lg text-red-600 dark:text-red-400" : "text-neutral-700 dark:text-neutral-300"
                                 )}>
                                   <AnimatedPrice value={range.unitPrice} />
                                 </span>
                               </td>
                               
-                              {/* PDS Price */}
-                              <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-amber-50/50 dark:bg-amber-900/10">
+                              {/* Expanded Details Data */}
+                              {showDetails && (
+                                <>
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10">
+                                    <span className="font-mono text-blue-700 dark:text-blue-400">
+                                      {ppc ? ppc.toFixed(2) : '-'}
+                                    </span>
+                                  </td>
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10">
+                                    <span className="font-mono text-blue-700 dark:text-blue-400">
+                                      {ppl ? ppl.toFixed(2) : '-'}
+                                    </span>
+                                  </td>
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-green-50/50 dark:bg-green-900/10">
+                                    <span className={cn(
+                                      "font-mono font-bold",
+                                      margin && margin > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                                    )}>
+                                      {margin ? `${margin.toFixed(1)}%` : '-'}
+                                    </span>
+                                  </td>
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10">
+                                    <span className="font-mono font-bold text-purple-700 dark:text-purple-400">
+                                      {range.coutExp ? range.coutExp.toFixed(2) : '-'}
+                                    </span>
+                                  </td>
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10">
+                                    <span className={cn(
+                                      "font-mono font-bold",
+                                      marginExp && marginExp > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                                    )}>
+                                      {marginExp ? `${marginExp.toFixed(1)}%` : '-'}
+                                    </span>
+                                  </td>
+                                </>
+                              )}
+                              
+                              {/* PDS */}
+                              <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-amber-50/50 dark:bg-amber-900/10">
                                 <span className="font-mono font-bold text-amber-700 dark:text-amber-400">
                                   {range.pdsPrice !== null ? (
                                     <AnimatedPrice value={range.pdsPrice} />
@@ -296,10 +380,11 @@ function PriceModal({
           )}
         </div>
         
+        {/* Footer */}
         {!loading && itemsWithPrices.length > 0 && (
           <div className="flex-shrink-0 bg-neutral-200 dark:bg-neutral-800 px-4 py-3 text-center">
             <span className="text-neutral-600 dark:text-neutral-400 font-medium">
-              {itemsWithPrices.length} article(s) avec prix
+              {itemsWithPrices.length} article(s) {showDetails && " • Détails activés"}
             </span>
           </div>
         )}
@@ -562,7 +647,7 @@ export default function CataloguePage() {
                 placeholder="Recherche par code article..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-14 px-5 rounded-xl text-base font-medium bg-neutral-100 dark:bg-neutral-800 border-2 border-transparent focus:border-emerald-500 outline-none transition-colors"
+                className="w-full h-14 px-5 rounded-xl text-base font-medium bg-neutral-100 dark:bg-neutral-800 border-2 border-transparent focus:border-red-500 outline-none transition-colors"
               />
 
               {/* Search Dropdown */}
@@ -570,17 +655,17 @@ export default function CataloguePage() {
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden max-h-72 overflow-y-auto z-50">
                   {isSearching ? (
                     <div className="p-6 flex justify-center">
-                      <div className="w-6 h-6 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                      <div className="w-6 h-6 border-3 border-red-500 border-t-transparent rounded-full animate-spin" />
                     </div>
                   ) : searchResults.length > 0 ? (
                     searchResults.map((item) => (
                       <button 
                         key={item.itemId}
                         onClick={() => handleSearchResultClick(item)}
-                        className="w-full p-4 text-left hover:bg-emerald-50 dark:hover:bg-emerald-900/20 border-b border-neutral-100 dark:border-neutral-800 last:border-0 transition-colors"
+                        className="w-full p-4 text-left hover:bg-red-50 dark:hover:bg-red-900/20 border-b border-neutral-100 dark:border-neutral-800 last:border-0 transition-colors"
                       >
                         <div className="flex items-center gap-3">
-                          <span className="font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm">
+                          <span className="font-mono font-black text-red-600 dark:text-red-400 text-sm">
                             {item.itemCode}
                           </span>
                           <span className="truncate font-medium text-neutral-700 dark:text-neutral-300">
@@ -624,7 +709,7 @@ export default function CataloguePage() {
                   <select
                     value={selectedPriceList?.priceId || ""}
                     onChange={(e) => handlePriceListChange(e.target.value)}
-                    className="w-full h-16 px-4 text-lg font-bold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl focus:border-emerald-500 outline-none transition-colors"
+                    className="w-full h-16 px-4 text-lg font-bold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl focus:border-red-500 outline-none transition-colors"
                   >
                     <option value="" disabled>Sélectionner...</option>
                     {priceLists.map(pl => (
@@ -645,7 +730,7 @@ export default function CataloguePage() {
                     onChange={(e) => handleProductChange(e.target.value)}
                     disabled={!selectedPriceList}
                     className={cn(
-                      "w-full h-16 px-4 text-lg font-bold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl focus:border-emerald-500 outline-none transition-all",
+                      "w-full h-16 px-4 text-lg font-bold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl focus:border-red-500 outline-none transition-all",
                       !selectedPriceList && "opacity-50 cursor-not-allowed"
                     )}
                   >
@@ -668,7 +753,7 @@ export default function CataloguePage() {
                     onChange={(e) => handleTypeChange(e.target.value)}
                     disabled={!selectedProduct || loadingTypes}
                     className={cn(
-                      "w-full h-16 px-4 text-lg font-bold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl focus:border-emerald-500 outline-none transition-all",
+                      "w-full h-16 px-4 text-lg font-bold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl focus:border-red-500 outline-none transition-all",
                       (!selectedProduct || loadingTypes) && "opacity-50 cursor-not-allowed"
                     )}
                   >
@@ -693,7 +778,7 @@ export default function CataloguePage() {
                     onChange={(e) => handleItemChange(e.target.value)}
                     disabled={!selectedType || loadingItems}
                     className={cn(
-                      "w-full h-16 px-4 text-lg font-bold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl focus:border-emerald-500 outline-none transition-all",
+                      "w-full h-16 px-4 text-lg font-bold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl focus:border-red-500 outline-none transition-all",
                       (!selectedType || loadingItems) && "opacity-50 cursor-not-allowed"
                     )}
                   >
@@ -716,7 +801,7 @@ export default function CataloguePage() {
                     className={cn(
                       "w-full h-20 rounded-xl font-black text-xl uppercase tracking-wide transition-all",
                       canGenerate 
-                        ? "bg-emerald-600 hover:bg-emerald-700 text-white active:scale-[0.98]"
+                        ? "bg-red-600 hover:bg-red-700 text-white active:scale-[0.98]" 
                         : "bg-neutral-200 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed"
                     )}
                   >
@@ -729,11 +814,11 @@ export default function CataloguePage() {
 
             {/* Selected Item Preview */}
             {selectedItem && (
-              <div className="mt-4 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-200 dark:border-emerald-800">
-                <div className="font-bold text-emerald-800 dark:text-emerald-300">
+              <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
+                <div className="font-bold text-red-800 dark:text-red-300">
                   {selectedItem.itemCode}
                 </div>
-                <div className="text-sm text-emerald-600 dark:text-emerald-400">
+                <div className="text-sm text-red-600 dark:text-red-400">
                   {selectedItem.description}
                 </div>
               </div>
