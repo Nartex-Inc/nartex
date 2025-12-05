@@ -60,7 +60,6 @@ function AnimatedPrice({ value, duration = 600 }: { value: number; duration?: nu
   const animationRef = useRef<number | null>(null);
 
   useEffect(() => {
-    // Cancel any ongoing animation
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
     }
@@ -72,8 +71,6 @@ function AnimatedPrice({ value, duration = 600 }: { value: number; duration?: nu
     const animate = (currentTime: number) => {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      
-      // Ease out cubic
       const easeOut = 1 - Math.pow(1 - progress, 3);
       const current = startValue + (endValue - startValue) * easeOut;
       
@@ -116,21 +113,17 @@ function PriceModal({
 }: PriceModalProps) {
   if (!isOpen) return null;
 
-  // Filter out items with no price ranges
   const itemsWithPrices = data.filter(item => item.ranges && item.ranges.length > 0);
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 md:p-4">
-      {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
       />
       
-      {/* Modal */}
       <div className="relative w-full max-w-[96vw] max-h-[94vh] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
         
-        {/* Header */}
         <div className="flex-shrink-0 bg-emerald-600 px-4 md:px-6 py-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <h2 className="text-xl md:text-2xl font-bold text-white">
@@ -138,7 +131,6 @@ function PriceModal({
             </h2>
             
             <div className="flex items-center gap-3">
-              {/* Price List Selector - Native */}
               <select
                 value={selectedPriceList?.priceId || ""}
                 onChange={(e) => onPriceListChange(parseInt(e.target.value))}
@@ -152,7 +144,6 @@ function PriceModal({
                 ))}
               </select>
               
-              {/* Close Button */}
               <button 
                 onClick={onClose}
                 className="w-12 h-12 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center text-white font-bold text-2xl transition-colors"
@@ -163,7 +154,6 @@ function PriceModal({
           </div>
         </div>
         
-        {/* Content */}
         <div className="flex-1 overflow-auto p-3 md:p-5 bg-neutral-100 dark:bg-neutral-950">
           {loading ? (
             <div className="flex flex-col items-center justify-center h-64 gap-4">
@@ -174,12 +164,8 @@ function PriceModal({
             <div className="flex flex-col items-center justify-center h-64 gap-4">
               <div className="text-6xl text-red-300">!</div>
               <div className="text-center">
-                <p className="text-xl font-bold text-red-600 dark:text-red-400">
-                  Erreur
-                </p>
-                <p className="text-neutral-500 mt-1">
-                  {error}
-                </p>
+                <p className="text-xl font-bold text-red-600 dark:text-red-400">Erreur</p>
+                <p className="text-neutral-500 mt-1">{error}</p>
               </div>
             </div>
           ) : itemsWithPrices.length > 0 ? (
@@ -189,7 +175,6 @@ function PriceModal({
                   key={item.itemId}
                   className="bg-white dark:bg-neutral-900 rounded-xl overflow-hidden shadow-lg border border-neutral-200 dark:border-neutral-800"
                 >
-                  {/* Item Header */}
                   <div className="bg-red-600 px-4 py-3">
                     <h3 className="text-lg font-black text-white">
                       {item.description.split(' ')[0].toUpperCase()}
@@ -199,7 +184,6 @@ function PriceModal({
                     </p>
                   </div>
                   
-                  {/* Spreadsheet Table */}
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm md:text-base border-collapse">
                       <thead>
@@ -292,7 +276,6 @@ function PriceModal({
           )}
         </div>
         
-        {/* Footer with count - only show when not loading and has data */}
         {!loading && itemsWithPrices.length > 0 && (
           <div className="flex-shrink-0 bg-neutral-200 dark:bg-neutral-800 px-4 py-3 text-center">
             <span className="text-neutral-600 dark:text-neutral-400 font-medium">
@@ -381,7 +364,6 @@ export default function CataloguePage() {
 
   // --- Fetch Prices ---
   const fetchPrices = async (priceId: number, prodId: number, typeId?: number | null, itemId?: number | null) => {
-    // Clear previous data and error before loading
     setPriceData([]);
     setPriceError(null);
     setLoadingPrices(true);
@@ -395,8 +377,6 @@ export default function CataloguePage() {
         url += `&typeId=${typeId}`;
       }
       
-      console.log("Fetching prices from:", url);
-      
       const res = await fetch(url);
       
       if (!res.ok) {
@@ -405,7 +385,6 @@ export default function CataloguePage() {
       }
       
       const data = await res.json();
-      console.log("Received price data:", data.length, "items");
       setPriceData(data);
       
     } catch (err: any) {
@@ -467,24 +446,58 @@ export default function CataloguePage() {
     if (item) setSelectedItem(item);
   };
 
-  const handleSearchResultClick = (item: Item) => {
+  // --- FIXED: Search Result Click - Auto-fill ALL dropdowns ---
+  const handleSearchResultClick = async (item: Item) => {
     setSearchQuery("");
     setSearchResults([]);
+    
+    // 1. Set the selected item immediately
     setSelectedItem(item);
     
+    // 2. Find and set the product (category)
     const prod = products.find(p => p.prodId === item.prodId);
-    if (prod) setSelectedProduct(prod);
+    if (prod) {
+      setSelectedProduct(prod);
+      
+      // 3. Load item types for this product
+      setLoadingTypes(true);
+      try {
+        const typesRes = await fetch(`/api/catalogue/itemtypes?prodId=${item.prodId}`);
+        if (typesRes.ok) {
+          const types: ItemType[] = await typesRes.json();
+          setItemTypes(types);
+          
+          // 4. Find and set the class (itemType)
+          const type = types.find(t => t.itemTypeId === item.itemTypeId);
+          if (type) {
+            setSelectedType(type);
+            
+            // 5. Load items for this class
+            setLoadingItems(true);
+            try {
+              const itemsRes = await fetch(`/api/catalogue/items?itemTypeId=${type.itemTypeId}`);
+              if (itemsRes.ok) {
+                const loadedItems: Item[] = await itemsRes.json();
+                setItems(loadedItems);
+              }
+            } finally {
+              setLoadingItems(false);
+            }
+          }
+        }
+      } finally {
+        setLoadingTypes(false);
+      }
+    }
   };
 
   const handleGenerate = async () => {
     if (!selectedPriceList || !selectedProduct) return;
     
-    // Store context for modal price list switching
     setModalProdId(selectedProduct.prodId);
     setModalTypeId(selectedType?.itemTypeId || null);
     setModalItemId(selectedItem?.itemId || null);
     
-    // Clear previous data before opening modal
     setPriceData([]);
     setPriceError(null);
     setShowPriceModal(true);
@@ -505,7 +518,6 @@ export default function CataloguePage() {
     }
   };
 
-  // Can generate if we have price list + product + (type OR item)
   const canGenerate = selectedPriceList && selectedProduct && (selectedType || selectedItem);
 
   return (
@@ -526,7 +538,7 @@ export default function CataloguePage() {
             <div className="flex-1 w-full md:max-w-md relative">
               <input 
                 type="search" 
-                placeholder="Recherche rapide..." 
+                placeholder="Recherche par code article..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full h-14 px-5 rounded-xl text-base font-medium bg-neutral-100 dark:bg-neutral-800 border-2 border-transparent focus:border-emerald-500 outline-none transition-colors"
@@ -554,11 +566,9 @@ export default function CataloguePage() {
                             {item.description}
                           </span>
                         </div>
-                        {item.categoryName && (
-                          <div className="text-xs text-neutral-400 mt-1">
-                            {item.categoryName} → {item.className}
-                          </div>
-                        )}
+                        <div className="text-xs text-neutral-400 mt-1">
+                          {item.categoryName} → {item.className}
+                        </div>
                       </button>
                     ))
                   ) : (
@@ -632,26 +642,24 @@ export default function CataloguePage() {
                   <label className="block text-sm font-bold text-neutral-500 mb-2 uppercase tracking-wide">
                     3. Classe
                   </label>
-                  <div className="relative">
-                    <select
-                      value={selectedType?.itemTypeId || ""}
-                      onChange={(e) => handleTypeChange(e.target.value)}
-                      disabled={!selectedProduct || loadingTypes}
-                      className={cn(
-                        "w-full h-16 px-4 text-lg font-bold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl focus:border-emerald-500 outline-none transition-all",
-                        (!selectedProduct || loadingTypes) && "opacity-50 cursor-not-allowed"
-                      )}
-                    >
-                      <option value="" disabled>
-                        {loadingTypes ? "Chargement..." : "Sélectionner..."}
+                  <select
+                    value={selectedType?.itemTypeId || ""}
+                    onChange={(e) => handleTypeChange(e.target.value)}
+                    disabled={!selectedProduct || loadingTypes}
+                    className={cn(
+                      "w-full h-16 px-4 text-lg font-bold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl focus:border-emerald-500 outline-none transition-all",
+                      (!selectedProduct || loadingTypes) && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    <option value="" disabled>
+                      {loadingTypes ? "Chargement..." : "Sélectionner..."}
+                    </option>
+                    {itemTypes.map(t => (
+                      <option key={t.itemTypeId} value={t.itemTypeId}>
+                        {t.description} ({t.itemCount})
                       </option>
-                      {itemTypes.map(t => (
-                        <option key={t.itemTypeId} value={t.itemTypeId}>
-                          {t.description} ({t.itemCount})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Step 4: Item (Optional) */}
