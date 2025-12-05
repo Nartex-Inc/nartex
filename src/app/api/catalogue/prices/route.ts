@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
 
+const PDS_PRICE_ID = 17; // priceid for 08-PDS (PRIX DETAIL / MSRP)
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -23,7 +25,7 @@ export async function GET(request: NextRequest) {
     const priceIdNum = parseInt(priceId, 10);
     const prodIdNum = parseInt(prodId, 10);
 
-    // Build WHERE conditions dynamically
+    // Build WHERE conditions
     let whereConditions = `
       ipr."priceid" = $1
       AND i."ProdId" = $2
@@ -42,15 +44,14 @@ export async function GET(request: NextRequest) {
       params.push(parseInt(typeId, 10));
       paramIdx++;
     }
+    // If no typeId and no itemId, get ALL items for the prodId (all classes)
 
-    // Simpler query: Get all prices, then filter to latest in JS
-    // This avoids complex CTEs that might cause issues
+    // Main query for selected price list
     const query = `
       SELECT 
         i."ItemId" as "itemId",
         i."ItemCode" as "itemCode",
         i."Descr" as "description",
-        i."NetWeight" as "format",
         i."NetWeight" as "udm",
         p."Name" as "categoryName",
         t."descr" as "className",
@@ -59,14 +60,7 @@ export async function GET(request: NextRequest) {
         ipr."itempricerangeid" as "id",
         ipr."itempricedateid" as "dateId",
         pl."Descr" as "priceListName",
-        pl."Pricecode" as "priceCode",
-        COALESCE(
-          CASE WHEN pl."Currid" = 1 THEN 'CAD' 
-               WHEN pl."Currid" = 2 THEN 'USD' 
-               ELSE 'CAD' 
-          END, 
-          'CAD'
-        ) as "currency"
+        pl."Pricecode" as "priceCode"
       FROM public."itempricerange" ipr
       INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
       INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
@@ -76,24 +70,71 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemCode" ASC, ipr."fromqty" ASC, ipr."itempricedateid" DESC
     `;
 
-    console.log("Prices API - Executing query with params:", params);
-    const startTime = Date.now();
+    // Query for PDS prices (priceid=17)
+    let pdsWhereConditions = `
+      ipr."priceid" = ${PDS_PRICE_ID}
+      AND i."ProdId" = $1
+    `;
     
-    const { rows } = await pg.query(query, params);
-    
-    console.log(`Prices API - Query returned ${rows.length} rows in ${Date.now() - startTime}ms`);
+    const pdsParams: any[] = [prodIdNum];
+    let pdsParamIdx = 2;
 
-    // Group by item and keep only latest price per qty range
+    if (itemId) {
+      pdsWhereConditions += ` AND i."ItemId" = $${pdsParamIdx}`;
+      pdsParams.push(parseInt(itemId, 10));
+      pdsParamIdx++;
+    } else if (typeId) {
+      pdsWhereConditions += ` AND i."locitemtype" = $${pdsParamIdx}`;
+      pdsParams.push(parseInt(typeId, 10));
+      pdsParamIdx++;
+    }
+
+    const pdsQuery = `
+      SELECT 
+        i."ItemId" as "itemId",
+        ipr."fromqty" as "qtyMin",
+        ipr."price" as "pdsPrice",
+        ipr."itempricedateid" as "dateId"
+      FROM public."itempricerange" ipr
+      INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
+      INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
+      WHERE ${pdsWhereConditions}
+        AND pl."IsActive" = true
+      ORDER BY i."ItemId" ASC, ipr."fromqty" ASC, ipr."itempricedateid" DESC
+    `;
+
+    // Execute both queries
+    const [mainResult, pdsResult] = await Promise.all([
+      pg.query(query, params),
+      pg.query(pdsQuery, pdsParams)
+    ]);
+
+    const rows = mainResult.rows;
+    const pdsRows = pdsResult.rows;
+
+    // Build PDS price map: itemId -> { qtyMin -> pdsPrice }
+    const pdsMap: Record<number, Record<number, number>> = {};
+    const seenPdsRanges: Set<string> = new Set();
+    
+    for (const row of pdsRows) {
+      const rangeKey = `${row.itemId}-${row.qtyMin}`;
+      if (seenPdsRanges.has(rangeKey)) continue;
+      seenPdsRanges.add(rangeKey);
+      
+      if (!pdsMap[row.itemId]) {
+        pdsMap[row.itemId] = {};
+      }
+      pdsMap[row.itemId][row.qtyMin] = parseFloat(row.pdsPrice);
+    }
+
+    // Group main results by item and keep only latest price per qty range
     const itemsMap: Record<number, any> = {};
-    const seenRanges: Set<string> = new Set(); // Track itemId-qtyMin combinations
+    const seenRanges: Set<string> = new Set();
     
     for (const row of rows) {
       const rangeKey = `${row.itemId}-${row.qtyMin}`;
       
-      // Skip if we already have a price for this item+qty (we ordered by dateId DESC, so first is latest)
-      if (seenRanges.has(rangeKey)) {
-        continue;
-      }
+      if (seenRanges.has(rangeKey)) continue;
       seenRanges.add(rangeKey);
 
       if (!itemsMap[row.itemId]) {
@@ -101,31 +142,31 @@ export async function GET(request: NextRequest) {
           itemId: row.itemId,
           itemCode: row.itemCode,
           description: row.description,
-          format: row.format ? parseFloat(row.format) : null,
           udm: row.udm ? parseFloat(row.udm) : null,
           categoryName: row.categoryName,
           className: row.className,
           priceListName: row.priceListName,
           priceCode: row.priceCode,
-          currency: row.currency,
           ranges: []
         };
       }
       
+      const qtyMin = parseInt(row.qtyMin);
+      const pdsPrice = pdsMap[row.itemId]?.[qtyMin] || null;
+      
       itemsMap[row.itemId].ranges.push({
         id: row.id,
-        qtyMin: parseInt(row.qtyMin),
-        unitPrice: parseFloat(row.unitPrice)
+        qtyMin: qtyMin,
+        unitPrice: parseFloat(row.unitPrice),
+        pdsPrice: pdsPrice
       });
     }
 
-    // Convert to array and sort ranges by qtyMin
+    // Convert to array and sort ranges
     const result = Object.values(itemsMap).map((item: any) => ({
       ...item,
       ranges: item.ranges.sort((a: any, b: any) => a.qtyMin - b.qtyMin)
     }));
-
-    console.log(`Prices API - Returning ${result.length} items with prices`);
 
     return NextResponse.json(result);
     
