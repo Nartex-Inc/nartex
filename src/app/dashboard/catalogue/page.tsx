@@ -37,19 +37,18 @@ interface PriceRange {
   id: number;
   qtyMin: number;
   unitPrice: number;
+  pdsPrice: number | null;
 }
 
 interface ItemPriceData {
   itemId: number;
   itemCode: string;
   description: string;
-  format: number | null;
   udm: number | null;
   categoryName: string;
   className: string;
   priceListName: string;
   priceCode: string;
-  currency: string;
   ranges: PriceRange[];
 }
 
@@ -192,9 +191,6 @@ function PriceModal({
                             Article
                           </th>
                           <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
-                            Format
-                          </th>
-                          <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
                             UDM
                           </th>
                           <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
@@ -205,6 +201,9 @@ function PriceModal({
                           </th>
                           <th className="text-right p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
                             {selectedPriceList?.name || 'Prix'}
+                          </th>
+                          <th className="text-right p-3 font-bold text-amber-700 dark:text-amber-400 border border-neutral-300 dark:border-neutral-700 bg-amber-50 dark:bg-amber-900/20">
+                            PDS
                           </th>
                         </tr>
                       </thead>
@@ -226,11 +225,6 @@ function PriceModal({
                               </span>
                             </td>
                             <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700">
-                              <span className="font-mono text-neutral-600 dark:text-neutral-400">
-                                {item.format?.toFixed(2) || '-'}
-                              </span>
-                            </td>
-                            <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700">
                               <span className="font-bold text-neutral-700 dark:text-neutral-300">
                                 {item.udm || '-'}
                               </span>
@@ -242,7 +236,7 @@ function PriceModal({
                             </td>
                             <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700">
                               <span className="font-mono text-neutral-600 dark:text-neutral-400">
-                                {item.format ? (item.format * range.qtyMin).toFixed(2) : '-'}
+                                {item.udm ? (item.udm * range.qtyMin).toFixed(2) : '-'}
                               </span>
                             </td>
                             <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700">
@@ -251,6 +245,13 @@ function PriceModal({
                                 rIdx === 0 ? "text-lg text-emerald-600 dark:text-emerald-400" : "text-neutral-700 dark:text-neutral-300"
                               )}>
                                 <AnimatedPrice value={range.unitPrice} />
+                              </span>
+                            </td>
+                            <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-amber-50/50 dark:bg-amber-900/10">
+                              <span className="font-mono font-bold text-amber-700 dark:text-amber-400">
+                                {range.pdsPrice !== null ? (
+                                  <AnimatedPrice value={range.pdsPrice} />
+                                ) : '-'}
                               </span>
                             </td>
                           </tr>
@@ -376,6 +377,7 @@ export default function CataloguePage() {
       } else if (typeId) {
         url += `&typeId=${typeId}`;
       }
+      // If neither typeId nor itemId, API will return all items for the category
       
       const res = await fetch(url);
       
@@ -421,6 +423,14 @@ export default function CataloguePage() {
   };
 
   const handleTypeChange = async (typeId: string) => {
+    // Handle "Toutes les classes" selection
+    if (!typeId) {
+      setSelectedType(null);
+      setSelectedItem(null);
+      setItems([]);
+      return;
+    }
+
     const type = itemTypes.find(t => t.itemTypeId === parseInt(typeId));
     if (!type) return;
 
@@ -446,20 +456,17 @@ export default function CataloguePage() {
     if (item) setSelectedItem(item);
   };
 
-  // --- FIXED: Search Result Click - Auto-fill ALL dropdowns ---
+  // --- Search Result Click - Auto-fill ALL dropdowns ---
   const handleSearchResultClick = async (item: Item) => {
     setSearchQuery("");
     setSearchResults([]);
     
-    // 1. Set the selected item immediately
     setSelectedItem(item);
     
-    // 2. Find and set the product (category)
     const prod = products.find(p => p.prodId === item.prodId);
     if (prod) {
       setSelectedProduct(prod);
       
-      // 3. Load item types for this product
       setLoadingTypes(true);
       try {
         const typesRes = await fetch(`/api/catalogue/itemtypes?prodId=${item.prodId}`);
@@ -467,12 +474,10 @@ export default function CataloguePage() {
           const types: ItemType[] = await typesRes.json();
           setItemTypes(types);
           
-          // 4. Find and set the class (itemType)
           const type = types.find(t => t.itemTypeId === item.itemTypeId);
           if (type) {
             setSelectedType(type);
             
-            // 5. Load items for this class
             setLoadingItems(true);
             try {
               const itemsRes = await fetch(`/api/catalogue/items?itemTypeId=${type.itemTypeId}`);
@@ -518,7 +523,8 @@ export default function CataloguePage() {
     }
   };
 
-  const canGenerate = selectedPriceList && selectedProduct && (selectedType || selectedItem);
+  // Can generate if we have priceList + product (class and article are now optional)
+  const canGenerate = selectedPriceList && selectedProduct;
 
   return (
     <div className="min-h-screen bg-neutral-100 dark:bg-neutral-950">
@@ -637,10 +643,10 @@ export default function CataloguePage() {
                   </select>
                 </div>
 
-                {/* Step 3: Class */}
+                {/* Step 3: Class (Optional) */}
                 <div>
                   <label className="block text-sm font-bold text-neutral-500 mb-2 uppercase tracking-wide">
-                    3. Classe
+                    3. Classe (optionnel)
                   </label>
                   <select
                     value={selectedType?.itemTypeId || ""}
@@ -651,8 +657,8 @@ export default function CataloguePage() {
                       (!selectedProduct || loadingTypes) && "opacity-50 cursor-not-allowed"
                     )}
                   >
-                    <option value="" disabled>
-                      {loadingTypes ? "Chargement..." : "Sélectionner..."}
+                    <option value="">
+                      {loadingTypes ? "Chargement..." : "Toutes les classes"}
                     </option>
                     {itemTypes.map(t => (
                       <option key={t.itemTypeId} value={t.itemTypeId}>
