@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
 
 const PDS_PRICE_ID = 17; // priceid for 08-PDS (PRIX DETAIL / MSRP)
+const EXP_PRICE_ID = 4;  // priceid for 01-EXPERT PRICE
 
 export async function GET(request: NextRequest) {
   try {
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Main query: Get prices with MAX(itempricedateid) per item
-    // This ensures all qty ranges for an item use the same date
+    // Added Items.volume for ($)/L calculation
     const mainQuery = `
       WITH LatestDatePerItem AS (
         SELECT 
@@ -60,6 +61,7 @@ export async function GET(request: NextRequest) {
         i."Descr" as "description",
         i."NetWeight" as "caisse",
         i."model" as "format",
+        i."volume" as "volume",
         p."Name" as "categoryName",
         t."descr" as "className",
         ipr."fromqty" as "qtyMin",
@@ -83,7 +85,7 @@ export async function GET(request: NextRequest) {
 
     const mainParams = [...baseParams, priceIdNum];
 
-    // PDS query: Get PDS prices with MAX(itempricedateid) per item
+    // PDS query: Get PDS prices (priceid=17)
     const pdsQuery = `
       WITH LatestDatePerItem AS (
         SELECT 
@@ -111,35 +113,87 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
     `;
 
-    console.log("Main query params:", mainParams);
-    console.log("PDS query params:", baseParams);
+    // EXP base price query (priceid=4) for COÛT EXP calculation
+    const expQuery = `
+      WITH LatestDatePerItem AS (
+        SELECT 
+          ipr."itemid",
+          MAX(ipr."itempricedateid") as "latestDateId"
+        FROM public."itempricerange" ipr
+        INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
+        WHERE ipr."priceid" = ${EXP_PRICE_ID}
+          AND i."ProdId" = $1
+          ${itemFilterSQL}
+        GROUP BY ipr."itemid"
+      )
+      SELECT 
+        i."ItemId" as "itemId",
+        ipr."fromqty" as "qtyMin",
+        ipr."price" as "expPrice"
+      FROM public."itempricerange" ipr
+      INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
+      INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
+      INNER JOIN LatestDatePerItem ld ON ipr."itemid" = ld."itemid" AND ipr."itempricedateid" = ld."latestDateId"
+      WHERE ipr."priceid" = ${EXP_PRICE_ID}
+        AND i."ProdId" = $1
+        AND pl."IsActive" = true
+        ${itemFilterSQL}
+      ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
+    `;
 
-    // Execute both queries in parallel
-    const [mainResult, pdsResult] = await Promise.all([
+    // Discount query: Get discount amounts per item
+    // Join: Items → RecordSpecData → _DiscountMaintenanceHdr → _DiscountMaintenanceDtl
+    const discountQuery = `
+      SELECT 
+        i."ItemId" as "itemId",
+        dmd."_CostingDiscountAmt" as "discountAmt"
+      FROM public."Items" i
+      INNER JOIN public."RecordSpecData" rsd ON i."ItemId" = rsd."TableId"
+      INNER JOIN public."_DiscountMaintenanceHdr" dmh ON CAST(rsd."FieldValue" AS INTEGER) = dmh."DiscountMaintenanceHdrId"
+      INNER JOIN public."_DiscountMaintenanceDtl" dmd ON dmh."DiscountMaintenanceHdrId" = dmd."DiscountMaintenanceHdrId"
+      WHERE i."ProdId" = $1
+        ${itemFilterSQL}
+    `;
+
+    console.log("Executing queries...");
+
+    // Execute all queries in parallel
+    const [mainResult, pdsResult, expResult, discountResult] = await Promise.all([
       pg.query(mainQuery, mainParams),
-      pg.query(pdsQuery, baseParams)
+      pg.query(pdsQuery, baseParams),
+      pg.query(expQuery, baseParams),
+      pg.query(discountQuery, baseParams).catch(err => {
+        console.log("Discount query error (table may not exist):", err.message);
+        return { rows: [] };
+      })
     ]);
 
     const rows = mainResult.rows;
     const pdsRows = pdsResult.rows;
+    const expRows = expResult.rows;
+    const discountRows = discountResult.rows;
 
-    console.log(`Main query returned ${rows.length} rows`);
-    console.log(`PDS query returned ${pdsRows.length} rows`);
+    console.log(`Main: ${rows.length}, PDS: ${pdsRows.length}, EXP: ${expRows.length}, Discounts: ${discountRows.length}`);
 
     // Build PDS price map: itemId -> { qtyMin -> pdsPrice }
     const pdsMap: Record<number, Record<number, number>> = {};
-    
     for (const row of pdsRows) {
-      const itemIdVal = row.itemId;
-      const qtyMin = parseInt(row.qtyMin);
-      
-      if (!pdsMap[itemIdVal]) {
-        pdsMap[itemIdVal] = {};
-      }
-      pdsMap[itemIdVal][qtyMin] = parseFloat(row.pdsPrice);
+      if (!pdsMap[row.itemId]) pdsMap[row.itemId] = {};
+      pdsMap[row.itemId][parseInt(row.qtyMin)] = parseFloat(row.pdsPrice);
     }
 
-    console.log("PDS map item count:", Object.keys(pdsMap).length);
+    // Build EXP price map: itemId -> { qtyMin -> expPrice }
+    const expMap: Record<number, Record<number, number>> = {};
+    for (const row of expRows) {
+      if (!expMap[row.itemId]) expMap[row.itemId] = {};
+      expMap[row.itemId][parseInt(row.qtyMin)] = parseFloat(row.expPrice);
+    }
+
+    // Build discount map: itemId -> discountAmt
+    const discountMap: Record<number, number> = {};
+    for (const row of discountRows) {
+      discountMap[row.itemId] = parseFloat(row.discountAmt) || 0;
+    }
 
     // Group main results by item
     const itemsMap: Record<number, any> = {};
@@ -152,22 +206,31 @@ export async function GET(request: NextRequest) {
           description: row.description,
           caisse: row.caisse ? parseFloat(row.caisse) : null,
           format: row.format || null,
+          volume: row.volume ? parseFloat(row.volume) : null,
           categoryName: row.categoryName,
           className: row.className,
           priceListName: row.priceListName,
           priceCode: row.priceCode,
+          discountAmt: discountMap[row.itemId] || 0,
           ranges: []
         };
       }
       
       const qtyMin = parseInt(row.qtyMin);
       const pdsPrice = pdsMap[row.itemId]?.[qtyMin] ?? null;
+      const expBasePrice = expMap[row.itemId]?.[qtyMin] ?? null;
+      const discountAmt = discountMap[row.itemId] || 0;
+      
+      // COÛT EXP = EXP base price + discount amount
+      const coutExp = expBasePrice !== null ? expBasePrice + discountAmt : null;
       
       itemsMap[row.itemId].ranges.push({
         id: row.id,
         qtyMin: qtyMin,
         unitPrice: parseFloat(row.unitPrice),
-        pdsPrice: pdsPrice
+        pdsPrice: pdsPrice,
+        expBasePrice: expBasePrice,
+        coutExp: coutExp
       });
     }
 
