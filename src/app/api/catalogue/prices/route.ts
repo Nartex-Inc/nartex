@@ -20,38 +20,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
     }
 
-    // Build item filter clause
-    let itemFilter = "";
-    const params: any[] = [parseInt(priceId, 10), parseInt(prodId, 10)];
+    const priceIdNum = parseInt(priceId, 10);
+    const prodIdNum = parseInt(prodId, 10);
+
+    // Build WHERE conditions dynamically
+    let whereConditions = `
+      ipr."priceid" = $1
+      AND i."ProdId" = $2
+      AND pl."IsActive" = true
+    `;
+    
+    const params: any[] = [priceIdNum, prodIdNum];
     let paramIdx = 3;
 
     if (itemId) {
-      itemFilter = `AND i."ItemId" = $${paramIdx}`;
+      whereConditions += ` AND i."ItemId" = $${paramIdx}`;
       params.push(parseInt(itemId, 10));
       paramIdx++;
     } else if (typeId) {
-      itemFilter = `AND i."locitemtype" = $${paramIdx}`;
+      whereConditions += ` AND i."locitemtype" = $${paramIdx}`;
       params.push(parseInt(typeId, 10));
       paramIdx++;
     }
 
-    // Optimized query using CTE with ROW_NUMBER to get latest prices
-    // This avoids the slow correlated subquery
+    // Simpler query: Get all prices, then filter to latest in JS
+    // This avoids complex CTEs that might cause issues
     const query = `
-      WITH LatestPrices AS (
-        SELECT 
-          ipr."itemid",
-          ipr."fromqty",
-          ipr."price",
-          ipr."itempricerangeid",
-          ipr."priceid",
-          ROW_NUMBER() OVER (
-            PARTITION BY ipr."itemid", ipr."priceid", ipr."fromqty" 
-            ORDER BY ipr."itempricedateid" DESC
-          ) as rn
-        FROM public."itempricerange" ipr
-        WHERE ipr."priceid" = $1
-      )
       SELECT 
         i."ItemId" as "itemId",
         i."ItemCode" as "itemCode",
@@ -60,9 +54,10 @@ export async function GET(request: NextRequest) {
         i."NetWeight" as "udm",
         p."Name" as "categoryName",
         t."descr" as "className",
-        lp."fromqty" as "qtyMin",
-        lp."price" as "unitPrice",
-        lp."itempricerangeid" as "id",
+        ipr."fromqty" as "qtyMin",
+        ipr."price" as "unitPrice",
+        ipr."itempricerangeid" as "id",
+        ipr."itempricedateid" as "dateId",
         pl."Descr" as "priceListName",
         pl."Pricecode" as "priceCode",
         COALESCE(
@@ -72,58 +67,73 @@ export async function GET(request: NextRequest) {
           END, 
           'CAD'
         ) as "currency"
-      FROM LatestPrices lp
-      INNER JOIN public."Items" i ON lp."itemid" = i."ItemId"
-      INNER JOIN public."PriceList" pl ON lp."priceid" = pl."priceid"
+      FROM public."itempricerange" ipr
+      INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
+      INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
       LEFT JOIN public."Products" p ON i."ProdId" = p."ProdId"
       LEFT JOIN public."itemtype" t ON i."locitemtype" = t."itemtypeid"
-      WHERE lp.rn = 1
-        AND pl."IsActive" = true
-        AND i."ProdId" = $2
-        ${itemFilter}
-      ORDER BY i."ItemCode" ASC, lp."fromqty" ASC
+      WHERE ${whereConditions}
+      ORDER BY i."ItemCode" ASC, ipr."fromqty" ASC, ipr."itempricedateid" DESC
     `;
 
-    console.log("Executing prices query with params:", params);
+    console.log("Prices API - Executing query with params:", params);
     const startTime = Date.now();
     
     const { rows } = await pg.query(query, params);
     
-    console.log(`Query returned ${rows.length} rows in ${Date.now() - startTime}ms`);
+    console.log(`Prices API - Query returned ${rows.length} rows in ${Date.now() - startTime}ms`);
 
-    // Group by item with enhanced data structure
+    // Group by item and keep only latest price per qty range
     const itemsMap: Record<number, any> = {};
+    const seenRanges: Set<string> = new Set(); // Track itemId-qtyMin combinations
     
     for (const row of rows) {
-       if (!itemsMap[row.itemId]) {
-          itemsMap[row.itemId] = {
-             itemId: row.itemId,
-             itemCode: row.itemCode,
-             description: row.description,
-             format: row.format ? parseFloat(row.format) : null,
-             udm: row.udm ? parseFloat(row.udm) : null,
-             categoryName: row.categoryName,
-             className: row.className,
-             priceListName: row.priceListName,
-             priceCode: row.priceCode,
-             currency: row.currency,
-             ranges: []
-          };
-       }
-       itemsMap[row.itemId].ranges.push({
-          id: row.id,
-          qtyMin: parseInt(row.qtyMin),
-          unitPrice: parseFloat(row.unitPrice)
-       });
+      const rangeKey = `${row.itemId}-${row.qtyMin}`;
+      
+      // Skip if we already have a price for this item+qty (we ordered by dateId DESC, so first is latest)
+      if (seenRanges.has(rangeKey)) {
+        continue;
+      }
+      seenRanges.add(rangeKey);
+
+      if (!itemsMap[row.itemId]) {
+        itemsMap[row.itemId] = {
+          itemId: row.itemId,
+          itemCode: row.itemCode,
+          description: row.description,
+          format: row.format ? parseFloat(row.format) : null,
+          udm: row.udm ? parseFloat(row.udm) : null,
+          categoryName: row.categoryName,
+          className: row.className,
+          priceListName: row.priceListName,
+          priceCode: row.priceCode,
+          currency: row.currency,
+          ranges: []
+        };
+      }
+      
+      itemsMap[row.itemId].ranges.push({
+        id: row.id,
+        qtyMin: parseInt(row.qtyMin),
+        unitPrice: parseFloat(row.unitPrice)
+      });
     }
 
-    const result = Object.values(itemsMap);
-    console.log(`Returning ${result.length} items with prices`);
+    // Convert to array and sort ranges by qtyMin
+    const result = Object.values(itemsMap).map((item: any) => ({
+      ...item,
+      ranges: item.ranges.sort((a: any, b: any) => a.qtyMin - b.qtyMin)
+    }));
+
+    console.log(`Prices API - Returning ${result.length} items with prices`);
 
     return NextResponse.json(result);
     
   } catch (error: any) {
     console.error("Prices API error:", error);
-    return NextResponse.json({ error: error.message || "Erreur génération" }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || "Erreur lors de la génération des prix" }, 
+      { status: 500 }
+    );
   }
 }
