@@ -10,8 +10,8 @@ export async function GET() {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
 
-    // STRICT filtering: cieid = 2 AND PriceListType = 'customer'
-    // Include Pricecodes '01' through '08' AND '08-PDS'
+    // Include Pricecodes '01' through '08' AND priceid = 17 (08-PDS)
+    // Exclude priceid=17 from main list as it will be shown in a separate column
     const query = `
       SELECT 
         "priceid" as "priceId",
@@ -28,10 +28,8 @@ export async function GET() {
       WHERE "IsActive" = true
         AND "cieid" = 2
         AND "PriceListType" = 'customer'
-        AND (
-          "Pricecode" BETWEEN '01' AND '08'
-          OR "Pricecode" = '08-PDS'
-        )
+        AND "Pricecode" BETWEEN '01' AND '08'
+        AND "priceid" != 17
       ORDER BY "Pricecode" ASC
     `;
 
