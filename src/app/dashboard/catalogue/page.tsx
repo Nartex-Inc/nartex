@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   Search, Package, Tag, X, ChevronDown, 
-  Loader2, AlertCircle, RefreshCw, FileText, Zap, Layers
+  Loader2, AlertCircle, RefreshCw, FileText, Zap, Layers, LayoutGrid, ShoppingCart
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -82,6 +82,7 @@ export default function CataloguePage() {
         if (plRes.ok) {
           const pls: PriceList[] = await plRes.json();
           setPriceLists(pls);
+          // Auto-select first list if available (e.g. 01-Expert)
           if (pls.length > 0) setSelectedPriceList(pls[0]);
         }
       } catch (err) {
