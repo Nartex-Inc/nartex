@@ -1,4 +1,3 @@
-// src/app/api/catalogue/items/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -14,7 +13,6 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const itemTypeId = searchParams.get("itemTypeId");
     const search = searchParams.get("search");
-    const prodId = searchParams.get("prodId");
 
     let query = `
       SELECT 
@@ -28,14 +26,11 @@ export async function GET(request: NextRequest) {
       FROM public."Items" i
       LEFT JOIN public."itemtype" t ON i."locitemtype" = t."itemtypeid"
       LEFT JOIN public."Products" p ON i."ProdId" = p."ProdId"
-      WHERE i."IsActive" = true
+      WHERE i."ProdId" BETWEEN 1 AND 10
     `;
     
     const params: (string | number)[] = [];
     let paramIndex = 1;
-
-    // The logic you confirmed was working previously
-    query += ` AND i."ProdId" BETWEEN 1 AND 10 `;
 
     if (search) {
       query += ` AND (i."ItemCode" ILIKE $${paramIndex} OR i."Descr" ILIKE $${paramIndex})`;
@@ -57,20 +52,13 @@ export async function GET(request: NextRequest) {
       params.push(`${search}%`);
       
     } else if (itemTypeId) {
-      // Fetching by specific class
       query += ` AND i."locitemtype" = $${paramIndex}`;
       params.push(parseInt(itemTypeId, 10));
       paramIndex++;
       query += ` ORDER BY i."ItemCode" ASC`;
-    } else if (prodId) {
-      // Fallback: Fetching by product ID (if no class selected)
-      query += ` AND i."ProdId" = $${paramIndex}`;
-      params.push(parseInt(prodId, 10));
-      paramIndex++;
-      query += ` ORDER BY i."ItemCode" ASC`;
     } else {
       return NextResponse.json(
-        { error: "Paramètres manquants" }, 
+        { error: "Paramètres manquants: itemTypeId ou search requis" }, 
         { status: 400 }
       );
     }
