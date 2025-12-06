@@ -40,7 +40,8 @@ export async function GET(request: NextRequest) {
       paramIdx++;
     }
 
-    // Common IsActive filter
+    // Filter for Active items only
+    // NOTE: Change to i."isActive" if your DB uses camelCase
     const activeFilter = `AND i."IsActive" = true`;
 
     const mainQuery = `
@@ -103,7 +104,9 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
     `;
 
-    // FIX: Added safeguard (rsd."FieldValue" ~ '^[0-9]+$') to prevent crashing on dirty data
+    // DISCOUNT QUERY
+    // 1. Filter rsd."FieldValue" with Regex to prevent crashes on non-integer data
+    // 2. Map Items -> RecordSpecData -> _DiscountMaintenanceHdr -> _DiscountMaintenanceDtl
     const discountQuery = `
       SELECT 
         i."ItemId" as "itemId", 
@@ -115,8 +118,10 @@ export async function GET(request: NextRequest) {
         AND rsd."FieldName" = 'DiscountMaintenance'
         AND rsd."TableName" = 'items'
         AND rsd."FieldValue" ~ '^[0-9]+$' 
+      INNER JOIN public."_DiscountMaintenanceHdr" dmh
+        ON CAST(rsd."FieldValue" AS INTEGER) = dmh."DiscountMaintenanceHdrId"
       INNER JOIN public."_DiscountMaintenanceDtl" dmd 
-        ON CAST(rsd."FieldValue" AS INTEGER) = dmd."DiscountMaintenanceHdrId"
+        ON dmh."DiscountMaintenanceHdrId" = dmd."DiscountMaintenanceHdrId"
       WHERE i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
       ORDER BY i."ItemId" ASC, dmd."GreatherThan" ASC
     `;
@@ -136,7 +141,7 @@ export async function GET(request: NextRequest) {
     const expRows = expResult.rows;
     const discountRows = discountResult.rows;
 
-    // Build maps
+    // Build Maps
     const pdsMap: Record<number, Record<number, number>> = {};
     for (const row of pdsRows) {
       if (!pdsMap[row.itemId]) pdsMap[row.itemId] = {};
@@ -157,7 +162,7 @@ export async function GET(request: NextRequest) {
       discountMap[row.itemId][greaterThan] = discountAmt;
     }
     
-    // Group results
+    // Process Items
     const itemsMap: Record<number, any> = {};
     
     for (const row of rows) {
@@ -181,14 +186,14 @@ export async function GET(request: NextRequest) {
       const pdsPrice = pdsMap[row.itemId]?.[qtyMin] ?? null;
       const expBasePrice = expMap[row.itemId]?.[qtyMin] ?? null;
       
-      // Get discount for this quantity tier
+      // Calculate Discount
+      // Logic: Find the highest tier that is less than or equal to current qty
       let costingDiscountAmt = 0;
       const itemDiscounts = discountMap[row.itemId];
       if (itemDiscounts) {
         if (itemDiscounts[qtyMin] !== undefined) {
           costingDiscountAmt = itemDiscounts[qtyMin];
         } else {
-          // Find the appropriate tier (largest greaterThan that is <= qtyMin)
           const tiers = Object.keys(itemDiscounts).map(Number).sort((a, b) => b - a);
           for (const tier of tiers) {
             if (tier <= qtyMin) {
@@ -199,8 +204,10 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      // COÛT EXP = EXP base price MINUS discount
-      const coutExp = expBasePrice !== null ? expBasePrice - costingDiscountAmt : null;
+      // COÛT EXP Calculation
+      // If DB value is -0.50 (Qty 1), we add it: 3.62 + (-0.50) = 3.12
+      // If DB value is 0.05 (Qty 240), we add it: 3.07 + 0.05 = 3.12
+      const coutExp = expBasePrice !== null ? expBasePrice + costingDiscountAmt : null;
       
       itemsMap[row.itemId].ranges.push({
         id: row.id,
