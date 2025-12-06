@@ -231,7 +231,6 @@ export async function GET(request: NextRequest) {
           className: row.className,
           priceListName: row.priceListName,
           priceCode: row.priceCode,
-          discountAmt: discountMap[row.itemId] || 0,
           ranges: []
         };
       }
@@ -239,10 +238,30 @@ export async function GET(request: NextRequest) {
       const qtyMin = parseInt(row.qtyMin);
       const pdsPrice = pdsMap[row.itemId]?.[qtyMin] ?? null;
       const expBasePrice = expMap[row.itemId]?.[qtyMin] ?? null;
-      const discountAmt = discountMap[row.itemId] || 0;
       
-      // COÛT EXP = EXP base price + discount amount
-      const coutExp = expBasePrice !== null ? expBasePrice + discountAmt : null;
+      // Get discount amount for this specific quantity
+      // First try exact match on GreatherThan = qtyMin
+      // If no exact match, find the highest GreatherThan that is <= qtyMin
+      let costingDiscountAmt = 0;
+      const itemDiscounts = discountMap[row.itemId];
+      if (itemDiscounts) {
+        // Try exact match first
+        if (itemDiscounts[qtyMin] !== undefined) {
+          costingDiscountAmt = itemDiscounts[qtyMin];
+        } else {
+          // Find the highest tier that applies (GreatherThan <= qtyMin)
+          const tiers = Object.keys(itemDiscounts).map(Number).sort((a, b) => b - a);
+          for (const tier of tiers) {
+            if (tier <= qtyMin) {
+              costingDiscountAmt = itemDiscounts[tier];
+              break;
+            }
+          }
+        }
+      }
+      
+      // COÛT EXP = EXP base price MINUS _CostingDiscountAmt
+      const coutExp = expBasePrice !== null ? expBasePrice - costingDiscountAmt : null;
       
       itemsMap[row.itemId].ranges.push({
         id: row.id,
@@ -250,7 +269,8 @@ export async function GET(request: NextRequest) {
         unitPrice: parseFloat(row.unitPrice),
         pdsPrice: pdsPrice,
         expBasePrice: expBasePrice,
-        coutExp: coutExp
+        coutExp: coutExp,
+        costingDiscountAmt: costingDiscountAmt  // DEBUG: include discount amount
       });
     }
 
