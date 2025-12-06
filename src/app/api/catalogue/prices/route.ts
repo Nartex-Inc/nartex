@@ -100,8 +100,8 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
     `;
 
-    // Discount query - DIRECT join: RecordSpecData.FieldValue (string) -> _DiscountMaintenanceDtl.DiscountMaintenanceHdrId (int)
-    // SKIP _DiscountMaintenanceHdr table entirely!
+    // FIX: Added (rsd."FieldValue" ~ '^[0-9]+$') to PREVENT CRASHES on dirty data
+    // This ensures we only try to join when the field value is actually a number.
     const discountQuery = `
       SELECT 
         i."ItemId" as "itemId", 
@@ -113,6 +113,7 @@ export async function GET(request: NextRequest) {
       INNER JOIN public."RecordSpecData" rsd 
         ON i."ItemId" = rsd."TableId"
         AND rsd."FieldName" = 'DiscountMaintenance'
+        AND rsd."FieldValue" ~ '^[0-9]+$' 
       INNER JOIN public."_DiscountMaintenanceDtl" dmd 
         ON CAST(rsd."FieldValue" AS INTEGER) = dmd."DiscountMaintenanceHdrId"
       WHERE i."ProdId" = $1 ${itemFilterSQL}
@@ -121,31 +122,6 @@ export async function GET(request: NextRequest) {
 
     console.log("========================================");
     console.log("PRICES API - ProdId:", prodIdNum, "TypeId:", typeId, "ItemId:", itemId);
-    console.log("========================================");
-
-    // DEBUG: Test the direct join for item 107
-    try {
-      const debugJoin = await pg.query(`
-        SELECT 
-          i."ItemId", i."ItemCode",
-          rsd."FieldValue" as "hdrId",
-          dmd."GreatherThan", dmd."_CostingDiscountAmt"
-        FROM public."Items" i
-        INNER JOIN public."RecordSpecData" rsd 
-          ON i."ItemId" = rsd."TableId"
-          AND rsd."FieldName" = 'DiscountMaintenance'
-        INNER JOIN public."_DiscountMaintenanceDtl" dmd 
-          ON CAST(rsd."FieldValue" AS INTEGER) = dmd."DiscountMaintenanceHdrId"
-        WHERE i."ItemId" = 107
-        ORDER BY dmd."GreatherThan"
-      `);
-      console.log("DEBUG - Direct join for ItemId 107 (OC65):");
-      debugJoin.rows.forEach((r: any) => {
-        console.log(`  GreatherThan=${r.GreatherThan} -> _CostingDiscountAmt=${r._CostingDiscountAmt}`);
-      });
-    } catch (err: any) {
-      console.log("Debug query error:", err.message);
-    }
 
     // Execute main queries
     const [mainResult, pdsResult, expResult, discountResult] = await Promise.all([
@@ -153,6 +129,7 @@ export async function GET(request: NextRequest) {
       pg.query(pdsQuery, baseParams),
       pg.query(expQuery, baseParams),
       pg.query(discountQuery, baseParams).catch(err => {
+        // If this logs, it means the query crashed (likely casting error) and returned empty
         console.error("Discount query error:", err.message);
         return { rows: [] };
       })
@@ -164,15 +141,6 @@ export async function GET(request: NextRequest) {
     const discountRows = discountResult.rows;
 
     console.log(`Results: Main=${rows.length}, PDS=${pdsRows.length}, EXP=${expRows.length}, Discounts=${discountRows.length}`);
-    
-    if (discountRows.length > 0) {
-      console.log("DISCOUNT ROWS FOUND:");
-      discountRows.forEach((row: any) => {
-        console.log(`  ItemId=${row.itemId} (${row.itemCode}): HdrId=${row.hdrId}, GreaterThan=${row.greaterThan}, Amt=${row.costingDiscountAmt}`);
-      });
-    } else {
-      console.log("NO DISCOUNT ROWS - Check joins!");
-    }
 
     // Build maps
     const pdsMap: Record<number, Record<number, number>> = {};
@@ -194,8 +162,6 @@ export async function GET(request: NextRequest) {
       const discountAmt = parseFloat(row.costingDiscountAmt) || 0;
       discountMap[row.itemId][greaterThan] = discountAmt;
     }
-    
-    console.log("Discount map items:", Object.keys(discountMap).length);
 
     // Group results by item
     const itemsMap: Record<number, any> = {};
@@ -256,9 +222,6 @@ export async function GET(request: NextRequest) {
       ...item,
       ranges: item.ranges.sort((a: any, b: any) => a.qtyMin - b.qtyMin)
     }));
-
-    console.log(`Returning ${result.length} items with prices`);
-    console.log("========================================");
 
     return NextResponse.json(result);
     
