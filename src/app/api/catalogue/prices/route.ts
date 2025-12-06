@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
       paramIdx++;
     }
 
-    // Main query - ACTIVE ITEMS ONLY
+    // Main query - using lowercase isactive (PostgreSQL converts unquoted to lowercase)
     const mainQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", MAX(ipr."itempricedateid") as "latestDateId"
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
     `;
     const mainParams = [...baseParams, priceIdNum];
 
-    // PDS query - ACTIVE ITEMS ONLY
+    // PDS query
     const pdsQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", MAX(ipr."itempricedateid") as "latestDateId"
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
     `;
 
-    // EXP query - ACTIVE ITEMS ONLY
+    // EXP query
     const expQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", MAX(ipr."itempricedateid") as "latestDateId"
@@ -119,8 +119,7 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
     `;
 
-    // Discount query - ACTIVE ITEMS ONLY
-    // Direct join from RecordSpecData to _DiscountMaintenanceDtl (skip Hdr table)
+    // Discount query
     const discountQuery = `
       SELECT 
         i."ItemId" as "itemId", 
@@ -141,8 +140,6 @@ export async function GET(request: NextRequest) {
 
     console.log("========================================");
     console.log("PRICES API - ProdId:", prodIdNum, "TypeId:", typeId, "ItemId:", itemId);
-    console.log("itemFilterSQL:", itemFilterSQL);
-    console.log("baseParams:", baseParams);
     console.log("========================================");
 
     // Execute all queries in parallel
@@ -168,11 +165,9 @@ export async function GET(request: NextRequest) {
       discountRows.slice(0, 10).forEach((row: any) => {
         console.log(`  ItemId=${row.itemId} (${row.itemCode}): GreaterThan=${row.greaterThan}, Amt=${row.costingDiscountAmt}`);
       });
-    } else {
-      console.log("NO DISCOUNT ROWS FOUND");
     }
 
-    // Build PDS map: itemId -> { qtyMin -> pdsPrice }
+    // Build PDS map
     const pdsMap: Record<number, Record<number, number>> = {};
     for (const row of pdsRows) {
       const id = Number(row.itemId);
@@ -181,7 +176,7 @@ export async function GET(request: NextRequest) {
       pdsMap[id][qty] = parseFloat(row.pdsPrice);
     }
 
-    // Build EXP map: itemId -> { qtyMin -> expPrice }
+    // Build EXP map
     const expMap: Record<number, Record<number, number>> = {};
     for (const row of expRows) {
       const id = Number(row.itemId);
@@ -190,7 +185,7 @@ export async function GET(request: NextRequest) {
       expMap[id][qty] = parseFloat(row.expPrice);
     }
 
-    // Build discount map: itemId -> { greaterThan -> costingDiscountAmt }
+    // Build discount map
     const discountMap: Record<number, Record<number, number>> = {};
     for (const row of discountRows) {
       const id = Number(row.itemId);
@@ -233,11 +228,9 @@ export async function GET(request: NextRequest) {
       const itemDiscounts = discountMap[id];
       
       if (itemDiscounts) {
-        // Try exact match on GreatherThan = qtyMin
         if (itemDiscounts[qtyMin] !== undefined) {
           costingDiscountAmt = itemDiscounts[qtyMin];
         } else {
-          // Find highest tier where GreatherThan <= qtyMin
           const tiers = Object.keys(itemDiscounts).map(Number).sort((a, b) => b - a);
           for (const tier of tiers) {
             if (tier <= qtyMin) {
@@ -248,7 +241,6 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      // COÛT EXP = EXP base price MINUS discount
       const coutExp = expBasePrice !== null ? expBasePrice - costingDiscountAmt : null;
       
       itemsMap[id].ranges.push({
@@ -268,7 +260,6 @@ export async function GET(request: NextRequest) {
     }));
 
     console.log(`Returning ${result.length} items`);
-    console.log("========================================");
 
     return NextResponse.json(result);
     
