@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Main query: Get prices with MAX(itempricedateid) per item
+    // Added Items.volume for ($)/L calculation
     const mainQuery = `
       WITH LatestDatePerItem AS (
         SELECT 
@@ -112,7 +113,7 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
     `;
 
-    // EXP base price query (priceid=4)
+    // EXP base price query (priceid=4) for COÛT EXP calculation
     const expQuery = `
       WITH LatestDatePerItem AS (
         SELECT 
@@ -140,37 +141,38 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
     `;
 
-    // Discount query:
-    // 1. Items -> RecordSpecData (TableId)
-    // 2. RecordSpecData (FieldValue) -> _DiscountMaintenanceHdr (HdrId)
-    // 3. _DiscountMaintenanceHdr (HdrId) -> _DiscountMaintenanceDtl (HdrId)
+    // Discount query: Get discount amounts per item PER QUANTITY TIER
+    // Join: Items.ItemId → RecordSpecData.TableId (where FieldName = 'DiscountMaintenance')
+    //       RecordSpecData.FieldValue → _DiscountMaintenanceHdr.DiscountMaintenanceHdrId
+    //       _DiscountMaintenanceHdr.DiscountMaintenanceHdrId → _DiscountMaintenanceDtl.DiscountMaintenanceHdrId
+    // GreatherThan in _DiscountMaintenanceDtl matches fromqty in itempricerange
     const discountQuery = `
       SELECT 
         i."ItemId" as "itemId",
-        dmd."GreatherThan" as "minQty",
-        dmd."_CostingDiscountAmt" as "discountAmt"
+        dmd."GreatherThan" as "greaterThan",
+        dmd."_CostingDiscountAmt" as "costingDiscountAmt"
       FROM public."Items" i
       INNER JOIN public."RecordSpecData" rsd 
         ON i."ItemId" = rsd."TableId"
-      INNER JOIN public."_DiscountMaintenanceHdr" dmh
+        AND rsd."FieldName" = 'DiscountMaintenance'
+      INNER JOIN public."_DiscountMaintenanceHdr" dmh 
         ON CAST(rsd."FieldValue" AS INTEGER) = dmh."DiscountMaintenanceHdrId"
       INNER JOIN public."_DiscountMaintenanceDtl" dmd 
         ON dmh."DiscountMaintenanceHdrId" = dmd."DiscountMaintenanceHdrId"
       WHERE i."ProdId" = $1
-        AND rsd."TableName" = 'items'
-        AND rsd."FieldName" = 'DiscountMaintenance'
         ${itemFilterSQL}
-      ORDER BY i."ItemId", dmd."GreatherThan" DESC
+      ORDER BY i."ItemId" ASC, dmd."GreatherThan" ASC
     `;
 
     console.log("Executing queries...");
 
+    // Execute all queries in parallel
     const [mainResult, pdsResult, expResult, discountResult] = await Promise.all([
       pg.query(mainQuery, mainParams),
       pg.query(pdsQuery, baseParams),
       pg.query(expQuery, baseParams),
       pg.query(discountQuery, baseParams).catch(err => {
-        console.error("Discount query error:", err.message);
+        console.log("Discount query error (table may not exist):", err.message);
         return { rows: [] };
       })
     ]);
@@ -182,31 +184,27 @@ export async function GET(request: NextRequest) {
 
     console.log(`Main: ${rows.length}, PDS: ${pdsRows.length}, EXP: ${expRows.length}, Discounts: ${discountRows.length}`);
 
-    // Data Maps
+    // Build PDS price map: itemId -> { qtyMin -> pdsPrice }
     const pdsMap: Record<number, Record<number, number>> = {};
     for (const row of pdsRows) {
       if (!pdsMap[row.itemId]) pdsMap[row.itemId] = {};
       pdsMap[row.itemId][parseInt(row.qtyMin)] = parseFloat(row.pdsPrice);
     }
 
+    // Build EXP price map: itemId -> { qtyMin -> expPrice }
     const expMap: Record<number, Record<number, number>> = {};
     for (const row of expRows) {
       if (!expMap[row.itemId]) expMap[row.itemId] = {};
       expMap[row.itemId][parseInt(row.qtyMin)] = parseFloat(row.expPrice);
     }
 
-    // Discount Tiers Map
-    interface DiscountTier { minQty: number; val: number; }
-    const discountMap: Record<number, DiscountTier[]> = {};
+    // Build discount map: itemId -> discountAmt
+    const discountMap: Record<number, number> = {};
     for (const row of discountRows) {
-      if (!discountMap[row.itemId]) discountMap[row.itemId] = [];
-      discountMap[row.itemId].push({
-        minQty: parseInt(row.minQty),
-        val: parseFloat(row.discountAmt) || 0
-      });
+      discountMap[row.itemId] = parseFloat(row.discountAmt) || 0;
     }
 
-    // Build Result
+    // Group main results by item
     const itemsMap: Record<number, any> = {};
     
     for (const row of rows) {
@@ -222,30 +220,18 @@ export async function GET(request: NextRequest) {
           className: row.className,
           priceListName: row.priceListName,
           priceCode: row.priceCode,
+          discountAmt: discountMap[row.itemId] || 0,
           ranges: []
         };
       }
       
       const qtyMin = parseInt(row.qtyMin);
-      
-      // Get associated prices
       const pdsPrice = pdsMap[row.itemId]?.[qtyMin] ?? null;
       const expBasePrice = expMap[row.itemId]?.[qtyMin] ?? null;
+      const discountAmt = discountMap[row.itemId] || 0;
       
-      // Calculate Discount
-      // Find the row where GreatherThan is closest to qtyMin (without exceeding it)
-      // Since array is sorted DESC, we look for first entry where minQty <= qtyMin
-      let discountAmt = 0;
-      const tiers = discountMap[row.itemId];
-      if (tiers && tiers.length > 0) {
-        const tier = tiers.find(t => t.minQty <= qtyMin);
-        if (tier) {
-          discountAmt = tier.val;
-        }
-      }
-      
-      // COÛT EXP = EXP Base Price MINUS Discount Amt
-      const coutExp = expBasePrice !== null ? expBasePrice - discountAmt : null;
+      // COÛT EXP = EXP base price + discount amount
+      const coutExp = expBasePrice !== null ? expBasePrice + discountAmt : null;
       
       itemsMap[row.itemId].ranges.push({
         id: row.id,
@@ -253,15 +239,17 @@ export async function GET(request: NextRequest) {
         unitPrice: parseFloat(row.unitPrice),
         pdsPrice: pdsPrice,
         expBasePrice: expBasePrice,
-        coutExp: coutExp,
-        discountAmt: discountAmt
+        coutExp: coutExp
       });
     }
 
+    // Convert to array and sort ranges
     const result = Object.values(itemsMap).map((item: any) => ({
       ...item,
       ranges: item.ranges.sort((a: any, b: any) => a.qtyMin - b.qtyMin)
     }));
+
+    console.log(`Returning ${result.length} items with prices`);
 
     return NextResponse.json(result);
     
