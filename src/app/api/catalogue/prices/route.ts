@@ -42,7 +42,6 @@ export async function GET(request: NextRequest) {
     }
 
     // Main query: Get prices with MAX(itempricedateid) per item
-    // Added Items.volume for ($)/L calculation
     const mainQuery = `
       WITH LatestDatePerItem AS (
         SELECT 
@@ -142,15 +141,21 @@ export async function GET(request: NextRequest) {
     `;
 
     // Discount query: Get discount amounts per item
-    // Join: Items → RecordSpecData → _DiscountMaintenanceHdr → _DiscountMaintenanceDtl
+    // CORRECTED: Added TableName and FieldName constraints to RecordSpecData JOIN
+    // CORRECTED: Using _DiscountMaintenanceDtl based on screenshot
     const discountQuery = `
       SELECT 
         i."ItemId" as "itemId",
-        dmd."_CostingDiscountAmt" as "discountAmt"
+        dmd."_DiscountMaintenanceDtl" as "discountAmt"
       FROM public."Items" i
-      INNER JOIN public."RecordSpecData" rsd ON i."ItemId" = rsd."TableId"
-      INNER JOIN public."_DiscountMaintenanceHdr" dmh ON CAST(rsd."FieldValue" AS INTEGER) = dmh."DiscountMaintenanceHdrId"
-      INNER JOIN public."_DiscountMaintenanceDtl" dmd ON dmh."DiscountMaintenanceHdrId" = dmd."DiscountMaintenanceHdrId"
+      INNER JOIN public."RecordSpecData" rsd 
+        ON i."ItemId" = rsd."TableId" 
+        AND rsd."TableName" = 'Items'
+        AND rsd."FieldName" = 'DiscountMaintenance'
+      INNER JOIN public."_DiscountMaintenanceHdr" dmh 
+        ON CAST(rsd."FieldValue" AS INTEGER) = dmh."DiscountMaintenanceHdrId"
+      INNER JOIN public."_DiscountMaintenanceDtl" dmd 
+        ON dmh."DiscountMaintenanceHdrId" = dmd."DiscountMaintenanceHdrId"
       WHERE i."ProdId" = $1
         ${itemFilterSQL}
     `;
@@ -163,7 +168,7 @@ export async function GET(request: NextRequest) {
       pg.query(pdsQuery, baseParams),
       pg.query(expQuery, baseParams),
       pg.query(discountQuery, baseParams).catch(err => {
-        console.log("Discount query error (table may not exist):", err.message);
+        console.error("Discount query error:", err.message);
         return { rows: [] };
       })
     ]);
@@ -192,6 +197,7 @@ export async function GET(request: NextRequest) {
     // Build discount map: itemId -> discountAmt
     const discountMap: Record<number, number> = {};
     for (const row of discountRows) {
+      // Use _DiscountMaintenanceDtl (or the aliased "discountAmt")
       discountMap[row.itemId] = parseFloat(row.discountAmt) || 0;
     }
 
@@ -239,8 +245,6 @@ export async function GET(request: NextRequest) {
       ...item,
       ranges: item.ranges.sort((a: any, b: any) => a.qtyMin - b.qtyMin)
     }));
-
-    console.log(`Returning ${result.length} items with prices`);
 
     return NextResponse.json(result);
     
