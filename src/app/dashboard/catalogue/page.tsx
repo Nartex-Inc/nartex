@@ -239,7 +239,7 @@ function PriceModal({
                             Qte/Qty
                           </th>
                           
-                          {/* Coût Exp & % Exp - Left of Price */}
+                          {/* Coût Exp & % Exp (Moved here as requested) */}
                           {showDetails && (
                             <>
                               <th className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20">
