@@ -13,7 +13,6 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const itemTypeId = searchParams.get("itemTypeId");
     const search = searchParams.get("search");
-    const prodId = searchParams.get("prodId"); // Optional: if filtering by prodId in search dropdown
 
     let query = `
       SELECT 
@@ -27,16 +26,11 @@ export async function GET(request: NextRequest) {
       FROM public."Items" i
       LEFT JOIN public."itemtype" t ON i."locitemtype" = t."itemtypeid"
       LEFT JOIN public."Products" p ON i."ProdId" = p."ProdId"
-      WHERE i."IsActive" = true
+      WHERE i."ProdId" BETWEEN 1 AND 10
     `;
     
     const params: (string | number)[] = [];
     let paramIndex = 1;
-
-    // Optional: Filter by ProdId 1-10 restriction if your logic requires it, 
-    // otherwise remove or adjust as needed. 
-    // Added based on your previous snippet:
-    query += ` AND i."ProdId" BETWEEN 1 AND 10 `;
 
     if (search) {
       query += ` AND (i."ItemCode" ILIKE $${paramIndex} OR i."Descr" ILIKE $${paramIndex})`;
@@ -62,15 +56,9 @@ export async function GET(request: NextRequest) {
       params.push(parseInt(itemTypeId, 10));
       paramIndex++;
       query += ` ORDER BY i."ItemCode" ASC`;
-    } else if (prodId) {
-      // Fallback if only prodId is provided
-      query += ` AND i."ProdId" = $${paramIndex}`;
-      params.push(parseInt(prodId, 10));
-      paramIndex++;
-      query += ` ORDER BY i."ItemCode" ASC`;
     } else {
       return NextResponse.json(
-        { error: "Paramètres manquants" }, 
+        { error: "Paramètres manquants: itemTypeId ou search requis" }, 
         { status: 400 }
       );
     }
