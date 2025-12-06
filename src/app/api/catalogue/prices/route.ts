@@ -183,6 +183,11 @@ export async function GET(request: NextRequest) {
     const discountRows = discountResult.rows;
 
     console.log(`Main: ${rows.length}, PDS: ${pdsRows.length}, EXP: ${expRows.length}, Discounts: ${discountRows.length}`);
+    
+    // Log first few discount rows for debugging
+    if (discountRows.length > 0) {
+      console.log("Sample discount rows:", discountRows.slice(0, 10));
+    }
 
     // Build PDS price map: itemId -> { qtyMin -> pdsPrice }
     const pdsMap: Record<number, Record<number, number>> = {};
@@ -198,11 +203,17 @@ export async function GET(request: NextRequest) {
       expMap[row.itemId][parseInt(row.qtyMin)] = parseFloat(row.expPrice);
     }
 
-    // Build discount map: itemId -> discountAmt
-    const discountMap: Record<number, number> = {};
+    // Build discount map: itemId -> { greaterThan -> costingDiscountAmt }
+    // Maps quantity thresholds to discount amounts
+    const discountMap: Record<number, Record<number, number>> = {};
     for (const row of discountRows) {
-      discountMap[row.itemId] = parseFloat(row.discountAmt) || 0;
+      if (!discountMap[row.itemId]) discountMap[row.itemId] = {};
+      const greaterThan = parseInt(row.greaterThan);
+      const discountAmt = parseFloat(row.costingDiscountAmt) || 0;
+      discountMap[row.itemId][greaterThan] = discountAmt;
     }
+    
+    console.log("Discount map item count:", Object.keys(discountMap).length);
 
     // Group main results by item
     const itemsMap: Record<number, any> = {};
