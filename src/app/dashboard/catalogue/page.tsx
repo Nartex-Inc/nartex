@@ -1,3 +1,4 @@
+// src/app/dashboard/catalogue/page.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -64,7 +65,10 @@ function AnimatedPrice({ value, duration = 600 }: { value: number; duration?: nu
   const animationRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+    }
+
     const startValue = previousValue.current;
     const endValue = value;
     const startTime = performance.now();
@@ -73,15 +77,24 @@ function AnimatedPrice({ value, duration = 600 }: { value: number; duration?: nu
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
       const easeOut = 1 - Math.pow(1 - progress, 3);
-      setDisplayValue(startValue + (endValue - startValue) * easeOut);
+      const current = startValue + (endValue - startValue) * easeOut;
+      
+      setDisplayValue(current);
+
       if (progress < 1) {
         animationRef.current = requestAnimationFrame(animate);
       } else {
         previousValue.current = endValue;
       }
     };
+
     animationRef.current = requestAnimationFrame(animate);
-    return () => { if (animationRef.current) cancelAnimationFrame(animationRef.current); };
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
   }, [value, duration]);
 
   return <span>{displayValue.toFixed(2)}</span>;
@@ -92,42 +105,90 @@ function Toggle({ enabled, onChange, label }: { enabled: boolean; onChange: (v: 
   return (
     <label className="flex items-center gap-2 cursor-pointer select-none">
       <span className="text-white text-sm font-medium hidden md:inline-block">{label}</span>
-      <div onClick={() => onChange(!enabled)} className={cn("relative w-12 h-6 rounded-full transition-colors", enabled ? "bg-white" : "bg-white/30")}>
-        <div className={cn("absolute top-1 w-4 h-4 rounded-full transition-all shadow-sm", enabled ? "left-7 bg-red-600" : "left-1 bg-white")} />
+      <div 
+        onClick={() => onChange(!enabled)} 
+        className={cn(
+          "relative w-12 h-6 rounded-full transition-colors", 
+          enabled ? "bg-white" : "bg-white/30"
+        )}
+      >
+        <div 
+          className={cn(
+            "absolute top-1 w-4 h-4 rounded-full transition-all shadow-sm", 
+            enabled ? "left-7 bg-red-600" : "left-1 bg-white"
+          )} 
+        />
       </div>
     </label>
   );
 }
 
 // --- Price Modal Component ---
-function PriceModal({ isOpen, onClose, data, priceLists, selectedPriceList, onPriceListChange, loading, error }: {
-  isOpen: boolean; onClose: () => void; data: ItemPriceData[]; priceLists: PriceList[];
-  selectedPriceList: PriceList | null; onPriceListChange: (priceId: number) => void; loading: boolean; error: string | null;
-}) {
+interface PriceModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  data: ItemPriceData[];
+  priceLists: PriceList[];
+  selectedPriceList: PriceList | null;
+  onPriceListChange: (priceId: number) => void;
+  loading: boolean;
+  error: string | null;
+}
+
+function PriceModal({ 
+  isOpen, onClose, data, priceLists, 
+  selectedPriceList, onPriceListChange, loading, error
+}: PriceModalProps) {
   const [showDetails, setShowDetails] = useState(false);
+
   if (!isOpen) return null;
 
   const itemsWithPrices = data.filter(item => item.ranges && item.ranges.length > 0);
+
+  // Calculation Helpers
   const calcPricePerCaisse = (price: number, caisse: number | null) => caisse ? price * caisse : null;
   const calcPricePerLitre = (price: number, volume: number | null) => volume ? price / volume : null;
+  // Margin based on Export Cost (Company Margin)
   const calcMarginExp = (unit: number, cout: number | null) => cout && unit ? ((unit - cout) / unit) * 100 : null;
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 md:p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div 
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      
       <div className="relative w-full max-w-[98vw] max-h-[94vh] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
         
         {/* Modal Header */}
         <div className="flex-shrink-0 bg-red-600 px-4 md:px-6 py-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <h2 className="text-xl md:text-2xl font-bold text-white">Liste de Prix</h2>
+            <h2 className="text-xl md:text-2xl font-bold text-white">
+              Liste de Prix
+            </h2>
+            
             <div className="flex items-center gap-4">
               <Toggle enabled={showDetails} onChange={setShowDetails} label="Afficher détails" />
-              <select value={selectedPriceList?.priceId || ""} onChange={(e) => onPriceListChange(parseInt(e.target.value))} disabled={loading}
-                className="h-12 px-4 bg-white/20 text-white rounded-xl font-bold text-base border-2 border-white/30 focus:border-white outline-none min-w-[200px] disabled:opacity-50">
-                {priceLists.map(pl => (<option key={pl.priceId} value={pl.priceId} className="text-neutral-900">{pl.code} - {pl.name}</option>))}
+
+              <select
+                value={selectedPriceList?.priceId || ""}
+                onChange={(e) => onPriceListChange(parseInt(e.target.value))}
+                disabled={loading}
+                className="h-12 px-4 bg-white/20 text-white rounded-xl font-bold text-base border-2 border-white/30 focus:border-white outline-none min-w-[200px] disabled:opacity-50"
+              >
+                {priceLists.map(pl => (
+                  <option key={pl.priceId} value={pl.priceId} className="text-neutral-900">
+                    {pl.code} - {pl.name}
+                  </option>
+                ))}
               </select>
-              <button onClick={onClose} className="w-12 h-12 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center text-white font-bold text-2xl transition-colors">✕</button>
+              
+              <button 
+                onClick={onClose}
+                className="w-12 h-12 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center text-white font-bold text-2xl transition-colors"
+              >
+                ✕
+              </button>
             </div>
           </div>
         </div>
@@ -142,33 +203,71 @@ function PriceModal({ isOpen, onClose, data, priceLists, selectedPriceList, onPr
           ) : error ? (
             <div className="flex flex-col items-center justify-center h-64 gap-4">
               <div className="text-6xl text-red-300">!</div>
-              <p className="text-xl font-bold text-red-600">{error}</p>
+              <div className="text-center">
+                <p className="text-xl font-bold text-red-600 dark:text-red-400">Erreur</p>
+                <p className="text-neutral-500 mt-1">{error}</p>
+              </div>
             </div>
           ) : itemsWithPrices.length > 0 ? (
             <div className="space-y-4">
               {itemsWithPrices.map((item) => (
-                <div key={item.itemId} className="bg-white dark:bg-neutral-900 rounded-xl overflow-hidden shadow-lg border border-neutral-200 dark:border-neutral-800">
+                <div 
+                  key={item.itemId}
+                  className="bg-white dark:bg-neutral-900 rounded-xl overflow-hidden shadow-lg border border-neutral-200 dark:border-neutral-800"
+                >
                   <div className="bg-red-600 px-4 py-3">
-                    <h3 className="text-lg font-black text-white">{item.description.split(' ')[0].toUpperCase()}</h3>
-                    <p className="text-red-100 text-sm">{item.className || item.description}</p>
+                    <h3 className="text-lg font-black text-white">
+                      {item.description.split(' ')[0].toUpperCase()}
+                    </h3>
+                    <p className="text-red-100 text-sm">
+                      {item.className || item.description}
+                    </p>
                   </div>
+                  
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm md:text-base border-collapse">
                       <thead>
                         <tr className="bg-neutral-200 dark:bg-neutral-800">
-                          <th className="text-left p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">Article</th>
-                          <th className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">CAISSE</th>
-                          <th className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">Format</th>
-                          <th className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">Qte/Qty</th>
-                          <th className="text-right p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">{selectedPriceList?.code || 'Prix'}</th>
-                          {showDetails && (<>
-                            <th className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20">Coût Exp</th>
-                            <th className="text-right p-2 md:p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20">_Discount</th>
-                            <th className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20">% Exp</th>
-                            <th className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20">($)/Caisse</th>
-                            <th className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20">($)/L</th>
-                          </>)}
-                          <th className="text-right p-2 md:p-3 font-bold text-amber-700 dark:text-amber-400 border border-neutral-300 dark:border-neutral-700 bg-amber-50 dark:bg-amber-900/20">PDS</th>
+                          <th className="text-left p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
+                            Article
+                          </th>
+                          <th className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
+                            CAISSE
+                          </th>
+                          <th className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
+                            Format
+                          </th>
+                          <th className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
+                            Qte/Qty
+                          </th>
+                          <th className="text-right p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
+                            {selectedPriceList?.code || 'Prix'}
+                          </th>
+                          
+                          {/* Expanded Details Columns - Coût Exp and % Exp RIGHT AFTER price list */}
+                          {showDetails && (
+                            <>
+                              <th className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20">
+                                Coût Exp
+                              </th>
+                              <th className="text-right p-2 md:p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20">
+                                _Discount
+                              </th>
+                              <th className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20">
+                                % Exp
+                              </th>
+                              <th className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20">
+                                ($)/Caisse
+                              </th>
+                              <th className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20">
+                                ($)/L
+                              </th>
+                            </>
+                          )}
+                          
+                          <th className="text-right p-2 md:p-3 font-bold text-amber-700 dark:text-amber-400 border border-neutral-300 dark:border-neutral-700 bg-amber-50 dark:bg-amber-900/20">
+                            PDS
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -177,21 +276,86 @@ function PriceModal({ isOpen, onClose, data, priceLists, selectedPriceList, onPr
                           const ppc = calcPricePerCaisse(range.unitPrice, item.caisse);
                           const ppl = calcPricePerLitre(range.unitPrice, item.volume);
                           const marginExp = calcMarginExp(range.unitPrice, range.coutExp);
+                          
                           return (
-                            <tr key={range.id} className={cn("hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors", isFirstRow ? "bg-white dark:bg-neutral-900" : "bg-neutral-50 dark:bg-neutral-800/50")}>
-                              <td className="p-2 md:p-3 border border-neutral-200 dark:border-neutral-700">{isFirstRow && <span className="font-mono font-black text-neutral-900 dark:text-white">{item.itemCode}</span>}</td>
-                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700">{isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.caisse || '-'}</span>}</td>
-                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700">{isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}</td>
-                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700"><span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span></td>
-                              <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700"><span className={cn("font-mono font-black", isFirstRow ? "text-lg text-red-600 dark:text-red-400" : "text-neutral-700 dark:text-neutral-300")}><AnimatedPrice value={range.unitPrice} /></span></td>
-                              {showDetails && (<>
-                                <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10"><span className="font-mono font-bold text-purple-700 dark:text-purple-400">{range.coutExp !== null ? range.coutExp.toFixed(2) : '-'}</span></td>
-                                <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-orange-50/50 dark:bg-orange-900/10"><span className="font-mono font-bold text-orange-700 dark:text-orange-400">{range.costingDiscountAmt !== undefined ? range.costingDiscountAmt.toFixed(2) : '-'}</span></td>
-                                <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10"><span className={cn("font-mono font-bold", marginExp && marginExp > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>{marginExp ? `${marginExp.toFixed(1)}%` : '-'}</span></td>
-                                <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10"><span className="font-mono text-blue-700 dark:text-blue-400">{ppc ? ppc.toFixed(2) : '-'}</span></td>
-                                <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10"><span className="font-mono text-blue-700 dark:text-blue-400">{ppl ? ppl.toFixed(2) : '-'}</span></td>
-                              </>)}
-                              <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-amber-50/50 dark:bg-amber-900/10"><span className="font-mono font-bold text-amber-700 dark:text-amber-400">{range.pdsPrice !== null ? <AnimatedPrice value={range.pdsPrice} /> : '-'}</span></td>
+                            <tr 
+                              key={range.id} 
+                              className={cn(
+                                "hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors",
+                                isFirstRow ? "bg-white dark:bg-neutral-900" : "bg-neutral-50 dark:bg-neutral-800/50"
+                              )}
+                            >
+                              {/* Basic Info */}
+                              <td className="p-2 md:p-3 border border-neutral-200 dark:border-neutral-700">
+                                {isFirstRow && <span className="font-mono font-black text-neutral-900 dark:text-white">{item.itemCode}</span>}
+                              </td>
+                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700">
+                                {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.caisse || '-'}</span>}
+                              </td>
+                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700">
+                                {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}
+                              </td>
+                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700">
+                                <span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span>
+                              </td>
+                              
+                              {/* Unit Price */}
+                              <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700">
+                                <span className={cn(
+                                  "font-mono font-black",
+                                  isFirstRow ? "text-lg text-red-600 dark:text-red-400" : "text-neutral-700 dark:text-neutral-300"
+                                )}>
+                                  <AnimatedPrice value={range.unitPrice} />
+                                </span>
+                              </td>
+                              
+                              {/* Expanded Details Data - Coût Exp and % Exp RIGHT AFTER price */}
+                              {showDetails && (
+                                <>
+                                  {/* Coût Exp */}
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10">
+                                    <span className="font-mono font-bold text-purple-700 dark:text-purple-400">
+                                      {range.coutExp ? range.coutExp.toFixed(2) : '-'}
+                                    </span>
+                                  </td>
+                                  {/* _Discount (DEBUG) */}
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-orange-50/50 dark:bg-orange-900/10">
+                                    <span className="font-mono font-bold text-orange-700 dark:text-orange-400">
+                                      {range.costingDiscountAmt !== undefined ? range.costingDiscountAmt.toFixed(2) : '-'}
+                                    </span>
+                                  </td>
+                                  {/* % Exp */}
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10">
+                                    <span className={cn(
+                                      "font-mono font-bold",
+                                      marginExp && marginExp > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                                    )}>
+                                      {marginExp ? `${marginExp.toFixed(1)}%` : '-'}
+                                    </span>
+                                  </td>
+                                  {/* ($)/Caisse */}
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10">
+                                    <span className="font-mono text-blue-700 dark:text-blue-400">
+                                      {ppc ? ppc.toFixed(2) : '-'}
+                                    </span>
+                                  </td>
+                                  {/* ($)/L */}
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10">
+                                    <span className="font-mono text-blue-700 dark:text-blue-400">
+                                      {ppl ? ppl.toFixed(2) : '-'}
+                                    </span>
+                                  </td>
+                                </>
+                              )}
+                              
+                              {/* PDS */}
+                              <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-amber-50/50 dark:bg-amber-900/10">
+                                <span className="font-mono font-bold text-amber-700 dark:text-amber-400">
+                                  {range.pdsPrice !== null ? (
+                                    <AnimatedPrice value={range.pdsPrice} />
+                                  ) : '-'}
+                                </span>
+                              </td>
                             </tr>
                           );
                         })}
@@ -204,7 +368,14 @@ function PriceModal({ isOpen, onClose, data, priceLists, selectedPriceList, onPr
           ) : (
             <div className="flex flex-col items-center justify-center h-64 gap-4">
               <div className="text-6xl text-neutral-300">∅</div>
-              <p className="text-xl font-bold text-neutral-600 dark:text-neutral-400">Aucun prix trouvé</p>
+              <div className="text-center">
+                <p className="text-xl font-bold text-neutral-600 dark:text-neutral-400">
+                  Aucun prix trouvé
+                </p>
+                <p className="text-neutral-500 mt-1">
+                  Aucun article avec prix pour cette sélection.
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -212,7 +383,9 @@ function PriceModal({ isOpen, onClose, data, priceLists, selectedPriceList, onPr
         {/* Footer */}
         {!loading && itemsWithPrices.length > 0 && (
           <div className="flex-shrink-0 bg-neutral-200 dark:bg-neutral-800 px-4 py-3 text-center">
-            <span className="text-neutral-600 dark:text-neutral-400 font-medium">{itemsWithPrices.length} article(s) {showDetails && " • Détails activés"}</span>
+            <span className="text-neutral-600 dark:text-neutral-400 font-medium">
+              {itemsWithPrices.length} article(s) {showDetails && " • Détails activés"}
+            </span>
           </div>
         )}
       </div>
@@ -222,47 +395,61 @@ function PriceModal({ isOpen, onClose, data, priceLists, selectedPriceList, onPr
 
 // --- Main Page Component ---
 export default function CataloguePage() {
+  // Data
   const [products, setProducts] = useState<Product[]>([]);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [priceLists, setPriceLists] = useState<PriceList[]>([]);
   
+  // Selections
   const [selectedPriceList, setSelectedPriceList] = useState<PriceList | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedType, setSelectedType] = useState<ItemType | null>(null);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   
+  // Search
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Item[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   
+  // Price Modal
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [priceData, setPriceData] = useState<ItemPriceData[]>([]);
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [priceError, setPriceError] = useState<string | null>(null);
   
+  // For re-fetching with different price list in modal
   const [modalProdId, setModalProdId] = useState<number | null>(null);
   const [modalTypeId, setModalTypeId] = useState<number | null>(null);
   const [modalItemId, setModalItemId] = useState<number | null>(null);
   
+  // Loading states
   const [loadingTypes, setLoadingTypes] = useState(false);
   const [loadingItems, setLoadingItems] = useState(false);
 
+  // --- Initial Load ---
   useEffect(() => {
     async function init() {
       try {
-        const [prodRes, plRes] = await Promise.all([fetch("/api/catalogue/products"), fetch("/api/catalogue/pricelists")]);
+        const [prodRes, plRes] = await Promise.all([
+          fetch("/api/catalogue/products"),
+          fetch("/api/catalogue/pricelists")
+        ]);
+        
         if (prodRes.ok) setProducts(await prodRes.json());
         if (plRes.ok) {
           const pls: PriceList[] = await plRes.json();
           setPriceLists(pls);
           if (pls.length > 0) setSelectedPriceList(pls[0]);
         }
-      } catch (err) { console.error("Init failed", err); }
+      } catch (err) {
+        console.error("Init failed", err);
+      }
     }
     init();
   }, []);
 
+  // --- Search Debounce ---
   useEffect(() => {
     const timeout = setTimeout(async () => {
       if (searchQuery.length > 1) {
@@ -270,78 +457,171 @@ export default function CataloguePage() {
         try {
           const res = await fetch(`/api/catalogue/items?search=${encodeURIComponent(searchQuery)}`);
           if (res.ok) setSearchResults(await res.json());
-        } finally { setIsSearching(false); }
-      } else { setSearchResults([]); }
+        } finally { 
+          setIsSearching(false); 
+        }
+      } else {
+        setSearchResults([]);
+      }
     }, 350);
     return () => clearTimeout(timeout);
   }, [searchQuery]);
 
+  // --- Fetch Prices ---
   const fetchPrices = async (priceId: number, prodId: number, typeId?: number | null, itemId?: number | null) => {
-    setPriceData([]); setPriceError(null); setLoadingPrices(true);
+    setPriceData([]);
+    setPriceError(null);
+    setLoadingPrices(true);
+    
     try {
       let url = `/api/catalogue/prices?priceId=${priceId}&prodId=${prodId}`;
-      if (itemId) url += `&itemId=${itemId}`;
-      else if (typeId) url += `&typeId=${typeId}`;
+      
+      if (itemId) {
+        url += `&itemId=${itemId}`;
+      } else if (typeId) {
+        url += `&typeId=${typeId}`;
+      }
+      
       const res = await fetch(url);
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Erreur ${res.status}`);
-      setPriceData(await res.json());
-    } catch (err: any) { setPriceError(err.message || "Erreur"); }
-    finally { setLoadingPrices(false); }
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `Erreur ${res.status}`);
+      }
+      
+      const data = await res.json();
+      setPriceData(data);
+      
+    } catch (err: any) {
+      console.error("Price fetch failed:", err);
+      setPriceError(err.message || "Erreur lors du chargement des prix");
+    } finally {
+      setLoadingPrices(false);
+    }
   };
 
-  const handlePriceListChange = (priceId: string) => { const pl = priceLists.find(p => p.priceId === parseInt(priceId)); if (pl) setSelectedPriceList(pl); };
+  // --- Handlers ---
+  const handlePriceListChange = (priceId: string) => {
+    const pl = priceLists.find(p => p.priceId === parseInt(priceId));
+    if (pl) setSelectedPriceList(pl);
+  };
 
   const handleProductChange = async (prodId: string) => {
     const prod = products.find(p => p.prodId === parseInt(prodId));
     if (!prod) return;
-    setSelectedProduct(prod); setSelectedType(null); setSelectedItem(null); setItems([]); setItemTypes([]);
+
+    setSelectedProduct(prod);
+    setSelectedType(null);
+    setSelectedItem(null);
+    setItems([]);
+    setItemTypes([]);
+
     setLoadingTypes(true);
-    try { const res = await fetch(`/api/catalogue/itemtypes?prodId=${prod.prodId}`); if (res.ok) setItemTypes(await res.json()); }
-    finally { setLoadingTypes(false); }
+    try {
+      const res = await fetch(`/api/catalogue/itemtypes?prodId=${prod.prodId}`);
+      if (res.ok) setItemTypes(await res.json());
+    } finally { 
+      setLoadingTypes(false); 
+    }
   };
 
   const handleTypeChange = async (typeId: string) => {
-    if (!typeId) { setSelectedType(null); setSelectedItem(null); setItems([]); return; }
+    if (!typeId) {
+      setSelectedType(null);
+      setSelectedItem(null);
+      setItems([]);
+      return;
+    }
+
     const type = itemTypes.find(t => t.itemTypeId === parseInt(typeId));
     if (!type) return;
-    setSelectedType(type); setSelectedItem(null); setItems([]);
+
+    setSelectedType(type);
+    setSelectedItem(null);
+    setItems([]);
+
     setLoadingItems(true);
-    try { const res = await fetch(`/api/catalogue/items?itemTypeId=${type.itemTypeId}`); if (res.ok) setItems(await res.json()); }
-    finally { setLoadingItems(false); }
+    try {
+      const res = await fetch(`/api/catalogue/items?itemTypeId=${type.itemTypeId}`);
+      if (res.ok) setItems(await res.json());
+    } finally { 
+      setLoadingItems(false); 
+    }
   };
 
-  const handleItemChange = (itemId: string) => { if (!itemId) { setSelectedItem(null); return; } const item = items.find(i => i.itemId === parseInt(itemId)); if (item) setSelectedItem(item); };
+  const handleItemChange = (itemId: string) => {
+    if (!itemId) {
+      setSelectedItem(null);
+      return;
+    }
+    const item = items.find(i => i.itemId === parseInt(itemId));
+    if (item) setSelectedItem(item);
+  };
 
   const handleSearchResultClick = async (item: Item) => {
-    setSearchQuery(""); setSearchResults([]); setSelectedItem(item);
+    setSearchQuery("");
+    setSearchResults([]);
+    
+    setSelectedItem(item);
+    
     const prod = products.find(p => p.prodId === item.prodId);
     if (prod) {
-      setSelectedProduct(prod); setLoadingTypes(true);
+      setSelectedProduct(prod);
+      
+      setLoadingTypes(true);
       try {
         const typesRes = await fetch(`/api/catalogue/itemtypes?prodId=${item.prodId}`);
         if (typesRes.ok) {
-          const types: ItemType[] = await typesRes.json(); setItemTypes(types);
+          const types: ItemType[] = await typesRes.json();
+          setItemTypes(types);
+          
           const type = types.find(t => t.itemTypeId === item.itemTypeId);
           if (type) {
-            setSelectedType(type); setLoadingItems(true);
-            try { const itemsRes = await fetch(`/api/catalogue/items?itemTypeId=${type.itemTypeId}`); if (itemsRes.ok) setItems(await itemsRes.json()); }
-            finally { setLoadingItems(false); }
+            setSelectedType(type);
+            
+            setLoadingItems(true);
+            try {
+              const itemsRes = await fetch(`/api/catalogue/items?itemTypeId=${type.itemTypeId}`);
+              if (itemsRes.ok) {
+                const loadedItems: Item[] = await itemsRes.json();
+                setItems(loadedItems);
+              }
+            } finally {
+              setLoadingItems(false);
+            }
           }
         }
-      } finally { setLoadingTypes(false); }
+      } finally {
+        setLoadingTypes(false);
+      }
     }
   };
 
   const handleGenerate = async () => {
     if (!selectedPriceList || !selectedProduct) return;
-    setModalProdId(selectedProduct.prodId); setModalTypeId(selectedType?.itemTypeId || null); setModalItemId(selectedItem?.itemId || null);
-    setPriceData([]); setPriceError(null); setShowPriceModal(true);
-    await fetchPrices(selectedPriceList.priceId, selectedProduct.prodId, selectedType?.itemTypeId || null, selectedItem?.itemId || null);
+    
+    setModalProdId(selectedProduct.prodId);
+    setModalTypeId(selectedType?.itemTypeId || null);
+    setModalItemId(selectedItem?.itemId || null);
+    
+    setPriceData([]);
+    setPriceError(null);
+    setShowPriceModal(true);
+    
+    await fetchPrices(
+      selectedPriceList.priceId,
+      selectedProduct.prodId,
+      selectedType?.itemTypeId || null,
+      selectedItem?.itemId || null
+    );
   };
 
   const handleModalPriceListChange = async (priceId: number) => {
     const pl = priceLists.find(p => p.priceId === priceId);
-    if (pl && modalProdId) { setSelectedPriceList(pl); await fetchPrices(priceId, modalProdId, modalTypeId, modalItemId); }
+    if (pl && modalProdId) {
+      setSelectedPriceList(pl);
+      await fetchPrices(priceId, modalProdId, modalTypeId, modalItemId);
+    }
   };
 
   const canGenerate = selectedPriceList && selectedProduct;
@@ -354,28 +634,54 @@ export default function CataloguePage() {
         <header className="flex-shrink-0 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 px-4 md:px-6 py-4 sticky top-0 z-50">
           <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center gap-4">
             <div>
-              <h1 className="text-2xl font-black tracking-tight text-neutral-900 dark:text-white">Catalogue SINTO</h1>
+              <h1 className="text-2xl font-black tracking-tight text-neutral-900 dark:text-white">
+                Catalogue SINTO
+              </h1>
               <p className="text-sm text-neutral-500">Liste de Prix</p>
             </div>
+
             {/* Search Bar */}
             <div className="flex-1 w-full md:max-w-md relative">
-              <input type="search" placeholder="Recherche par code article..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-14 px-5 rounded-xl text-base font-medium bg-neutral-100 dark:bg-neutral-800 border-2 border-transparent focus:border-red-500 outline-none transition-colors" />
+              <input 
+                type="search" 
+                placeholder="Recherche par code article..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-14 px-5 rounded-xl text-base font-medium bg-neutral-100 dark:bg-neutral-800 border-2 border-transparent focus:border-red-500 outline-none transition-colors"
+              />
+
+              {/* Search Dropdown */}
               {searchQuery.length > 1 && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden max-h-72 overflow-y-auto z-50">
                   {isSearching ? (
-                    <div className="p-6 flex justify-center"><div className="w-6 h-6 border-3 border-red-500 border-t-transparent rounded-full animate-spin" /></div>
+                    <div className="p-6 flex justify-center">
+                      <div className="w-6 h-6 border-3 border-red-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
                   ) : searchResults.length > 0 ? (
                     searchResults.map((item) => (
-                      <button key={item.itemId} onClick={() => handleSearchResultClick(item)} className="w-full p-4 text-left hover:bg-red-50 dark:hover:bg-red-900/20 border-b border-neutral-100 dark:border-neutral-800 last:border-0 transition-colors">
+                      <button 
+                        key={item.itemId}
+                        onClick={() => handleSearchResultClick(item)}
+                        className="w-full p-4 text-left hover:bg-red-50 dark:hover:bg-red-900/20 border-b border-neutral-100 dark:border-neutral-800 last:border-0 transition-colors"
+                      >
                         <div className="flex items-center gap-3">
-                          <span className="font-mono font-black text-red-600 dark:text-red-400 text-sm">{item.itemCode}</span>
-                          <span className="truncate font-medium text-neutral-700 dark:text-neutral-300">{item.description}</span>
+                          <span className="font-mono font-black text-red-600 dark:text-red-400 text-sm">
+                            {item.itemCode}
+                          </span>
+                          <span className="truncate font-medium text-neutral-700 dark:text-neutral-300">
+                            {item.description}
+                          </span>
                         </div>
-                        <div className="text-xs text-neutral-400 mt-1">{item.categoryName} → {item.className}</div>
+                        <div className="text-xs text-neutral-400 mt-1">
+                          {item.categoryName} → {item.className}
+                        </div>
                       </button>
                     ))
-                  ) : (<div className="p-6 text-center text-neutral-500">Aucun résultat</div>)}
+                  ) : (
+                    <div className="p-6 text-center text-neutral-500">
+                      Aucun résultat
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -383,61 +689,157 @@ export default function CataloguePage() {
         </header>
 
         {/* MAIN CONTENT */}
-        <main className="flex-1 p-4 md:p-6 flex items-center justify-center">
-          <div className="w-full max-w-xl">
+        <main className="flex-1 p-4 md:p-6">
+          <div className="max-w-3xl mx-auto">
+            
+            {/* Selection Card */}
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-lg p-5 md:p-8">
-              <h2 className="text-lg font-bold text-neutral-900 dark:text-white mb-6">Sélection des produits</h2>
+              
+              <h2 className="text-lg font-bold text-neutral-900 dark:text-white mb-6">
+                Sélection des produits
+              </h2>
+
               <div className="space-y-5">
                 
+                {/* Step 1: Price List */}
                 <div>
-                  <label className="block text-sm font-bold text-neutral-500 mb-2 uppercase tracking-wide">1. Liste de Prix</label>
-                  <select value={selectedPriceList?.priceId || ""} onChange={(e) => handlePriceListChange(e.target.value)} className="w-full h-16 px-4 text-lg font-bold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl focus:border-red-500 outline-none transition-colors">
+                  <label className="block text-sm font-bold text-neutral-500 mb-2 uppercase tracking-wide">
+                    1. Liste de Prix
+                  </label>
+                  <select
+                    value={selectedPriceList?.priceId || ""}
+                    onChange={(e) => handlePriceListChange(e.target.value)}
+                    className="w-full h-16 px-4 text-lg font-bold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl focus:border-red-500 outline-none transition-colors"
+                  >
                     <option value="" disabled>Sélectionner...</option>
-                    {priceLists.map(pl => (<option key={pl.priceId} value={pl.priceId}>{pl.code} - {pl.name}</option>))}
+                    {priceLists.map(pl => (
+                      <option key={pl.priceId} value={pl.priceId}>
+                        {pl.code} - {pl.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
+                {/* Step 2: Category */}
                 <div>
-                  <label className="block text-sm font-bold text-neutral-500 mb-2 uppercase tracking-wide">2. Catégorie</label>
-                  <select value={selectedProduct?.prodId || ""} onChange={(e) => handleProductChange(e.target.value)} disabled={!selectedPriceList} className={cn("w-full h-16 px-4 text-lg font-bold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl focus:border-red-500 outline-none transition-all", !selectedPriceList && "opacity-50 cursor-not-allowed")}>
+                  <label className="block text-sm font-bold text-neutral-500 mb-2 uppercase tracking-wide">
+                    2. Catégorie
+                  </label>
+                  <select
+                    value={selectedProduct?.prodId || ""}
+                    onChange={(e) => handleProductChange(e.target.value)}
+                    disabled={!selectedPriceList}
+                    className={cn(
+                      "w-full h-16 px-4 text-lg font-bold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl focus:border-red-500 outline-none transition-all",
+                      !selectedPriceList && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
                     <option value="" disabled>Sélectionner...</option>
-                    {products.map(p => (<option key={p.prodId} value={p.prodId}>{p.name} ({p.itemCount})</option>))}
+                    {products.map(p => (
+                      <option key={p.prodId} value={p.prodId}>
+                        {p.name} ({p.itemCount})
+                      </option>
+                    ))}
                   </select>
                 </div>
 
+                {/* Step 3: Class (Optional) */}
                 <div>
-                  <label className="block text-sm font-bold text-neutral-500 mb-2 uppercase tracking-wide">3. Classe (optionnel)</label>
-                  <select value={selectedType?.itemTypeId || ""} onChange={(e) => handleTypeChange(e.target.value)} disabled={!selectedProduct || loadingTypes} className={cn("w-full h-16 px-4 text-lg font-bold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl focus:border-red-500 outline-none transition-all", (!selectedProduct || loadingTypes) && "opacity-50 cursor-not-allowed")}>
-                    <option value="">{loadingTypes ? "Chargement..." : "Toutes les classes"}</option>
-                    {itemTypes.map(t => (<option key={t.itemTypeId} value={t.itemTypeId}>{t.description} ({t.itemCount})</option>))}
+                  <label className="block text-sm font-bold text-neutral-500 mb-2 uppercase tracking-wide">
+                    3. Classe (optionnel)
+                  </label>
+                  <select
+                    value={selectedType?.itemTypeId || ""}
+                    onChange={(e) => handleTypeChange(e.target.value)}
+                    disabled={!selectedProduct || loadingTypes}
+                    className={cn(
+                      "w-full h-16 px-4 text-lg font-bold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl focus:border-red-500 outline-none transition-all",
+                      (!selectedProduct || loadingTypes) && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    <option value="">
+                      {loadingTypes ? "Chargement..." : "Toutes les classes"}
+                    </option>
+                    {itemTypes.map(t => (
+                      <option key={t.itemTypeId} value={t.itemTypeId}>
+                        {t.description} ({t.itemCount})
+                      </option>
+                    ))}
                   </select>
                 </div>
 
+                {/* Step 4: Item (Optional) */}
                 <div>
-                  <label className="block text-sm font-bold text-neutral-500 mb-2 uppercase tracking-wide">4. Article (optionnel)</label>
-                  <select value={selectedItem?.itemId || ""} onChange={(e) => handleItemChange(e.target.value)} disabled={!selectedType || loadingItems} className={cn("w-full h-16 px-4 text-lg font-bold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl focus:border-red-500 outline-none transition-all", (!selectedType || loadingItems) && "opacity-50 cursor-not-allowed")}>
-                    <option value="">{loadingItems ? "Chargement..." : "Tous les articles"}</option>
-                    {items.map(i => (<option key={i.itemId} value={i.itemId}>{i.itemCode} - {i.description}</option>))}
+                  <label className="block text-sm font-bold text-neutral-500 mb-2 uppercase tracking-wide">
+                    4. Article (optionnel)
+                  </label>
+                  <select
+                    value={selectedItem?.itemId || ""}
+                    onChange={(e) => handleItemChange(e.target.value)}
+                    disabled={!selectedType || loadingItems}
+                    className={cn(
+                      "w-full h-16 px-4 text-lg font-bold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl focus:border-red-500 outline-none transition-all",
+                      (!selectedType || loadingItems) && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    <option value="">
+                      {loadingItems ? "Chargement..." : "Tous les articles"}
+                    </option>
+                    {items.map(i => (
+                      <option key={i.itemId} value={i.itemId}>
+                        {i.itemCode} - {i.description}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
+                {/* Generate Button */}
                 <div className="pt-4">
-                  <button onClick={handleGenerate} disabled={!canGenerate} className={cn("w-full h-20 rounded-xl font-black text-xl uppercase tracking-wide transition-all", canGenerate ? "bg-red-600 hover:bg-red-700 text-white active:scale-[0.98]" : "bg-neutral-200 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed")}>GÉNÉRER</button>
+                  <button
+                    onClick={handleGenerate}
+                    disabled={!canGenerate}
+                    className={cn(
+                      "w-full h-20 rounded-xl font-black text-xl uppercase tracking-wide transition-all",
+                      canGenerate 
+                        ? "bg-red-600 hover:bg-red-700 text-white active:scale-[0.98]" 
+                        : "bg-neutral-200 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed"
+                    )}
+                  >
+                    GÉNÉRER
+                  </button>
                 </div>
+
               </div>
             </div>
 
+            {/* Selected Item Preview */}
             {selectedItem && (
               <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
-                <div className="font-bold text-red-800 dark:text-red-300">{selectedItem.itemCode}</div>
-                <div className="text-sm text-red-600 dark:text-red-400">{selectedItem.description}</div>
+                <div className="font-bold text-red-800 dark:text-red-300">
+                  {selectedItem.itemCode}
+                </div>
+                <div className="text-sm text-red-600 dark:text-red-400">
+                  {selectedItem.description}
+                </div>
               </div>
             )}
+
           </div>
         </main>
+
       </div>
 
-      <PriceModal isOpen={showPriceModal} onClose={() => setShowPriceModal(false)} data={priceData} priceLists={priceLists} selectedPriceList={selectedPriceList} onPriceListChange={handleModalPriceListChange} loading={loadingPrices} error={priceError} />
+      {/* Price Modal */}
+      <PriceModal
+        isOpen={showPriceModal}
+        onClose={() => setShowPriceModal(false)}
+        data={priceData}
+        priceLists={priceLists}
+        selectedPriceList={selectedPriceList}
+        onPriceListChange={handleModalPriceListChange}
+        loading={loadingPrices}
+        error={priceError}
+      />
     </div>
   );
 }
