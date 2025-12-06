@@ -1,135 +1,75 @@
-// src/app/api/items/route.ts
-// Item search and details - GET
-// Uses raw pg queries for Prextra replicated tables (public."Items")
-
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
 
-// Define types locally since we aren't importing the helper functions anymore
-interface ItemSuggestion {
-  code: string;
-  descr: string;
-}
-
-interface ItemDetail {
-  code: string;
-  descr: string;
-  weight: number;
-}
-
 export async function GET(request: NextRequest) {
   try {
-    // 1) Auth check
     const session = await getServerSession(authOptions);
     if (!session?.user) {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const itemTypeId = searchParams.get("itemTypeId");
+    const search = searchParams.get("search");
+
+    let query = `
+      SELECT 
+        i."ItemId" as "itemId",
+        i."ItemCode" as "itemCode",
+        i."Descr" as "description",
+        i."ProdId" as "prodId",
+        i."locitemtype" as "itemTypeId",
+        t."descr" as "className",
+        p."Name" as "categoryName"
+      FROM public."Items" i
+      LEFT JOIN public."itemtype" t ON i."locitemtype" = t."itemtypeid"
+      LEFT JOIN public."Products" p ON i."ProdId" = p."ProdId"
+      WHERE i."ProdId" BETWEEN 1 AND 10
+        AND i."IsActive" = true
+    `;
+    
+    const params: (string | number)[] = [];
+    let paramIndex = 1;
+
+    if (search) {
+      query += ` AND (i."ItemCode" ILIKE $${paramIndex} OR i."Descr" ILIKE $${paramIndex})`;
+      params.push(`%${search}%`);
+      paramIndex++;
+      
+      query += ` 
+        ORDER BY 
+          CASE 
+            WHEN i."ItemCode" ILIKE $${paramIndex} THEN 1 
+            WHEN i."ItemCode" ILIKE $${paramIndex + 1} THEN 2 
+            WHEN i."Descr" ILIKE $${paramIndex + 1} THEN 3 
+            ELSE 4 
+          END,
+          i."ItemCode" ASC
+        LIMIT 50
+      `;
+      params.push(search);
+      params.push(`${search}%`);
+      
+    } else if (itemTypeId) {
+      query += ` AND i."locitemtype" = $${paramIndex}`;
+      params.push(parseInt(itemTypeId, 10));
+      paramIndex++;
+      query += ` ORDER BY i."ItemCode" ASC`;
+    } else {
       return NextResponse.json(
-        { ok: false, error: "Non authentifié" },
-        { status: 401 }
+        { error: "Paramètres manquants: itemTypeId ou search requis" }, 
+        { status: 400 }
       );
     }
 
-    // 2) Parse parameters
-    const { searchParams } = new URL(request.url);
-    const q = searchParams.get("q"); // Autocomplete query
-    const code = searchParams.get("code"); // Specific item code
-
-    // ---------------------------------------------------------
-    // SCENARIO A: Get specific item details (combines getDescription/getWeight)
-    // ---------------------------------------------------------
-    if (code) {
-      // SQL translation:
-      // PHP: SELECT Descr FROM Items WHERE ItemCode = :itemCode
-      // PG:  SELECT "ItemCode", "Descr", "ShipWeight" FROM public."Items" ...
-      
-      const query = `
-        SELECT 
-          "ItemCode", 
-          "Descr", 
-          "ShipWeight"
-        FROM public."Items"
-        WHERE "ItemCode" = $1
-        LIMIT 1
-      `;
-
-      const { rows } = await pg.query(query, [code]);
-
-      if (rows.length === 0) {
-        return NextResponse.json({
-          ok: true,
-          found: false,
-          item: null,
-        });
-      }
-
-      const row = rows[0];
-
-      const item: ItemDetail = {
-        code: row.ItemCode,
-        descr: row.Descr,
-        // Ensure weight is a number (Postgres numeric often returns as string)
-        weight: row.ShipWeight ? Number(row.ShipWeight) : 0,
-      };
-
-      return NextResponse.json({
-        ok: true,
-        found: true,
-        item,
-      });
-    }
-
-    // ---------------------------------------------------------
-    // SCENARIO B: Autocomplete search
-    // ---------------------------------------------------------
-    if (q) {
-      if (q.trim().length < 2) {
-        return NextResponse.json({ ok: true, suggestions: [] });
-      }
-
-      const searchTerm = q.trim() + "%"; // 'query%' for starts-with logic
-
-      // SQL translation:
-      // PHP: SELECT TOP 10 ItemCode FROM Items WHERE ItemCode LIKE :query
-      // PG:  SELECT "ItemCode", "Descr" FROM public."Items" WHERE "ItemCode" ILIKE $1 LIMIT 10
-      // Note: Using ILIKE for case-insensitive search, and fetching Descr for better UI context
-      
-      const query = `
-        SELECT 
-          "ItemCode",
-          "Descr"
-        FROM public."Items"
-        WHERE "ItemCode" ILIKE $1
-        ORDER BY "ItemCode" ASC
-        LIMIT 10
-      `;
-
-      const { rows } = await pg.query(query, [searchTerm]);
-
-      const suggestions: ItemSuggestion[] = rows.map((r: any) => ({
-        code: r.ItemCode,
-        descr: r.Descr,
-      }));
-
-      return NextResponse.json({ ok: true, suggestions });
-    }
-
-    // ---------------------------------------------------------
-    // SCENARIO C: Missing parameters
-    // ---------------------------------------------------------
-    return NextResponse.json(
-      { ok: false, error: "Paramètre 'q' (recherche) ou 'code' (détails) requis" },
-      { status: 400 }
-    );
-
+    const { rows } = await pg.query(query, params);
+    return NextResponse.json(rows);
   } catch (error: any) {
-    console.error("GET /api/items error:", error);
+    console.error("GET /api/catalogue/items error:", error);
     return NextResponse.json(
-      { 
-        ok: false, 
-        error: "Erreur lors de la recherche d'articles",
-        details: error?.message 
-      },
+      { error: "Erreur lors du chargement des articles" },
       { status: 500 }
     );
   }
