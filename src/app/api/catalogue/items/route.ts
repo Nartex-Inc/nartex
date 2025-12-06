@@ -13,8 +13,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const itemTypeId = searchParams.get("itemTypeId");
     const search = searchParams.get("search");
-    const prodId = searchParams.get("prodId"); // Optional: if filtering by prodId in search dropdown
+    const prodId = searchParams.get("prodId");
 
+    // Start with the base selection
     let query = `
       SELECT 
         i."ItemId" as "itemId",
@@ -30,12 +31,13 @@ export async function GET(request: NextRequest) {
       WHERE i."IsActive" = true
     `;
     
+    // NOTE: If you still get "column i.IsActive does not exist", 
+    // change the line above to: WHERE i."isActive" = true
+
     const params: (string | number)[] = [];
     let paramIndex = 1;
 
-    // Optional: Filter by ProdId 1-10 restriction if your logic requires it, 
-    // otherwise remove or adjust as needed. 
-    // Added based on your previous snippet:
+    // Filter by ProdId 1-10 if strictly required by your logic
     query += ` AND i."ProdId" BETWEEN 1 AND 10 `;
 
     if (search) {
@@ -63,14 +65,13 @@ export async function GET(request: NextRequest) {
       paramIndex++;
       query += ` ORDER BY i."ItemCode" ASC`;
     } else if (prodId) {
-      // Fallback if only prodId is provided
       query += ` AND i."ProdId" = $${paramIndex}`;
       params.push(parseInt(prodId, 10));
       paramIndex++;
       query += ` ORDER BY i."ItemCode" ASC`;
     } else {
       return NextResponse.json(
-        { error: "Paramètres manquants" }, 
+        { error: "Paramètres manquants: itemTypeId ou search requis" }, 
         { status: 400 }
       );
     }
