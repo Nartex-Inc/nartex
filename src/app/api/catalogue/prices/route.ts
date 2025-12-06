@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const priceIdNum = parseInt(priceId, 10);
     const prodIdNum = parseInt(prodId, 10);
 
-    // Build filter conditions
+    // Build item filter
     let itemFilterSQL = "";
     const baseParams: any[] = [prodIdNum];
     let paramIdx = 2;
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
       paramIdx++;
     }
 
-    // Main query - using lowercase isactive (PostgreSQL converts unquoted to lowercase)
+    // Main query with IsActive filter
     const mainQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", MAX(ipr."itempricedateid") as "latestDateId"
@@ -119,11 +119,15 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
     `;
 
-    // Discount query
+    // Discount query - CORRECT MAPPING:
+    // 1. Items.ItemId -> RecordSpecData.TableId (WHERE FieldName = 'DiscountMaintenance')
+    // 2. RecordSpecData.FieldValue (string "9") -> CAST to INT -> _DiscountMaintenanceDtl.DiscountMaintenanceHdrId
+    // 3. Get ALL GreatherThan rows for tier matching
+    // Added safeguard: rsd."FieldValue" ~ '^[0-9]+$' to prevent crash on non-numeric FieldValue
     const discountQuery = `
       SELECT 
-        i."ItemId" as "itemId", 
-        i."ItemCode" as "itemCode",
+        i."ItemId" as "itemId",
+        i."ItemCode" as "itemCode", 
         rsd."FieldValue" as "hdrId",
         dmd."GreatherThan" as "greaterThan",
         dmd."_CostingDiscountAmt" as "costingDiscountAmt"
@@ -131,6 +135,7 @@ export async function GET(request: NextRequest) {
       INNER JOIN public."RecordSpecData" rsd 
         ON i."ItemId" = rsd."TableId"
         AND rsd."FieldName" = 'DiscountMaintenance'
+        AND rsd."FieldValue" ~ '^[0-9]+$'
       INNER JOIN public."_DiscountMaintenanceDtl" dmd 
         ON CAST(rsd."FieldValue" AS INTEGER) = dmd."DiscountMaintenanceHdrId"
       WHERE i."ProdId" = $1 
@@ -161,13 +166,15 @@ export async function GET(request: NextRequest) {
     console.log(`Results: Main=${rows.length}, PDS=${pdsRows.length}, EXP=${expRows.length}, Discounts=${discountRows.length}`);
     
     if (discountRows.length > 0) {
-      console.log("DISCOUNT ROWS (first 10):");
-      discountRows.slice(0, 10).forEach((row: any) => {
-        console.log(`  ItemId=${row.itemId} (${row.itemCode}): GreaterThan=${row.greaterThan}, Amt=${row.costingDiscountAmt}`);
+      console.log("DISCOUNT ROWS (first 15):");
+      discountRows.slice(0, 15).forEach((row: any) => {
+        console.log(`  ItemId=${row.itemId} (${row.itemCode}): HdrId=${row.hdrId}, GreaterThan=${row.greaterThan}, Amt=${row.costingDiscountAmt}`);
       });
+    } else {
+      console.log("NO DISCOUNT ROWS FOUND");
     }
 
-    // Build PDS map
+    // Build PDS map: itemId -> { qtyMin -> pdsPrice }
     const pdsMap: Record<number, Record<number, number>> = {};
     for (const row of pdsRows) {
       const id = Number(row.itemId);
@@ -176,7 +183,7 @@ export async function GET(request: NextRequest) {
       pdsMap[id][qty] = parseFloat(row.pdsPrice);
     }
 
-    // Build EXP map
+    // Build EXP map: itemId -> { qtyMin -> expPrice }
     const expMap: Record<number, Record<number, number>> = {};
     for (const row of expRows) {
       const id = Number(row.itemId);
@@ -185,7 +192,8 @@ export async function GET(request: NextRequest) {
       expMap[id][qty] = parseFloat(row.expPrice);
     }
 
-    // Build discount map
+    // Build discount map: itemId -> { greaterThan -> costingDiscountAmt }
+    // This stores ALL tiers for each item
     const discountMap: Record<number, Record<number, number>> = {};
     for (const row of discountRows) {
       const id = Number(row.itemId);
@@ -224,13 +232,16 @@ export async function GET(request: NextRequest) {
       const expBasePrice = expMap[id]?.[qtyMin] ?? null;
       
       // Get discount for this quantity tier
+      // Match GreatherThan to qtyMin (fromqty)
       let costingDiscountAmt = 0;
       const itemDiscounts = discountMap[id];
       
       if (itemDiscounts) {
+        // Try exact match first (GreatherThan === qtyMin)
         if (itemDiscounts[qtyMin] !== undefined) {
           costingDiscountAmt = itemDiscounts[qtyMin];
         } else {
+          // Find the highest tier where GreatherThan <= qtyMin
           const tiers = Object.keys(itemDiscounts).map(Number).sort((a, b) => b - a);
           for (const tier of tiers) {
             if (tier <= qtyMin) {
@@ -241,6 +252,7 @@ export async function GET(request: NextRequest) {
         }
       }
       
+      // COÛT EXP = EXP base price MINUS _CostingDiscountAmt
       const coutExp = expBasePrice !== null ? expBasePrice - costingDiscountAmt : null;
       
       itemsMap[id].ranges.push({
@@ -260,6 +272,7 @@ export async function GET(request: NextRequest) {
     }));
 
     console.log(`Returning ${result.length} items`);
+    console.log("========================================");
 
     return NextResponse.json(result);
     
