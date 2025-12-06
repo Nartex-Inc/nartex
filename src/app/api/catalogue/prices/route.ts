@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Main query: Get prices with MAX(itempricedateid) per item
+    // Gets the price selected in the dropdown (e.g. 01-EXP, 02-PRO, etc.)
     const mainQuery = `
       WITH LatestDatePerItem AS (
         SELECT 
@@ -113,6 +114,7 @@ export async function GET(request: NextRequest) {
     `;
 
     // EXP base price query (priceid=4)
+    // Used as the BASE for Coût Exp calculation
     const expQuery = `
       WITH LatestDatePerItem AS (
         SELECT 
@@ -141,7 +143,7 @@ export async function GET(request: NextRequest) {
     `;
 
     // Discount query: Fetch ALL tiers for the item
-    // We select 'GreatherThan' to map to 'fromqty'
+    // Mapped via RecordSpecData (Items -> FieldValue) -> _DiscountMaintenanceHdr -> _DiscountMaintenanceDtl
     const discountQuery = `
       SELECT 
         i."ItemId" as "itemId",
@@ -150,8 +152,10 @@ export async function GET(request: NextRequest) {
       FROM public."Items" i
       INNER JOIN public."RecordSpecData" rsd 
         ON i."ItemId" = rsd."TableId"
+      INNER JOIN public."_DiscountMaintenanceHdr" dmh
+        ON CAST(rsd."FieldValue" AS INTEGER) = dmh."DiscountMaintenanceHdrId"
       INNER JOIN public."_DiscountMaintenanceDtl" dmd 
-        ON CAST(rsd."FieldValue" AS INTEGER) = dmd."DiscountMaintenanceHdrId"
+        ON dmh."DiscountMaintenanceHdrId" = dmd."DiscountMaintenanceHdrId"
       WHERE i."ProdId" = $1
         AND rsd."TableName" = 'items'
         AND rsd."FieldName" = 'DiscountMaintenance'
@@ -194,7 +198,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Build discount tiers map: itemId -> Array of { minQty, val }
-    // We store them sorted by minQty DESC (as fetched) to easily find the correct tier
+    // Stored sorted by minQty DESC to easily find the correct tier
     interface DiscountTier { minQty: number; val: number; }
     const discountMap: Record<number, DiscountTier[]> = {};
     
@@ -228,27 +232,32 @@ export async function GET(request: NextRequest) {
       
       const qtyMin = parseInt(row.qtyMin);
       
-      // Get PDS
+      // Get PDS Price
       const pdsPrice = pdsMap[row.itemId]?.[qtyMin] ?? null;
       
-      // Get Base EXP Price
+      // Get Base EXP Price (from priceid 4)
       const expBasePrice = expMap[row.itemId]?.[qtyMin] ?? null;
       
-      // Find Discount Amount
-      // Logic: Find the row where GreatherThan <= qtyMin with the largest GreatherThan.
-      // Since our list is sorted DESC, we just find the first one that fits.
-      // e.g. Tiers: [24, 12, 1]. Qty: 4. 
-      // 24 <= 4? No. 12 <= 4? No. 1 <= 4? Yes. Use Tier 1.
+      // Calculate Discount Amount based on Quantity Tier
+      // Logic: Find the highest 'GreatherThan' that is less than or equal to current qtyMin
       let discountAmt = 0;
       const tiers = discountMap[row.itemId];
-      if (tiers) {
+      
+      if (tiers && tiers.length > 0) {
+        // Since tiers are sorted DESC (e.g., 240, 80, 1), we find the first one that fits.
         const tier = tiers.find(t => t.minQty <= qtyMin);
         if (tier) {
           discountAmt = tier.val;
+        } else {
+          // Fallback: if quantity is smaller than smallest tier (unlikely if tier starts at 1)
+          // We can assume 0 or take the smallest tier. Usually tier 1 exists.
+          discountAmt = 0;
         }
       }
       
-      // COÛT EXP = EXP base price + discount amount
+      // COÛT EXP Calculation:
+      // Coût Exp = Expert Price + _CostingDiscountAmt
+      // Example: 3.62 + (-0.50) = 3.12
       const coutExp = expBasePrice !== null ? expBasePrice + discountAmt : null;
       
       itemsMap[row.itemId].ranges.push({
@@ -258,7 +267,7 @@ export async function GET(request: NextRequest) {
         pdsPrice: pdsPrice,
         expBasePrice: expBasePrice,
         coutExp: coutExp,
-        discountAmt: discountAmt // Optional: pass to frontend if needed for debugging
+        discountAmt: discountAmt
       });
     }
 
