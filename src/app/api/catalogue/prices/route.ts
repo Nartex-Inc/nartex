@@ -141,22 +141,24 @@ export async function GET(request: NextRequest) {
     `;
 
     // Discount query: Get discount amounts per item
-    // CORRECTED: Added TableName and FieldName constraints to RecordSpecData JOIN
-    // CORRECTED: Using _DiscountMaintenanceDtl based on screenshot
+    // CORRECTED:
+    // 1. Filter RecordSpecData by TableName='items' (lowercase per screenshot)
+    // 2. Filter RecordSpecData by FieldName='DiscountMaintenance'
+    // 3. Join FieldValue directly to _DiscountMaintenanceDtl.DiscountMaintenanceDtlId
+    //    (Screenshot FieldValue=9 matches Screenshot DtlId=9)
+    // 4. Select _CostingDiscountAmt
     const discountQuery = `
       SELECT 
         i."ItemId" as "itemId",
-        dmd."_DiscountMaintenanceDtl" as "discountAmt"
+        dmd."_CostingDiscountAmt" as "discountAmt"
       FROM public."Items" i
       INNER JOIN public."RecordSpecData" rsd 
-        ON i."ItemId" = rsd."TableId" 
-        AND rsd."TableName" = 'Items'
-        AND rsd."FieldName" = 'DiscountMaintenance'
-      INNER JOIN public."_DiscountMaintenanceHdr" dmh 
-        ON CAST(rsd."FieldValue" AS INTEGER) = dmh."DiscountMaintenanceHdrId"
+        ON i."ItemId" = rsd."TableId"
       INNER JOIN public."_DiscountMaintenanceDtl" dmd 
-        ON dmh."DiscountMaintenanceHdrId" = dmd."DiscountMaintenanceHdrId"
+        ON CAST(rsd."FieldValue" AS INTEGER) = dmd."DiscountMaintenanceDtlId"
       WHERE i."ProdId" = $1
+        AND rsd."TableName" = 'items'
+        AND rsd."FieldName" = 'DiscountMaintenance'
         ${itemFilterSQL}
     `;
 
@@ -197,7 +199,7 @@ export async function GET(request: NextRequest) {
     // Build discount map: itemId -> discountAmt
     const discountMap: Record<number, number> = {};
     for (const row of discountRows) {
-      // Use _DiscountMaintenanceDtl (or the aliased "discountAmt")
+      // Use the correct _CostingDiscountAmt column aliased as "discountAmt"
       discountMap[row.itemId] = parseFloat(row.discountAmt) || 0;
     }
 
@@ -228,6 +230,9 @@ export async function GET(request: NextRequest) {
       const discountAmt = discountMap[row.itemId] || 0;
       
       // COÛT EXP = EXP base price + discount amount
+      // Since expBasePrice is just the price, and discount is an amount (e.g. 0.40$),
+      // we add them to get the cost (or subtract if it's a rebate, but usually cost = base + overhead).
+      // Assuming Cost = Base Price + Costing Add-on
       const coutExp = expBasePrice !== null ? expBasePrice + discountAmt : null;
       
       itemsMap[row.itemId].ranges.push({
