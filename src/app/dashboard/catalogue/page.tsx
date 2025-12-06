@@ -1,4 +1,3 @@
-// src/app/dashboard/catalogue/page.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
