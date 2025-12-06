@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN public."itemtype" t ON i."locitemtype" = t."itemtypeid"
       LEFT JOIN public."Products" p ON i."ProdId" = p."ProdId"
       WHERE i."ProdId" BETWEEN 1 AND 10
+        AND i."IsActive" = true
     `;
     
     const params: (string | number)[] = [];
