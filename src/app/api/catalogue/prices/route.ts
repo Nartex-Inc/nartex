@@ -78,6 +78,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN public."itemtype" t ON i."locitemtype" = t."itemtypeid"
       WHERE ipr."priceid" = $${paramIdx}
         AND i."ProdId" = $1
+        AND i."IsActive" = TRUE
         AND pl."IsActive" = true
         ${itemFilterSQL}
       ORDER BY i."ItemCode" ASC, ipr."fromqty" ASC
