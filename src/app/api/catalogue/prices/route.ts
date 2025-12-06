@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
     `;
 
-    // EXP base price query (priceid=4) for COÛT EXP calculation
+    // EXP base price query (priceid=4)
     const expQuery = `
       WITH LatestDatePerItem AS (
         SELECT 
@@ -140,26 +140,23 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
     `;
 
-    // Discount query: Get discount amounts per item
-    // CORRECTED:
-    // 1. Filter RecordSpecData by TableName='items' (lowercase per screenshot)
-    // 2. Filter RecordSpecData by FieldName='DiscountMaintenance'
-    // 3. Join FieldValue directly to _DiscountMaintenanceDtl.DiscountMaintenanceDtlId
-    //    (Screenshot FieldValue=9 matches Screenshot DtlId=9)
-    // 4. Select _CostingDiscountAmt
+    // Discount query: Fetch ALL tiers for the item
+    // We select 'GreatherThan' to map to 'fromqty'
     const discountQuery = `
       SELECT 
         i."ItemId" as "itemId",
+        dmd."GreatherThan" as "minQty",
         dmd."_CostingDiscountAmt" as "discountAmt"
       FROM public."Items" i
       INNER JOIN public."RecordSpecData" rsd 
         ON i."ItemId" = rsd."TableId"
       INNER JOIN public."_DiscountMaintenanceDtl" dmd 
-        ON CAST(rsd."FieldValue" AS INTEGER) = dmd."DiscountMaintenanceDtlId"
+        ON CAST(rsd."FieldValue" AS INTEGER) = dmd."DiscountMaintenanceHdrId"
       WHERE i."ProdId" = $1
         AND rsd."TableName" = 'items'
         AND rsd."FieldName" = 'DiscountMaintenance'
         ${itemFilterSQL}
+      ORDER BY i."ItemId", dmd."GreatherThan" DESC
     `;
 
     console.log("Executing queries...");
@@ -196,11 +193,17 @@ export async function GET(request: NextRequest) {
       expMap[row.itemId][parseInt(row.qtyMin)] = parseFloat(row.expPrice);
     }
 
-    // Build discount map: itemId -> discountAmt
-    const discountMap: Record<number, number> = {};
+    // Build discount tiers map: itemId -> Array of { minQty, val }
+    // We store them sorted by minQty DESC (as fetched) to easily find the correct tier
+    interface DiscountTier { minQty: number; val: number; }
+    const discountMap: Record<number, DiscountTier[]> = {};
+    
     for (const row of discountRows) {
-      // Use the correct _CostingDiscountAmt column aliased as "discountAmt"
-      discountMap[row.itemId] = parseFloat(row.discountAmt) || 0;
+      if (!discountMap[row.itemId]) discountMap[row.itemId] = [];
+      discountMap[row.itemId].push({
+        minQty: parseInt(row.minQty),
+        val: parseFloat(row.discountAmt) || 0
+      });
     }
 
     // Group main results by item
@@ -219,20 +222,33 @@ export async function GET(request: NextRequest) {
           className: row.className,
           priceListName: row.priceListName,
           priceCode: row.priceCode,
-          discountAmt: discountMap[row.itemId] || 0,
           ranges: []
         };
       }
       
       const qtyMin = parseInt(row.qtyMin);
+      
+      // Get PDS
       const pdsPrice = pdsMap[row.itemId]?.[qtyMin] ?? null;
+      
+      // Get Base EXP Price
       const expBasePrice = expMap[row.itemId]?.[qtyMin] ?? null;
-      const discountAmt = discountMap[row.itemId] || 0;
+      
+      // Find Discount Amount
+      // Logic: Find the row where GreatherThan <= qtyMin with the largest GreatherThan.
+      // Since our list is sorted DESC, we just find the first one that fits.
+      // e.g. Tiers: [24, 12, 1]. Qty: 4. 
+      // 24 <= 4? No. 12 <= 4? No. 1 <= 4? Yes. Use Tier 1.
+      let discountAmt = 0;
+      const tiers = discountMap[row.itemId];
+      if (tiers) {
+        const tier = tiers.find(t => t.minQty <= qtyMin);
+        if (tier) {
+          discountAmt = tier.val;
+        }
+      }
       
       // COÛT EXP = EXP base price + discount amount
-      // Since expBasePrice is just the price, and discount is an amount (e.g. 0.40$),
-      // we add them to get the cost (or subtract if it's a rebate, but usually cost = base + overhead).
-      // Assuming Cost = Base Price + Costing Add-on
       const coutExp = expBasePrice !== null ? expBasePrice + discountAmt : null;
       
       itemsMap[row.itemId].ranges.push({
@@ -241,7 +257,8 @@ export async function GET(request: NextRequest) {
         unitPrice: parseFloat(row.unitPrice),
         pdsPrice: pdsPrice,
         expBasePrice: expBasePrice,
-        coutExp: coutExp
+        coutExp: coutExp,
+        discountAmt: discountAmt // Optional: pass to frontend if needed for debugging
       });
     }
 
