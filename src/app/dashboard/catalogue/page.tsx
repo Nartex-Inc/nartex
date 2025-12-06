@@ -40,6 +40,7 @@ interface PriceRange {
   pdsPrice: number | null;
   expBasePrice: number | null;
   coutExp: number | null;
+  costingDiscountAmt?: number;
 }
 
 interface ItemPriceData {
@@ -53,7 +54,6 @@ interface ItemPriceData {
   className: string;
   priceListName: string;
   priceCode: string;
-  discountAmt: number;
   ranges: PriceRange[];
 }
 
@@ -147,8 +147,6 @@ function PriceModal({
   // Calculation Helpers
   const calcPricePerCaisse = (price: number, caisse: number | null) => caisse ? price * caisse : null;
   const calcPricePerLitre = (price: number, volume: number | null) => volume ? price / volume : null;
-  // Margin based on PDS (Retailer Margin)
-  const calcMargin = (pds: number | null, unit: number) => pds ? ((pds - unit) / pds) * 100 : null;
   // Margin based on Export Cost (Company Margin)
   const calcMarginExp = (unit: number, cout: number | null) => cout && unit ? ((unit - cout) / unit) * 100 : null;
 
@@ -245,23 +243,23 @@ function PriceModal({
                             {selectedPriceList?.code || 'Prix'}
                           </th>
                           
-                          {/* Expanded Details Columns */}
+                          {/* Expanded Details Columns - Coût Exp and % Exp RIGHT AFTER price list */}
                           {showDetails && (
                             <>
+                              <th className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20">
+                                Coût Exp
+                              </th>
+                              <th className="text-right p-2 md:p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20">
+                                _Discount
+                              </th>
+                              <th className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20">
+                                % Exp
+                              </th>
                               <th className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20">
                                 ($)/Caisse
                               </th>
                               <th className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20">
                                 ($)/L
-                              </th>
-                              <th className="text-right p-2 md:p-3 font-bold text-green-700 dark:text-green-400 border border-neutral-300 dark:border-neutral-700 bg-green-50 dark:bg-green-900/20">
-                                % Marge
-                              </th>
-                              <th className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20">
-                                Coût Exp
-                              </th>
-                              <th className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20">
-                                % Exp
                               </th>
                             </>
                           )}
@@ -276,7 +274,6 @@ function PriceModal({
                           const isFirstRow = rIdx === 0;
                           const ppc = calcPricePerCaisse(range.unitPrice, item.caisse);
                           const ppl = calcPricePerLitre(range.unitPrice, item.volume);
-                          const margin = calcMargin(range.pdsPrice, range.unitPrice);
                           const marginExp = calcMarginExp(range.unitPrice, range.coutExp);
                           
                           return (
@@ -311,38 +308,40 @@ function PriceModal({
                                 </span>
                               </td>
                               
-                              {/* Expanded Details Data */}
+                              {/* Expanded Details Data - Coût Exp and % Exp RIGHT AFTER price */}
                               {showDetails && (
                                 <>
-                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10">
-                                    <span className="font-mono text-blue-700 dark:text-blue-400">
-                                      {ppc ? ppc.toFixed(2) : '-'}
-                                    </span>
-                                  </td>
-                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10">
-                                    <span className="font-mono text-blue-700 dark:text-blue-400">
-                                      {ppl ? ppl.toFixed(2) : '-'}
-                                    </span>
-                                  </td>
-                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-green-50/50 dark:bg-green-900/10">
-                                    <span className={cn(
-                                      "font-mono font-bold",
-                                      margin && margin > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                                    )}>
-                                      {margin ? `${margin.toFixed(1)}%` : '-'}
-                                    </span>
-                                  </td>
+                                  {/* Coût Exp */}
                                   <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10">
                                     <span className="font-mono font-bold text-purple-700 dark:text-purple-400">
                                       {range.coutExp ? range.coutExp.toFixed(2) : '-'}
                                     </span>
                                   </td>
+                                  {/* _Discount (DEBUG) */}
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-orange-50/50 dark:bg-orange-900/10">
+                                    <span className="font-mono font-bold text-orange-700 dark:text-orange-400">
+                                      {range.costingDiscountAmt !== undefined ? range.costingDiscountAmt.toFixed(2) : '-'}
+                                    </span>
+                                  </td>
+                                  {/* % Exp */}
                                   <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10">
                                     <span className={cn(
                                       "font-mono font-bold",
                                       marginExp && marginExp > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
                                     )}>
                                       {marginExp ? `${marginExp.toFixed(1)}%` : '-'}
+                                    </span>
+                                  </td>
+                                  {/* ($)/Caisse */}
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10">
+                                    <span className="font-mono text-blue-700 dark:text-blue-400">
+                                      {ppc ? ppc.toFixed(2) : '-'}
+                                    </span>
+                                  </td>
+                                  {/* ($)/L */}
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10">
+                                    <span className="font-mono text-blue-700 dark:text-blue-400">
+                                      {ppl ? ppl.toFixed(2) : '-'}
                                     </span>
                                   </td>
                                 </>
