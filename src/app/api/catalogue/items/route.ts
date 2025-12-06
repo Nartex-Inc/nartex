@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const itemTypeId = searchParams.get("itemTypeId");
     const search = searchParams.get("search");
-    const prodId = searchParams.get("prodId"); // Optional: if filtering by prodId in search dropdown
+    const prodId = searchParams.get("prodId");
 
     let query = `
       SELECT 
@@ -34,9 +34,7 @@ export async function GET(request: NextRequest) {
     const params: (string | number)[] = [];
     let paramIndex = 1;
 
-    // Optional: Filter by ProdId 1-10 restriction if your logic requires it, 
-    // otherwise remove or adjust as needed. 
-    // Added based on your previous snippet:
+    // The logic you confirmed was working previously
     query += ` AND i."ProdId" BETWEEN 1 AND 10 `;
 
     if (search) {
@@ -59,12 +57,13 @@ export async function GET(request: NextRequest) {
       params.push(`${search}%`);
       
     } else if (itemTypeId) {
+      // Fetching by specific class
       query += ` AND i."locitemtype" = $${paramIndex}`;
       params.push(parseInt(itemTypeId, 10));
       paramIndex++;
       query += ` ORDER BY i."ItemCode" ASC`;
     } else if (prodId) {
-      // Fallback if only prodId is provided
+      // Fallback: Fetching by product ID (if no class selected)
       query += ` AND i."ProdId" = $${paramIndex}`;
       params.push(parseInt(prodId, 10));
       paramIndex++;
