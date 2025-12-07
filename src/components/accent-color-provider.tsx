@@ -22,16 +22,16 @@ export type AccentPreset = {
  */
 export const ACCENT_PRESETS: Record<string, AccentPreset> = {
   green: {
-    name: "Émeraude",
-    light: "#1DB954",
-    dark: "#1ED760",
-    muted: { light: "#E8F8ED", dark: "#1A3D2A" },
+    name: "Vert",
+    light: "#23852E",
+    dark: "#34C745",
+    muted: { light: "#23852E", dark: "#34C745" },
   },
   red: {
-    name: "Rubis",
+    name: "Rouge",
     light: "#DC2626",
-    dark: "#EF4444",
-    muted: { light: "#FEE2E2", dark: "#3D1A1A" },
+    dark: "#A11319",
+    muted: { light: "#DC2626", dark: "#A11319" },
   },
   blue: {
     name: "Saphir",
