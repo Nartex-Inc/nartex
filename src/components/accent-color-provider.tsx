@@ -25,13 +25,19 @@ export const ACCENT_PRESETS: Record<string, AccentPreset> = {
     name: "Vert",
     light: "#23852E",
     dark: "#34C745",
-    muted: { light: "#23852E", dark: "#34C745" },
+    muted: { 
+      light: "#F0FDF4", // A very pale green tint (Tailwind Green-50)
+      dark: "#052E16"   // A deep, dark forest green (Tailwind Green-950)
+    },
   },
   red: {
     name: "Rouge",
     light: "#DC2626",
     dark: "#A11319",
-    muted: { light: "#DC2626", dark: "#A11319" },
+    muted: { 
+      light: "#FEF2F2", // A very soft red/pink (Tailwind Red-50)
+      dark: "#450A0A"   // A deep maroon (Tailwind Red-950)
+    },
   },
   blue: {
     name: "Saphir",
