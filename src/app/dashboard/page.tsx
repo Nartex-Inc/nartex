@@ -40,6 +40,7 @@ import {
   Lock
 } from "lucide-react";
 import { THEME, CHART_COLORS, ThemeTokens } from "@/lib/theme-tokens";
+import { useCurrentAccent } from "@/components/accent-color-provider";
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    Constants
@@ -603,9 +604,25 @@ const DashboardContent = () => {
   
   useEffect(() => setMounted(true), []);
   
+  // 1. Get the dynamic color from our provider
+  const { color: accentColor, muted: accentMuted } = useCurrentAccent();
+  
   const mode = mounted && resolvedTheme === "light" ? "light" : "dark";
-  const t = THEME[mode];
-  const chartColors = CHART_COLORS[mode];
+
+  // 2. Create a dynamic theme object that overrides the static accent
+  // This propagates the user's choice to all components using 't.accent'
+  const t = useMemo(() => ({
+    ...THEME[mode],
+    accent: accentColor,
+    accentMuted: accentMuted || (mode === "dark" ? "#1A2A3D" : "#DBEAFE")
+  }), [mode, accentColor, accentMuted]);
+
+  // 3. Create dynamic chart colors
+  // Places the user's selected color as the primary chart color (index 0)
+  const chartColors = useMemo(() => {
+    const baseColors = CHART_COLORS[mode];
+    return [accentColor, ...baseColors.filter(c => c !== accentColor)];
+  }, [mode, accentColor]);
 
   // Date ranges
   const defaultDateRange = useMemo(() => {
