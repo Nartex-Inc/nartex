@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { Header } from "@/components/dashboard/header";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import LoadingAnimation from "@/components/LoadingAnimation";
+import { AccentColorProvider } from "@/components/accent-color-provider";
 import { cn } from "@/lib/utils";
 
 export default function DashboardLayout({
@@ -96,45 +97,47 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="relative min-h-screen bg-[hsl(var(--bg-base))]">
-      {/* Sidebar */}
-      <Sidebar
-        isOpen={isDesktopOpen}
-        isMobileOpen={isMobileOpen}
-        toggleSidebar={() => setDesktopOpen((v) => !v)}
-        closeMobileSidebar={() => setMobileOpen(false)}
-      />
-
-      {/* Mobile backdrop with blur */}
-      {isMobileOpen && (
-        <div
-          aria-hidden="true"
-          onClick={() => setMobileOpen(false)}
-          className={cn(
-            "fixed inset-0 z-40 lg:hidden",
-            "bg-black/50 backdrop-blur-sm",
-            "animate-in fade-in-0 duration-200"
-          )}
+    <AccentColorProvider>
+      <div className="relative min-h-screen bg-[hsl(var(--bg-base))]">
+        {/* Sidebar */}
+        <Sidebar
+          isOpen={isDesktopOpen}
+          isMobileOpen={isMobileOpen}
+          toggleSidebar={() => setDesktopOpen((v) => !v)}
+          closeMobileSidebar={() => setMobileOpen(false)}
         />
-      )}
 
-      {/* Main content area */}
-      <div
-        className={cn(
-          "flex flex-col min-h-screen",
-          "lg:pl-[var(--sidebar-w)]",
-          "transition-[padding] duration-200 ease-out"
+        {/* Mobile backdrop with blur */}
+        {isMobileOpen && (
+          <div
+            aria-hidden="true"
+            onClick={() => setMobileOpen(false)}
+            className={cn(
+              "fixed inset-0 z-40 lg:hidden",
+              "bg-black/50 backdrop-blur-sm",
+              "animate-in fade-in-0 duration-200"
+            )}
+          />
         )}
-      >
-        {/* Header */}
-        <Header
-          onToggleMobileSidebar={() => setMobileOpen((v) => !v)}
-          notificationCount={5}
-        />
 
-        {/* Page content */}
-        <main className="flex-1">{children}</main>
+        {/* Main content area */}
+        <div
+          className={cn(
+            "flex flex-col min-h-screen",
+            "lg:pl-[var(--sidebar-w)]",
+            "transition-[padding] duration-200 ease-out"
+          )}
+        >
+          {/* Header */}
+          <Header
+            onToggleMobileSidebar={() => setMobileOpen((v) => !v)}
+            notificationCount={5}
+          />
+
+          {/* Page content */}
+          <main className="flex-1">{children}</main>
+        </div>
       </div>
-    </div>
+    </AccentColorProvider>
   );
 }
