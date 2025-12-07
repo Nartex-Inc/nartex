@@ -4,10 +4,23 @@
 import * as React from "react";
 
 /**
+ * Accent preset type definition
+ */
+export type AccentPreset = {
+  readonly name: string;
+  readonly light: string;
+  readonly dark: string;
+  readonly muted: {
+    readonly light: string;
+    readonly dark: string;
+  };
+};
+
+/**
  * Available accent color presets
  * Each has light and dark variants for optimal contrast
  */
-export const ACCENT_PRESETS = {
+export const ACCENT_PRESETS: Record<string, AccentPreset> = {
   green: {
     name: "Émeraude",
     light: "#1DB954",
@@ -56,14 +69,14 @@ export const ACCENT_PRESETS = {
     dark: "#818CF8",
     muted: { light: "#E0E7FF", dark: "#1A1A3D" },
   },
-} as const;
+};
 
 export type AccentColorKey = keyof typeof ACCENT_PRESETS;
 
 type AccentColorContextType = {
   accentKey: AccentColorKey;
   setAccentKey: (key: AccentColorKey) => void;
-  accent: typeof ACCENT_PRESETS.green;
+  accent: AccentPreset;
 };
 
 const AccentColorContext = React.createContext<AccentColorContextType | undefined>(undefined);
@@ -127,7 +140,7 @@ export function AccentColorProvider({ children }: { children: React.ReactNode })
     localStorage.setItem(STORAGE_KEY, key);
   }, []);
 
-  const value = React.useMemo(
+  const value: AccentColorContextType = React.useMemo(
     () => ({
       accentKey,
       setAccentKey,
