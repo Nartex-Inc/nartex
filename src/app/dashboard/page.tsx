@@ -154,10 +154,14 @@ const KpiSkeleton = ({ t }: { t: ThemeTokens }) => (
   </div>
 );
 
-const ChartSkeleton = ({ height = 280 }: { height?: number }) => (
+// FIX: Added accentColor prop and applied inline style to Loader2
+const ChartSkeleton = ({ height = 280, accentColor }: { height?: number; accentColor: string }) => (
   <div className="flex items-center justify-center" style={{ height }}>
     <div className="flex flex-col items-center gap-3">
-      <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--accent))]" />
+      <Loader2 
+        className="h-8 w-8 animate-spin" 
+        style={{ color: accentColor }} 
+      />
       <span className="text-sm text-[hsl(var(--text-muted))]">Chargement...</span>
     </div>
   </div>
@@ -498,7 +502,8 @@ function ChartCard({
         {action}
       </div>
       <div className="flex-grow">
-        {isLoading ? <ChartSkeleton height={height} /> : children}
+        {/* FIX: Passing t.accent to the skeleton */}
+        {isLoading ? <ChartSkeleton height={height} accentColor={t.accent} /> : children}
       </div>
     </div>
   );
