@@ -2,7 +2,7 @@
 /**
  * Nartex Design System — Theme Tokens
  * Centralized theme configuration for charts and components
- * Uses SUCCESS GREEN as primary accent
+ * Supports dynamic accent colors via CSS variables
  */
 
 export type ThemeTokens = {
@@ -22,7 +22,7 @@ export type ThemeTokens = {
   borderSubtle: string;
   borderDefault: string;
   
-  // Accent (SUCCESS GREEN)
+  // Accent (can be overridden by CSS variables)
   accent: string;
   accentMuted: string;
   
@@ -36,7 +36,8 @@ export type ThemeTokens = {
 };
 
 /**
- * Theme configurations — Pure neutral greys with SUCCESS GREEN accent
+ * Base theme configurations — Pure neutral greys
+ * Accent colors are defaults that can be overridden by AccentColorProvider
  */
 export const THEME: Record<"light" | "dark", ThemeTokens> = {
   light: {
@@ -56,7 +57,7 @@ export const THEME: Record<"light" | "dark", ThemeTokens> = {
     borderSubtle: "#EBEBEB",
     borderDefault: "#D9D9D9",
     
-    // Accent (SUCCESS GREEN)
+    // Default Accent (SUCCESS GREEN) - will be overridden by CSS vars
     accent: "#1DB954",
     accentMuted: "#E8F8ED",
     
@@ -85,7 +86,7 @@ export const THEME: Record<"light" | "dark", ThemeTokens> = {
     borderSubtle: "#1F1F1F",
     borderDefault: "#2E2E2E",
     
-    // Accent (SUCCESS GREEN - Brighter for dark mode)
+    // Default Accent (SUCCESS GREEN - Brighter for dark mode)
     accent: "#1ED760",
     accentMuted: "#1A3D2A",
     
@@ -100,11 +101,28 @@ export const THEME: Record<"light" | "dark", ThemeTokens> = {
 };
 
 /**
- * Chart color palette — SUCCESS GREEN primary, complementary colors
+ * Get theme tokens with custom accent color
+ */
+export function getThemeWithAccent(
+  mode: "light" | "dark",
+  accent: { light: string; dark: string; muted: { light: string; dark: string } }
+): ThemeTokens {
+  const base = THEME[mode];
+  return {
+    ...base,
+    accent: mode === "dark" ? accent.dark : accent.light,
+    accentMuted: mode === "dark" ? accent.muted.dark : accent.muted.light,
+    // Also update success to match accent for consistency
+    success: mode === "dark" ? accent.dark : accent.light,
+  };
+}
+
+/**
+ * Chart color palette — Dynamic based on accent, with complementary colors
  */
 export const CHART_COLORS: Record<"light" | "dark", string[]> = {
   light: [
-    "#1DB954",  // Primary green (accent)
+    "#1DB954",  // Primary (will match accent)
     "#6366F1",  // Indigo
     "#EC4899",  // Pink
     "#F59E0B",  // Amber
@@ -116,7 +134,7 @@ export const CHART_COLORS: Record<"light" | "dark", string[]> = {
     "#EF4444",  // Red
   ],
   dark: [
-    "#1ED760",  // Primary green (accent - brighter)
+    "#1ED760",  // Primary (will match accent)
     "#818CF8",  // Indigo (brighter)
     "#F472B6",  // Pink (brighter)
     "#FBBF24",  // Amber (brighter)
@@ -128,6 +146,18 @@ export const CHART_COLORS: Record<"light" | "dark", string[]> = {
     "#F87171",  // Red (brighter)
   ],
 };
+
+/**
+ * Get chart colors with custom primary accent
+ */
+export function getChartColorsWithAccent(
+  mode: "light" | "dark",
+  accentColor: string
+): string[] {
+  const colors = [...CHART_COLORS[mode]];
+  colors[0] = accentColor; // Replace primary with custom accent
+  return colors;
+}
 
 /**
  * Get chart gradient stops for area charts
@@ -149,3 +179,16 @@ export const getSemanticColor = (
   if (value < 0) return theme.danger;
   return theme.textMuted;
 };
+
+/**
+ * CSS variable names for accent colors
+ * These are set by AccentColorProvider and can be used in CSS
+ */
+export const CSS_ACCENT_VARS = {
+  light: "--accent-light",
+  dark: "--accent-dark",
+  current: "--accent-current",
+  mutedLight: "--accent-muted-light",
+  mutedDark: "--accent-muted-dark",
+  mutedCurrent: "--accent-muted-current",
+} as const;
