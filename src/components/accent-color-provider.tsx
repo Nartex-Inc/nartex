@@ -71,6 +71,10 @@ export const ACCENT_PRESETS: Record<string, AccentPreset> = {
   },
 };
 
+// Default accent for when provider is not available
+const DEFAULT_ACCENT_KEY: AccentColorKey = "green";
+const DEFAULT_ACCENT = ACCENT_PRESETS[DEFAULT_ACCENT_KEY];
+
 export type AccentColorKey = keyof typeof ACCENT_PRESETS;
 
 type AccentColorContextType = {
@@ -79,20 +83,30 @@ type AccentColorContextType = {
   accent: AccentPreset;
 };
 
-const AccentColorContext = React.createContext<AccentColorContextType | undefined>(undefined);
+// Create context with default value instead of undefined
+const AccentColorContext = React.createContext<AccentColorContextType>({
+  accentKey: DEFAULT_ACCENT_KEY,
+  setAccentKey: () => {},
+  accent: DEFAULT_ACCENT,
+});
 
 const STORAGE_KEY = "sinto-accent-color";
 
 export function AccentColorProvider({ children }: { children: React.ReactNode }) {
-  const [accentKey, setAccentKeyState] = React.useState<AccentColorKey>("green");
+  const [accentKey, setAccentKeyState] = React.useState<AccentColorKey>(DEFAULT_ACCENT_KEY);
   const [mounted, setMounted] = React.useState(false);
 
   // Load from localStorage on mount
   React.useEffect(() => {
     setMounted(true);
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored && stored in ACCENT_PRESETS) {
-      setAccentKeyState(stored as AccentColorKey);
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored && stored in ACCENT_PRESETS) {
+        setAccentKeyState(stored as AccentColorKey);
+      }
+    } catch (e) {
+      // localStorage might not be available (SSR, etc.)
+      console.warn("Could not access localStorage for accent color");
     }
   }, []);
 
@@ -101,6 +115,8 @@ export function AccentColorProvider({ children }: { children: React.ReactNode })
     if (!mounted) return;
     
     const preset = ACCENT_PRESETS[accentKey];
+    if (!preset) return;
+    
     const root = document.documentElement;
     
     // Set CSS custom properties for both light and dark modes
@@ -123,6 +139,8 @@ export function AccentColorProvider({ children }: { children: React.ReactNode })
       mutations.forEach((mutation) => {
         if (mutation.attributeName === "class") {
           const preset = ACCENT_PRESETS[accentKey];
+          if (!preset) return;
+          
           const root = document.documentElement;
           const isDark = root.classList.contains("dark");
           root.style.setProperty("--accent-current", isDark ? preset.dark : preset.light);
@@ -137,14 +155,18 @@ export function AccentColorProvider({ children }: { children: React.ReactNode })
 
   const setAccentKey = React.useCallback((key: AccentColorKey) => {
     setAccentKeyState(key);
-    localStorage.setItem(STORAGE_KEY, key);
+    try {
+      localStorage.setItem(STORAGE_KEY, key);
+    } catch (e) {
+      console.warn("Could not save accent color to localStorage");
+    }
   }, []);
 
   const value: AccentColorContextType = React.useMemo(
     () => ({
       accentKey,
       setAccentKey,
-      accent: ACCENT_PRESETS[accentKey],
+      accent: ACCENT_PRESETS[accentKey] || DEFAULT_ACCENT,
     }),
     [accentKey, setAccentKey]
   );
@@ -156,11 +178,13 @@ export function AccentColorProvider({ children }: { children: React.ReactNode })
   );
 }
 
+/**
+ * Hook to get and set accent color
+ * Safe to use even without provider (returns defaults)
+ */
 export function useAccentColor() {
   const context = React.useContext(AccentColorContext);
-  if (!context) {
-    throw new Error("useAccentColor must be used within AccentColorProvider");
-  }
+  // Context will always have a value now (either from provider or default)
   return context;
 }
 
