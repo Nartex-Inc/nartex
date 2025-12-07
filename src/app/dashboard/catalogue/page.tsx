@@ -640,74 +640,6 @@ export default function CataloguePage() {
     <div className="min-h-screen bg-neutral-100 dark:bg-neutral-950">
       <div className="min-h-screen flex flex-col">
         
-        {/* HEADER */}
-        <header className="flex-shrink-0 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 px-4 md:px-6 py-4 sticky top-0 z-50">
-          <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center gap-4">
-            {/* LOGO & TITLE CONTAINER */}
-            <div className="flex items-center gap-4">
-              <Image 
-                src="/sinto-logo.svg" 
-                alt="SINTO Logo" 
-                width={64} 
-                height={64} 
-                className="h-16 w-16 object-contain"
-              />
-              <div>
-                <h1 className="text-2xl font-black tracking-tight text-neutral-900 dark:text-white">
-                  Catalogue SINTO
-                </h1>
-                <p className="text-sm text-neutral-500">Générateur de liste de prix</p>
-              </div>
-            </div>
-
-            {/* Search Bar */}
-            <div className="flex-1 w-full md:max-w-md relative">
-              <input 
-                type="search" 
-                placeholder="Recherche rapide par code article..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-14 px-5 rounded-xl text-base font-medium bg-neutral-100 dark:bg-neutral-800 border-2 border-transparent focus:border-red-500 outline-none transition-colors"
-              />
-
-              {/* Search Dropdown */}
-              {searchQuery.length > 1 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden max-h-72 overflow-y-auto z-50">
-                  {isSearching ? (
-                    <div className="p-6 flex justify-center">
-                      <div className="w-6 h-6 border-3 border-red-500 border-t-transparent rounded-full animate-spin" />
-                    </div>
-                  ) : searchResults.length > 0 ? (
-                    searchResults.map((item) => (
-                      <button 
-                        key={item.itemId}
-                        onClick={() => handleSearchResultClick(item)}
-                        className="w-full p-4 text-left hover:bg-red-50 dark:hover:bg-red-900/20 border-b border-neutral-100 dark:border-neutral-800 last:border-0 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono font-black text-red-600 dark:text-red-400 text-sm">
-                            {item.itemCode}
-                          </span>
-                          <span className="truncate font-medium text-neutral-700 dark:text-neutral-300">
-                            {item.description}
-                          </span>
-                        </div>
-                        <div className="text-xs text-neutral-400 mt-1">
-                          {item.categoryName} → {item.className}
-                        </div>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="p-6 text-center text-neutral-500">
-                      Aucun résultat
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
-
         {/* MAIN CONTENT - Vertically Centered */}
         <main className="flex-1 p-4 md:p-6 flex flex-col justify-center items-center">
           <div className="w-full max-w-3xl">
@@ -715,6 +647,70 @@ export default function CataloguePage() {
             {/* Selection Card */}
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-lg p-5 md:p-8">
               
+              {/* BRANDING HEADER (INSIDE CARD) */}
+              <div className="flex items-center gap-4 mb-8">
+                <Image 
+                  src="/sinto-logo.svg" 
+                  alt="SINTO Logo" 
+                  width={64} 
+                  height={64} 
+                  className="h-16 w-16 object-contain"
+                />
+                <div>
+                  <h1 className="text-2xl font-black tracking-tight text-neutral-900 dark:text-white">
+                    Catalogue SINTO
+                  </h1>
+                  <p className="text-sm text-neutral-500">Générateur de liste de prix</p>
+                </div>
+              </div>
+
+              {/* SEARCH BAR (INSIDE CARD) */}
+              <div className="mb-8 relative">
+                <input 
+                  type="search" 
+                  placeholder="Recherche rapide par code article..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-14 px-5 rounded-xl text-base font-medium bg-neutral-100 dark:bg-neutral-800 border-2 border-transparent focus:border-red-600 focus:ring-0 focus:outline-none transition-colors"
+                />
+
+                {/* Search Dropdown */}
+                {searchQuery.length > 1 && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden max-h-72 overflow-y-auto z-50">
+                    {isSearching ? (
+                      <div className="p-6 flex justify-center">
+                        <div className="w-6 h-6 border-3 border-red-500 border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    ) : searchResults.length > 0 ? (
+                      searchResults.map((item) => (
+                        <button 
+                          key={item.itemId}
+                          onClick={() => handleSearchResultClick(item)}
+                          className="w-full p-4 text-left hover:bg-red-50 dark:hover:bg-red-900/20 border-b border-neutral-100 dark:border-neutral-800 last:border-0 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="font-mono font-black text-red-600 dark:text-red-400 text-sm">
+                              {item.itemCode}
+                            </span>
+                            <span className="truncate font-medium text-neutral-700 dark:text-neutral-300">
+                              {item.description}
+                            </span>
+                          </div>
+                          <div className="text-xs text-neutral-400 mt-1">
+                            {item.categoryName} → {item.className}
+                          </div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="p-6 text-center text-neutral-500">
+                        Aucun résultat
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* FORM FIELDS */}
               <div className="space-y-5">
                 
                 {/* Step 1: Price List */}
