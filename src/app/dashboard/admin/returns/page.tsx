@@ -337,8 +337,8 @@ function Switch({ checked, onCheckedChange, label }: { checked: boolean; onCheck
         aria-checked={checked}
         onClick={() => onCheckedChange(!checked)}
         className={cn(
-          "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--bg-base))]",
-          checked ? "bg-[hsl(var(--accent))]" : "bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-default))]"
+          "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--bg-base))]",
+          checked ? "bg-accent" : "bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-default))]"
         )}
       >
         <span
@@ -540,7 +540,7 @@ export default function ReturnsPage() {
               <div>
                 <h1 className="text-2xl font-bold tracking-tight text-[hsl(var(--text-primary))]">
                   Gestion des retours
-                  <span className="text-[hsl(var(--accent))]">.</span>
+                  <span className="text-accent">.</span>
                 </h1>
                 <p className="mt-1 text-sm text-[hsl(var(--text-tertiary))]">
                   Recherchez, filtrez et inspectez les retours produits.
@@ -551,10 +551,10 @@ export default function ReturnsPage() {
                 onClick={() => setOpenNew(true)}
                 className={cn(
                   "inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold",
-                  "bg-[hsl(var(--accent))] text-[hsl(var(--bg-base))]",
+                  "bg-accent text-[hsl(var(--bg-base))]", // This is the key line
                   "hover:brightness-110 active:scale-[0.98]",
                   "transition-all duration-150",
-                  "shadow-sm shadow-[hsl(var(--accent)/0.25)]"
+                  "shadow-sm shadow-accent/25" // And this one
                 )}
               >
                 <Plus className="h-4 w-4" />
@@ -575,7 +575,7 @@ export default function ReturnsPage() {
                     "w-full pl-11 pr-4 py-2.5 rounded-xl text-sm",
                     "bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))]",
                     "text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))]",
-                    "focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))] focus:border-transparent",
+                    "focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent",
                     "transition-all duration-200"
                   )}
                 />
@@ -589,7 +589,7 @@ export default function ReturnsPage() {
                     "px-3 py-2.5 rounded-xl text-sm",
                     "bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))]",
                     "text-[hsl(var(--text-primary))]",
-                    "focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))]"
+                    "focus:outline-none focus:ring-2 focus:ring-accent"
                   )}
                 >
                   <option value="all">Toutes les causes</option>
@@ -605,7 +605,7 @@ export default function ReturnsPage() {
                     "px-3 py-2.5 rounded-xl text-sm",
                     "bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))]",
                     "text-[hsl(var(--text-primary))]",
-                    "focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))]"
+                    "focus:outline-none focus:ring-2 focus:ring-accent"
                   )}
                 >
                   <option value="all">Tous les signaleurs</option>
@@ -622,7 +622,7 @@ export default function ReturnsPage() {
                     "px-3 py-2.5 rounded-xl text-sm",
                     "bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))]",
                     "text-[hsl(var(--text-primary))]",
-                    "focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))]"
+                    "focus:outline-none focus:ring-2 focus:ring-accent"
                   )}
                 />
 
@@ -634,7 +634,7 @@ export default function ReturnsPage() {
                     "px-3 py-2.5 rounded-xl text-sm",
                     "bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))]",
                     "text-[hsl(var(--text-primary))]",
-                    "focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))]"
+                    "focus:outline-none focus:ring-2 focus:ring-accent"
                   )}
                 />
 
@@ -682,7 +682,7 @@ export default function ReturnsPage() {
           {loading && (
             <div className="py-16 text-center">
               <div className="inline-flex items-center gap-3 text-sm text-[hsl(var(--text-tertiary))]">
-                <div className="h-5 w-5 border-2 border-[hsl(var(--accent))] border-t-transparent rounded-full animate-spin" />
+                <div className="h-5 w-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
                 Chargement des retours…
               </div>
             </div>
@@ -760,7 +760,7 @@ export default function ReturnsPage() {
                               "inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium",
                               isSpecialRow
                                 ? "bg-white/20 text-inherit border-white/20"
-                                : "bg-[hsl(var(--accent-muted))] text-[hsl(var(--accent))] border border-[hsl(var(--accent)/0.2)]"
+                                : "bg-accent-muted text-accent border border-accent/20"
                             )}>
                               {CAUSE_LABEL[row.cause]}
                             </span>
@@ -893,8 +893,8 @@ function MetricCard({
             {value}
           </div>
         </div>
-        <div className="p-2.5 rounded-xl bg-[hsl(var(--accent-muted))]">
-          <Icon className="h-5 w-5 text-[hsl(var(--accent))]" />
+        <div className="p-2.5 rounded-xl bg-accent-muted">
+          <Icon className="h-5 w-5 text-accent" />
         </div>
       </div>
     </div>
@@ -1257,7 +1257,7 @@ function DetailModal({
             <div className="flex items-center gap-3 p-3 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))]">
               <Avatar className="h-9 w-9">
                 <AvatarImage src={session?.user?.image ?? ""} alt={creatorName} />
-                <AvatarFallback className="text-xs font-bold bg-[hsl(var(--accent))] text-[hsl(var(--bg-base))]">
+                <AvatarFallback className="text-xs font-bold bg-accent text-[hsl(var(--bg-base))]">
                   {creatorName.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
@@ -1384,7 +1384,7 @@ function DetailModal({
             <div className="space-y-2">
               <h4 className="font-semibold text-[hsl(var(--text-primary))]">Description</h4>
               <textarea
-                className="w-full rounded-xl border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))]"
+                className="w-full rounded-xl border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-accent"
                 rows={4}
                 placeholder="Notes internes, contexte, instructions…"
                 value={draft.description ?? ""}
@@ -1689,7 +1689,7 @@ function NewReturnModal({
             <div className="space-y-2">
               <h4 className="font-semibold text-[hsl(var(--text-primary))]">Description</h4>
               <textarea
-                className="w-full rounded-xl border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))]"
+                className="w-full rounded-xl border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-accent"
                 rows={4}
                 placeholder="Notes internes, contexte, instructions…"
                 value={description}
@@ -1768,7 +1768,7 @@ function Field({
             "rounded-xl border px-3 py-2.5 text-sm",
             "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-subtle))]",
             "text-[hsl(var(--text-primary))]",
-            "focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))]"
+            "focus:outline-none focus:ring-2 focus:ring-accent"
           )}
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -1785,7 +1785,7 @@ function Field({
             "rounded-xl border px-3 py-2.5 text-sm",
             "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-subtle))]",
             "text-[hsl(var(--text-primary))]",
-            "focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))]"
+            "focus:outline-none focus:ring-2 focus:ring-accent"
           )}
           value={value}
           onBlur={onBlur}
