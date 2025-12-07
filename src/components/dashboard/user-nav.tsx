@@ -15,7 +15,6 @@ import {
   Sun,
   Moon,
   Monitor,
-  Palette,
   Check,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -67,6 +66,8 @@ export function UserNav() {
   const currentAccentColor = mounted 
     ? (theme === "dark" ? accent.dark : accent.light)
     : accent.light;
+
+  const accentKeys = Object.keys(ACCENT_PRESETS) as AccentColorKey[];
 
   return (
     <DropdownMenu modal={false}>
@@ -241,7 +242,7 @@ export function UserNav() {
                   "shadow-xl shadow-black/20"
                 )}
               >
-                {(Object.keys(ACCENT_PRESETS) as AccentColorKey[]).map((key) => {
+                {accentKeys.map((key) => {
                   const preset = ACCENT_PRESETS[key];
                   const isSelected = accentKey === key;
                   const previewColor = theme === "dark" ? preset.dark : preset.light;
