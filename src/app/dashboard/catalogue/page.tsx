@@ -256,7 +256,7 @@ function PriceModal({
                             {selectedPriceList?.code || 'Prix'}
                           </th>
                           
-                          {/* Expanded Details Columns (Right of Price) */}
+                          {/* Expanded Details Columns (Right of Price) 
                           {showDetails && (
                             <>
                               <th className="text-right p-2 md:p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20">
@@ -270,6 +270,7 @@ function PriceModal({
                               </th>
                             </>
                           )}
+                          */}
                           
                           <th className="text-right p-2 md:p-3 font-bold text-amber-700 dark:text-amber-400 border border-neutral-300 dark:border-neutral-700 bg-amber-50 dark:bg-amber-900/20">
                             PDS
