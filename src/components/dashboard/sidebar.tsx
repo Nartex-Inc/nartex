@@ -1,4 +1,3 @@
-// src/components/dashboard/sidebar.tsx
 "use client";
 
 import * as React from "react";
@@ -6,8 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  ListChecks,
-  Briefcase,
   UserPlus,
   RefreshCcw,
   Receipt,
@@ -129,7 +126,7 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
           className={cn(
             "flex items-center gap-3 w-full px-2 py-2 rounded-lg",
             "hover:bg-[hsl(var(--bg-elevated))] transition-colors",
-            "outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent))]"
+            "outline-none focus-visible:ring-2 focus-visible:ring-accent"
           )}
         >
           {/* SINTO Logo — TWICE AS BIG (h-16 = 64px) */}
@@ -186,7 +183,7 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
             <div
               className={cn(
                 "flex items-center justify-center w-7 h-7 rounded-md shrink-0",
-                "bg-[hsl(var(--accent-muted))] text-[hsl(var(--accent))]"
+                "bg-accent-muted text-accent"
               )}
             >
               <Building2 className="h-4 w-4" />
@@ -198,7 +195,7 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
               </div>
             </div>
             {selectedCompany.id === company.id && (
-              <Check className="h-4 w-4 text-[hsl(var(--accent))] shrink-0" />
+              <Check className="h-4 w-4 text-accent shrink-0" />
             )}
           </DropdownMenuItem>
         ))}
@@ -217,7 +214,7 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   Nav Link Component — Premium Micro-interactions (GREEN accent)
+   Nav Link Component — Premium Micro-interactions (DYNAMIC ACCENT)
    ═══════════════════════════════════════════════════════════════════════════════ */
 function NavLink({
   item,
@@ -241,9 +238,9 @@ function NavLink({
       onClick={() => isMobile && closeMobile()}
       className={cn(
         "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-200",
-        "outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--accent))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--bg-surface))]",
+        "outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--bg-surface))]",
         active
-          ? "bg-[hsl(var(--accent))] text-white shadow-sm shadow-[hsl(var(--accent)/0.25)]"
+          ? "bg-accent text-white shadow-sm shadow-accent/25"
           : "text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] hover:text-[hsl(var(--text-primary))]",
         !expanded && "justify-center px-0 w-10 mx-auto"
       )}
@@ -331,8 +328,8 @@ export function Sidebar({
   const sidebarContent = (isMobile: boolean) => (
     <div className="flex h-full flex-col">
       {/* ─────────────────────────────────────────────────────────────────────────
-         Header — Company Selector & Collapse Toggle (FIXED)
-         ───────────────────────────────────────────────────────────────────────── */}
+          Header — Company Selector & Collapse Toggle (FIXED)
+          ───────────────────────────────────────────────────────────────────────── */}
       <div
         className={cn(
           "shrink-0 border-b border-[hsl(var(--border-subtle))]",
@@ -369,8 +366,8 @@ export function Sidebar({
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────────
-         Navigation Content
-         ───────────────────────────────────────────────────────────────────────── */}
+          Navigation Content
+          ───────────────────────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
         <div className="flex flex-col gap-6">
           {NAV_GROUPS.map((group) => (
