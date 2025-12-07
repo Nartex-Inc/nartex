@@ -19,16 +19,12 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        // --- THIS IS THE KEY CHANGE ---
-        // We are replacing Geist with Poppins as the primary sans-serif font.
-        // The `var(--font-poppins)` will be provided by your updated layout.tsx.
         sans: [
           'var(--font-poppins)', 
           'Arial', 
           'Helvetica', 
           'sans-serif'
         ],
-        // You can keep Geist Mono or switch to another mono font if you prefer.
         mono: [
           'var(--font-geist-mono)', 
           'monospace'
@@ -56,9 +52,12 @@ module.exports = {
           DEFAULT: 'hsl(var(--muted))',
           foreground: 'hsl(var(--muted-foreground))'
         },
+        // --- DYNAMIC ACCENT CONFIGURATION ---
+        // Maps directly to the CSS variables set by AccentColorProvider
         accent: {
-          DEFAULT: 'hsl(var(--accent))',
-          foreground: 'hsl(var(--accent-foreground))'
+          DEFAULT: 'var(--accent-current)', 
+          foreground: '#ffffff',            
+          muted: 'var(--accent-muted-current)'
         },
         popover: {
           DEFAULT: 'hsl(var(--popover))',
@@ -95,7 +94,6 @@ module.exports = {
           from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: '0' }
         },
-        // --- NEW: Added animations from the login page ---
         'fade-in-down': {
           from: { opacity: '0', transform: 'translate(-50%, -1.5rem)' },
           to: { opacity: '1', transform: 'translate(-50%, 0)' }
@@ -108,7 +106,6 @@ module.exports = {
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
-        // --- NEW: Added animations from the login page ---
         'fade-in-down': 'fade-in-down 0.5s ease-out forwards',
         'pulse-slow': 'pulse-slow 8s cubic-bezier(0.4, 0, 0.6, 1) infinite'
       }
