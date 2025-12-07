@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+// 1. Import your dynamic accent hook
+import { useCurrentAccent } from "@/components/accent-color-provider";
 
 // --- Interfaces ---
 interface Product {
@@ -100,8 +102,8 @@ function AnimatedPrice({ value, duration = 600 }: { value: number; duration?: nu
   return <span>{displayValue.toFixed(2)}</span>;
 }
 
-// --- Toggle Component ---
-function Toggle({ enabled, onChange, label }: { enabled: boolean; onChange: (v: boolean) => void; label: string }) {
+// --- Toggle Component (Now uses Accent) ---
+function Toggle({ enabled, onChange, label, accentColor }: { enabled: boolean; onChange: (v: boolean) => void; label: string; accentColor: string }) {
   return (
     <label className="flex items-center gap-2 cursor-pointer select-none">
       <span className="text-white text-sm font-medium hidden md:inline-block">{label}</span>
@@ -115,8 +117,9 @@ function Toggle({ enabled, onChange, label }: { enabled: boolean; onChange: (v: 
         <div 
           className={cn(
             "absolute top-1 w-4 h-4 rounded-full transition-all shadow-sm", 
-            enabled ? "left-7 bg-red-600" : "left-1 bg-white"
-          )} 
+            enabled ? "left-7" : "left-1 bg-white"
+          )}
+          style={{ backgroundColor: enabled ? accentColor : undefined }} 
         />
       </div>
     </label>
@@ -133,11 +136,14 @@ interface PriceModalProps {
   onPriceListChange: (priceId: number) => void;
   loading: boolean;
   error: string | null;
+  accentColor: string; // Pass accent color
+  accentMuted: string; // Pass muted accent
 }
 
 function PriceModal({ 
   isOpen, onClose, data, priceLists, 
-  selectedPriceList, onPriceListChange, loading, error
+  selectedPriceList, onPriceListChange, loading, error,
+  accentColor, accentMuted
 }: PriceModalProps) {
   const [showDetails, setShowDetails] = useState(false);
 
@@ -159,15 +165,23 @@ function PriceModal({
       
       <div className="relative w-full max-w-[98vw] max-h-[94vh] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
         
-        {/* Modal Header */}
-        <div className="flex-shrink-0 bg-red-600 px-4 md:px-6 py-4">
+        {/* Modal Header with Dynamic Accent */}
+        <div 
+          className="flex-shrink-0 px-4 md:px-6 py-4"
+          style={{ backgroundColor: accentColor }}
+        >
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <h2 className="text-xl md:text-2xl font-bold text-white">
               Liste de Prix
             </h2>
             
             <div className="flex items-center gap-4">
-              <Toggle enabled={showDetails} onChange={setShowDetails} label="Afficher détails" />
+              <Toggle 
+                enabled={showDetails} 
+                onChange={setShowDetails} 
+                label="Afficher détails" 
+                accentColor={accentColor}
+              />
 
               <select
                 value={selectedPriceList?.priceId || ""}
@@ -196,14 +210,17 @@ function PriceModal({
         <div className="flex-1 overflow-auto p-3 md:p-5 bg-neutral-100 dark:bg-neutral-950">
           {loading ? (
             <div className="flex flex-col items-center justify-center h-64 gap-4">
-              <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
+              <div 
+                className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin" 
+                style={{ borderColor: accentColor, borderTopColor: 'transparent' }}
+              />
               <p className="text-neutral-500 font-medium">Chargement des prix...</p>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center h-64 gap-4">
-              <div className="text-6xl text-red-300">!</div>
+              <div className="text-6xl" style={{ color: `${accentColor}50` }}>!</div>
               <div className="text-center">
-                <p className="text-xl font-bold text-red-600 dark:text-red-400">Erreur</p>
+                <p className="text-xl font-bold" style={{ color: accentColor }}>Erreur</p>
                 <p className="text-neutral-500 mt-1">{error}</p>
               </div>
             </div>
@@ -214,11 +231,12 @@ function PriceModal({
                   key={item.itemId}
                   className="bg-white dark:bg-neutral-900 rounded-xl overflow-hidden shadow-lg border border-neutral-200 dark:border-neutral-800"
                 >
-                  <div className="bg-red-600 px-4 py-3">
+                  {/* Item Header with Dynamic Accent */}
+                  <div className="px-4 py-3" style={{ backgroundColor: accentColor }}>
                     <h3 className="text-lg font-black text-white">
                       {item.description.split(' ')[0].toUpperCase()}
                     </h3>
-                    <p className="text-red-100 text-sm">
+                    <p className="text-white/80 text-sm">
                       {item.className || item.description}
                     </p>
                   </div>
@@ -256,12 +274,9 @@ function PriceModal({
                             {selectedPriceList?.code || 'Prix'}
                           </th>
                           
-                          {/* Expanded Details Columns (Right of Price) 
+                          {/* Expanded Details Columns (Right of Price) - _Discount HIDDEN */}
                           {showDetails && (
                             <>
-                              <th className="text-right p-2 md:p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20">
-                                _Discount
-                              </th>
                               <th className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20">
                                 ($)/Caisse
                               </th>
@@ -270,7 +285,6 @@ function PriceModal({
                               </th>
                             </>
                           )}
-                          */}
                           
                           <th className="text-right p-2 md:p-3 font-bold text-amber-700 dark:text-amber-400 border border-neutral-300 dark:border-neutral-700 bg-amber-50 dark:bg-amber-900/20">
                             PDS
@@ -288,10 +302,18 @@ function PriceModal({
                             <tr 
                               key={range.id} 
                               className={cn(
-                                "hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors",
+                                "transition-colors",
                                 isFirstRow ? "bg-white dark:bg-neutral-900" : "bg-neutral-50 dark:bg-neutral-800/50"
                               )}
+                              // Dynamic hover color using inline style for specificity
+                              style={{ 
+                                '--hover-color': `${accentColor}15`, 
+                              } as React.CSSProperties}
                             >
+                              <style jsx>{`
+                                tr:hover { background-color: var(--hover-color) !important; }
+                              `}</style>
+
                               {/* Basic Info */}
                               <td className="p-2 md:p-3 border border-neutral-200 dark:border-neutral-700">
                                 {isFirstRow && <span className="font-mono font-black text-neutral-900 dark:text-white">{item.itemCode}</span>}
@@ -325,12 +347,12 @@ function PriceModal({
                                 </>
                               )}
 
-                              {/* Unit Price */}
+                              {/* Unit Price with Dynamic Accent */}
                               <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700">
-                                <span className={cn(
-                                  "font-mono font-black",
-                                  isFirstRow ? "text-lg text-red-600 dark:text-red-400" : "text-neutral-700 dark:text-neutral-300"
-                                )}>
+                                <span 
+                                  className="font-mono font-black"
+                                  style={{ color: isFirstRow ? accentColor : undefined }}
+                                >
                                   <AnimatedPrice value={range.unitPrice} />
                                 </span>
                               </td>
@@ -338,12 +360,6 @@ function PriceModal({
                               {/* Expanded Details Data (Right of Price) */}
                               {showDetails && (
                                 <>
-                                  {/* _Discount */}
-                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-orange-50/50 dark:bg-orange-900/10">
-                                    <span className="font-mono font-bold text-orange-700 dark:text-orange-400">
-                                      {range.costingDiscountAmt !== undefined ? range.costingDiscountAmt.toFixed(2) : '-'}
-                                    </span>
-                                  </td>
                                   {/* ($)/Caisse */}
                                   <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10">
                                     <span className="font-mono text-blue-700 dark:text-blue-400">
@@ -406,6 +422,9 @@ function PriceModal({
 
 // --- Main Page Component ---
 export default function CataloguePage() {
+  // 2. Get dynamic colors
+  const { color: accentColor, muted: accentMuted } = useCurrentAccent();
+
   // Data
   const [products, setProducts] = useState<Product[]>([]);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
@@ -672,25 +691,41 @@ export default function CataloguePage() {
                   placeholder="Recherche rapide par code article..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-14 px-5 rounded-xl text-base font-medium bg-neutral-100 dark:bg-neutral-800 border-2 border-transparent focus:border-red-600 focus:ring-0 focus:outline-none transition-colors"
+                  className="w-full h-14 px-5 rounded-xl text-base font-medium bg-neutral-100 dark:bg-neutral-800 border-2 border-transparent focus:ring-0 focus:outline-none transition-colors"
+                  // 3. Dynamic Focus Color
+                  style={{ 
+                    '--focus-color': accentColor 
+                  } as React.CSSProperties}
                 />
+                {/* Inline style for focus state to use dynamic accent color */}
+                <style jsx>{`
+                  input[type="search"]:focus {
+                    border-color: var(--focus-color) !important;
+                  }
+                `}</style>
 
                 {/* Search Dropdown */}
                 {searchQuery.length > 1 && (
                   <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden max-h-72 overflow-y-auto z-50">
                     {isSearching ? (
                       <div className="p-6 flex justify-center">
-                        <div className="w-6 h-6 border-3 border-red-500 border-t-transparent rounded-full animate-spin" />
+                        <div 
+                          className="w-6 h-6 border-3 border-t-transparent rounded-full animate-spin" 
+                          style={{ borderColor: accentColor, borderTopColor: 'transparent' }}
+                        />
                       </div>
                     ) : searchResults.length > 0 ? (
                       searchResults.map((item) => (
                         <button 
                           key={item.itemId}
                           onClick={() => handleSearchResultClick(item)}
-                          className="w-full p-4 text-left hover:bg-red-50 dark:hover:bg-red-900/20 border-b border-neutral-100 dark:border-neutral-800 last:border-0 transition-colors"
+                          className="w-full p-4 text-left hover:bg-neutral-50 dark:hover:bg-neutral-800/50 border-b border-neutral-100 dark:border-neutral-800 last:border-0 transition-colors group"
                         >
                           <div className="flex items-center gap-3">
-                            <span className="font-mono font-black text-red-600 dark:text-red-400 text-sm">
+                            <span 
+                              className="font-mono font-black text-sm"
+                              style={{ color: accentColor }}
+                            >
                               {item.itemCode}
                             </span>
                             <span className="truncate font-medium text-neutral-700 dark:text-neutral-300">
@@ -722,7 +757,8 @@ export default function CataloguePage() {
                   <select
                     value={selectedPriceList?.priceId || ""}
                     onChange={(e) => handlePriceListChange(e.target.value)}
-                    className="w-full h-14 px-4 text-base font-semibold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-lg focus:border-red-600 focus:ring-0 focus:outline-none transition-colors"
+                    className="w-full h-14 px-4 text-base font-semibold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-0 focus:outline-none transition-colors"
+                    style={{ '--focus-color': accentColor } as React.CSSProperties}
                   >
                     <option value="" disabled>Sélectionner...</option>
                     {priceLists.map(pl => (
@@ -731,6 +767,7 @@ export default function CataloguePage() {
                       </option>
                     ))}
                   </select>
+                  <style jsx>{`select:focus { border-color: var(--focus-color) !important; }`}</style>
                 </div>
 
                 {/* Step 2: Category */}
@@ -743,9 +780,10 @@ export default function CataloguePage() {
                     onChange={(e) => handleProductChange(e.target.value)}
                     disabled={!selectedPriceList}
                     className={cn(
-                      "w-full h-14 px-4 text-base font-semibold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-lg focus:border-red-600 focus:ring-0 focus:outline-none transition-all",
+                      "w-full h-14 px-4 text-base font-semibold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-0 focus:outline-none transition-all",
                       !selectedPriceList && "opacity-50 cursor-not-allowed"
                     )}
+                    style={{ '--focus-color': accentColor } as React.CSSProperties}
                   >
                     <option value="" disabled>Sélectionner...</option>
                     {products.map(p => (
@@ -766,9 +804,10 @@ export default function CataloguePage() {
                     onChange={(e) => handleTypeChange(e.target.value)}
                     disabled={!selectedProduct || loadingTypes}
                     className={cn(
-                      "w-full h-14 px-4 text-base font-semibold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-lg focus:border-red-600 focus:ring-0 focus:outline-none transition-all",
+                      "w-full h-14 px-4 text-base font-semibold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-0 focus:outline-none transition-all",
                       (!selectedProduct || loadingTypes) && "opacity-50 cursor-not-allowed"
                     )}
+                    style={{ '--focus-color': accentColor } as React.CSSProperties}
                   >
                     <option value="">
                       {loadingTypes ? "Chargement..." : "Toutes les classes"}
@@ -791,9 +830,10 @@ export default function CataloguePage() {
                     onChange={(e) => handleItemChange(e.target.value)}
                     disabled={!selectedType || loadingItems}
                     className={cn(
-                      "w-full h-14 px-4 text-base font-semibold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-lg focus:border-red-600 focus:ring-0 focus:outline-none transition-all",
+                      "w-full h-14 px-4 text-base font-semibold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-0 focus:outline-none transition-all",
                       (!selectedType || loadingItems) && "opacity-50 cursor-not-allowed"
                     )}
+                    style={{ '--focus-color': accentColor } as React.CSSProperties}
                   >
                     <option value="">
                       {loadingItems ? "Chargement..." : "Tous les articles"}
@@ -813,10 +853,13 @@ export default function CataloguePage() {
                     disabled={!canGenerate}
                     className={cn(
                       "w-full h-16 rounded-xl font-black text-lg uppercase tracking-wide transition-all shadow-lg",
-                      canGenerate 
-                        ? "bg-red-600 hover:bg-red-700 text-white active:scale-[0.98] shadow-red-600/20" 
-                        : "bg-neutral-200 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed shadow-none"
+                      !canGenerate && "bg-neutral-200 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed shadow-none"
                     )}
+                    style={canGenerate ? { 
+                      backgroundColor: accentColor, 
+                      color: '#ffffff',
+                      boxShadow: `0 10px 15px -3px ${accentColor}40`
+                    } : {}}
                   >
                     GÉNÉRER LA LISTE
                   </button>
@@ -827,11 +870,17 @@ export default function CataloguePage() {
 
             {/* Selected Item Preview */}
             {selectedItem && (
-              <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
-                <div className="font-bold text-red-800 dark:text-red-300">
+              <div 
+                className="mt-4 p-4 rounded-xl border"
+                style={{ 
+                  backgroundColor: `${accentColor}10`, // 10% opacity hex
+                  borderColor: `${accentColor}30` 
+                }}
+              >
+                <div className="font-bold" style={{ color: accentColor }}>
                   {selectedItem.itemCode}
                 </div>
-                <div className="text-sm text-red-600 dark:text-red-400">
+                <div className="text-sm opacity-80" style={{ color: accentColor }}>
                   {selectedItem.description}
                 </div>
               </div>
@@ -852,6 +901,8 @@ export default function CataloguePage() {
         onPriceListChange={handleModalPriceListChange}
         loading={loadingPrices}
         error={priceError}
+        accentColor={accentColor}
+        accentMuted={accentMuted}
       />
     </div>
   );
