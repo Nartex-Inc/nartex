@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-// 1. Import your dynamic accent hook
 import { useCurrentAccent } from "@/components/accent-color-provider";
 
 // --- Interfaces ---
@@ -102,7 +101,7 @@ function AnimatedPrice({ value, duration = 600 }: { value: number; duration?: nu
   return <span>{displayValue.toFixed(2)}</span>;
 }
 
-// --- Toggle Component (Now uses Accent) ---
+// --- Toggle Component ---
 function Toggle({ enabled, onChange, label, accentColor }: { enabled: boolean; onChange: (v: boolean) => void; label: string; accentColor: string }) {
   return (
     <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -136,8 +135,8 @@ interface PriceModalProps {
   onPriceListChange: (priceId: number) => void;
   loading: boolean;
   error: string | null;
-  accentColor: string; // Pass accent color
-  accentMuted: string; // Pass muted accent
+  accentColor: string;
+  accentMuted: string;
 }
 
 function PriceModal({ 
@@ -165,7 +164,7 @@ function PriceModal({
       
       <div className="relative w-full max-w-[98vw] max-h-[94vh] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
         
-        {/* Modal Header with Dynamic Accent */}
+        {/* Modal Header */}
         <div 
           className="flex-shrink-0 px-4 md:px-6 py-4"
           style={{ backgroundColor: accentColor }}
@@ -231,7 +230,7 @@ function PriceModal({
                   key={item.itemId}
                   className="bg-white dark:bg-neutral-900 rounded-xl overflow-hidden shadow-lg border border-neutral-200 dark:border-neutral-800"
                 >
-                  {/* Item Header with Dynamic Accent */}
+                  {/* Item Header */}
                   <div className="px-4 py-3" style={{ backgroundColor: accentColor }}>
                     <h3 className="text-lg font-black text-white">
                       {item.description.split(' ')[0].toUpperCase()}
@@ -242,51 +241,85 @@ function PriceModal({
                   </div>
                   
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm md:text-base border-collapse">
+                    {/* FIXED: Added 'table-fixed' class. 
+                      This forces the table to respect the widths defined in the <th /> elements 
+                      regardless of content length, ensuring perfect alignment.
+                    */}
+                    <table className="w-full text-sm md:text-base border-collapse table-fixed">
                       <thead>
                         <tr className="bg-neutral-200 dark:bg-neutral-800">
-                          <th className="text-left p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
+                          <th 
+                            className="text-left p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
+                            style={{ width: showDetails ? '16%' : '25%' }}
+                          >
                             Article
                           </th>
-                          <th className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
+                          <th 
+                            className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
+                            style={{ width: showDetails ? '6%' : '10%' }}
+                          >
                             CAISSE
                           </th>
-                          <th className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
+                          <th 
+                            className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
+                            style={{ width: showDetails ? '8%' : '15%' }}
+                          >
                             Format
                           </th>
-                          <th className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
+                          <th 
+                            className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
+                            style={{ width: showDetails ? '6%' : '10%' }}
+                          >
                             Qte/Qty
                           </th>
                           
                           {/* Coût Exp & % Exp - Left of Price */}
                           {showDetails && (
                             <>
-                              <th className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20">
+                              <th 
+                                className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20"
+                                style={{ width: '10%' }}
+                              >
                                 Coût Exp
                               </th>
-                              <th className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20">
+                              <th 
+                                className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20"
+                                style={{ width: '8%' }}
+                              >
                                 % Exp
                               </th>
                             </>
                           )}
 
-                          <th className="text-right p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
+                          <th 
+                            className="text-right p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
+                            style={{ width: showDetails ? '12%' : '20%' }}
+                          >
                             {selectedPriceList?.code || 'Prix'}
                           </th>
                           
-                          {/* Expanded Details Columns (Right of Price) - _Discount HIDDEN */}
+                          {/* Expanded Details Columns (Right of Price) */}
                           {showDetails && (
                             <>
-                              <th className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20">
+                              <th 
+                                className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20"
+                                style={{ width: '11%' }}
+                              >
                                 ($)/Caisse
                               </th>
-                              <th className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20">
+                              <th 
+                                className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20"
+                                style={{ width: '11%' }}
+                              >
                                 ($)/L
                               </th>
                             </>
                           )}
                           
-                          <th className="text-right p-2 md:p-3 font-bold text-amber-700 dark:text-amber-400 border border-neutral-300 dark:border-neutral-700 bg-amber-50 dark:bg-amber-900/20">
+                          <th 
+                            className="text-right p-2 md:p-3 font-bold text-amber-700 dark:text-amber-400 border border-neutral-300 dark:border-neutral-700 bg-amber-50 dark:bg-amber-900/20"
+                            style={{ width: showDetails ? '12%' : '20%' }}
+                          >
                             PDS
                           </th>
                         </tr>
@@ -305,7 +338,6 @@ function PriceModal({
                                 "transition-colors",
                                 isFirstRow ? "bg-white dark:bg-neutral-900" : "bg-neutral-50 dark:bg-neutral-800/50"
                               )}
-                              // Dynamic hover color using inline style for specificity
                               style={{ 
                                 '--hover-color': `${accentColor}15`, 
                               } as React.CSSProperties}
@@ -315,28 +347,28 @@ function PriceModal({
                               `}</style>
 
                               {/* Basic Info */}
-                              <td className="p-2 md:p-3 border border-neutral-200 dark:border-neutral-700">
+                              <td className="p-2 md:p-3 border border-neutral-200 dark:border-neutral-700 truncate">
                                 {isFirstRow && <span className="font-mono font-black text-neutral-900 dark:text-white">{item.itemCode}</span>}
                               </td>
-                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700">
+                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate">
                                 {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.caisse || '-'}</span>}
                               </td>
-                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700">
+                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate">
                                 {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}
                               </td>
-                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700">
+                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate">
                                 <span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span>
                               </td>
                               
                               {/* Coût Exp & % Exp (Left of Price) */}
                               {showDetails && (
                                 <>
-                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10">
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10 truncate">
                                     <span className="font-mono font-bold text-purple-700 dark:text-purple-400">
                                       {range.coutExp ? range.coutExp.toFixed(2) : '-'}
                                     </span>
                                   </td>
-                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10">
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10 truncate">
                                     <span className={cn(
                                       "font-mono font-bold",
                                       marginExp && marginExp > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
@@ -347,8 +379,8 @@ function PriceModal({
                                 </>
                               )}
 
-                              {/* Unit Price with Dynamic Accent */}
-                              <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700">
+                              {/* Unit Price */}
+                              <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 truncate">
                                 <span 
                                   className="font-mono font-black"
                                   style={{ color: isFirstRow ? accentColor : undefined }}
@@ -361,13 +393,13 @@ function PriceModal({
                               {showDetails && (
                                 <>
                                   {/* ($)/Caisse */}
-                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10">
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10 truncate">
                                     <span className="font-mono text-blue-700 dark:text-blue-400">
                                       {ppc ? ppc.toFixed(2) : '-'}
                                     </span>
                                   </td>
                                   {/* ($)/L */}
-                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10">
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10 truncate">
                                     <span className="font-mono text-blue-700 dark:text-blue-400">
                                       {ppl ? ppl.toFixed(2) : '-'}
                                     </span>
@@ -376,7 +408,7 @@ function PriceModal({
                               )}
                               
                               {/* PDS */}
-                              <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-amber-50/50 dark:bg-amber-900/10">
+                              <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-amber-50/50 dark:bg-amber-900/10 truncate">
                                 <span className="font-mono font-bold text-amber-700 dark:text-amber-400">
                                   {range.pdsPrice !== null ? (
                                     <AnimatedPrice value={range.pdsPrice} />
@@ -422,7 +454,6 @@ function PriceModal({
 
 // --- Main Page Component ---
 export default function CataloguePage() {
-  // 2. Get dynamic colors
   const { color: accentColor, muted: accentMuted } = useCurrentAccent();
 
   // Data
@@ -692,12 +723,8 @@ export default function CataloguePage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full h-14 px-5 rounded-xl text-base font-medium bg-neutral-100 dark:bg-neutral-800 border-2 border-transparent focus:ring-0 focus:outline-none transition-colors"
-                  // 3. Dynamic Focus Color
-                  style={{ 
-                    '--focus-color': accentColor 
-                  } as React.CSSProperties}
+                  style={{ '--focus-color': accentColor } as React.CSSProperties}
                 />
-                {/* Inline style for focus state to use dynamic accent color */}
                 <style jsx>{`
                   input[type="search"]:focus {
                     border-color: var(--focus-color) !important;
