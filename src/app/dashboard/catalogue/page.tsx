@@ -241,10 +241,6 @@ function PriceModal({
                   </div>
                   
                   <div className="overflow-x-auto">
-                    {/* FIXED: Added 'table-fixed' class. 
-                      This forces the table to respect the widths defined in the <th /> elements 
-                      regardless of content length, ensuring perfect alignment.
-                    */}
                     <table className="w-full text-sm md:text-base border-collapse table-fixed">
                       <thead>
                         <tr className="bg-neutral-200 dark:bg-neutral-800">
@@ -273,22 +269,14 @@ function PriceModal({
                             Qte/Qty
                           </th>
                           
-                          {/* Coût Exp & % Exp - Left of Price */}
+                          {/* Coût Exp (Left of Price) */}
                           {showDetails && (
-                            <>
-                              <th 
-                                className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20"
-                                style={{ width: '10%' }}
-                              >
-                                Coût Exp
-                              </th>
-                              <th 
-                                className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20"
-                                style={{ width: '8%' }}
-                              >
-                                % Exp
-                              </th>
-                            </>
+                            <th 
+                              className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20"
+                              style={{ width: '10%' }}
+                            >
+                              Coût Exp
+                            </th>
                           )}
 
                           <th 
@@ -312,6 +300,22 @@ function PriceModal({
                                 style={{ width: '11%' }}
                               >
                                 ($)/L
+                              </th>
+                              
+                              {/* Escompte */}
+                              <th 
+                                className="text-right p-2 md:p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20"
+                                style={{ width: '10%' }}
+                              >
+                                Escompte
+                              </th>
+                              
+                              {/* % Exp */}
+                              <th 
+                                className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20"
+                                style={{ width: '8%' }}
+                              >
+                                % Exp
                               </th>
                             </>
                           )}
@@ -360,23 +364,13 @@ function PriceModal({
                                 <span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span>
                               </td>
                               
-                              {/* Coût Exp & % Exp (Left of Price) */}
+                              {/* Coût Exp (Left of Price) */}
                               {showDetails && (
-                                <>
-                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10 truncate">
-                                    <span className="font-mono font-bold text-purple-700 dark:text-purple-400">
-                                      {range.coutExp ? range.coutExp.toFixed(2) : '-'}
-                                    </span>
-                                  </td>
-                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10 truncate">
-                                    <span className={cn(
-                                      "font-mono font-bold",
-                                      marginExp && marginExp > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                                    )}>
-                                      {marginExp ? `${marginExp.toFixed(1)}%` : '-'}
-                                    </span>
-                                  </td>
-                                </>
+                                <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10 truncate">
+                                  <span className="font-mono font-bold text-purple-700 dark:text-purple-400">
+                                    {range.coutExp ? range.coutExp.toFixed(2) : '-'}
+                                  </span>
+                                </td>
                               )}
 
                               {/* Unit Price */}
@@ -402,6 +396,23 @@ function PriceModal({
                                   <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10 truncate">
                                     <span className="font-mono text-blue-700 dark:text-blue-400">
                                       {ppl ? ppl.toFixed(2) : '-'}
+                                    </span>
+                                  </td>
+                                  
+                                  {/* Escompte */}
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-orange-50/50 dark:bg-orange-900/10 truncate">
+                                    <span className="font-mono font-bold text-orange-700 dark:text-orange-400">
+                                      {range.costingDiscountAmt !== undefined ? range.costingDiscountAmt.toFixed(2) : '-'}
+                                    </span>
+                                  </td>
+                                  
+                                  {/* % Exp */}
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10 truncate">
+                                    <span className={cn(
+                                      "font-mono font-bold",
+                                      marginExp && marginExp > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                                    )}>
+                                      {marginExp ? `${marginExp.toFixed(1)}%` : '-'}
                                     </span>
                                   </td>
                                 </>
