@@ -512,7 +512,11 @@ export default function CataloguePage() {
         if (plRes.ok) {
           const pls: PriceList[] = await plRes.json();
           setPriceLists(pls);
-          if (pls.length > 0) setSelectedPriceList(pls[0]);
+          
+          // CHANGE: Look for price list starting with "03", otherwise fallback to the first one
+          const defaultList = pls.find(p => p.code.startsWith("03")) || pls[0];
+          
+          if (defaultList) setSelectedPriceList(defaultList);
         }
       } catch (err) {
         console.error("Init failed", err);
