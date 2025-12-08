@@ -2,6 +2,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 import {
@@ -16,6 +17,7 @@ import {
   Moon,
   Monitor,
   Check,
+  Shield,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -133,13 +135,32 @@ export function UserNav() {
 
         {/* Main Menu Items */}
         <DropdownMenuGroup>
-          <DropdownMenuItem className="gap-3 px-2 py-2 rounded-lg text-[13px] font-medium text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] cursor-pointer">
-            <User className="h-4 w-4" />
-            Profil
+          <DropdownMenuItem asChild>
+            <Link 
+              href="/dashboard/settings/profile"
+              className="gap-3 px-2 py-2 rounded-lg text-[13px] font-medium text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] cursor-pointer"
+            >
+              <User className="h-4 w-4" />
+              Profil
+            </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem className="gap-3 px-2 py-2 rounded-lg text-[13px] font-medium text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] cursor-pointer">
-            <Settings className="h-4 w-4" />
-            Paramètres
+          <DropdownMenuItem asChild>
+            <Link 
+              href="/dashboard/settings/account"
+              className="gap-3 px-2 py-2 rounded-lg text-[13px] font-medium text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] cursor-pointer"
+            >
+              <Settings className="h-4 w-4" />
+              Paramètres
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link 
+              href="/dashboard/settings/roles"
+              className="gap-3 px-2 py-2 rounded-lg text-[13px] font-medium text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] cursor-pointer"
+            >
+              <Shield className="h-4 w-4" />
+              Rôles & Permissions
+            </Link>
           </DropdownMenuItem>
           <DropdownMenuItem className="gap-3 px-2 py-2 rounded-lg text-[13px] font-medium text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] cursor-pointer">
             <CreditCard className="h-4 w-4" />
