@@ -40,12 +40,20 @@ export async function GET(request: NextRequest) {
       paramIdx++;
     }
 
+    // Filter for Active items only
+    // NOTE: Confirmed capitalization from screenshot is "isActive" (camelCase)
+    // However, user code used "IsActive" previously. Adjusting based on standard PG behavior
+    // If your DB columns are quoted "isActive", use i."isActive". If standard, i.isactive.
+    // Based on screenshot {596F6041...}, standard PG lowercases unless quoted. 
+    // BUT image_784963.png shows "isActive" in green header -> likely i."isActive"
+    const activeFilter = `AND i."isActive" = true`;
+
     const mainQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", MAX(ipr."itempricedateid") as "latestDateId"
         FROM public."itempricerange" ipr
         INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
-        WHERE ipr."priceid" = $${paramIdx} AND i."ProdId" = $1 ${itemFilterSQL}
+        WHERE ipr."priceid" = $${paramIdx} AND i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
         GROUP BY ipr."itemid"
       )
       SELECT 
@@ -61,7 +69,7 @@ export async function GET(request: NextRequest) {
       INNER JOIN LatestDatePerItem ld ON ipr."itemid" = ld."itemid" AND ipr."itempricedateid" = ld."latestDateId"
       LEFT JOIN public."Products" p ON i."ProdId" = p."ProdId"
       LEFT JOIN public."itemtype" t ON i."locitemtype" = t."itemtypeid"
-      WHERE ipr."priceid" = $${paramIdx} AND i."ProdId" = $1 AND pl."IsActive" = true ${itemFilterSQL}
+      WHERE ipr."priceid" = $${paramIdx} AND i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
       ORDER BY i."ItemCode" ASC, ipr."fromqty" ASC
     `;
     const mainParams = [...baseParams, priceIdNum];
@@ -71,7 +79,7 @@ export async function GET(request: NextRequest) {
         SELECT ipr."itemid", MAX(ipr."itempricedateid") as "latestDateId"
         FROM public."itempricerange" ipr
         INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
-        WHERE ipr."priceid" = ${PDS_PRICE_ID} AND i."ProdId" = $1 ${itemFilterSQL}
+        WHERE ipr."priceid" = ${PDS_PRICE_ID} AND i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
         GROUP BY ipr."itemid"
       )
       SELECT i."ItemId" as "itemId", ipr."fromqty" as "qtyMin", ipr."price" as "pdsPrice"
@@ -79,7 +87,7 @@ export async function GET(request: NextRequest) {
       INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
       INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
       INNER JOIN LatestDatePerItem ld ON ipr."itemid" = ld."itemid" AND ipr."itempricedateid" = ld."latestDateId"
-      WHERE ipr."priceid" = ${PDS_PRICE_ID} AND i."ProdId" = $1 AND pl."IsActive" = true ${itemFilterSQL}
+      WHERE ipr."priceid" = ${PDS_PRICE_ID} AND i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
       ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
     `;
 
@@ -88,7 +96,7 @@ export async function GET(request: NextRequest) {
         SELECT ipr."itemid", MAX(ipr."itempricedateid") as "latestDateId"
         FROM public."itempricerange" ipr
         INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
-        WHERE ipr."priceid" = ${EXP_PRICE_ID} AND i."ProdId" = $1 ${itemFilterSQL}
+        WHERE ipr."priceid" = ${EXP_PRICE_ID} AND i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
         GROUP BY ipr."itemid"
       )
       SELECT i."ItemId" as "itemId", ipr."fromqty" as "qtyMin", ipr."price" as "expPrice"
@@ -96,40 +104,34 @@ export async function GET(request: NextRequest) {
       INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
       INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
       INNER JOIN LatestDatePerItem ld ON ipr."itemid" = ld."itemid" AND ipr."itempricedateid" = ld."latestDateId"
-      WHERE ipr."priceid" = ${EXP_PRICE_ID} AND i."ProdId" = $1 AND pl."IsActive" = true ${itemFilterSQL}
+      WHERE ipr."priceid" = ${EXP_PRICE_ID} AND i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
       ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
     `;
 
-    // FIX: Added (rsd."FieldValue" ~ '^[0-9]+$') to PREVENT CRASHES on dirty data
-    // This ensures we only try to join when the field value is actually a number.
     const discountQuery = `
       SELECT 
         i."ItemId" as "itemId", 
-        i."ItemCode" as "itemCode",
-        rsd."FieldValue" as "hdrId",
         dmd."GreatherThan" as "greaterThan",
         dmd."_CostingDiscountAmt" as "costingDiscountAmt"
       FROM public."Items" i
       INNER JOIN public."RecordSpecData" rsd 
         ON i."ItemId" = rsd."TableId"
         AND rsd."FieldName" = 'DiscountMaintenance'
+        AND rsd."TableName" = 'items'
         AND rsd."FieldValue" ~ '^[0-9]+$' 
+      INNER JOIN public."_DiscountMaintenanceHdr" dmh
+        ON CAST(rsd."FieldValue" AS INTEGER) = dmh."DiscountMaintenanceHdrId"
       INNER JOIN public."_DiscountMaintenanceDtl" dmd 
-        ON CAST(rsd."FieldValue" AS INTEGER) = dmd."DiscountMaintenanceHdrId"
-      WHERE i."ProdId" = $1 ${itemFilterSQL}
+        ON dmh."DiscountMaintenanceHdrId" = dmd."DiscountMaintenanceHdrId"
+      WHERE i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
       ORDER BY i."ItemId" ASC, dmd."GreatherThan" ASC
     `;
 
-    console.log("========================================");
-    console.log("PRICES API - ProdId:", prodIdNum, "TypeId:", typeId, "ItemId:", itemId);
-
-    // Execute main queries
     const [mainResult, pdsResult, expResult, discountResult] = await Promise.all([
       pg.query(mainQuery, mainParams),
       pg.query(pdsQuery, baseParams),
       pg.query(expQuery, baseParams),
       pg.query(discountQuery, baseParams).catch(err => {
-        // If this logs, it means the query crashed (likely casting error) and returned empty
         console.error("Discount query error:", err.message);
         return { rows: [] };
       })
@@ -140,9 +142,7 @@ export async function GET(request: NextRequest) {
     const expRows = expResult.rows;
     const discountRows = discountResult.rows;
 
-    console.log(`Results: Main=${rows.length}, PDS=${pdsRows.length}, EXP=${expRows.length}, Discounts=${discountRows.length}`);
-
-    // Build maps
+    // Build Maps
     const pdsMap: Record<number, Record<number, number>> = {};
     for (const row of pdsRows) {
       if (!pdsMap[row.itemId]) pdsMap[row.itemId] = {};
@@ -162,8 +162,8 @@ export async function GET(request: NextRequest) {
       const discountAmt = parseFloat(row.costingDiscountAmt) || 0;
       discountMap[row.itemId][greaterThan] = discountAmt;
     }
-
-    // Group results by item
+    
+    // Process Items
     const itemsMap: Record<number, any> = {};
     
     for (const row of rows) {
@@ -187,7 +187,7 @@ export async function GET(request: NextRequest) {
       const pdsPrice = pdsMap[row.itemId]?.[qtyMin] ?? null;
       const expBasePrice = expMap[row.itemId]?.[qtyMin] ?? null;
       
-      // Get discount for this quantity tier
+      // Calculate Discount
       let costingDiscountAmt = 0;
       const itemDiscounts = discountMap[row.itemId];
       if (itemDiscounts) {
@@ -204,8 +204,9 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      // COÛT EXP = EXP base price MINUS discount
-      const coutExp = expBasePrice !== null ? expBasePrice - costingDiscountAmt : null;
+      // FIX: COÛT EXP = EXP Base Price ONLY (As requested by Manager)
+      // We still pass costingDiscountAmt to frontend for the 'Escompte' column
+      const coutExp = expBasePrice; 
       
       itemsMap[row.itemId].ranges.push({
         id: row.id,
