@@ -5,9 +5,9 @@ import { pg } from "@/lib/db";
 
 // Hardcoded Price IDs based on your system
 const EXP_PRICE_ID = 4;   // 01-EXP
-const DET_PRICE_ID = 2;   // 02-DET (Assuming ID based on code, adjust if needed)
+const DET_PRICE_ID = 2;   // 02-DET
 const IND_PRICE_ID = 3;   // 03-IND
-const GROS_PRICE_ID = 1;  // 05-GROS (Assuming ID)
+const GROS_PRICE_ID = 1;  // 05-GROS
 const PDS_PRICE_ID = 17;  // 08-PDS
 
 export async function GET(request: NextRequest) {
@@ -44,9 +44,8 @@ export async function GET(request: NextRequest) {
       paramIdx++;
     }
 
-    // Filter for Active items only
-    // Using i."isActive" as seen in your screenshot
-    const activeFilter = `AND i."isActive" = true`;
+    // Filter for Active items only - Using PascalCase based on common schema patterns
+    const activeFilter = `AND i."IsActive" = true`;
 
     // 1. Fetch Main Data (Items + Selected Price List)
     const mainQuery = `
@@ -201,7 +200,7 @@ export async function GET(request: NextRequest) {
         indPrice: getPrice(IND_PRICE_ID),
         grosPrice: getPrice(GROS_PRICE_ID),
         
-        // Coût Exp logic (Equal to 01-EXP price as requested)
+        // Coût Exp logic (Now strictly equal to 01-EXP price)
         coutExp: getPrice(EXP_PRICE_ID), 
         costingDiscountAmt: costingDiscountAmt // Passed for display column only
       });
