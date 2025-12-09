@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { useCurrentAccent } from "@/components/accent-color-provider";
 
 // ============================================================================
-// INTERFACES & TYPES
+// 1. INTERFACES & TYPES
 // ============================================================================
 
 interface Product {
@@ -38,7 +38,6 @@ interface PriceList {
   currency: string;
 }
 
-// NEW: Interface for column config
 interface PriceColumnConfig {
   priceId: number;
   label: string;
@@ -53,7 +52,7 @@ interface PriceRange {
   expBasePrice: number | null;
   coutExp: number | null;
   costingDiscountAmt?: number;
-  prices?: Record<number, number>; // NEW: prices by priceListId
+  prices?: Record<number, number>; // Dictionary of priceId -> value
 }
 
 interface ItemPriceData {
@@ -71,7 +70,7 @@ interface ItemPriceData {
 }
 
 // ============================================================================
-// UI COMPONENTS
+// 2. HELPER COMPONENTS
 // ============================================================================
 
 // --- Animated Number Component ---
@@ -140,16 +139,19 @@ function Toggle({ enabled, onChange, label, accentColor }: { enabled: boolean; o
   );
 }
 
-// --- Price Modal Component ---
+// ============================================================================
+// 3. PRICE MODAL COMPONENT
+// ============================================================================
+
 interface PriceModalProps {
   isOpen: boolean;
   onClose: () => void;
   data: ItemPriceData[];
   priceLists: PriceList[];
   selectedPriceList: PriceList | null;
-  columnsConfig: PriceColumnConfig[]; // NEW
-  primaryPriceId: number;             // NEW
-  onPriceListChange: (priceId: number, includeMultipleColumns: boolean) => void; // UPDATED
+  columnsConfig: PriceColumnConfig[];
+  primaryPriceId: number;
+  onPriceListChange: (priceId: number, includeMultipleColumns: boolean) => void;
   loading: boolean;
   error: string | null;
   accentColor: string;
@@ -164,11 +166,11 @@ function PriceModal({
   const [showDetails, setShowDetails] = useState(false);
   const [showMultiColumn, setShowMultiColumn] = useState(false);
 
-  // Sync internal toggle state if columnsConfig changes externally (optional safeguard)
+  // Automatically update the toggle visual state based on incoming data
   useEffect(() => {
-    if (columnsConfig.length > 0 && !showMultiColumn) {
+    if (columnsConfig.length > 1 && !showMultiColumn) {
       setShowMultiColumn(true);
-    } else if (columnsConfig.length === 0 && showMultiColumn) {
+    } else if (columnsConfig.length <= 1 && showMultiColumn) {
       setShowMultiColumn(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -183,12 +185,11 @@ function PriceModal({
   const calcPricePerLitre = (price: number, volume: number | null) => volume ? price / volume : null;
   const calcMarginExp = (unit: number, cout: number | null) => cout && unit ? ((unit - cout) / unit) * 100 : null;
 
-  // Handle Price List Change
+  // Handlers
   const handleListChange = (newPriceId: number) => {
     onPriceListChange(newPriceId, showMultiColumn);
   };
 
-  // Handle Multi-Column Toggle
   const handleMultiColumnToggle = (enabled: boolean) => {
     setShowMultiColumn(enabled);
     if (selectedPriceList) {
@@ -225,7 +226,6 @@ function PriceModal({
                   accentColor={accentColor}
                 />
                 
-                {/* NEW: Multi-column Toggle */}
                 <Toggle 
                   enabled={showMultiColumn} 
                   onChange={handleMultiColumnToggle} 
@@ -325,20 +325,25 @@ function PriceModal({
                             </th>
                           )}
 
-                          {/* Primary Price Column */}
-                          <th className="text-right p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 min-w-[100px]">
-                            {selectedPriceList?.code || 'Prix'}
-                          </th>
-                          
-                          {/* NEW: Extra Columns */}
-                          {columnsConfig.map(col => (
-                            <th 
-                              key={col.priceId}
-                              className="text-right p-3 font-bold text-neutral-600 dark:text-neutral-400 border border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800/80 min-w-[90px]"
-                            >
-                              {col.code}
-                            </th>
-                          ))}
+                          {/* Dynamic Price Columns - Generated entirely from columnsConfig */}
+                          {columnsConfig.map(col => {
+                            // Check if this column corresponds to the selected price list to highlight it
+                            const isPrimary = col.priceId === selectedPriceList?.priceId;
+                            return (
+                              <th 
+                                key={col.priceId}
+                                className={cn(
+                                  "text-right p-3 font-bold border border-neutral-300 dark:border-neutral-700 min-w-[100px]",
+                                  isPrimary 
+                                    ? "text-neutral-900 dark:text-white bg-white dark:bg-neutral-900 border-b-2" 
+                                    : "text-neutral-600 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800/80"
+                                )}
+                                style={isPrimary ? { borderBottomColor: accentColor } : undefined}
+                              >
+                                {col.code}
+                              </th>
+                            );
+                          })}
 
                           {/* Expanded Details Columns (Right of Price) */}
                           {showDetails && (
@@ -408,26 +413,31 @@ function PriceModal({
                                 </td>
                               )}
 
-                              {/* Unit Price (Animated) */}
-                              <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 relative">
-                                <span 
-                                  className="font-mono font-black text-base md:text-lg"
-                                  style={{ color: isFirstRow ? accentColor : undefined }}
-                                >
-                                  <AnimatedPrice value={range.unitPrice} />
-                                </span>
-                              </td>
-
-                              {/* NEW: Extra Columns Data */}
+                              {/* Dynamic Price Columns Data */}
                               {columnsConfig.map(col => {
                                 const priceVal = range.prices ? range.prices[col.priceId] : null;
+                                const isPrimary = col.priceId === selectedPriceList?.priceId;
+                                
                                 return (
                                   <td 
                                     key={col.priceId}
-                                    className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-neutral-100/50 dark:bg-neutral-800/30"
+                                    className={cn(
+                                      "p-3 text-right border border-neutral-200 dark:border-neutral-700",
+                                      isPrimary 
+                                        ? "relative" 
+                                        : "bg-neutral-100/50 dark:bg-neutral-800/30"
+                                    )}
                                   >
-                                    <span className="font-mono font-medium text-neutral-600 dark:text-neutral-400">
-                                      {priceVal !== null && priceVal !== undefined ? priceVal.toFixed(2) : '-'}
+                                    <span 
+                                      className={cn(
+                                        "font-mono",
+                                        isPrimary ? "font-black text-base md:text-lg" : "font-medium text-neutral-600 dark:text-neutral-400"
+                                      )}
+                                      style={isPrimary && isFirstRow ? { color: accentColor } : undefined}
+                                    >
+                                      {priceVal !== null && priceVal !== undefined ? (
+                                        isPrimary ? <AnimatedPrice value={priceVal} /> : priceVal.toFixed(2)
+                                      ) : '-'}
                                     </span>
                                   </td>
                                 );
@@ -500,7 +510,7 @@ function PriceModal({
         {!loading && itemsWithPrices.length > 0 && (
           <div className="flex-shrink-0 bg-neutral-200 dark:bg-neutral-800 px-4 py-3 text-center">
             <span className="text-neutral-600 dark:text-neutral-400 font-medium text-sm">
-              {itemsWithPrices.length} article(s) • {showDetails ? "Détails activés" : "Vue simple"} • {columnsConfig.length > 0 ? "Comparaison active" : "Liste unique"}
+              {itemsWithPrices.length} article(s) • {showDetails ? "Détails activés" : "Vue simple"} • {columnsConfig.length > 1 ? "Comparaison active" : "Liste unique"}
             </span>
           </div>
         )}
@@ -510,7 +520,7 @@ function PriceModal({
 }
 
 // ============================================================================
-// MAIN PAGE COMPONENT
+// 4. MAIN PAGE COMPONENT
 // ============================================================================
 
 export default function CataloguePage() {
@@ -596,13 +606,13 @@ export default function CataloguePage() {
     return () => clearTimeout(timeout);
   }, [searchQuery]);
 
-  // --- Fetch Prices (Updated) ---
+  // --- Fetch Prices ---
   const fetchPrices = async (
     priceId: number, 
     prodId: number, 
     typeId: number | null, 
     itemId: number | null,
-    includeMultipleColumns: boolean = false // NEW
+    includeMultipleColumns: boolean = false 
   ) => {
     setLoadingPrices(true);
     setPriceError(null);
@@ -623,19 +633,16 @@ export default function CataloguePage() {
       const json = await res.json();
 
       if (!json.ok && json.error) {
-         // Handle explicit error response if API follows { ok: false, error: ... } pattern
          setPriceError(json.error);
          return;
       }
 
-      // Check if response is the array directly or an object with items wrapper
-      // Adapting to the structure implied in the guide: { ok: boolean, items: [], columnsConfig: [] }
       if (json.ok) {
         setPriceData(json.items || []);
         setColumnsConfig(json.columnsConfig || []);
         setPrimaryPriceId(json.primaryPriceId || priceId);
       } else if (Array.isArray(json)) {
-        // Fallback for legacy API structure if not yet fully updated on backend
+        // Fallback
         setPriceData(json);
       } else {
         setPriceError("Format de réponse invalide");
@@ -746,7 +753,6 @@ export default function CataloguePage() {
     }
   };
 
-  // Generate button handler
   const handleGenerate = async () => {
     if (!selectedPriceList || !selectedProduct) return;
     
@@ -765,7 +771,6 @@ export default function CataloguePage() {
     );
   };
 
-  // Handle price list change from modal (including toggle state)
   const handleModalPriceListChange = async (
     priceId: number, 
     includeMultipleColumns: boolean = false
