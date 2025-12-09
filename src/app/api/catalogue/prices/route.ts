@@ -10,7 +10,6 @@ import { pg } from "@/lib/db";
 const PDS_PRICE_ID = 17;
 const EXP_PRICE_ID = 4;
 
-// ID Mapping for the Columns (Standard IDs)
 const PRICE_LIST_IDS = {
   EXP: 1,        // 01-EXP
   DET: 2,        // 02-DET
@@ -22,17 +21,16 @@ const PRICE_LIST_IDS = {
   PDS: 17,       // 08-PDS
 };
 
-// Column Display Mapping
+// UPDATED MAPPING: Adjusted 01-EXP to show only the requested columns
 const PRICE_LIST_COLUMN_MAPPING: Record<number, { code: string; columns: { priceId: number; label: string; code: string }[] }> = {
   [PRICE_LIST_IDS.EXP]: {
     code: "01-EXP",
     columns: [
       { priceId: PRICE_LIST_IDS.EXP, label: "EXPERT", code: "01-EXP" },
+      { priceId: PRICE_LIST_IDS.GROS, label: "GROSSISTE", code: "05-GROS" }, // Moved up
       { priceId: PRICE_LIST_IDS.DET, label: "DÉTAILLANT", code: "02-DET" },
       { priceId: PRICE_LIST_IDS.IND, label: "INDUSTRIEL", code: "03-IND" },
-      { priceId: PRICE_LIST_IDS.GROSEXP, label: "GROSS-EXP", code: "04-GROSEXP" },
-      { priceId: PRICE_LIST_IDS.GROS, label: "GROSSISTE", code: "05-GROS" },
-      { priceId: PRICE_LIST_IDS.INDHZ, label: "INDUSTRIEL HZ", code: "06-INDHZ" },
+      // Removed GROSEXP and INDHZ as requested
       { priceId: PRICE_LIST_IDS.PDS, label: "PDS", code: "08-PDS" },
     ],
   },
@@ -121,7 +119,7 @@ export async function GET(request: NextRequest) {
     // Build base filter
     let itemFilterSQL = "";
     const baseParams: any[] = [prodIdNum];
-    let paramIdx = 2; // Next param index (1 is prodId)
+    let paramIdx = 2; 
 
     if (itemId) {
       itemFilterSQL = `AND i."ItemId" = $${paramIdx}`;
@@ -135,17 +133,13 @@ export async function GET(request: NextRequest) {
 
     // Determine IDs to fetch
     const mapping = PRICE_LIST_COLUMN_MAPPING[priceIdNum];
-    // If multiple columns requested, use mapping, otherwise just the selected ID (and PDS for safety)
     const priceIdsToFetch = includeMultipleColumns && mapping 
       ? mapping.columns.map(c => c.priceId)
       : [priceIdNum, PDS_PRICE_ID];
     
-    // Ensure unique IDs
     const uniquePriceIds = [...new Set(priceIdsToFetch)];
 
-    // ---------------------------------------------------------
-    // 1. MAIN QUERY (Multi-Column Capable)
-    // ---------------------------------------------------------
+    // 1. MAIN QUERY 
     const mainQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", ipr."priceid", MAX(ipr."itempricedateid") as "latestDateId"
@@ -174,9 +168,7 @@ export async function GET(request: NextRequest) {
     `;
     const mainParams = [...baseParams, uniquePriceIds];
 
-    // ---------------------------------------------------------
     // 2. PDS QUERY
-    // ---------------------------------------------------------
     const pdsQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", MAX(ipr."itempricedateid") as "latestDateId"
@@ -194,9 +186,7 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
     `;
 
-    // ---------------------------------------------------------
     // 3. EXP QUERY
-    // ---------------------------------------------------------
     const expQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", MAX(ipr."itempricedateid") as "latestDateId"
@@ -214,9 +204,7 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
     `;
 
-    // ---------------------------------------------------------
-    // 4. DISCOUNT QUERY (FIXED: regex check for integer)
-    // ---------------------------------------------------------
+    // 4. DISCOUNT QUERY
     const discountQuery = `
       SELECT 
         i."ItemId" as "itemId", 
@@ -234,11 +222,6 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemId" ASC, dmd."GreatherThan" ASC
     `;
 
-    console.log("========================================");
-    console.log("PRICES API (MULTI) - ProdId:", prodIdNum, "Fetching PriceIDs:", uniquePriceIds);
-    console.log("========================================");
-
-    // Execute all queries in parallel
     const [mainRes, pdsRes, expRes, discRes] = await Promise.all([
       pg.query(mainQuery, mainParams),
       pg.query(pdsQuery, baseParams),
@@ -246,24 +229,16 @@ export async function GET(request: NextRequest) {
       pg.query(discountQuery, baseParams)
     ]);
 
-    // ---------------------------------------------------------
-    // DATA AGGREGATION
-    // ---------------------------------------------------------
-
-    // 1. Organize PDS prices by Item -> Qty
     const pdsMap = new Map<string, number>();
     pdsRes.rows.forEach((r: any) => {
       pdsMap.set(`${r.itemId}-${r.qtyMin}`, parseFloat(r.pdsPrice));
     });
 
-    // 2. Organize EXP prices by Item -> Qty (Costing Base)
     const expMap = new Map<string, number>();
     expRes.rows.forEach((r: any) => {
       expMap.set(`${r.itemId}-${r.qtyMin}`, parseFloat(r.expPrice));
     });
 
-    // 3. Organize Discounts by Item -> Qty
-    // We want the discount where range.qtyMin >= discount.greaterThan (closest match)
     const discMap = new Map<number, any[]>();
     discRes.rows.forEach((r: any) => {
       if (!discMap.has(r.itemId)) discMap.set(r.itemId, []);
@@ -273,7 +248,6 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // 4. Group Main Results (Items -> Ranges -> Prices)
     const itemsMap = new Map<number, any>();
 
     mainRes.rows.forEach((row: any) => {
@@ -287,7 +261,6 @@ export async function GET(request: NextRequest) {
           volume: row.volume,
           categoryName: row.categoryName,
           className: row.className,
-          // We will store ranges in a Map temporarily to merge by qtyMin
           rangesMap: new Map<number, any>()
         });
       }
@@ -297,10 +270,10 @@ export async function GET(request: NextRequest) {
 
       if (!item.rangesMap.has(qty)) {
         item.rangesMap.set(qty, {
-          rangeId: row.id, // Use ID from current row
+          rangeId: row.id,
           qtyMin: qty,
-          unitPrice: 0, // Will be set to selectedPriceId's price
-          prices: {} // Dictionary for multi-column
+          unitPrice: 0,
+          prices: {} 
         });
       }
 
@@ -310,34 +283,25 @@ export async function GET(request: NextRequest) {
       // Store in prices dictionary
       range.prices[row.priceId] = priceVal;
 
-      // If this row corresponds to the actively selected price list, set it as the main unitPrice
+      // Also set unitPrice if this matches the currently selected list
       if (row.priceId === priceIdNum) {
         range.unitPrice = priceVal;
-        range.rangeId = row.id; // Ensure ID matches main selection
+        range.rangeId = row.id;
       }
     });
 
-    // 5. Finalize Items Array
     const finalItems = Array.from(itemsMap.values()).map((item: any) => {
-      // Convert rangesMap to array
       const ranges = Array.from(item.rangesMap.values()).map((range: any) => {
-        // Attach PDS
         const pds = pdsMap.get(`${item.itemId}-${range.qtyMin}`);
         range.pdsPrice = pds || null;
 
-        // Attach Costing (Calculated)
-        // Logic: Costing Base (Exp) - Discount
         const expBase = expMap.get(`${item.itemId}-${range.qtyMin}`);
-        
         let discountAmt = 0;
         const discounts = discMap.get(item.itemId);
         if (discounts && expBase) {
-          // Find applicable discount (largest greaterThan that is <= qtyMin)
-          // Since sorted ASC, we reverse or findLast
           const applicable = discounts
             .filter((d: any) => range.qtyMin >= d.greaterThan)
-            .pop(); // Last one is the highest threshold met
-          
+            .pop(); 
           if (applicable) discountAmt = applicable.amt;
         }
 
@@ -348,19 +312,15 @@ export async function GET(request: NextRequest) {
         return range;
       });
 
-      // Sort ranges
       ranges.sort((a: any, b: any) => a.qtyMin - b.qtyMin);
-
-      // Clean up temp map
       delete item.rangesMap;
       item.ranges = ranges;
-      
       return item;
     });
 
     const columnsConfig = includeMultipleColumns && mapping
       ? mapping.columns
-      : [{ priceId: priceIdNum, label: "Prix", code: priceId }];
+      : [{ priceId: priceIdNum, label: "Prix", code: searchParams.get("priceId") || "" }];
 
     return NextResponse.json({
       ok: true,
