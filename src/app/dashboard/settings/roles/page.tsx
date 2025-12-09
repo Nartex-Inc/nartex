@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
+import { useCurrentAccent } from "@/components/accent-color-provider";
 import {
   Shield,
   Users,
@@ -18,27 +19,6 @@ import {
   Receipt,
   Sparkles,
 } from "lucide-react";
-
-// ============================================================================
-// SELF-CONTAINED ACCENT COLOR HOOK - No external dependency
-// ============================================================================
-
-const DEFAULT_ACCENT_COLOR = "#6366f1";
-
-function useAccentColor() {
-  const [accentColor, setAccentColor] = useState(DEFAULT_ACCENT_COLOR);
-  
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("nartex-accent-color");
-      if (stored) {
-        setAccentColor(stored);
-      }
-    }
-  }, []);
-  
-  return { accentColor };
-}
 
 // ============================================================================
 // CONFIGURATION - Matching Prisma UserRole enum
@@ -264,7 +244,7 @@ function UserRow({ user, currentUserEmail, onRoleChange, isUpdating, accentColor
 
 export default function RolesPage() {
   const { data: session } = useSession();
-  const { accentColor } = useAccentColor();
+  const { color: accentColor } = useCurrentAccent();
 
   const [users, setUsers] = useState<UserData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
