@@ -5,7 +5,10 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useCurrentAccent } from "@/components/accent-color-provider";
 
-// --- Interfaces ---
+// ============================================================================
+// INTERFACES & TYPES
+// ============================================================================
+
 interface Product {
   prodId: number;
   name: string;
@@ -35,6 +38,13 @@ interface PriceList {
   currency: string;
 }
 
+// NEW: Interface for column config
+interface PriceColumnConfig {
+  priceId: number;
+  label: string;
+  code: string;
+}
+
 interface PriceRange {
   id: number;
   qtyMin: number;
@@ -43,6 +53,7 @@ interface PriceRange {
   expBasePrice: number | null;
   coutExp: number | null;
   costingDiscountAmt?: number;
+  prices?: Record<number, number>; // NEW: prices by priceListId
 }
 
 interface ItemPriceData {
@@ -58,6 +69,10 @@ interface ItemPriceData {
   priceCode: string;
   ranges: PriceRange[];
 }
+
+// ============================================================================
+// UI COMPONENTS
+// ============================================================================
 
 // --- Animated Number Component ---
 function AnimatedPrice({ value, duration = 600 }: { value: number; duration?: number }) {
@@ -132,7 +147,9 @@ interface PriceModalProps {
   data: ItemPriceData[];
   priceLists: PriceList[];
   selectedPriceList: PriceList | null;
-  onPriceListChange: (priceId: number) => void;
+  columnsConfig: PriceColumnConfig[]; // NEW
+  primaryPriceId: number;             // NEW
+  onPriceListChange: (priceId: number, includeMultipleColumns: boolean) => void; // UPDATED
   loading: boolean;
   error: string | null;
   accentColor: string;
@@ -141,10 +158,21 @@ interface PriceModalProps {
 
 function PriceModal({ 
   isOpen, onClose, data, priceLists, 
-  selectedPriceList, onPriceListChange, loading, error,
+  selectedPriceList, columnsConfig, primaryPriceId, onPriceListChange, loading, error,
   accentColor, accentMuted
 }: PriceModalProps) {
   const [showDetails, setShowDetails] = useState(false);
+  const [showMultiColumn, setShowMultiColumn] = useState(false);
+
+  // Sync internal toggle state if columnsConfig changes externally (optional safeguard)
+  useEffect(() => {
+    if (columnsConfig.length > 0 && !showMultiColumn) {
+      setShowMultiColumn(true);
+    } else if (columnsConfig.length === 0 && showMultiColumn) {
+      setShowMultiColumn(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columnsConfig]);
 
   if (!isOpen) return null;
 
@@ -154,6 +182,19 @@ function PriceModal({
   const calcPricePerCaisse = (price: number, caisse: number | null) => caisse ? price * caisse : null;
   const calcPricePerLitre = (price: number, volume: number | null) => volume ? price / volume : null;
   const calcMarginExp = (unit: number, cout: number | null) => cout && unit ? ((unit - cout) / unit) * 100 : null;
+
+  // Handle Price List Change
+  const handleListChange = (newPriceId: number) => {
+    onPriceListChange(newPriceId, showMultiColumn);
+  };
+
+  // Handle Multi-Column Toggle
+  const handleMultiColumnToggle = (enabled: boolean) => {
+    setShowMultiColumn(enabled);
+    if (selectedPriceList) {
+      onPriceListChange(selectedPriceList.priceId, enabled);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 md:p-4">
@@ -169,38 +210,51 @@ function PriceModal({
           className="flex-shrink-0 px-4 md:px-6 py-4"
           style={{ backgroundColor: accentColor }}
         >
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <h2 className="text-xl md:text-2xl font-bold text-white">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+            <h2 className="text-xl md:text-2xl font-bold text-white whitespace-nowrap">
               Liste de Prix
             </h2>
             
-            <div className="flex items-center gap-4">
-              <Toggle 
-                enabled={showDetails} 
-                onChange={setShowDetails} 
-                label="Afficher détails" 
-                accentColor={accentColor}
-              />
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+              {/* Controls Group */}
+              <div className="flex items-center gap-4">
+                <Toggle 
+                  enabled={showDetails} 
+                  onChange={setShowDetails} 
+                  label="Détails" 
+                  accentColor={accentColor}
+                />
+                
+                {/* NEW: Multi-column Toggle */}
+                <Toggle 
+                  enabled={showMultiColumn} 
+                  onChange={handleMultiColumnToggle} 
+                  label="Comparer" 
+                  accentColor={accentColor}
+                />
+              </div>
 
-              <select
-                value={selectedPriceList?.priceId || ""}
-                onChange={(e) => onPriceListChange(parseInt(e.target.value))}
-                disabled={loading}
-                className="h-12 px-4 bg-white/20 text-white rounded-xl font-bold text-base border-2 border-white/30 focus:border-white outline-none min-w-[200px] disabled:opacity-50"
-              >
-                {priceLists.map(pl => (
-                  <option key={pl.priceId} value={pl.priceId} className="text-neutral-900">
-                    {pl.code} - {pl.name}
-                  </option>
-                ))}
-              </select>
-              
-              <button 
-                onClick={onClose}
-                className="w-12 h-12 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center text-white font-bold text-2xl transition-colors"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-3 flex-1">
+                <select
+                  value={selectedPriceList?.priceId || ""}
+                  onChange={(e) => handleListChange(parseInt(e.target.value))}
+                  disabled={loading}
+                  className="h-12 px-4 bg-white/20 text-white rounded-xl font-bold text-base border-2 border-white/30 focus:border-white outline-none min-w-[200px] disabled:opacity-50"
+                >
+                  {priceLists.map(pl => (
+                    <option key={pl.priceId} value={pl.priceId} className="text-neutral-900">
+                      {pl.code} - {pl.name}
+                    </option>
+                  ))}
+                </select>
+                
+                <button 
+                  onClick={onClose}
+                  className="w-12 h-12 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center text-white font-bold text-2xl transition-colors shrink-0"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -232,98 +286,79 @@ function PriceModal({
                 >
                   {/* Item Header */}
                   <div className="px-4 py-3" style={{ backgroundColor: accentColor }}>
-                    <h3 className="text-lg font-black text-white">
-                      {item.description.split(' ')[0].toUpperCase()}
-                    </h3>
-                    <p className="text-white/80 text-sm">
-                      {item.className || item.description}
-                    </p>
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="text-lg font-black text-white">
+                          {item.description.split(' ')[0].toUpperCase()}
+                        </h3>
+                        <p className="text-white/80 text-sm">
+                          {item.className || item.description}
+                        </p>
+                      </div>
+                      <div className="text-white/60 font-mono text-xs">
+                        {item.itemCode}
+                      </div>
+                    </div>
                   </div>
                   
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm md:text-base border-collapse table-fixed">
+                    <table className="w-full text-sm md:text-base border-collapse">
                       <thead>
                         <tr className="bg-neutral-200 dark:bg-neutral-800">
-                          <th 
-                            className="text-left p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                            style={{ width: showDetails ? '16%' : '25%' }}
-                          >
+                          <th className="text-left p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-32 md:w-auto">
                             Article
                           </th>
-                          <th 
-                            className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                            style={{ width: showDetails ? '6%' : '10%' }}
-                          >
-                            CAISSE
+                          <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-16">
+                            Cs
                           </th>
-                          <th 
-                            className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                            style={{ width: showDetails ? '8%' : '15%' }}
-                          >
-                            Format
+                          <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-20">
+                            Fmt
                           </th>
-                          <th 
-                            className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                            style={{ width: showDetails ? '6%' : '10%' }}
-                          >
-                            Qte/Qty
+                          <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-16">
+                            Qté
                           </th>
                           
                           {/* Coût Exp (Left of Price) */}
                           {showDetails && (
-                            <th 
-                              className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20"
-                              style={{ width: '10%' }}
-                            >
-                              Coût Exp
+                            <th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 w-24">
+                              Coût
                             </th>
                           )}
 
-                          <th 
-                            className="text-right p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                            style={{ width: showDetails ? '12%' : '20%' }}
-                          >
+                          {/* Primary Price Column */}
+                          <th className="text-right p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 min-w-[100px]">
                             {selectedPriceList?.code || 'Prix'}
                           </th>
                           
+                          {/* NEW: Extra Columns */}
+                          {columnsConfig.map(col => (
+                            <th 
+                              key={col.priceId}
+                              className="text-right p-3 font-bold text-neutral-600 dark:text-neutral-400 border border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800/80 min-w-[90px]"
+                            >
+                              {col.code}
+                            </th>
+                          ))}
+
                           {/* Expanded Details Columns (Right of Price) */}
                           {showDetails && (
                             <>
-                              <th 
-                                className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20"
-                                style={{ width: '11%' }}
-                              >
-                                ($)/Caisse
+                              <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 w-24">
+                                $/Cs
                               </th>
-                              <th 
-                                className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20"
-                                style={{ width: '11%' }}
-                              >
-                                ($)/L
+                              <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 w-24">
+                                $/L
                               </th>
-                              
-                              {/* Escompte */}
-                              <th 
-                                className="text-right p-2 md:p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20"
-                                style={{ width: '10%' }}
-                              >
-                                Escompte
+                              <th className="text-right p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20 w-24">
+                                Esc.
                               </th>
-                              
-                              {/* % Exp */}
-                              <th 
-                                className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20"
-                                style={{ width: '8%' }}
-                              >
-                                % Exp
+                              <th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 w-16">
+                                %
                               </th>
                             </>
                           )}
                           
-                          <th 
-                            className="text-right p-2 md:p-3 font-bold text-amber-700 dark:text-amber-400 border border-neutral-300 dark:border-neutral-700 bg-amber-50 dark:bg-amber-900/20"
-                            style={{ width: showDetails ? '12%' : '20%' }}
-                          >
+                          <th className="text-right p-3 font-bold text-amber-700 dark:text-amber-400 border border-neutral-300 dark:border-neutral-700 bg-amber-50 dark:bg-amber-900/20 w-24">
                             PDS
                           </th>
                         </tr>
@@ -339,7 +374,7 @@ function PriceModal({
                             <tr 
                               key={range.id} 
                               className={cn(
-                                "transition-colors",
+                                "transition-colors group",
                                 isFirstRow ? "bg-white dark:bg-neutral-900" : "bg-neutral-50 dark:bg-neutral-800/50"
                               )}
                               style={{ 
@@ -351,63 +386,74 @@ function PriceModal({
                               `}</style>
 
                               {/* Basic Info */}
-                              <td className="p-2 md:p-3 border border-neutral-200 dark:border-neutral-700 truncate">
+                              <td className="p-3 border border-neutral-200 dark:border-neutral-700 whitespace-nowrap">
                                 {isFirstRow && <span className="font-mono font-black text-neutral-900 dark:text-white">{item.itemCode}</span>}
                               </td>
-                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate">
+                              <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700">
                                 {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.caisse || '-'}</span>}
                               </td>
-                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate">
+                              <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700 whitespace-nowrap">
                                 {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}
                               </td>
-                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate">
+                              <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700">
                                 <span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span>
                               </td>
                               
-                              {/* Coût Exp (Left of Price) */}
+                              {/* Coût Exp */}
                               {showDetails && (
-                                <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10 truncate">
+                                <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10">
                                   <span className="font-mono font-bold text-purple-700 dark:text-purple-400">
                                     {range.coutExp ? range.coutExp.toFixed(2) : '-'}
                                   </span>
                                 </td>
                               )}
 
-                              {/* Unit Price */}
-                              <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 truncate">
+                              {/* Unit Price (Animated) */}
+                              <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 relative">
                                 <span 
-                                  className="font-mono font-black"
+                                  className="font-mono font-black text-base md:text-lg"
                                   style={{ color: isFirstRow ? accentColor : undefined }}
                                 >
                                   <AnimatedPrice value={range.unitPrice} />
                                 </span>
                               </td>
+
+                              {/* NEW: Extra Columns Data */}
+                              {columnsConfig.map(col => {
+                                const priceVal = range.prices ? range.prices[col.priceId] : null;
+                                return (
+                                  <td 
+                                    key={col.priceId}
+                                    className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-neutral-100/50 dark:bg-neutral-800/30"
+                                  >
+                                    <span className="font-mono font-medium text-neutral-600 dark:text-neutral-400">
+                                      {priceVal !== null && priceVal !== undefined ? priceVal.toFixed(2) : '-'}
+                                    </span>
+                                  </td>
+                                );
+                              })}
                               
-                              {/* Expanded Details Data (Right of Price) */}
+                              {/* Expanded Details Data */}
                               {showDetails && (
                                 <>
-                                  {/* ($)/Caisse */}
-                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10 truncate">
+                                  <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10">
                                     <span className="font-mono text-blue-700 dark:text-blue-400">
                                       {ppc ? ppc.toFixed(2) : '-'}
                                     </span>
                                   </td>
-                                  {/* ($)/L */}
-                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10 truncate">
+                                  <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10">
                                     <span className="font-mono text-blue-700 dark:text-blue-400">
                                       {ppl ? ppl.toFixed(2) : '-'}
                                     </span>
                                   </td>
                                   
-                                  {/* Escompte */}
-                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-orange-50/50 dark:bg-orange-900/10 truncate">
+                                  <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-orange-50/50 dark:bg-orange-900/10">
                                     <span className="font-mono font-bold text-orange-700 dark:text-orange-400">
                                       {range.costingDiscountAmt !== undefined ? range.costingDiscountAmt.toFixed(2) : '-'}
                                     </span>
                                   </td>
                                   
-                                  {/* % Exp */}
-                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10 truncate">
+                                  <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10">
                                     <span className={cn(
                                       "font-mono font-bold",
                                       marginExp && marginExp > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
@@ -419,7 +465,7 @@ function PriceModal({
                               )}
                               
                               {/* PDS */}
-                              <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-amber-50/50 dark:bg-amber-900/10 truncate">
+                              <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-amber-50/50 dark:bg-amber-900/10">
                                 <span className="font-mono font-bold text-amber-700 dark:text-amber-400">
                                   {range.pdsPrice !== null ? (
                                     <AnimatedPrice value={range.pdsPrice} />
@@ -453,8 +499,8 @@ function PriceModal({
         {/* Footer */}
         {!loading && itemsWithPrices.length > 0 && (
           <div className="flex-shrink-0 bg-neutral-200 dark:bg-neutral-800 px-4 py-3 text-center">
-            <span className="text-neutral-600 dark:text-neutral-400 font-medium">
-              {itemsWithPrices.length} article(s) {showDetails && " • Détails activés"}
+            <span className="text-neutral-600 dark:text-neutral-400 font-medium text-sm">
+              {itemsWithPrices.length} article(s) • {showDetails ? "Détails activés" : "Vue simple"} • {columnsConfig.length > 0 ? "Comparaison active" : "Liste unique"}
             </span>
           </div>
         )}
@@ -463,7 +509,10 @@ function PriceModal({
   );
 }
 
-// --- Main Page Component ---
+// ============================================================================
+// MAIN PAGE COMPONENT
+// ============================================================================
+
 export default function CataloguePage() {
   const { color: accentColor, muted: accentMuted } = useCurrentAccent();
 
@@ -484,13 +533,17 @@ export default function CataloguePage() {
   const [searchResults, setSearchResults] = useState<Item[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   
-  // Price Modal
+  // Price Modal State
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [priceData, setPriceData] = useState<ItemPriceData[]>([]);
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [priceError, setPriceError] = useState<string | null>(null);
   
-  // For re-fetching with different price list in modal
+  // NEW: Multi-column state
+  const [columnsConfig, setColumnsConfig] = useState<PriceColumnConfig[]>([]);
+  const [primaryPriceId, setPrimaryPriceId] = useState<number>(0);
+
+  // For tracking what was selected when modal opened
   const [modalProdId, setModalProdId] = useState<number | null>(null);
   const [modalTypeId, setModalTypeId] = useState<number | null>(null);
   const [modalItemId, setModalItemId] = useState<number | null>(null);
@@ -513,7 +566,7 @@ export default function CataloguePage() {
           const pls: PriceList[] = await plRes.json();
           setPriceLists(pls);
           
-          // CHANGE: Look for price list starting with "03", otherwise fallback to the first one
+          // Look for price list starting with "03", otherwise fallback to the first one
           const defaultList = pls.find(p => p.code.startsWith("03")) || pls[0];
           
           if (defaultList) setSelectedPriceList(defaultList);
@@ -543,34 +596,54 @@ export default function CataloguePage() {
     return () => clearTimeout(timeout);
   }, [searchQuery]);
 
-  // --- Fetch Prices ---
-  const fetchPrices = async (priceId: number, prodId: number, typeId?: number | null, itemId?: number | null) => {
-    setPriceData([]);
-    setPriceError(null);
+  // --- Fetch Prices (Updated) ---
+  const fetchPrices = async (
+    priceId: number, 
+    prodId: number, 
+    typeId: number | null, 
+    itemId: number | null,
+    includeMultipleColumns: boolean = false // NEW
+  ) => {
     setLoadingPrices(true);
-    
+    setPriceError(null);
+    setPriceData([]);
+    setColumnsConfig([]); // Reset columns config
+
     try {
-      let url = `/api/catalogue/prices?priceId=${priceId}&prodId=${prodId}`;
+      const params = new URLSearchParams({
+        priceId: priceId.toString(),
+        prodId: prodId.toString(),
+        multipleColumns: includeMultipleColumns.toString(),
+      });
       
-      if (itemId) {
-        url += `&itemId=${itemId}`;
-      } else if (typeId) {
-        url += `&typeId=${typeId}`;
+      if (typeId) params.set("typeId", typeId.toString());
+      if (itemId) params.set("itemId", itemId.toString());
+
+      const res = await fetch(`/api/catalogue/prices?${params}`);
+      const json = await res.json();
+
+      if (!json.ok && json.error) {
+         // Handle explicit error response if API follows { ok: false, error: ... } pattern
+         setPriceError(json.error);
+         return;
       }
-      
-      const res = await fetch(url);
-      
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || `Erreur ${res.status}`);
+
+      // Check if response is the array directly or an object with items wrapper
+      // Adapting to the structure implied in the guide: { ok: boolean, items: [], columnsConfig: [] }
+      if (json.ok) {
+        setPriceData(json.items || []);
+        setColumnsConfig(json.columnsConfig || []);
+        setPrimaryPriceId(json.primaryPriceId || priceId);
+      } else if (Array.isArray(json)) {
+        // Fallback for legacy API structure if not yet fully updated on backend
+        setPriceData(json);
+      } else {
+        setPriceError("Format de réponse invalide");
       }
-      
-      const data = await res.json();
-      setPriceData(data);
       
     } catch (err: any) {
       console.error("Price fetch failed:", err);
-      setPriceError(err.message || "Erreur lors du chargement des prix");
+      setPriceError(err.message || "Erreur réseau");
     } finally {
       setLoadingPrices(false);
     }
@@ -673,6 +746,7 @@ export default function CataloguePage() {
     }
   };
 
+  // Generate button handler
   const handleGenerate = async () => {
     if (!selectedPriceList || !selectedProduct) return;
     
@@ -680,23 +754,32 @@ export default function CataloguePage() {
     setModalTypeId(selectedType?.itemTypeId || null);
     setModalItemId(selectedItem?.itemId || null);
     
-    setPriceData([]);
-    setPriceError(null);
     setShowPriceModal(true);
     
     await fetchPrices(
       selectedPriceList.priceId,
       selectedProduct.prodId,
       selectedType?.itemTypeId || null,
-      selectedItem?.itemId || null
+      selectedItem?.itemId || null,
+      false // Start with single column
     );
   };
 
-  const handleModalPriceListChange = async (priceId: number) => {
+  // Handle price list change from modal (including toggle state)
+  const handleModalPriceListChange = async (
+    priceId: number, 
+    includeMultipleColumns: boolean = false
+  ) => {
     const pl = priceLists.find(p => p.priceId === priceId);
     if (pl && modalProdId) {
       setSelectedPriceList(pl);
-      await fetchPrices(priceId, modalProdId, modalTypeId, modalItemId);
+      await fetchPrices(
+        priceId, 
+        modalProdId, 
+        modalTypeId, 
+        modalItemId, 
+        includeMultipleColumns
+      );
     }
   };
 
@@ -940,6 +1023,8 @@ export default function CataloguePage() {
         data={priceData}
         priceLists={priceLists}
         selectedPriceList={selectedPriceList}
+        columnsConfig={columnsConfig}    // NEW
+        primaryPriceId={primaryPriceId}  // NEW
         onPriceListChange={handleModalPriceListChange}
         loading={loadingPrices}
         error={priceError}
