@@ -1,5 +1,5 @@
 // src/app/api/user/profile/route.ts
-// Fixed version matching actual database schema
+// Matching actual Prisma schema field names
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -7,7 +7,7 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 // GET - Fetch current user profile
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
@@ -20,13 +20,13 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         name: true,
-        first_name: true,
-        last_name: true,
+        firstName: true,  // Prisma uses camelCase, maps to first_name
+        lastName: true,   // Prisma uses camelCase, maps to last_name
         email: true,
         image: true,
         role: true,
-        created_at: true,
-        updated_at: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
@@ -38,13 +38,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       id: user.id,
       name: user.name,
-      firstName: user.first_name,
-      lastName: user.last_name,
+      firstName: user.firstName,
+      lastName: user.lastName,
       email: user.email,
       image: user.image,
-      role: user.role || "user",
-      createdAt: user.created_at,
-      updatedAt: user.updated_at,
+      role: user.role || "Expert", // Default matches schema
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     });
   } catch (error) {
     console.error("Error fetching profile:", error);
@@ -67,12 +67,12 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { name, firstName, lastName, image } = body;
 
-    // Build update data - only include fields that exist in your schema
+    // Build update data - using Prisma camelCase field names
     const updateData: Record<string, string | null> = {};
     
     if (name !== undefined) updateData.name = name;
-    if (firstName !== undefined) updateData.first_name = firstName;
-    if (lastName !== undefined) updateData.last_name = lastName;
+    if (firstName !== undefined) updateData.firstName = firstName;
+    if (lastName !== undefined) updateData.lastName = lastName;
     if (image !== undefined) updateData.image = image;
 
     if (Object.keys(updateData).length === 0) {
@@ -88,8 +88,8 @@ export async function PATCH(request: NextRequest) {
       select: {
         id: true,
         name: true,
-        first_name: true,
-        last_name: true,
+        firstName: true,
+        lastName: true,
         email: true,
         image: true,
         role: true,
@@ -101,8 +101,8 @@ export async function PATCH(request: NextRequest) {
       user: {
         id: updatedUser.id,
         name: updatedUser.name,
-        firstName: updatedUser.first_name,
-        lastName: updatedUser.last_name,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
         email: updatedUser.email,
         image: updatedUser.image,
         role: updatedUser.role,
