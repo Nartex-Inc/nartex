@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useCurrentAccent } from "@/components/accent-color-provider";
@@ -40,10 +40,7 @@ interface PriceRange {
   qtyMin: number;
   unitPrice: number;
   pdsPrice: number | null;
-  expPrice: number | null;
-  detPrice: number | null;
-  indPrice: number | null;
-  grosPrice: number | null;
+  expBasePrice: number | null;
   coutExp: number | null;
   costingDiscountAmt?: number;
 }
@@ -151,43 +148,12 @@ function PriceModal({
 
   if (!isOpen) return null;
 
-  // 1. Group items by ClassName
-  const groupedItems = useMemo(() => {
-    const itemsWithPrices = data.filter(item => item.ranges && item.ranges.length > 0);
-    const groups: Record<string, ItemPriceData[]> = {};
-    
-    itemsWithPrices.forEach(item => {
-      // Use "Autres" if no class provided
-      const cls = item.className || "AUTRES";
-      if (!groups[cls]) groups[cls] = [];
-      groups[cls].push(item);
-    });
-    
-    return groups;
-  }, [data]);
-  
-  // To show total count in footer
-  const totalItemsCount = data.filter(item => item.ranges && item.ranges.length > 0).length;
-
-  // 2. Determine Columns based on Price Code (Templates)
-  const priceCode = selectedPriceList?.code || "";
-  
-  // Template Logic:
-  const showExp = ["01-EXP", "04-GROSEX", "05-GROS"].some(c => priceCode.startsWith(c));
-  const showDet = ["01-EXP", "02-DET", "04-GROSEX", "05-GROS", "07-DET-HZ"].some(c => priceCode.startsWith(c));
-  const showInd = ["01-EXP", "03-IND", "04-GROSEX", "05-GROS"].some(c => priceCode.startsWith(c));
-  const showGros = ["01-EXP", "04-GROSEX", "05-GROS"].some(c => priceCode.startsWith(c));
-  
-  const showPds = true; // Always show PDS
+  const itemsWithPrices = data.filter(item => item.ranges && item.ranges.length > 0);
 
   // Calculation Helpers
-  const calcPricePerLitre = (price: number, volume: number | null) => volume ? price / volume : null;
-  
-  // Margin Exp = (Retail Price - Cost) / Retail Price
-  const calcMarginExp = (unit: number, cout: number | null) => cout && unit ? ((unit - cout) / unit) * 100 : null;
-
-  // Calculate Price Per Caisse
   const calcPricePerCaisse = (price: number, caisse: number | null) => caisse ? price * caisse : null;
+  const calcPricePerLitre = (price: number, volume: number | null) => volume ? price / volume : null;
+  const calcMarginExp = (unit: number, cout: number | null) => cout && unit ? ((unit - cout) / unit) * 100 : null;
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 md:p-4">
@@ -257,21 +223,20 @@ function PriceModal({
                 <p className="text-neutral-500 mt-1">{error}</p>
               </div>
             </div>
-          ) : Object.keys(groupedItems).length > 0 ? (
-            <div className="space-y-6">
-              {Object.entries(groupedItems).map(([className, items]) => (
+          ) : itemsWithPrices.length > 0 ? (
+            <div className="space-y-4">
+              {itemsWithPrices.map((item) => (
                 <div 
-                  key={className}
+                  key={item.itemId}
                   className="bg-white dark:bg-neutral-900 rounded-xl overflow-hidden shadow-lg border border-neutral-200 dark:border-neutral-800"
                 >
-                  
-                  {/* CLASS HEADER */}
+                  {/* Item Header */}
                   <div className="px-4 py-3" style={{ backgroundColor: accentColor }}>
-                    <h3 className="text-lg font-black text-white uppercase">
-                      {className}
+                    <h3 className="text-lg font-black text-white">
+                      {item.description.split(' ')[0].toUpperCase()}
                     </h3>
                     <p className="text-white/80 text-sm">
-                      {items[0]?.description.split('-')[0]}
+                      {item.className || item.description}
                     </p>
                   </div>
                   
@@ -301,7 +266,7 @@ function PriceModal({
                             className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
                             style={{ width: showDetails ? '6%' : '10%' }}
                           >
-                            Qty
+                            Qte/Qty
                           </th>
                           
                           {/* Coût Exp (Left of Price) */}
@@ -314,37 +279,12 @@ function PriceModal({
                             </th>
                           )}
 
-                          {/* Dynamic Template Columns */}
-                          {showExp && (
-                            <th className="text-right p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
-                              01-EXP
-                            </th>
-                          )}
-                          {showDet && (
-                            <th className="text-right p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
-                              02-DET
-                            </th>
-                          )}
-                          {showInd && (
-                            <th className="text-right p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
-                              03-IND
-                            </th>
-                          )}
-                          {showGros && (
-                            <th className="text-right p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
-                              05-GROS
-                            </th>
-                          )}
-
-                          {/* Fallback Price Column */}
-                          {!showExp && !showDet && !showInd && !showGros && (
-                             <th 
-                                className="text-right p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                                style={{ width: showDetails ? '12%' : '20%' }}
-                              >
-                                {selectedPriceList?.code || 'Prix'}
-                              </th>
-                          )}
+                          <th 
+                            className="text-right p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
+                            style={{ width: showDetails ? '12%' : '20%' }}
+                          >
+                            {selectedPriceList?.code || 'Prix'}
+                          </th>
                           
                           {/* Expanded Details Columns (Right of Price) */}
                           {showDetails && (
@@ -353,8 +293,24 @@ function PriceModal({
                                 className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20"
                                 style={{ width: '11%' }}
                               >
+                                ($)/Caisse
+                              </th>
+                              <th 
+                                className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20"
+                                style={{ width: '11%' }}
+                              >
                                 ($)/L
                               </th>
+                              
+                              {/* Escompte */}
+                              <th 
+                                className="text-right p-2 md:p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20"
+                                style={{ width: '10%' }}
+                              >
+                                Escompte
+                              </th>
+                              
+                              {/* % Exp */}
                               <th 
                                 className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20"
                                 style={{ width: '8%' }}
@@ -364,170 +320,115 @@ function PriceModal({
                             </>
                           )}
                           
-                          {showPds && (
-                            <th 
-                              className="text-right p-2 md:p-3 font-bold text-amber-700 dark:text-amber-400 border border-neutral-300 dark:border-neutral-700 bg-amber-50 dark:bg-amber-900/20"
-                              style={{ width: showDetails ? '12%' : '20%' }}
-                            >
-                              PDS
-                            </th>
-                          )}
-
-                          {/* Escompte - Far Right */}
-                          {showDetails && (
-                            <th 
-                              className="text-right p-2 md:p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20"
-                              style={{ width: '10%' }}
-                            >
-                              Escompte
-                            </th>
-                          )}
+                          <th 
+                            className="text-right p-2 md:p-3 font-bold text-amber-700 dark:text-amber-400 border border-neutral-300 dark:border-neutral-700 bg-amber-50 dark:bg-amber-900/20"
+                            style={{ width: showDetails ? '12%' : '20%' }}
+                          >
+                            PDS
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {items.map(item => (
-                          item.ranges.map((range, rIdx) => {
-                            const isFirstRow = rIdx === 0;
-                            const ppc = calcPricePerCaisse(range.unitPrice, item.caisse);
-                            const ppl = calcPricePerLitre(range.unitPrice, item.volume);
-                            const marginExp = calcMarginExp(range.unitPrice, range.coutExp);
-                            
-                            const rowBorderClass = rIdx === item.ranges.length - 1 
-                              ? "border-b-2 border-neutral-300 dark:border-neutral-600" 
-                              : "border-b border-neutral-200 dark:border-neutral-800";
+                        {item.ranges.map((range, rIdx) => {
+                          const isFirstRow = rIdx === 0;
+                          const ppc = calcPricePerCaisse(range.unitPrice, item.caisse);
+                          const ppl = calcPricePerLitre(range.unitPrice, item.volume);
+                          const marginExp = calcMarginExp(range.unitPrice, range.coutExp);
+                          
+                          return (
+                            <tr 
+                              key={range.id} 
+                              className={cn(
+                                "transition-colors",
+                                isFirstRow ? "bg-white dark:bg-neutral-900" : "bg-neutral-50 dark:bg-neutral-800/50"
+                              )}
+                              style={{ 
+                                '--hover-color': `${accentColor}15`, 
+                              } as React.CSSProperties}
+                            >
+                              <style jsx>{`
+                                tr:hover { background-color: var(--hover-color) !important; }
+                              `}</style>
 
-                            return (
-                              <tr 
-                                key={`${item.itemId}-${range.id}`} 
-                                className={cn(
-                                  "transition-colors",
-                                  isFirstRow ? "bg-white dark:bg-neutral-900" : "bg-neutral-50 dark:bg-neutral-800/50",
-                                  rowBorderClass
-                                )}
-                                style={{ 
-                                  '--hover-color': `${accentColor}15`, 
-                                } as React.CSSProperties}
-                              >
-                                <style jsx>{`
-                                  tr:hover { background-color: var(--hover-color) !important; }
-                                `}</style>
-
-                                {/* Fixed Data Columns */}
-                                <td className="p-2 md:p-3 border-r border-neutral-200 dark:border-neutral-700 truncate">
-                                  {isFirstRow && <span className="font-mono font-black text-neutral-900 dark:text-white">{item.itemCode}</span>}
+                              {/* Basic Info */}
+                              <td className="p-2 md:p-3 border border-neutral-200 dark:border-neutral-700 truncate">
+                                {isFirstRow && <span className="font-mono font-black text-neutral-900 dark:text-white">{item.itemCode}</span>}
+                              </td>
+                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate">
+                                {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.caisse || '-'}</span>}
+                              </td>
+                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate">
+                                {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}
+                              </td>
+                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate">
+                                <span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span>
+                              </td>
+                              
+                              {/* Coût Exp (Left of Price) */}
+                              {showDetails && (
+                                <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10 truncate">
+                                  <span className="font-mono font-bold text-purple-700 dark:text-purple-400">
+                                    {range.coutExp ? range.coutExp.toFixed(2) : '-'}
+                                  </span>
                                 </td>
-                                <td className="p-2 md:p-3 text-center border-r border-neutral-200 dark:border-neutral-700 truncate">
-                                  {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.caisse || '-'}</span>}
-                                </td>
-                                <td className="p-2 md:p-3 text-center border-r border-neutral-200 dark:border-neutral-700 truncate">
-                                  {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}
-                                </td>
-                                <td className="p-2 md:p-3 text-center border-r border-neutral-200 dark:border-neutral-700 truncate">
-                                  <span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span>
-                                </td>
-                                
-                                {/* Coût Exp (Left of Price) */}
-                                {showDetails && (
-                                  <td className="p-2 md:p-3 text-right border-r border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10 truncate">
-                                    <span className="font-mono font-bold text-purple-700 dark:text-purple-400">
-                                      {range.coutExp ? range.coutExp.toFixed(2) : '-'}
-                                    </span>
-                                  </td>
-                                )}
+                              )}
 
-                                {/* DYNAMIC COLUMNS */}
-                                {showExp && (
-                                  <td className="p-2 md:p-3 text-right border-r border-neutral-200 dark:border-neutral-700">
-                                    <span 
-                                      className={cn("font-mono", priceCode.startsWith("01") && "font-black")}
-                                      style={priceCode.startsWith("01") ? {color: accentColor} : {}}
-                                    >
-                                      {range.expPrice ? <AnimatedPrice value={range.expPrice} /> : '-'}
+                              {/* Unit Price */}
+                              <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 truncate">
+                                <span 
+                                  className="font-mono font-black"
+                                  style={{ color: isFirstRow ? accentColor : undefined }}
+                                >
+                                  <AnimatedPrice value={range.unitPrice} />
+                                </span>
+                              </td>
+                              
+                              {/* Expanded Details Data (Right of Price) */}
+                              {showDetails && (
+                                <>
+                                  {/* ($)/Caisse */}
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10 truncate">
+                                    <span className="font-mono text-blue-700 dark:text-blue-400">
+                                      {ppc ? ppc.toFixed(2) : '-'}
                                     </span>
                                   </td>
-                                )}
-                                {showDet && (
-                                  <td className="p-2 md:p-3 text-right border-r border-neutral-200 dark:border-neutral-700">
-                                    <span 
-                                      className={cn("font-mono", priceCode.startsWith("02") && "font-black")}
-                                      style={priceCode.startsWith("02") ? {color: accentColor} : {}}
-                                    >
-                                      {range.detPrice ? <AnimatedPrice value={range.detPrice} /> : '-'}
+                                  {/* ($)/L */}
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10 truncate">
+                                    <span className="font-mono text-blue-700 dark:text-blue-400">
+                                      {ppl ? ppl.toFixed(2) : '-'}
                                     </span>
                                   </td>
-                                )}
-                                {showInd && (
-                                  <td className="p-2 md:p-3 text-right border-r border-neutral-200 dark:border-neutral-700">
-                                    <span 
-                                      className={cn("font-mono", priceCode.startsWith("03") && "font-black")}
-                                      style={priceCode.startsWith("03") ? {color: accentColor} : {}}
-                                    >
-                                      {range.indPrice ? <AnimatedPrice value={range.indPrice} /> : '-'}
-                                    </span>
-                                  </td>
-                                )}
-                                {showGros && (
-                                  <td className="p-2 md:p-3 text-right border-r border-neutral-200 dark:border-neutral-700">
-                                    <span 
-                                      className={cn("font-mono", priceCode.startsWith("05") && "font-black")}
-                                      style={priceCode.startsWith("05") ? {color: accentColor} : {}}
-                                    >
-                                      {range.grosPrice ? <AnimatedPrice value={range.grosPrice} /> : '-'}
-                                    </span>
-                                  </td>
-                                )}
-
-                                {/* Fallback Price Column */}
-                                {!showExp && !showDet && !showInd && !showGros && (
-                                  <td className="p-2 md:p-3 text-right border-r border-neutral-200 dark:border-neutral-700">
-                                    <span 
-                                      className="font-mono font-black"
-                                      style={{ color: isFirstRow ? accentColor : undefined }}
-                                    >
-                                      <AnimatedPrice value={range.unitPrice} />
-                                    </span>
-                                  </td>
-                                )}
-
-                                {/* Details */}
-                                {showDetails && (
-                                  <>
-                                    <td className="p-2 md:p-3 text-right border-r border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10 truncate">
-                                      <span className="font-mono text-blue-700 dark:text-blue-400">
-                                        {ppl ? ppl.toFixed(2) : '-'}
-                                      </span>
-                                    </td>
-                                    <td className="p-2 md:p-3 text-right border-r border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10 truncate">
-                                      <span className={cn(
-                                        "font-mono font-bold",
-                                        marginExp && marginExp > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                                      )}>
-                                        {marginExp ? `${marginExp.toFixed(1)}%` : '-'}
-                                      </span>
-                                    </td>
-                                  </>
-                                )}
-                                
-                                {showPds && (
-                                  <td className="p-2 md:p-3 text-right border-r border-neutral-200 dark:border-neutral-700 bg-amber-50/50 dark:bg-amber-900/10 truncate">
-                                    <span className="font-mono font-bold text-amber-700 dark:text-amber-400">
-                                      {range.pdsPrice ? <AnimatedPrice value={range.pdsPrice} /> : '-'}
-                                    </span>
-                                  </td>
-                                )}
-
-                                {/* Escompte (Far Right) */}
-                                {showDetails && (
-                                  <td className="p-2 md:p-3 text-right border-l border-neutral-200 dark:border-neutral-700 bg-orange-50/50 dark:bg-orange-900/10 truncate">
+                                  
+                                  {/* Escompte */}
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-orange-50/50 dark:bg-orange-900/10 truncate">
                                     <span className="font-mono font-bold text-orange-700 dark:text-orange-400">
                                       {range.costingDiscountAmt !== undefined ? range.costingDiscountAmt.toFixed(2) : '-'}
                                     </span>
                                   </td>
-                                )}
-                              </tr>
-                            );
-                          })
-                        ))}
+                                  
+                                  {/* % Exp */}
+                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10 truncate">
+                                    <span className={cn(
+                                      "font-mono font-bold",
+                                      marginExp && marginExp > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                                    )}>
+                                      {marginExp ? `${marginExp.toFixed(1)}%` : '-'}
+                                    </span>
+                                  </td>
+                                </>
+                              )}
+                              
+                              {/* PDS */}
+                              <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-amber-50/50 dark:bg-amber-900/10 truncate">
+                                <span className="font-mono font-bold text-amber-700 dark:text-amber-400">
+                                  {range.pdsPrice !== null ? (
+                                    <AnimatedPrice value={range.pdsPrice} />
+                                  ) : '-'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -550,10 +451,10 @@ function PriceModal({
         </div>
         
         {/* Footer */}
-        {!loading && Object.keys(groupedItems).length > 0 && (
+        {!loading && itemsWithPrices.length > 0 && (
           <div className="flex-shrink-0 bg-neutral-200 dark:bg-neutral-800 px-4 py-3 text-center">
             <span className="text-neutral-600 dark:text-neutral-400 font-medium">
-              {totalItemsCount} article(s) {showDetails && " • Détails activés"}
+              {itemsWithPrices.length} article(s) {showDetails && " • Détails activés"}
             </span>
           </div>
         )}
