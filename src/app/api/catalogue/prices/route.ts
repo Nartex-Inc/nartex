@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Filter for Active items only
+    // Using i."isActive" as seen in your screenshot
     const activeFilter = `AND i."isActive" = true`;
 
     // 1. Fetch Main Data (Items + Selected Price List)
@@ -76,7 +77,6 @@ export async function GET(request: NextRequest) {
 
     // 2. Fetch ALL relevant price columns to support templates (01, 02, 03, 05, 17)
     // We execute one query to get all alternate prices for these items
-    // Using price IDs 4 (EXP), 2 (DET), 3 (IND), 1 (GROS), 17 (PDS)
     const altPricesQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", ipr."priceid", MAX(ipr."itempricedateid") as "latestDateId"
@@ -96,27 +96,58 @@ export async function GET(request: NextRequest) {
       WHERE i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
     `;
 
-    // 3. Execute queries
-    const [mainResult, altPricesResult] = await Promise.all([
+    // 3. Fetch Discount Data (for display only)
+    const discountQuery = `
+      SELECT 
+        i."ItemId" as "itemId", 
+        dmd."GreatherThan" as "greaterThan",
+        dmd."_CostingDiscountAmt" as "costingDiscountAmt"
+      FROM public."Items" i
+      INNER JOIN public."RecordSpecData" rsd 
+        ON i."ItemId" = rsd."TableId"
+        AND rsd."FieldName" = 'DiscountMaintenance'
+        AND rsd."TableName" = 'items'
+        AND rsd."FieldValue" ~ '^[0-9]+$' 
+      INNER JOIN public."_DiscountMaintenanceHdr" dmh
+        ON CAST(rsd."FieldValue" AS INTEGER) = dmh."DiscountMaintenanceHdrId"
+      INNER JOIN public."_DiscountMaintenanceDtl" dmd 
+        ON dmh."DiscountMaintenanceHdrId" = dmd."DiscountMaintenanceHdrId"
+      WHERE i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
+      ORDER BY i."ItemId" ASC, dmd."GreatherThan" ASC
+    `;
+
+    // 4. Execute queries
+    const [mainResult, altPricesResult, discountResult] = await Promise.all([
       pg.query(mainQuery, mainParams),
       pg.query(altPricesQuery, baseParams),
+      pg.query(discountQuery, baseParams).catch(err => {
+        console.error("Discount query error:", err.message);
+        return { rows: [] };
+      })
     ]);
 
     const rows = mainResult.rows;
     const altRows = altPricesResult.rows;
+    const discountRows = discountResult.rows;
 
-    // 4. Build Map for Alternate Prices
-    // Structure: itemId -> priceId -> qtyMin -> price
+    // 5. Build Map for Alternate Prices
     const priceMap: Record<number, Record<number, Record<number, number>>> = {};
-    
     for (const row of altRows) {
       if (!priceMap[row.itemId]) priceMap[row.itemId] = {};
       if (!priceMap[row.itemId][row.priceId]) priceMap[row.itemId][row.priceId] = {};
-      
       priceMap[row.itemId][row.priceId][parseInt(row.qtyMin)] = parseFloat(row.price);
     }
 
-    // 5. Build Result
+    // 6. Build Discount Map
+    const discountMap: Record<number, Record<number, number>> = {};
+    for (const row of discountRows) {
+      if (!discountMap[row.itemId]) discountMap[row.itemId] = {};
+      const greaterThan = parseInt(row.greaterThan);
+      const discountAmt = parseFloat(row.costingDiscountAmt) || 0;
+      discountMap[row.itemId][greaterThan] = discountAmt;
+    }
+
+    // 7. Build Result
     const itemsMap: Record<number, any> = {};
     
     for (const row of rows) {
@@ -129,7 +160,7 @@ export async function GET(request: NextRequest) {
           format: row.format || null,
           volume: row.volume ? parseFloat(row.volume) : null,
           categoryName: row.categoryName,
-          className: row.className || "Sans Classe", // Default for grouping
+          className: row.className || "Autres", // Grouping key
           priceListName: row.priceListName,
           priceCode: row.priceCode,
           ranges: []
@@ -140,6 +171,23 @@ export async function GET(request: NextRequest) {
       
       // Helper to safely get price from map
       const getPrice = (pid: number) => priceMap[row.itemId]?.[pid]?.[qtyMin] ?? null;
+
+      // Get discount for this quantity tier (for display only)
+      let costingDiscountAmt = 0;
+      const itemDiscounts = discountMap[row.itemId];
+      if (itemDiscounts) {
+        if (itemDiscounts[qtyMin] !== undefined) {
+          costingDiscountAmt = itemDiscounts[qtyMin];
+        } else {
+          const tiers = Object.keys(itemDiscounts).map(Number).sort((a, b) => b - a);
+          for (const tier of tiers) {
+            if (tier <= qtyMin) {
+              costingDiscountAmt = itemDiscounts[tier];
+              break;
+            }
+          }
+        }
+      }
 
       itemsMap[row.itemId].ranges.push({
         id: row.id,
@@ -155,6 +203,7 @@ export async function GET(request: NextRequest) {
         
         // Coût Exp logic (Equal to 01-EXP price as requested)
         coutExp: getPrice(EXP_PRICE_ID), 
+        costingDiscountAmt: costingDiscountAmt // Passed for display column only
       });
     }
 
