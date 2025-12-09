@@ -1,309 +1,368 @@
-// src/app/dashboard/settings/roles/page.tsx
 "use client";
 
-import * as React from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
+import { useAccentColor } from "@/components/dashboard/accent-color-provider";
 import {
   Shield,
   Users,
-  Lock,
   Search,
-  Check,
-  AlertTriangle,
-  Info,
-  Loader2,
-  Save,
-  RefreshCw,
   ChevronDown,
+  Check,
+  AlertCircle,
+  Loader2,
+  Crown,
+  UserCog,
+  User,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useCurrentAccent } from "@/components/accent-color-provider";
 
-/* ═══════════════════════════════════════════════════════════════════════════════
-   Types & Constants
-   ═══════════════════════════════════════════════════════════════════════════════ */
-type User = {
+// ============================================================================
+// CONFIGURATION - Based on actual database schema
+// ============================================================================
+
+// Admin emails that have full access regardless of role
+const ADMIN_EMAILS = ["n.labranche@sinto.ca", "d.drouin@sinto.ca"];
+
+// Available roles matching your Prisma enum
+const AVAILABLE_ROLES = [
+  {
+    value: "Gestionnaire",
+    label: "Gestionnaire",
+    description: "Accès complet à toutes les fonctionnalités et paramètres",
+    color: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+    icon: Crown,
+  },
+  {
+    value: "user",
+    label: "Utilisateur",
+    description: "Accès standard aux fonctionnalités de base",
+    color: "bg-slate-500/20 text-slate-400 border-slate-500/30",
+    icon: User,
+  },
+] as const;
+
+type RoleValue = (typeof AVAILABLE_ROLES)[number]["value"];
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface UserData {
   id: string;
-  name: string | null;
+  name: string;
   email: string;
   image: string | null;
   role: string;
   createdAt: string;
-};
+  updatedAt: string;
+}
 
-// These should match your Prisma Role enum values
-const AVAILABLE_ROLES = [
-  { id: "admin", name: "Administrateur", description: "Accès complet à toutes les fonctionnalités", color: "#EF4444" },
-  { id: "Gestionnaire", name: "Gestionnaire", description: "Gestion des équipes et rapports", color: "#F59E0B" },
-  { id: "ventes-exec", name: "Ventes Exécutif", description: "Accès aux données de ventes avancées", color: "#3B82F6" },
-  { id: "ventes_exec", name: "Ventes Exécutif (alt)", description: "Accès aux données de ventes", color: "#3B82F6" },
-  { id: "Expert", name: "Expert", description: "Accès aux outils d'expertise technique", color: "#8B5CF6" },
-  { id: "facturation", name: "Facturation", description: "Accès au module de facturation", color: "#10B981" },
-  { id: "user", name: "Utilisateur", description: "Accès standard", color: "#6B7280" },
-];
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
 
-// Admin emails bypass
-const ADMIN_EMAILS = ["n.labranche@sinto.ca"];
+function isAdmin(email: string | null | undefined, role: string | null | undefined): boolean {
+  if (!email) return false;
+  if (ADMIN_EMAILS.includes(email)) return true;
+  if (role === "Gestionnaire") return true;
+  return false;
+}
 
-/* ═══════════════════════════════════════════════════════════════════════════════
-   Role Badge Component
-   ═══════════════════════════════════════════════════════════════════════════════ */
-function RoleBadge({ role }: { role: string }) {
-  const roleInfo = AVAILABLE_ROLES.find(r => r.id.toLowerCase() === role?.toLowerCase());
-  const color = roleInfo?.color || "#6B7280";
-  
+function getRoleConfig(roleValue: string) {
   return (
-    <span 
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[12px] font-medium"
-      style={{ 
-        background: `${color}15`,
-        color: color,
-      }}
+    AVAILABLE_ROLES.find((r) => r.value === roleValue) || {
+      value: roleValue,
+      label: roleValue,
+      description: "Rôle personnalisé",
+      color: "bg-gray-500/20 text-gray-400 border-gray-500/30",
+      icon: User,
+    }
+  );
+}
+
+// ============================================================================
+// COMPONENTS
+// ============================================================================
+
+function SectionCard({
+  title,
+  description,
+  icon: Icon,
+  children,
+  accentColor,
+}: {
+  title: string;
+  description?: string;
+  icon: React.ElementType;
+  children: React.ReactNode;
+  accentColor: string;
+}) {
+  return (
+    <div className="bg-[#1a1a2e]/80 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden">
+      <div className="p-6 border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{ backgroundColor: `${accentColor}20` }}
+          >
+            <Icon className="w-5 h-5" style={{ color: accentColor }} />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-white">{title}</h2>
+            {description && (
+              <p className="text-sm text-white/50">{description}</p>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="p-6">{children}</div>
+    </div>
+  );
+}
+
+function RoleBadge({ role }: { role: string }) {
+  const config = getRoleConfig(role);
+  const Icon = config.icon;
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border ${config.color}`}
     >
-      <span 
-        className="w-1.5 h-1.5 rounded-full"
-        style={{ background: color }}
-      />
-      {roleInfo?.name || role}
+      <Icon className="w-3 h-3" />
+      {config.label}
     </span>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
-   Role Selector Dropdown
-   ═══════════════════════════════════════════════════════════════════════════════ */
 function RoleSelector({
   currentRole,
   onRoleChange,
-  disabled = false,
+  disabled,
+  accentColor,
 }: {
   currentRole: string;
-  onRoleChange: (role: string) => void;
+  onRoleChange: (role: RoleValue) => void;
   disabled?: boolean;
+  accentColor: string;
 }) {
-  const [isOpen, setIsOpen] = React.useState(false);
-  const ref = React.useRef<HTMLDivElement>(null);
-  const { color: accentColor } = useCurrentAccent();
-
-  React.useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const currentRoleInfo = AVAILABLE_ROLES.find(r => r.id.toLowerCase() === currentRole?.toLowerCase());
+  const [isOpen, setIsOpen] = useState(false);
+  const currentConfig = getRoleConfig(currentRole);
 
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       <button
-        type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className={cn(
-          "flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] transition-all",
-          "bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))]",
-          "hover:border-[hsl(var(--border-default))]",
-          disabled && "opacity-50 cursor-not-allowed"
-        )}
+        className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
+          disabled
+            ? "opacity-50 cursor-not-allowed bg-white/5 border-white/10"
+            : "bg-white/5 border-white/10 hover:border-white/20 cursor-pointer"
+        }`}
       >
-        <span 
-          className="w-2 h-2 rounded-full"
-          style={{ background: currentRoleInfo?.color || "#6B7280" }}
-        />
-        <span className="text-[hsl(var(--text-primary))]">
-          {currentRoleInfo?.name || currentRole}
-        </span>
-        <ChevronDown className={cn(
-          "h-4 w-4 text-[hsl(var(--text-muted))] transition-transform",
-          isOpen && "rotate-180"
-        )} />
+        <RoleBadge role={currentRole} />
+        {!disabled && (
+          <ChevronDown
+            className={`w-4 h-4 text-white/50 transition-transform ${
+              isOpen ? "rotate-180" : ""
+            }`}
+          />
+        )}
       </button>
 
-      {isOpen && (
-        <div 
-          className={cn(
-            "absolute z-50 right-0 mt-2 w-64 py-1.5 rounded-xl",
-            "bg-[hsl(var(--bg-surface))] border border-[hsl(var(--border-default))]",
-            "shadow-xl shadow-black/20 animate-scale-in"
-          )}
-        >
-          {AVAILABLE_ROLES.map((role) => (
-            <button
-              key={role.id}
-              onClick={() => {
-                onRoleChange(role.id);
-                setIsOpen(false);
-              }}
-              className={cn(
-                "w-full flex items-start gap-3 px-4 py-2.5 text-left transition-colors",
-                "hover:bg-[hsl(var(--bg-elevated))]",
-                currentRole?.toLowerCase() === role.id.toLowerCase() && "bg-[hsl(var(--bg-elevated))]"
-              )}
-            >
-              <span 
-                className="w-2.5 h-2.5 rounded-full mt-1.5 shrink-0"
-                style={{ background: role.color }}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium text-[hsl(var(--text-primary))]">
-                  {role.name}
-                </p>
-                <p className="text-[11px] text-[hsl(var(--text-muted))] mt-0.5">
-                  {role.description}
-                </p>
-              </div>
-              {currentRole?.toLowerCase() === role.id.toLowerCase() && (
-                <Check className="h-4 w-4 shrink-0 mt-1" style={{ color: accentColor }} />
-              )}
-            </button>
-          ))}
-        </div>
+      {isOpen && !disabled && (
+        <>
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => setIsOpen(false)}
+          />
+          <div className="absolute right-0 mt-2 w-72 bg-[#1a1a2e] border border-white/10 rounded-xl shadow-xl z-20 overflow-hidden">
+            {AVAILABLE_ROLES.map((role) => {
+              const Icon = role.icon;
+              const isSelected = currentRole === role.value;
+
+              return (
+                <button
+                  key={role.value}
+                  onClick={() => {
+                    onRoleChange(role.value);
+                    setIsOpen(false);
+                  }}
+                  className={`w-full flex items-start gap-3 p-3 text-left transition-colors ${
+                    isSelected
+                      ? "bg-white/10"
+                      : "hover:bg-white/5"
+                  }`}
+                >
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{
+                      backgroundColor: isSelected
+                        ? `${accentColor}20`
+                        : "rgba(255,255,255,0.1)",
+                    }}
+                  >
+                    <Icon
+                      className="w-4 h-4"
+                      style={{ color: isSelected ? accentColor : "white" }}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-white">
+                        {role.label}
+                      </span>
+                      {isSelected && (
+                        <Check
+                          className="w-4 h-4"
+                          style={{ color: accentColor }}
+                        />
+                      )}
+                    </div>
+                    <p className="text-xs text-white/50 mt-0.5">
+                      {role.description}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
-   User Row Component
-   ═══════════════════════════════════════════════════════════════════════════════ */
 function UserRow({
   user,
+  currentUserEmail,
   onRoleChange,
   isUpdating,
-  canEdit,
-  currentUserEmail,
+  accentColor,
 }: {
-  user: User;
-  onRoleChange: (userId: string, role: string) => void;
+  user: UserData;
+  currentUserEmail: string;
+  onRoleChange: (userId: string, role: RoleValue) => void;
   isUpdating: boolean;
-  canEdit: boolean;
-  currentUserEmail: string | null | undefined;
+  accentColor: string;
 }) {
-  const { color: accentColor } = useCurrentAccent();
-  const isCurrentUser = user.email.toLowerCase() === currentUserEmail?.toLowerCase();
-
-  const initials = (user.name || user.email)
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const isSelf = user.email === currentUserEmail;
+  const isProtectedAdmin = ADMIN_EMAILS.includes(user.email);
 
   return (
-    <tr className="hover:bg-[hsl(var(--bg-muted))] transition-colors">
-      <td className="px-6 py-4">
-        <div className="flex items-center gap-3">
+    <div className="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/10 hover:border-white/20 transition-colors">
+      {/* Avatar */}
+      <div className="relative flex-shrink-0">
+        {user.image ? (
+          <img
+            src={user.image}
+            alt={user.name}
+            className="w-12 h-12 rounded-xl object-cover"
+          />
+        ) : (
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold shrink-0"
-            style={{ background: `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)` }}
+            className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-medium"
+            style={{ backgroundColor: `${accentColor}40` }}
           >
-            {user.image ? (
-              <img src={user.image} alt={user.name || ""} className="w-full h-full rounded-xl object-cover" />
-            ) : (
-              initials
-            )}
+            {user.name?.charAt(0)?.toUpperCase() || "?"}
           </div>
-          <div className="min-w-0">
-            <p className="text-[14px] font-medium text-[hsl(var(--text-primary))] truncate">
-              {user.name || "Sans nom"}
-              {isCurrentUser && (
-                <span className="ml-2 text-[11px] font-normal text-[hsl(var(--text-muted))]">(vous)</span>
-              )}
-            </p>
-            <p className="text-[12px] text-[hsl(var(--text-muted))] truncate">
-              {user.email}
-            </p>
+        )}
+        {isProtectedAdmin && (
+          <div
+            className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center"
+            style={{ backgroundColor: accentColor }}
+          >
+            <Crown className="w-3 h-3 text-white" />
           </div>
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-medium text-white truncate">
+            {user.name}
+          </h3>
+          {isSelf && (
+            <span className="px-2 py-0.5 text-xs rounded-full bg-white/10 text-white/70">
+              Vous
+            </span>
+          )}
         </div>
-      </td>
-      <td className="px-6 py-4">
-        {canEdit && !isCurrentUser ? (
+        <p className="text-sm text-white/50 truncate">{user.email}</p>
+      </div>
+
+      {/* Role Selector */}
+      <div className="flex-shrink-0">
+        {isUpdating ? (
+          <div className="flex items-center gap-2 px-3 py-2">
+            <Loader2 className="w-4 h-4 animate-spin text-white/50" />
+            <span className="text-sm text-white/50">Mise à jour...</span>
+          </div>
+        ) : (
           <RoleSelector
             currentRole={user.role}
             onRoleChange={(role) => onRoleChange(user.id, role)}
-            disabled={isUpdating}
+            disabled={isProtectedAdmin && !ADMIN_EMAILS.includes(currentUserEmail)}
+            accentColor={accentColor}
           />
-        ) : (
-          <RoleBadge role={user.role} />
         )}
-      </td>
-      <td className="px-6 py-4 text-right">
-        <span className="text-[12px] text-[hsl(var(--text-muted))]">
-          {new Date(user.createdAt).toLocaleDateString("fr-CA")}
-        </span>
-      </td>
-    </tr>
+      </div>
+    </div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
-   Main Roles Page Component
-   ═══════════════════════════════════════════════════════════════════════════════ */
-export default function RolesSettingsPage() {
+// ============================================================================
+// MAIN PAGE COMPONENT
+// ============================================================================
+
+export default function RolesPage() {
   const { data: session } = useSession();
-  const { color: accentColor } = useCurrentAccent();
+  const { accentColor } = useAccentColor();
 
-  const [users, setUsers] = React.useState<User[]>([]);
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [isUpdating, setIsUpdating] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
+  const [users, setUsers] = useState<UserData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Check if current user can edit roles
-  const userEmail = session?.user?.email;
-  const userRole = (session?.user as any)?.role;
-  const canEditRoles = 
-    userRole === "admin" || 
-    (userEmail && ADMIN_EMAILS.includes(userEmail.toLowerCase()));
+  const currentUserEmail = session?.user?.email || "";
+  const currentUserRole = users.find((u) => u.email === currentUserEmail)?.role;
+  const userIsAdmin = isAdmin(currentUserEmail, currentUserRole);
 
   // Fetch users
-  const fetchUsers = React.useCallback(async () => {
-    if (!canEditRoles) {
-      setIsLoading(false);
-      return;
-    }
+  useEffect(() => {
+    async function fetchUsers() {
+      try {
+        setIsLoading(true);
+        setError(null);
 
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      const response = await fetch("/api/user/role");
-      
-      if (!response.ok) {
-        if (response.status === 403) {
-          setError("Vous n'avez pas les permissions pour gérer les rôles");
-        } else {
-          throw new Error("Failed to fetch users");
+        const response = await fetch("/api/user/role");
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || "Erreur lors du chargement");
         }
-        return;
-      }
-      
-      const data = await response.json();
-      setUsers(data);
-    } catch (err) {
-      console.error("Error fetching users:", err);
-      setError("Erreur lors du chargement des utilisateurs");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [canEditRoles]);
 
-  React.useEffect(() => {
+        const data = await response.json();
+        setUsers(data.users);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Erreur inconnue");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
     fetchUsers();
-  }, [fetchUsers]);
+  }, []);
 
   // Handle role change
-  const handleRoleChange = async (userId: string, newRole: string) => {
-    setIsUpdating(true);
-    setError(null);
-    setSuccessMessage(null);
-
+  const handleRoleChange = async (userId: string, newRole: RoleValue) => {
     try {
+      setUpdatingUserId(userId);
+      setError(null);
+      setSuccessMessage(null);
+
       const response = await fetch("/api/user/role", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -312,220 +371,229 @@ export default function RolesSettingsPage() {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Failed to update role");
+        throw new Error(data.error || "Erreur lors de la mise à jour");
       }
 
-      const updatedUser = await response.json();
-      
       // Update local state
       setUsers((prev) =>
-        prev.map((u) => (u.id === userId ? { ...u, role: updatedUser.role } : u))
+        prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
       );
-      
-      setSuccessMessage(`Rôle de ${updatedUser.name || updatedUser.email} mis à jour`);
+
+      setSuccessMessage("Rôle mis à jour avec succès");
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
-      console.error("Error updating role:", err);
-      setError(err instanceof Error ? err.message : "Erreur lors de la mise à jour");
+      setError(err instanceof Error ? err.message : "Erreur inconnue");
     } finally {
-      setIsUpdating(false);
+      setUpdatingUserId(null);
     }
   };
 
   // Filter users
-  const filteredUsers = React.useMemo(() => {
-    if (!searchQuery) return users;
+  const filteredUsers = useMemo(() => {
+    if (!searchQuery.trim()) return users;
+
     const query = searchQuery.toLowerCase();
     return users.filter(
-      (u) =>
-        u.name?.toLowerCase().includes(query) ||
-        u.email.toLowerCase().includes(query) ||
-        u.role.toLowerCase().includes(query)
+      (user) =>
+        user.name?.toLowerCase().includes(query) ||
+        user.email?.toLowerCase().includes(query) ||
+        user.role?.toLowerCase().includes(query)
     );
   }, [users, searchQuery]);
 
   // Role statistics
-  const roleStats = React.useMemo(() => {
+  const roleStats = useMemo(() => {
     const stats: Record<string, number> = {};
-    users.forEach((u) => {
-      const roleKey = u.role.toLowerCase();
-      stats[roleKey] = (stats[roleKey] || 0) + 1;
+    users.forEach((user) => {
+      const role = user.role || "user";
+      stats[role] = (stats[role] || 0) + 1;
     });
     return stats;
   }, [users]);
 
+  // Access denied
+  if (!isLoading && !userIsAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <div
+          className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+          style={{ backgroundColor: "#ef444420" }}
+        >
+          <AlertCircle className="w-8 h-8 text-red-400" />
+        </div>
+        <h2 className="text-xl font-semibold text-white mb-2">
+          Accès non autorisé
+        </h2>
+        <p className="text-white/50 text-center max-w-md">
+          Vous n&apos;avez pas les droits nécessaires pour accéder à cette page.
+          Seuls les gestionnaires peuvent gérer les rôles des utilisateurs.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Header Info */}
-      <div 
-        className="flex items-start gap-4 p-4 rounded-xl"
-        style={{ 
-          background: `${accentColor}10`,
-          border: `1px solid ${accentColor}30`
-        }}
-      >
-        <div 
-          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: `${accentColor}20`, color: accentColor }}
-        >
-          <Info className="h-5 w-5" />
-        </div>
-        <div>
-          <h3 className="text-[14px] font-semibold text-[hsl(var(--text-primary))]">
-            Gestion des rôles utilisateurs
-          </h3>
-          <p className="text-[13px] text-[hsl(var(--text-secondary))] mt-1">
-            Attribuez des rôles aux utilisateurs pour contrôler leurs permissions d&apos;accès.
-            Les rôles sont stockés dans votre base de données PostgreSQL.
-          </p>
-        </div>
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-white">
+          Gestion des rôles
+        </h1>
+        <p className="text-white/50 mt-1">
+          Gérez les permissions et les rôles des utilisateurs de la plateforme
+        </p>
       </div>
 
-      {/* Access Denied Message */}
-      {!canEditRoles && (
-        <div className="flex items-center gap-2 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
-          <Lock className="h-5 w-5 text-amber-500 shrink-0" />
-          <div>
-            <p className="text-[14px] font-medium text-amber-600 dark:text-amber-400">
-              Accès restreint
-            </p>
-            <p className="text-[13px] text-[hsl(var(--text-muted))]">
-              Seuls les administrateurs peuvent gérer les rôles des utilisateurs.
-            </p>
-          </div>
+      {/* Messages */}
+      {error && (
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+          <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+          <p className="text-sm text-red-400">{error}</p>
         </div>
       )}
 
-      {canEditRoles && (
-        <>
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div 
-              className="p-4 rounded-xl"
-              style={{ background: "hsl(var(--bg-surface))", border: "1px solid hsl(var(--border-subtle))" }}
+      {successMessage && (
+        <div
+          className="flex items-center gap-3 p-4 rounded-xl border"
+          style={{
+            backgroundColor: `${accentColor}10`,
+            borderColor: `${accentColor}30`,
+          }}
+        >
+          <Check className="w-5 h-5 flex-shrink-0" style={{ color: accentColor }} />
+          <p className="text-sm" style={{ color: accentColor }}>
+            {successMessage}
+          </p>
+        </div>
+      )}
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-[#1a1a2e]/80 backdrop-blur-sm rounded-xl border border-white/10 p-4">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: `${accentColor}20` }}
             >
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="h-4 w-4 text-[hsl(var(--text-muted))]" />
-                <span className="text-[12px] font-medium text-[hsl(var(--text-muted))]">Total</span>
-              </div>
-              <p className="text-[24px] font-bold text-[hsl(var(--text-primary))]">{users.length}</p>
+              <Users className="w-5 h-5" style={{ color: accentColor }} />
             </div>
-            {AVAILABLE_ROLES.slice(0, 3).map((role) => (
-              <div 
-                key={role.id}
-                className="p-4 rounded-xl"
-                style={{ background: "hsl(var(--bg-surface))", border: "1px solid hsl(var(--border-subtle))" }}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="w-2 h-2 rounded-full" style={{ background: role.color }} />
-                  <span className="text-[12px] font-medium text-[hsl(var(--text-muted))]">{role.name}</span>
+            <div>
+              <p className="text-2xl font-bold text-white">{users.length}</p>
+              <p className="text-xs text-white/50">Total utilisateurs</p>
+            </div>
+          </div>
+        </div>
+
+        {AVAILABLE_ROLES.map((role) => {
+          const Icon = role.icon;
+          const count = roleStats[role.value] || 0;
+
+          return (
+            <div
+              key={role.value}
+              className="bg-[#1a1a2e]/80 backdrop-blur-sm rounded-xl border border-white/10 p-4"
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center ${role.color.split(" ")[0]}`}
+                >
+                  <Icon className={`w-5 h-5 ${role.color.split(" ")[1]}`} />
                 </div>
-                <p className="text-[24px] font-bold text-[hsl(var(--text-primary))]">
-                  {roleStats[role.id.toLowerCase()] || 0}
-                </p>
+                <div>
+                  <p className="text-2xl font-bold text-white">{count}</p>
+                  <p className="text-xs text-white/50">{role.label}s</p>
+                </div>
               </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* User List */}
+      <SectionCard
+        title="Utilisateurs"
+        description="Cliquez sur le rôle pour le modifier"
+        icon={UserCog}
+        accentColor={accentColor}
+      >
+        {/* Search */}
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+            <input
+              type="text"
+              placeholder="Rechercher par nom, email ou rôle..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
+            />
+          </div>
+        </div>
+
+        {/* List */}
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-white/50 mb-4" />
+            <p className="text-white/50">Chargement des utilisateurs...</p>
+          </div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Users className="w-12 h-12 text-white/20 mb-4" />
+            <p className="text-white/50">
+              {searchQuery
+                ? "Aucun utilisateur trouvé"
+                : "Aucun utilisateur enregistré"}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredUsers.map((user) => (
+              <UserRow
+                key={user.id}
+                user={user}
+                currentUserEmail={currentUserEmail}
+                onRoleChange={handleRoleChange}
+                isUpdating={updatingUserId === user.id}
+                accentColor={accentColor}
+              />
             ))}
           </div>
+        )}
+      </SectionCard>
 
-          {/* Search & Refresh */}
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-muted))]" />
-              <input
-                type="text"
-                placeholder="Rechercher un utilisateur..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={cn(
-                  "w-full pl-11 pr-4 py-2.5 rounded-xl text-[14px]",
-                  "bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))]",
-                  "text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))]",
-                  "focus:outline-none focus:ring-2 focus:border-transparent"
-                )}
-                style={{ "--tw-ring-color": accentColor } as React.CSSProperties}
-              />
-            </div>
-            <button
-              onClick={fetchUsers}
-              disabled={isLoading}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all",
-                "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))]",
-                "hover:bg-[hsl(var(--bg-elevated))] hover:text-[hsl(var(--text-primary))]",
-                "disabled:opacity-50"
-              )}
-            >
-              <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
-              Actualiser
-            </button>
-          </div>
+      {/* Role Descriptions */}
+      <SectionCard
+        title="Description des rôles"
+        description="Permissions associées à chaque rôle"
+        icon={Shield}
+        accentColor={accentColor}
+      >
+        <div className="grid md:grid-cols-2 gap-4">
+          {AVAILABLE_ROLES.map((role) => {
+            const Icon = role.icon;
 
-          {/* Success/Error Messages */}
-          {successMessage && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-              <Check className="h-4 w-4 text-emerald-500" />
-              <p className="text-[13px] text-emerald-600 dark:text-emerald-400">{successMessage}</p>
-            </div>
-          )}
-          
-          {error && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-              <AlertTriangle className="h-4 w-4 text-red-500" />
-              <p className="text-[13px] text-red-600 dark:text-red-400">{error}</p>
-            </div>
-          )}
-
-          {/* Users Table */}
-          <div
-            className="rounded-2xl overflow-hidden"
-            style={{
-              background: "hsl(var(--bg-surface))",
-              border: "1px solid hsl(var(--border-subtle))",
-            }}
-          >
-            {isLoading ? (
-              <div className="flex items-center justify-center py-16">
-                <Loader2 className="h-8 w-8 animate-spin" style={{ color: accentColor }} />
+            return (
+              <div
+                key={role.value}
+                className="p-4 bg-white/5 rounded-xl border border-white/10"
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center ${role.color.split(" ")[0]}`}
+                  >
+                    <Icon className={`w-5 h-5 ${role.color.split(" ")[1]}`} />
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-white">{role.label}</h3>
+                    <p className="text-xs text-white/50">{role.value}</p>
+                  </div>
+                </div>
+                <p className="text-sm text-white/70">{role.description}</p>
               </div>
-            ) : filteredUsers.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16">
-                <Users className="h-12 w-12 text-[hsl(var(--text-muted))] mb-4" />
-                <p className="text-[14px] text-[hsl(var(--text-muted))]">
-                  {searchQuery ? "Aucun utilisateur trouvé" : "Aucun utilisateur"}
-                </p>
-              </div>
-            ) : (
-              <table className="w-full">
-                <thead>
-                  <tr style={{ background: "hsl(var(--bg-muted))" }}>
-                    <th className="text-left px-6 py-3 text-[12px] font-semibold text-[hsl(var(--text-muted))] uppercase tracking-wider">
-                      Utilisateur
-                    </th>
-                    <th className="text-left px-6 py-3 text-[12px] font-semibold text-[hsl(var(--text-muted))] uppercase tracking-wider">
-                      Rôle
-                    </th>
-                    <th className="text-right px-6 py-3 text-[12px] font-semibold text-[hsl(var(--text-muted))] uppercase tracking-wider">
-                      Inscrit le
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[hsl(var(--border-subtle))]">
-                  {filteredUsers.map((user) => (
-                    <UserRow
-                      key={user.id}
-                      user={user}
-                      onRoleChange={handleRoleChange}
-                      isUpdating={isUpdating}
-                      canEdit={canEditRoles}
-                      currentUserEmail={userEmail}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </>
-      )}
+            );
+          })}
+        </div>
+      </SectionCard>
     </div>
   );
 }
