@@ -158,21 +158,21 @@ function PriceModal({
     
     itemsWithPrices.forEach(item => {
       // Use "Autres" if no class provided
-      const cls = item.className || "Autres";
+      const cls = item.className || "AUTRES";
       if (!groups[cls]) groups[cls] = [];
       groups[cls].push(item);
     });
     
     return groups;
   }, [data]);
-
+  
   // To show total count in footer
   const totalItemsCount = data.filter(item => item.ranges && item.ranges.length > 0).length;
 
   // 2. Determine Columns based on Price Code (Templates)
   const priceCode = selectedPriceList?.code || "";
   
-  // Logic from your matrix:
+  // Logic from your matrix image:
   // 01-EXP -> 01, 02, 03, 05
   // 04-GROSEX -> 02, 03, 04(Selected), 05
   const showExp = ["01-EXP", "04-GROSEX", "05-GROS"].some(c => priceCode.startsWith(c));
@@ -188,6 +188,9 @@ function PriceModal({
   
   // Margin Exp = (Retail Price - Cost) / Retail Price. Cost = coutExp. Retail = unitPrice.
   const calcMarginExp = (unit: number, cout: number | null) => cout && unit ? ((unit - cout) / unit) * 100 : null;
+
+  // Calculate Price Per Caisse
+  const calcPricePerCaisse = (price: number, caisse: number | null) => caisse ? price * caisse : null;
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 md:p-4">
@@ -276,25 +279,24 @@ function PriceModal({
                   </div>
                   
                   <div className="overflow-x-auto">
-                    {/* Table with fixed widths */}
                     <table className="w-full text-sm md:text-base border-collapse table-fixed">
                       <thead>
                         <tr className="bg-neutral-200 dark:bg-neutral-800">
                           <th 
                             className="text-left p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                            style={{ width: showDetails ? '18%' : '25%' }}
+                            style={{ width: showDetails ? '16%' : '25%' }}
                           >
                             Article
                           </th>
                           <th 
                             className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                            style={{ width: '8%' }}
+                            style={{ width: showDetails ? '6%' : '10%' }}
                           >
                             Format
                           </th>
                           <th 
                             className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                            style={{ width: '8%' }}
+                            style={{ width: showDetails ? '8%' : '15%' }}
                           >
                             Qty
                           </th>
@@ -334,7 +336,7 @@ function PriceModal({
                           {/* Fallback for Selected Price List if no template matches 
                              (e.g. 06-IND-HZ which might not be in template).
                              OR if you want to always show the selected list value for reference.
-                             For now, let's show it if no dynamic columns are active, or as the "main" column.
+                             For now, let's show it if no dynamic columns are active.
                           */}
                           {!showExp && !showDet && !showInd && !showGros && (
                              <th 
@@ -365,7 +367,7 @@ function PriceModal({
                           {showPds && (
                             <th 
                               className="text-right p-2 md:p-3 font-bold text-amber-700 dark:text-amber-400 border border-neutral-300 dark:border-neutral-700 bg-amber-50 dark:bg-amber-900/20"
-                              style={{ width: '12%' }}
+                              style={{ width: showDetails ? '12%' : '20%' }}
                             >
                               PDS
                             </th>
@@ -383,7 +385,6 @@ function PriceModal({
                         </tr>
                       </thead>
                       <tbody>
-                        {/* Iterate over all items in this class */}
                         {items.map(item => (
                           item.ranges.map((range, rIdx) => {
                             const isFirstRow = rIdx === 0;
