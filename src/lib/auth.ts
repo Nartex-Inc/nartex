@@ -1,3 +1,4 @@
+// src/lib/auth.ts
 import type { NextAuthOptions } from "next-auth";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "@/lib/prisma";
@@ -54,7 +55,7 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) throw new Error("Adresse e-mail et mot de passe requis.");
         
-        // CHANGED: Use findFirst with insensitive mode instead of findUnique + toLowerCase()
+        // Use findFirst with insensitive mode
         const user = await prisma.user.findFirst({ 
           where: { 
             email: { equals: String(credentials.email), mode: "insensitive" } 
@@ -75,7 +76,28 @@ export const authOptions: NextAuthOptions = {
         };
       },
     }),
+  ],
   callbacks: {
+    // 1. ADD THIS NEW SIGNIN CALLBACK
+    async signIn({ user, account, profile }) {
+      if (account?.provider === "google" && user.email) {
+        try {
+          // Force update the image from the Google profile
+          // We also implicitly trust Google emails, so we can mark it verified
+          await prisma.user.update({
+            where: { email: user.email },
+            data: {
+              image: (profile as any)?.picture || user.image, 
+              emailVerified: new Date(),
+            }
+          });
+        } catch (error) {
+          console.error("Error refreshing user data from Google:", error);
+        }
+      }
+      return true;
+    },
+
     async jwt({ token, user, trigger, session }) {
       if (trigger === "update" && session?.user) {
         token.role = session.user.role;
