@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useCurrentAccent } from "@/components/accent-color-provider";
 import {
   User,
   Mail,
@@ -18,25 +19,6 @@ import {
   Receipt,
   Sparkles,
 } from "lucide-react";
-
-// ============================================================================
-// SELF-CONTAINED - No external dependencies
-// ============================================================================
-
-const DEFAULT_ACCENT_COLOR = "#6366f1";
-
-function useAccentColor() {
-  const [accentColor, setAccentColor] = useState(DEFAULT_ACCENT_COLOR);
-  
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("nartex-accent-color");
-      if (stored) setAccentColor(stored);
-    }
-  }, []);
-  
-  return { accentColor };
-}
 
 // ============================================================================
 // CONFIGURATION
@@ -128,7 +110,7 @@ function RoleBadge({ role }: { role: string }) {
 
 export default function ProfilePage() {
   const { data: session, update } = useSession();
-  const { accentColor } = useAccentColor();
+  const { color: accentColor } = useCurrentAccent();
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
