@@ -1,5 +1,5 @@
 // src/app/api/user/role/route.ts
-// Fixed version that works with actual UserRole enum: user, Gestionnaire
+// Matching actual Prisma UserRole enum: Gestionnaire, Analyste, Verificateur, Facturation, Expert, user
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -9,21 +9,19 @@ import prisma from "@/lib/prisma";
 // Admin emails - these users have full admin access regardless of role
 const ADMIN_EMAILS = ["n.labranche@sinto.ca", "d.drouin@sinto.ca"];
 
-// Roles that have admin privileges (based on your actual database)
+// Roles that have admin privileges
 const ADMIN_ROLES = ["Gestionnaire"];
 
 // Helper to check if user is admin
 function isAdmin(email: string | null | undefined, role: string | null | undefined): boolean {
   if (!email) return false;
-  // Check by email first (bypass)
   if (ADMIN_EMAILS.includes(email)) return true;
-  // Check by role
   if (role && ADMIN_ROLES.includes(role)) return true;
   return false;
 }
 
 // GET - List all users with their roles (admin only)
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
@@ -50,26 +48,26 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         name: true,
-        first_name: true,
-        last_name: true,
+        firstName: true,
+        lastName: true,
         email: true,
         image: true,
         role: true,
-        created_at: true,
-        updated_at: true,
+        createdAt: true,
+        updatedAt: true,
       },
-      orderBy: { created_at: "desc" },
+      orderBy: { createdAt: "desc" },
     });
 
     // Transform to expected format
     const transformedUsers = users.map((user) => ({
       id: user.id,
-      name: user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email,
+      name: user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email,
       email: user.email,
       image: user.image,
       role: user.role || "user",
-      createdAt: user.created_at,
-      updatedAt: user.updated_at,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     }));
 
     return NextResponse.json({ users: transformedUsers });
@@ -115,8 +113,15 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Valid roles based on your actual database schema
-    const validRoles = ["user", "Gestionnaire"];
+    // Valid roles from your Prisma UserRole enum
+    const validRoles = [
+      "Gestionnaire",
+      "Analyste", 
+      "Verificateur",
+      "Facturation",
+      "Expert",
+      "user"
+    ];
     
     if (!validRoles.includes(role)) {
       return NextResponse.json(
@@ -126,7 +131,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Prevent admin from demoting themselves if they're the last admin
-    if (currentUser?.id === userId && role === "user") {
+    if (currentUser?.id === userId && role !== "Gestionnaire") {
       const adminCount = await prisma.user.count({
         where: {
           OR: [
@@ -144,10 +149,10 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    // Update the user's role
+    // Update the user's role - cast to the enum type
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: { role },
+      data: { role: role as "Gestionnaire" | "Analyste" | "Verificateur" | "Facturation" | "Expert" | "user" },
       select: {
         id: true,
         name: true,
