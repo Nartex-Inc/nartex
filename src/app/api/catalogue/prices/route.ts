@@ -44,8 +44,8 @@ export async function GET(request: NextRequest) {
       paramIdx++;
     }
 
-    // Filter for Active items only - Using PascalCase based on common schema patterns
-    const activeFilter = `AND i."IsActive" = true`;
+    // Filter for Active items only
+    const activeFilter = `AND i."isActive" = true`;
 
     // 1. Fetch Main Data (Items + Selected Price List)
     const mainQuery = `
@@ -75,7 +75,6 @@ export async function GET(request: NextRequest) {
     const mainParams = [...baseParams, priceIdNum];
 
     // 2. Fetch ALL relevant price columns to support templates (01, 02, 03, 05, 17)
-    // We execute one query to get all alternate prices for these items
     const altPricesQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", ipr."priceid", MAX(ipr."itempricedateid") as "latestDateId"
@@ -115,7 +114,6 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemId" ASC, dmd."GreatherThan" ASC
     `;
 
-    // 4. Execute queries
     const [mainResult, altPricesResult, discountResult] = await Promise.all([
       pg.query(mainQuery, mainParams),
       pg.query(altPricesQuery, baseParams),
@@ -129,7 +127,7 @@ export async function GET(request: NextRequest) {
     const altRows = altPricesResult.rows;
     const discountRows = discountResult.rows;
 
-    // 5. Build Map for Alternate Prices
+    // 4. Build Map for Alternate Prices
     const priceMap: Record<number, Record<number, Record<number, number>>> = {};
     for (const row of altRows) {
       if (!priceMap[row.itemId]) priceMap[row.itemId] = {};
@@ -137,7 +135,7 @@ export async function GET(request: NextRequest) {
       priceMap[row.itemId][row.priceId][parseInt(row.qtyMin)] = parseFloat(row.price);
     }
 
-    // 6. Build Discount Map
+    // 5. Build Discount Map
     const discountMap: Record<number, Record<number, number>> = {};
     for (const row of discountRows) {
       if (!discountMap[row.itemId]) discountMap[row.itemId] = {};
@@ -146,7 +144,7 @@ export async function GET(request: NextRequest) {
       discountMap[row.itemId][greaterThan] = discountAmt;
     }
 
-    // 7. Build Result
+    // 6. Build Result
     const itemsMap: Record<number, any> = {};
     
     for (const row of rows) {
@@ -159,7 +157,7 @@ export async function GET(request: NextRequest) {
           format: row.format || null,
           volume: row.volume ? parseFloat(row.volume) : null,
           categoryName: row.categoryName,
-          className: row.className || "Autres", // Grouping key
+          className: row.className || "Autres", 
           priceListName: row.priceListName,
           priceCode: row.priceCode,
           ranges: []
@@ -171,7 +169,7 @@ export async function GET(request: NextRequest) {
       // Helper to safely get price from map
       const getPrice = (pid: number) => priceMap[row.itemId]?.[pid]?.[qtyMin] ?? null;
 
-      // Get discount for this quantity tier (for display only)
+      // Get discount (Display only)
       let costingDiscountAmt = 0;
       const itemDiscounts = discountMap[row.itemId];
       if (itemDiscounts) {
@@ -188,10 +186,13 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // COÛT EXP = Strictly equal to 01-EXP price (Price ID 4)
+      const coutExp = getPrice(EXP_PRICE_ID); 
+
       itemsMap[row.itemId].ranges.push({
         id: row.id,
         qtyMin: qtyMin,
-        unitPrice: parseFloat(row.unitPrice), // The selected price list price
+        unitPrice: parseFloat(row.unitPrice), 
         
         // Specific columns for templates
         pdsPrice: getPrice(PDS_PRICE_ID),
@@ -200,9 +201,8 @@ export async function GET(request: NextRequest) {
         indPrice: getPrice(IND_PRICE_ID),
         grosPrice: getPrice(GROS_PRICE_ID),
         
-        // Coût Exp logic (Now strictly equal to 01-EXP price)
-        coutExp: getPrice(EXP_PRICE_ID), 
-        costingDiscountAmt: costingDiscountAmt // Passed for display column only
+        coutExp: coutExp,
+        costingDiscountAmt: costingDiscountAmt 
       });
     }
 
