@@ -157,31 +157,36 @@ function PriceModal({
     const groups: Record<string, ItemPriceData[]> = {};
     
     itemsWithPrices.forEach(item => {
-      const cls = item.className || "AUTRES";
+      // Use "Autres" if no class provided
+      const cls = item.className || "Autres";
       if (!groups[cls]) groups[cls] = [];
       groups[cls].push(item);
     });
     
     return groups;
   }, [data]);
-  
+
   // To show total count in footer
   const totalItemsCount = data.filter(item => item.ranges && item.ranges.length > 0).length;
 
   // 2. Determine Columns based on Price Code (Templates)
   const priceCode = selectedPriceList?.code || "";
   
-  // Template Logic
+  // Logic from your matrix:
+  // 01-EXP -> 01, 02, 03, 05
+  // 04-GROSEX -> 02, 03, 04(Selected), 05
   const showExp = ["01-EXP", "04-GROSEX", "05-GROS"].some(c => priceCode.startsWith(c));
   const showDet = ["01-EXP", "02-DET", "04-GROSEX", "05-GROS", "07-DET-HZ"].some(c => priceCode.startsWith(c));
   const showInd = ["01-EXP", "03-IND", "04-GROSEX", "05-GROS"].some(c => priceCode.startsWith(c));
   const showGros = ["01-EXP", "04-GROSEX", "05-GROS"].some(c => priceCode.startsWith(c));
   
-  const showPds = true;
+  const showPds = true; // Always show PDS
 
   // Calculation Helpers
-  const calcPricePerCaisse = (price: number, caisse: number | null) => caisse ? price * caisse : null;
+  // (Note: Caisse removed per request)
   const calcPricePerLitre = (price: number, volume: number | null) => volume ? price / volume : null;
+  
+  // Margin Exp = (Retail Price - Cost) / Retail Price. Cost = coutExp. Retail = unitPrice.
   const calcMarginExp = (unit: number, cout: number | null) => cout && unit ? ((unit - cout) / unit) * 100 : null;
 
   return (
@@ -271,35 +276,30 @@ function PriceModal({
                   </div>
                   
                   <div className="overflow-x-auto">
+                    {/* Table with fixed widths */}
                     <table className="w-full text-sm md:text-base border-collapse table-fixed">
                       <thead>
                         <tr className="bg-neutral-200 dark:bg-neutral-800">
                           <th 
                             className="text-left p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                            style={{ width: showDetails ? '16%' : '25%' }}
+                            style={{ width: showDetails ? '18%' : '25%' }}
                           >
                             Article
                           </th>
                           <th 
                             className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                            style={{ width: showDetails ? '6%' : '10%' }}
-                          >
-                            CAISSE
-                          </th>
-                          <th 
-                            className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                            style={{ width: showDetails ? '8%' : '15%' }}
+                            style={{ width: '8%' }}
                           >
                             Format
                           </th>
                           <th 
                             className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                            style={{ width: showDetails ? '6%' : '10%' }}
+                            style={{ width: '8%' }}
                           >
-                            Qte/Qty
+                            Qty
                           </th>
                           
-                          {/* Coût Exp (Left of Price) - Only if details ON */}
+                          {/* Coût Exp (Right of Qty, Only if details ON) */}
                           {showDetails && (
                             <th 
                               className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20"
@@ -309,7 +309,7 @@ function PriceModal({
                             </th>
                           )}
 
-                          {/* Dynamic Price Columns */}
+                          {/* Dynamic Template Columns */}
                           {showExp && (
                             <th className="text-right p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700">
                               01-EXP
@@ -331,20 +331,14 @@ function PriceModal({
                             </th>
                           )}
 
-                          {/* Selected Price List (Fallback if not covered by templates, or as a reference) */}
-                          {/* Note: If the selected list is one of the above, we might show it twice. 
-                              However, user template request implies we specifically want these columns. 
-                              If we assume the 'unitPrice' is just the value from the selected list 
-                              and we want to show it only if it's NOT one of the template columns... 
-                              For now, let's keep the logic simple: The templates dictate what is shown.
-                              If the user selects a list that ISN'T in the templates (e.g. 06-IND-HZ), 
-                              we should probably show at least that one column.
-                              Let's add a condition: if no template columns matched, show 'unitPrice' column.
+                          {/* Fallback for Selected Price List if no template matches 
+                             (e.g. 06-IND-HZ which might not be in template).
+                             OR if you want to always show the selected list value for reference.
+                             For now, let's show it if no dynamic columns are active, or as the "main" column.
                           */}
                           {!showExp && !showDet && !showInd && !showGros && (
                              <th 
                                 className="text-right p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                                style={{ width: showDetails ? '12%' : '20%' }}
                               >
                                 {selectedPriceList?.code || 'Prix'}
                               </th>
@@ -355,7 +349,7 @@ function PriceModal({
                             <>
                               <th 
                                 className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20"
-                                style={{ width: '11%' }}
+                                style={{ width: '10%' }}
                               >
                                 ($)/L
                               </th>
@@ -371,13 +365,13 @@ function PriceModal({
                           {showPds && (
                             <th 
                               className="text-right p-2 md:p-3 font-bold text-amber-700 dark:text-amber-400 border border-neutral-300 dark:border-neutral-700 bg-amber-50 dark:bg-amber-900/20"
-                              style={{ width: showDetails ? '12%' : '20%' }}
+                              style={{ width: '12%' }}
                             >
                               PDS
                             </th>
                           )}
 
-                          {/* Escompte - Far Right */}
+                          {/* Escompte - Far Right - Only visible when toggled ON */}
                           {showDetails && (
                             <th 
                               className="text-right p-2 md:p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20"
@@ -389,10 +383,10 @@ function PriceModal({
                         </tr>
                       </thead>
                       <tbody>
+                        {/* Iterate over all items in this class */}
                         {items.map(item => (
                           item.ranges.map((range, rIdx) => {
                             const isFirstRow = rIdx === 0;
-                            const ppc = calcPricePerCaisse(range.unitPrice, item.caisse);
                             const ppl = calcPricePerLitre(range.unitPrice, item.volume);
                             const marginExp = calcMarginExp(range.unitPrice, range.coutExp);
                             
@@ -419,9 +413,6 @@ function PriceModal({
                                 {/* Fixed Data Columns */}
                                 <td className="p-2 md:p-3 border-r border-neutral-200 dark:border-neutral-700 truncate">
                                   {isFirstRow && <span className="font-mono font-black text-neutral-900 dark:text-white">{item.itemCode}</span>}
-                                </td>
-                                <td className="p-2 md:p-3 text-center border-r border-neutral-200 dark:border-neutral-700 truncate">
-                                  {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.caisse || '-'}</span>}
                                 </td>
                                 <td className="p-2 md:p-3 text-center border-r border-neutral-200 dark:border-neutral-700 truncate">
                                   {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}
