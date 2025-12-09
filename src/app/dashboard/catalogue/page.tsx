@@ -172,9 +172,7 @@ function PriceModal({
   // 2. Determine Columns based on Price Code (Templates)
   const priceCode = selectedPriceList?.code || "";
   
-  // Logic from your matrix image:
-  // 01-EXP -> 01, 02, 03, 05
-  // 04-GROSEX -> 02, 03, 04(Selected), 05
+  // Template Logic:
   const showExp = ["01-EXP", "04-GROSEX", "05-GROS"].some(c => priceCode.startsWith(c));
   const showDet = ["01-EXP", "02-DET", "04-GROSEX", "05-GROS", "07-DET-HZ"].some(c => priceCode.startsWith(c));
   const showInd = ["01-EXP", "03-IND", "04-GROSEX", "05-GROS"].some(c => priceCode.startsWith(c));
@@ -183,10 +181,9 @@ function PriceModal({
   const showPds = true; // Always show PDS
 
   // Calculation Helpers
-  // (Note: Caisse removed per request)
   const calcPricePerLitre = (price: number, volume: number | null) => volume ? price / volume : null;
   
-  // Margin Exp = (Retail Price - Cost) / Retail Price. Cost = coutExp. Retail = unitPrice.
+  // Margin Exp = (Retail Price - Cost) / Retail Price
   const calcMarginExp = (unit: number, cout: number | null) => cout && unit ? ((unit - cout) / unit) * 100 : null;
 
   // Calculate Price Per Caisse
@@ -292,16 +289,22 @@ function PriceModal({
                             className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
                             style={{ width: showDetails ? '6%' : '10%' }}
                           >
-                            Format
+                            CAISSE
                           </th>
                           <th 
                             className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
                             style={{ width: showDetails ? '8%' : '15%' }}
                           >
+                            Format
+                          </th>
+                          <th 
+                            className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
+                            style={{ width: showDetails ? '6%' : '10%' }}
+                          >
                             Qty
                           </th>
                           
-                          {/* Coût Exp (Right of Qty, Only if details ON) */}
+                          {/* Coût Exp (Left of Price) */}
                           {showDetails && (
                             <th 
                               className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20"
@@ -333,14 +336,11 @@ function PriceModal({
                             </th>
                           )}
 
-                          {/* Fallback for Selected Price List if no template matches 
-                             (e.g. 06-IND-HZ which might not be in template).
-                             OR if you want to always show the selected list value for reference.
-                             For now, let's show it if no dynamic columns are active.
-                          */}
+                          {/* Fallback Price Column */}
                           {!showExp && !showDet && !showInd && !showGros && (
                              <th 
                                 className="text-right p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
+                                style={{ width: showDetails ? '12%' : '20%' }}
                               >
                                 {selectedPriceList?.code || 'Prix'}
                               </th>
@@ -351,7 +351,7 @@ function PriceModal({
                             <>
                               <th 
                                 className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20"
-                                style={{ width: '10%' }}
+                                style={{ width: '11%' }}
                               >
                                 ($)/L
                               </th>
@@ -373,7 +373,7 @@ function PriceModal({
                             </th>
                           )}
 
-                          {/* Escompte - Far Right - Only visible when toggled ON */}
+                          {/* Escompte - Far Right */}
                           {showDetails && (
                             <th 
                               className="text-right p-2 md:p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20"
@@ -388,6 +388,7 @@ function PriceModal({
                         {items.map(item => (
                           item.ranges.map((range, rIdx) => {
                             const isFirstRow = rIdx === 0;
+                            const ppc = calcPricePerCaisse(range.unitPrice, item.caisse);
                             const ppl = calcPricePerLitre(range.unitPrice, item.volume);
                             const marginExp = calcMarginExp(range.unitPrice, range.coutExp);
                             
@@ -414,6 +415,9 @@ function PriceModal({
                                 {/* Fixed Data Columns */}
                                 <td className="p-2 md:p-3 border-r border-neutral-200 dark:border-neutral-700 truncate">
                                   {isFirstRow && <span className="font-mono font-black text-neutral-900 dark:text-white">{item.itemCode}</span>}
+                                </td>
+                                <td className="p-2 md:p-3 text-center border-r border-neutral-200 dark:border-neutral-700 truncate">
+                                  {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.caisse || '-'}</span>}
                                 </td>
                                 <td className="p-2 md:p-3 text-center border-r border-neutral-200 dark:border-neutral-700 truncate">
                                   {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}
