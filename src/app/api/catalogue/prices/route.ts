@@ -19,7 +19,6 @@ const PRICE_LIST_IDS = {
 
 // ============================================================================
 // COLUMN MAPPING: Which price columns to show for each selected price list
-// Based on the matrix provided (Image 2)
 // ============================================================================
 const PRICE_LIST_COLUMN_MAPPING: Record<number, {
   code: string;
@@ -140,7 +139,8 @@ export async function GET(request: NextRequest) {
 
     const uniquePriceIds = [...new Set(priceListsToFetch)];
 
-    // Main query: Get items with their prices for multiple price lists
+    // Main query
+    // UPDATED: Joins Items -> Products (for Category) and Items -> itemtype (for Class)
     const mainQuery = `
       WITH LatestDatePerItem AS (
         SELECT 
@@ -162,8 +162,13 @@ export async function GET(request: NextRequest) {
           i."Stocking" as "caisse",
           i."Format" as "format",
           i."volume" as "volume",
-          cat."CategoryName" as "categoryName",
-          cls."ClassName" as "className",
+          
+          -- Category comes from Products
+          p."Descr" as "categoryName",
+          
+          -- Class comes from itemtype
+          it."Descr" as "className",
+          
           ipr."priceid" as "priceId",
           pl."Pricecode" as "priceCode",
           pl."Descr" as "priceListName",
@@ -176,9 +181,13 @@ export async function GET(request: NextRequest) {
           ON ipr."itemid" = ld."itemid" 
           AND ipr."priceid" = ld."priceid"
           AND ipr."itempricedateid" = ld."latestDateId"
+        
+        -- Join relationships based on your new schema instructions
+        INNER JOIN public."Products" p ON i."ProdId" = p."ProdId"
+        LEFT JOIN public."itemtype" it ON i."locitemtype" = it."ItemTypeId"
+        
         LEFT JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
-        LEFT JOIN public."Category" cat ON i."CategoryId" = cat."CategoryId"
-        LEFT JOIN public."Class" cls ON i."ClassId" = cls."ClassId"
+        
         WHERE i."ProdId" = $1
           ${itemFilterSQL}
         ORDER BY i."ItemCode", ipr."priceid", ipr."fromqty"
