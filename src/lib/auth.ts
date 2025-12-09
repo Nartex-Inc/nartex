@@ -54,8 +54,11 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) throw new Error("Adresse e-mail et mot de passe requis.");
         
-        const user = await prisma.user.findUnique({ 
-          where: { email: String(credentials.email).toLowerCase() } 
+        // CHANGED: Use findFirst with insensitive mode instead of findUnique + toLowerCase()
+        const user = await prisma.user.findFirst({ 
+          where: { 
+            email: { equals: String(credentials.email), mode: "insensitive" } 
+          } 
         });
 
         if (!user || !user.password) throw new Error("Aucun utilisateur trouvé ou mot de passe non configuré.");
@@ -68,12 +71,10 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           email: user.email,
           image: user.image,
-          // Cast Enum to string to satisfy NextAuth type
           role: user.role as string 
         };
       },
     }),
-  ],
   callbacks: {
     async jwt({ token, user, trigger, session }) {
       if (trigger === "update" && session?.user) {
