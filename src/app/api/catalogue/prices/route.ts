@@ -4,26 +4,26 @@ import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
 
 // ============================================================================
-// PRICE LIST ID MAPPING (based on your database)
+// CONFIGURATION & CONSTANTS
 // ============================================================================
+
+const PDS_PRICE_ID = 17;
+const EXP_PRICE_ID = 4; // Using 4 as per your snippet
+
+// ID Mapping for the Columns (Standard IDs)
 const PRICE_LIST_IDS = {
-  EXP: 1,        // 01-EXP - EXPERT PRICE
-  DET: 2,        // 02-DET - DETAILLANT / RETAILER  
-  IND: 3,        // 03-IND - INDUSTRIEL / INDUSTRIAL
-  GROSEXP: 4,    // 04-GROSEXP - GROSSISTE EXPERT / WHOLESALE EXPERT
-  GROS: 5,       // 05-GROS - GROSSISTE / WHOLESALE
-  INDHZ: 6,      // 06-INDHZ - INDUSTRIEL (HZ)
-  DETHZ: 7,      // 07-DETHZ - DETAILLANT (HZ)
-  PDS: 17,       // 08-PDS - PRIX DETAIL / MSRP
+  EXP: 1,        // 01-EXP
+  DET: 2,        // 02-DET
+  IND: 3,        // 03-IND
+  GROSEXP: 4,    // 04-GROSEXP
+  GROS: 5,       // 05-GROS
+  INDHZ: 6,      // 06-INDHZ
+  DETHZ: 7,      // 07-DETHZ
+  PDS: 17,       // 08-PDS
 };
 
-// ============================================================================
-// COLUMN MAPPING: Which price columns to show for each selected price list
-// ============================================================================
-const PRICE_LIST_COLUMN_MAPPING: Record<number, {
-  code: string;
-  columns: { priceId: number; label: string; code: string }[];
-}> = {
+// Column Display Mapping
+const PRICE_LIST_COLUMN_MAPPING: Record<number, { code: string; columns: { priceId: number; label: string; code: string }[] }> = {
   [PRICE_LIST_IDS.EXP]: {
     code: "01-EXP",
     columns: [
@@ -86,14 +86,16 @@ const PRICE_LIST_COLUMN_MAPPING: Record<number, {
   },
 };
 
-// Get the primary column (the one highlighted/selected by user)
 function getPrimaryPriceId(selectedPriceId: number): number {
   const mapping = PRICE_LIST_COLUMN_MAPPING[selectedPriceId];
   if (!mapping) return selectedPriceId;
-  // Primary is the first non-PDS column, or the first column
   const primary = mapping.columns.find(c => c.priceId !== PRICE_LIST_IDS.PDS);
   return primary?.priceId ?? selectedPriceId;
 }
+
+// ============================================================================
+// MAIN HANDLER
+// ============================================================================
 
 export async function GET(request: NextRequest) {
   try {
@@ -113,13 +115,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
     }
 
-    const selectedPriceId = parseInt(priceId, 10);
+    const priceIdNum = parseInt(priceId, 10);
     const prodIdNum = parseInt(prodId, 10);
 
-    // Build item filter
+    // Build base filter
     let itemFilterSQL = "";
     const baseParams: any[] = [prodIdNum];
-    let paramIdx = 2;
+    let paramIdx = 2; // Next param index (1 is prodId)
 
     if (itemId) {
       itemFilterSQL = `AND i."ItemId" = $${paramIdx}`;
@@ -131,91 +133,152 @@ export async function GET(request: NextRequest) {
       paramIdx++;
     }
 
-    // Determine which price lists to fetch
-    const mapping = PRICE_LIST_COLUMN_MAPPING[selectedPriceId];
-    const priceListsToFetch = includeMultipleColumns && mapping 
+    // Determine IDs to fetch
+    const mapping = PRICE_LIST_COLUMN_MAPPING[priceIdNum];
+    // If multiple columns requested, use mapping, otherwise just the selected ID (and PDS for safety)
+    const priceIdsToFetch = includeMultipleColumns && mapping 
       ? mapping.columns.map(c => c.priceId)
-      : [selectedPriceId, PRICE_LIST_IDS.PDS]; // Always include PDS for margin calculations
+      : [priceIdNum, PDS_PRICE_ID];
+    
+    // Ensure unique IDs
+    const uniquePriceIds = [...new Set(priceIdsToFetch)];
 
-    const uniquePriceIds = [...new Set(priceListsToFetch)];
-
-    // Main query
-    // UPDATED: Joins Items -> Products (for Category) and Items -> itemtype (for Class)
+    // ---------------------------------------------------------
+    // 1. MAIN QUERY (Multi-Column Capable)
+    // ---------------------------------------------------------
+    // CHANGE: "ipr.priceid = $X" becomes "ipr.priceid = ANY($X)"
+    // The rest of the query is VERBATIM from your working snippet.
     const mainQuery = `
       WITH LatestDatePerItem AS (
-        SELECT 
-          ipr."itemid",
-          ipr."priceid",
-          MAX(ipr."itempricedateid") as "latestDateId"
+        SELECT ipr."itemid", ipr."priceid", MAX(ipr."itempricedateid") as "latestDateId"
         FROM public."itempricerange" ipr
         INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
-        WHERE ipr."priceid" = ANY($${paramIdx})
-          AND i."ProdId" = $1
-          ${itemFilterSQL}
+        WHERE ipr."priceid" = ANY($${paramIdx}) AND i."ProdId" = $1 ${itemFilterSQL}
         GROUP BY ipr."itemid", ipr."priceid"
-      ),
-      ItemRanges AS (
-        SELECT 
-          i."ItemId" as "itemId",
-          i."ItemCode" as "itemCode",
-          i."ItemDescr" as "description",
-          i."Stocking" as "caisse",
-          i."Format" as "format",
-          i."volume" as "volume",
-          
-          -- Category comes from Products
-          p."Descr" as "categoryName",
-          
-          -- Class comes from itemtype
-          it."Descr" as "className",
-          
-          ipr."priceid" as "priceId",
-          pl."Pricecode" as "priceCode",
-          pl."Descr" as "priceListName",
-          ipr."fromqty" as "qtyMin",
-          ipr."price" as "unitPrice",
-          ipr."itempricerangeid" as "rangeId"
-        FROM public."Items" i
-        INNER JOIN LatestDatePerItem ld ON i."ItemId" = ld."itemid"
-        INNER JOIN public."itempricerange" ipr 
-          ON ipr."itemid" = ld."itemid" 
-          AND ipr."priceid" = ld."priceid"
-          AND ipr."itempricedateid" = ld."latestDateId"
-        
-        -- Join relationships based on your new schema instructions
-        INNER JOIN public."Products" p ON i."ProdId" = p."ProdId"
-        LEFT JOIN public."itemtype" it ON i."locitemtype" = it."ItemTypeId"
-        
-        LEFT JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
-        
-        WHERE i."ProdId" = $1
-          ${itemFilterSQL}
-        ORDER BY i."ItemCode", ipr."priceid", ipr."fromqty"
       )
-      SELECT * FROM ItemRanges
+      SELECT 
+        i."ItemId" as "itemId", i."ItemCode" as "itemCode", i."Descr" as "description",
+        i."NetWeight" as "caisse", i."model" as "format", i."volume" as "volume",
+        p."Name" as "categoryName", t."descr" as "className",
+        ipr."fromqty" as "qtyMin", ipr."price" as "unitPrice", ipr."priceid" as "priceId",
+        ipr."itempricerangeid" as "id", ipr."itempricedateid" as "dateId",
+        pl."Descr" as "priceListName", pl."Pricecode" as "priceCode"
+      FROM public."itempricerange" ipr
+      INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
+      INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
+      INNER JOIN LatestDatePerItem ld ON ipr."itemid" = ld."itemid" 
+                                     AND ipr."itempricedateid" = ld."latestDateId"
+                                     AND ipr."priceid" = ld."priceid"
+      LEFT JOIN public."Products" p ON i."ProdId" = p."ProdId"
+      LEFT JOIN public."itemtype" t ON i."locitemtype" = t."itemtypeid"
+      WHERE ipr."priceid" = ANY($${paramIdx}) AND i."ProdId" = $1 AND pl."IsActive" = true ${itemFilterSQL}
+      ORDER BY i."ItemCode" ASC, ipr."priceid" ASC, ipr."fromqty" ASC
+    `;
+    const mainParams = [...baseParams, uniquePriceIds];
+
+    // ---------------------------------------------------------
+    // 2. PDS QUERY (Verbatim)
+    // ---------------------------------------------------------
+    const pdsQuery = `
+      WITH LatestDatePerItem AS (
+        SELECT ipr."itemid", MAX(ipr."itempricedateid") as "latestDateId"
+        FROM public."itempricerange" ipr
+        INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
+        WHERE ipr."priceid" = ${PDS_PRICE_ID} AND i."ProdId" = $1 ${itemFilterSQL}
+        GROUP BY ipr."itemid"
+      )
+      SELECT i."ItemId" as "itemId", ipr."fromqty" as "qtyMin", ipr."price" as "pdsPrice"
+      FROM public."itempricerange" ipr
+      INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
+      INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
+      INNER JOIN LatestDatePerItem ld ON ipr."itemid" = ld."itemid" AND ipr."itempricedateid" = ld."latestDateId"
+      WHERE ipr."priceid" = ${PDS_PRICE_ID} AND i."ProdId" = $1 AND pl."IsActive" = true ${itemFilterSQL}
+      ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
     `;
 
-    const queryParams = [...baseParams, uniquePriceIds];
-    const { rows } = await pg.query(mainQuery, queryParams);
+    // ---------------------------------------------------------
+    // 3. EXP QUERY (Verbatim)
+    // ---------------------------------------------------------
+    const expQuery = `
+      WITH LatestDatePerItem AS (
+        SELECT ipr."itemid", MAX(ipr."itempricedateid") as "latestDateId"
+        FROM public."itempricerange" ipr
+        INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
+        WHERE ipr."priceid" = ${EXP_PRICE_ID} AND i."ProdId" = $1 ${itemFilterSQL}
+        GROUP BY ipr."itemid"
+      )
+      SELECT i."ItemId" as "itemId", ipr."fromqty" as "qtyMin", ipr."price" as "expPrice"
+      FROM public."itempricerange" ipr
+      INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
+      INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
+      INNER JOIN LatestDatePerItem ld ON ipr."itemid" = ld."itemid" AND ipr."itempricedateid" = ld."latestDateId"
+      WHERE ipr."priceid" = ${EXP_PRICE_ID} AND i."ProdId" = $1 AND pl."IsActive" = true ${itemFilterSQL}
+      ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
+    `;
 
-    // Group results by item
-    const itemsMap = new Map<number, {
-      itemId: number;
-      itemCode: string;
-      description: string;
-      caisse: number | null;
-      format: string | null;
-      volume: number | null;
-      categoryName: string;
-      className: string;
-      pricesByList: Map<number, { 
-        priceCode: string;
-        priceListName: string;
-        ranges: { rangeId: number; qtyMin: number; unitPrice: number }[];
-      }>;
-    }>();
+    // ---------------------------------------------------------
+    // 4. DISCOUNT QUERY (Verbatim)
+    // ---------------------------------------------------------
+    const discountQuery = `
+      SELECT 
+        i."ItemId" as "itemId", 
+        i."ItemCode" as "itemCode",
+        rsd."FieldValue" as "hdrId",
+        dmd."GreatherThan" as "greaterThan",
+        dmd."_CostingDiscountAmt" as "costingDiscountAmt"
+      FROM public."Items" i
+      INNER JOIN public."RecordSpecData" rsd 
+        ON i."ItemId" = rsd."TableId"
+        AND rsd."FieldName" = 'DiscountMaintenance'
+      INNER JOIN public."_DiscountMaintenanceDtl" dmd 
+        ON CAST(rsd."FieldValue" AS INTEGER) = dmd."DiscountMaintenanceHdrId"
+      WHERE i."ProdId" = $1 ${itemFilterSQL}
+      ORDER BY i."ItemId" ASC, dmd."GreatherThan" ASC
+    `;
 
-    for (const row of rows) {
+    console.log("========================================");
+    console.log("PRICES API (MULTI) - ProdId:", prodIdNum, "Fetching PriceIDs:", uniquePriceIds);
+    console.log("========================================");
+
+    // Execute all queries in parallel
+    const [mainRes, pdsRes, expRes, discRes] = await Promise.all([
+      pg.query(mainQuery, mainParams),
+      pg.query(pdsQuery, baseParams),
+      pg.query(expQuery, baseParams),
+      pg.query(discountQuery, baseParams)
+    ]);
+
+    // ---------------------------------------------------------
+    // DATA AGGREGATION
+    // ---------------------------------------------------------
+
+    // 1. Organize PDS prices by Item -> Qty
+    const pdsMap = new Map<string, number>();
+    pdsRes.rows.forEach((r: any) => {
+      pdsMap.set(`${r.itemId}-${r.qtyMin}`, parseFloat(r.pdsPrice));
+    });
+
+    // 2. Organize EXP prices by Item -> Qty (Costing Base)
+    const expMap = new Map<string, number>();
+    expRes.rows.forEach((r: any) => {
+      expMap.set(`${r.itemId}-${r.qtyMin}`, parseFloat(r.expPrice));
+    });
+
+    // 3. Organize Discounts by Item -> Qty
+    // We want the discount where range.qtyMin >= discount.greaterThan (closest match)
+    const discMap = new Map<number, any[]>();
+    discRes.rows.forEach((r: any) => {
+      if (!discMap.has(r.itemId)) discMap.set(r.itemId, []);
+      discMap.get(r.itemId)!.push({
+        greaterThan: r.greaterThan,
+        amt: parseFloat(r.costingDiscountAmt)
+      });
+    });
+
+    // 4. Group Main Results (Items -> Ranges -> Prices)
+    const itemsMap = new Map<number, any>();
+
+    mainRes.rows.forEach((row: any) => {
       if (!itemsMap.has(row.itemId)) {
         itemsMap.set(row.itemId, {
           itemId: row.itemId,
@@ -224,83 +287,89 @@ export async function GET(request: NextRequest) {
           caisse: row.caisse,
           format: row.format,
           volume: row.volume,
-          categoryName: row.categoryName || "",
-          className: row.className || "",
-          pricesByList: new Map(),
+          categoryName: row.categoryName,
+          className: row.className,
+          // We will store ranges in a Map temporarily to merge by qtyMin
+          rangesMap: new Map<number, any>()
         });
       }
 
-      const item = itemsMap.get(row.itemId)!;
+      const item = itemsMap.get(row.itemId);
+      const qty = row.qtyMin;
+
+      if (!item.rangesMap.has(qty)) {
+        item.rangesMap.set(qty, {
+          rangeId: row.id, // Use ID from current row
+          qtyMin: qty,
+          unitPrice: 0, // Will be set to selectedPriceId's price
+          prices: {} // Dictionary for multi-column
+        });
+      }
+
+      const range = item.rangesMap.get(qty);
+      const priceVal = parseFloat(row.unitPrice);
       
-      if (!item.pricesByList.has(row.priceId)) {
-        item.pricesByList.set(row.priceId, {
-          priceCode: row.priceCode,
-          priceListName: row.priceListName,
-          ranges: [],
-        });
+      // Store in prices dictionary
+      range.prices[row.priceId] = priceVal;
+
+      // If this row corresponds to the actively selected price list, set it as the main unitPrice
+      if (row.priceId === priceIdNum) {
+        range.unitPrice = priceVal;
+        range.rangeId = row.id; // Ensure ID matches main selection
       }
+    });
 
-      item.pricesByList.get(row.priceId)!.ranges.push({
-        rangeId: row.rangeId,
-        qtyMin: row.qtyMin,
-        unitPrice: parseFloat(row.unitPrice) || 0,
-      });
-    }
+    // 5. Finalize Items Array
+    const finalItems = Array.from(itemsMap.values()).map((item: any) => {
+      // Convert rangesMap to array
+      const ranges = Array.from(item.rangesMap.values()).map((range: any) => {
+        // Attach PDS
+        const pds = pdsMap.get(`${item.itemId}-${range.qtyMin}`);
+        range.pdsPrice = pds || null;
 
-    // Build response with column configuration
-    const columnsConfig = includeMultipleColumns && mapping
-      ? mapping.columns
-      : [{ priceId: selectedPriceId, label: "Prix", code: priceId.toString() }];
-
-    const items = Array.from(itemsMap.values()).map(item => {
-      // Get the primary price list ranges to determine row structure
-      const primaryPriceId = getPrimaryPriceId(selectedPriceId);
-      const primaryRanges = item.pricesByList.get(primaryPriceId)?.ranges || 
-                           item.pricesByList.get(selectedPriceId)?.ranges || 
-                           [];
-
-      // Build ranges with prices from all requested lists
-      const ranges = primaryRanges.map(range => {
-        const pricesByListId: Record<number, number> = {};
+        // Attach Costing (Calculated)
+        // Logic: Costing Base (Exp) - Discount
+        const expBase = expMap.get(`${item.itemId}-${range.qtyMin}`);
         
-        for (const priceListId of uniquePriceIds) {
-          const listData = item.pricesByList.get(priceListId);
-          if (listData) {
-            // Find matching range by qtyMin
-            const matchingRange = listData.ranges.find(r => r.qtyMin === range.qtyMin);
-            if (matchingRange) {
-              pricesByListId[priceListId] = matchingRange.unitPrice;
-            }
-          }
+        let discountAmt = 0;
+        const discounts = discMap.get(item.itemId);
+        if (discounts && expBase) {
+          // Find applicable discount (largest greaterThan that is <= qtyMin)
+          // Since sorted ASC, we reverse or findLast
+          const applicable = discounts
+            .filter((d: any) => range.qtyMin >= d.greaterThan)
+            .pop(); // Last one is the highest threshold met
+          
+          if (applicable) discountAmt = applicable.amt;
         }
 
-        return {
-          rangeId: range.rangeId,
-          qtyMin: range.qtyMin,
-          unitPrice: range.unitPrice,
-          prices: pricesByListId,
-        };
+        range.expBasePrice = expBase || null;
+        range.costingDiscountAmt = discountAmt;
+        range.coutExp = expBase ? (expBase - discountAmt) : null;
+
+        return range;
       });
 
-      return {
-        itemId: item.itemId,
-        itemCode: item.itemCode,
-        description: item.description,
-        caisse: item.caisse,
-        format: item.format,
-        volume: item.volume,
-        categoryName: item.categoryName,
-        className: item.className,
-        ranges,
-      };
+      // Sort ranges
+      ranges.sort((a: any, b: any) => a.qtyMin - b.qtyMin);
+
+      // Clean up temp map
+      delete item.rangesMap;
+      item.ranges = ranges;
+      
+      return item;
     });
+
+    const columnsConfig = includeMultipleColumns && mapping
+      ? mapping.columns
+      : [{ priceId: priceIdNum, label: "Prix", code: priceId }];
 
     return NextResponse.json({
       ok: true,
-      items,
+      items: finalItems,
       columnsConfig,
-      selectedPriceId,
-      primaryPriceId: getPrimaryPriceId(selectedPriceId),
+      selectedPriceId: priceIdNum,
+      primaryPriceId: getPrimaryPriceId(priceIdNum)
     });
 
   } catch (error: any) {
