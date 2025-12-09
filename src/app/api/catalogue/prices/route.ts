@@ -8,7 +8,7 @@ import { pg } from "@/lib/db";
 // ============================================================================
 
 const PDS_PRICE_ID = 17;
-const EXP_PRICE_ID = 4; // Using 4 as per your snippet
+const EXP_PRICE_ID = 4;
 
 // ID Mapping for the Columns (Standard IDs)
 const PRICE_LIST_IDS = {
@@ -146,8 +146,6 @@ export async function GET(request: NextRequest) {
     // ---------------------------------------------------------
     // 1. MAIN QUERY (Multi-Column Capable)
     // ---------------------------------------------------------
-    // CHANGE: "ipr.priceid = $X" becomes "ipr.priceid = ANY($X)"
-    // The rest of the query is VERBATIM from your working snippet.
     const mainQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", ipr."priceid", MAX(ipr."itempricedateid") as "latestDateId"
@@ -177,7 +175,7 @@ export async function GET(request: NextRequest) {
     const mainParams = [...baseParams, uniquePriceIds];
 
     // ---------------------------------------------------------
-    // 2. PDS QUERY (Verbatim)
+    // 2. PDS QUERY
     // ---------------------------------------------------------
     const pdsQuery = `
       WITH LatestDatePerItem AS (
@@ -197,7 +195,7 @@ export async function GET(request: NextRequest) {
     `;
 
     // ---------------------------------------------------------
-    // 3. EXP QUERY (Verbatim)
+    // 3. EXP QUERY
     // ---------------------------------------------------------
     const expQuery = `
       WITH LatestDatePerItem AS (
@@ -217,7 +215,7 @@ export async function GET(request: NextRequest) {
     `;
 
     // ---------------------------------------------------------
-    // 4. DISCOUNT QUERY (Verbatim)
+    // 4. DISCOUNT QUERY (FIXED: regex check for integer)
     // ---------------------------------------------------------
     const discountQuery = `
       SELECT 
@@ -231,7 +229,7 @@ export async function GET(request: NextRequest) {
         ON i."ItemId" = rsd."TableId"
         AND rsd."FieldName" = 'DiscountMaintenance'
       INNER JOIN public."_DiscountMaintenanceDtl" dmd 
-        ON CAST(rsd."FieldValue" AS INTEGER) = dmd."DiscountMaintenanceHdrId"
+        ON (rsd."FieldValue" ~ '^[0-9]+$' AND CAST(rsd."FieldValue" AS INTEGER) = dmd."DiscountMaintenanceHdrId")
       WHERE i."ProdId" = $1 ${itemFilterSQL}
       ORDER BY i."ItemId" ASC, dmd."GreatherThan" ASC
     `;
