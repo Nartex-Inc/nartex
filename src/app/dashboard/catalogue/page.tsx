@@ -326,6 +326,7 @@ function PriceModal({
                           )}
 
                           {/* Dynamic Price Columns - Generated entirely from columnsConfig */}
+                          {/* PDS and other columns are now handled here exclusively */}
                           {columnsConfig.map(col => {
                             // Check if this column corresponds to the selected price list to highlight it
                             const isPrimary = col.priceId === selectedPriceList?.priceId;
@@ -362,10 +363,6 @@ function PriceModal({
                               </th>
                             </>
                           )}
-                          
-                          <th className="text-right p-3 font-bold text-amber-700 dark:text-amber-400 border border-neutral-300 dark:border-neutral-700 bg-amber-50 dark:bg-amber-900/20 w-24">
-                            PDS
-                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -473,15 +470,6 @@ function PriceModal({
                                   </td>
                                 </>
                               )}
-                              
-                              {/* PDS */}
-                              <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-amber-50/50 dark:bg-amber-900/10">
-                                <span className="font-mono font-bold text-amber-700 dark:text-amber-400">
-                                  {range.pdsPrice !== null ? (
-                                    <AnimatedPrice value={range.pdsPrice} />
-                                  ) : '-'}
-                                </span>
-                              </td>
                             </tr>
                           );
                         })}
