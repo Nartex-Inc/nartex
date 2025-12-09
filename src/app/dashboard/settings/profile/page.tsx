@@ -1,814 +1,632 @@
-// src/app/dashboard/settings/profile/page.tsx
 "use client";
 
-import * as React from "react";
-import Image from "next/image";
+import React, { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
-import { useTheme } from "next-themes";
+import { useAccentColor } from "@/components/dashboard/accent-color-provider";
 import {
-  User,
-  Mail,
-  Upload,
-  Camera,
-  Building2,
-  Globe,
-  Clock,
   Shield,
+  Users,
+  Search,
   ChevronDown,
   Check,
-  X,
-  Loader2,
   AlertCircle,
-  Save,
+  Loader2,
+  Crown,
+  UserCog,
+  User,
+  BarChart3,
+  CheckCircle,
+  Receipt,
+  Sparkles,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useCurrentAccent } from "@/components/accent-color-provider";
-import { THEME } from "@/lib/theme-tokens";
 
-/* ═══════════════════════════════════════════════════════════════════════════════
-   Constants & Types
-   ═══════════════════════════════════════════════════════════════════════════════ */
-const COUNTRIES = [
-  { code: "CA", name: "Canada", flag: "🇨🇦" },
-  { code: "US", name: "États-Unis", flag: "🇺🇸" },
-  { code: "FR", name: "France", flag: "🇫🇷" },
-  { code: "BE", name: "Belgique", flag: "🇧🇪" },
-  { code: "CH", name: "Suisse", flag: "🇨🇭" },
-  { code: "DE", name: "Allemagne", flag: "🇩🇪" },
-  { code: "GB", name: "Royaume-Uni", flag: "🇬🇧" },
-];
+// ============================================================================
+// CONFIGURATION - Matching Prisma UserRole enum exactly
+// ============================================================================
 
-const TIMEZONES = [
-  { value: "America/Toronto", label: "Heure de l'Est (EST)", offset: "UTC-05:00" },
-  { value: "America/Vancouver", label: "Heure du Pacifique (PST)", offset: "UTC-08:00" },
-  { value: "America/Denver", label: "Heure des Rocheuses (MST)", offset: "UTC-07:00" },
-  { value: "America/Chicago", label: "Heure Centrale (CST)", offset: "UTC-06:00" },
-  { value: "America/Halifax", label: "Heure de l'Atlantique (AST)", offset: "UTC-04:00" },
-  { value: "Europe/Paris", label: "Heure de Paris (CET)", offset: "UTC+01:00" },
-];
+// Admin emails that have full access regardless of role
+const ADMIN_EMAILS = ["n.labranche@sinto.ca", "d.drouin@sinto.ca"];
 
-// These should match your Prisma Role enum
+// Available roles matching your Prisma enum:
+// Gestionnaire, Analyste, Verificateur, Facturation, Expert, user
 const AVAILABLE_ROLES = [
-  { id: "admin", name: "Administrateur", description: "Accès complet à toutes les fonctionnalités", color: "#EF4444" },
-  { id: "Gestionnaire", name: "Gestionnaire", description: "Gestion des équipes et rapports", color: "#F59E0B" },
-  { id: "ventes-exec", name: "Ventes Exécutif", description: "Accès aux données de ventes avancées", color: "#3B82F6" },
-  { id: "ventes_exec", name: "Ventes Exécutif (alt)", description: "Accès aux données de ventes avancées", color: "#3B82F6" },
-  { id: "Expert", name: "Expert", description: "Accès aux outils d'expertise technique", color: "#8B5CF6" },
-  { id: "facturation", name: "Facturation", description: "Accès au module de facturation", color: "#10B981" },
-  { id: "user", name: "Utilisateur", description: "Accès standard", color: "#6B7280" },
-];
+  {
+    value: "Gestionnaire",
+    label: "Gestionnaire",
+    description: "Accès complet à toutes les fonctionnalités et paramètres",
+    color: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+    icon: Crown,
+  },
+  {
+    value: "Analyste",
+    label: "Analyste",
+    description: "Accès aux rapports, analyses et tableaux de bord",
+    color: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+    icon: BarChart3,
+  },
+  {
+    value: "Verificateur",
+    label: "Vérificateur",
+    description: "Vérification et validation des retours et documents",
+    color: "bg-green-500/20 text-green-400 border-green-500/30",
+    icon: CheckCircle,
+  },
+  {
+    value: "Facturation",
+    label: "Facturation",
+    description: "Gestion de la facturation et des crédits",
+    color: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+    icon: Receipt,
+  },
+  {
+    value: "Expert",
+    label: "Expert",
+    description: "Gestion des retours terrain et interventions client",
+    color: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
+    icon: Sparkles,
+  },
+  {
+    value: "user",
+    label: "Utilisateur",
+    description: "Accès standard aux fonctionnalités de base",
+    color: "bg-slate-500/20 text-slate-400 border-slate-500/30",
+    icon: User,
+  },
+] as const;
 
-type ProfileFormData = {
-  firstName: string;
-  lastName: string;
+type RoleValue = (typeof AVAILABLE_ROLES)[number]["value"];
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface UserData {
+  id: string;
+  name: string;
   email: string;
-  jobTitle: string;
-  department: string;
-  country: string;
-  timezone: string;
-};
+  image: string | null;
+  role: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
-/* ═══════════════════════════════════════════════════════════════════════════════
-   Custom Select Component
-   ═══════════════════════════════════════════════════════════════════════════════ */
-function CustomSelect({
-  value,
-  onChange,
-  options,
-  placeholder,
-  renderOption,
-  renderValue,
-  icon: Icon,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  options: { value: string; label: string }[];
-  placeholder: string;
-  renderOption?: (option: { value: string; label: string }) => React.ReactNode;
-  renderValue?: (option: { value: string; label: string } | undefined) => React.ReactNode;
-  icon?: React.ElementType;
-}) {
-  const [isOpen, setIsOpen] = React.useState(false);
-  const ref = React.useRef<HTMLDivElement>(null);
-  const { color: accentColor } = useCurrentAccent();
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
 
-  const selectedOption = options.find((o) => o.value === value);
+function isAdmin(email: string | null | undefined, role: string | null | undefined): boolean {
+  if (!email) return false;
+  if (ADMIN_EMAILS.includes(email)) return true;
+  if (role === "Gestionnaire") return true;
+  return false;
+}
 
-  React.useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
+function getRoleConfig(roleValue: string) {
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200",
-          "bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))]",
-          "hover:border-[hsl(var(--border-default))]",
-          "focus:outline-none focus:ring-2 focus:ring-offset-2",
-          isOpen && "ring-2 ring-offset-2"
-        )}
-        style={{
-          ...(isOpen && { 
-            borderColor: accentColor,
-            "--tw-ring-color": accentColor 
-          } as React.CSSProperties)
-        }}
-      >
-        {Icon && <Icon className="h-4 w-4 text-[hsl(var(--text-muted))] shrink-0" />}
-        <span className={cn(
-          "flex-1 text-[14px] truncate",
-          selectedOption ? "text-[hsl(var(--text-primary))]" : "text-[hsl(var(--text-muted))]"
-        )}>
-          {renderValue 
-            ? renderValue(selectedOption) 
-            : selectedOption?.label || placeholder}
-        </span>
-        <ChevronDown 
-          className={cn(
-            "h-4 w-4 text-[hsl(var(--text-muted))] transition-transform duration-200",
-            isOpen && "rotate-180"
-          )} 
-        />
-      </button>
-
-      {isOpen && (
-        <div 
-          className={cn(
-            "absolute z-50 w-full mt-2 py-1.5 rounded-xl",
-            "bg-[hsl(var(--bg-surface))] border border-[hsl(var(--border-default))]",
-            "shadow-xl shadow-black/20 animate-scale-in",
-            "max-h-64 overflow-y-auto"
-          )}
-        >
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => {
-                onChange(option.value);
-                setIsOpen(false);
-              }}
-              className={cn(
-                "w-full flex items-center gap-3 px-4 py-2.5 text-left text-[14px] transition-colors",
-                "hover:bg-[hsl(var(--bg-elevated))]",
-                value === option.value && "bg-[hsl(var(--bg-elevated))]"
-              )}
-            >
-              {renderOption ? renderOption(option) : (
-                <>
-                  <span className="flex-1 text-[hsl(var(--text-primary))]">{option.label}</span>
-                  {value === option.value && (
-                    <Check className="h-4 w-4" style={{ color: accentColor }} />
-                  )}
-                </>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    AVAILABLE_ROLES.find((r) => r.value === roleValue) || {
+      value: roleValue,
+      label: roleValue,
+      description: "Rôle personnalisé",
+      color: "bg-gray-500/20 text-gray-400 border-gray-500/30",
+      icon: User,
+    }
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
-   Input Field Component
-   ═══════════════════════════════════════════════════════════════════════════════ */
-function InputField({
-  label,
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-  icon: Icon,
-  required = false,
-  disabled = false,
-  helper,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  type?: string;
-  icon?: React.ElementType;
-  required?: boolean;
-  disabled?: boolean;
-  helper?: string;
-}) {
-  const { color: accentColor } = useCurrentAccent();
-  const [isFocused, setIsFocused] = React.useState(false);
+// ============================================================================
+// COMPONENTS
+// ============================================================================
 
-  return (
-    <div className="space-y-2">
-      <label className="flex items-center gap-1 text-[13px] font-medium text-[hsl(var(--text-secondary))]">
-        {label}
-        {required && <span style={{ color: accentColor }}>*</span>}
-      </label>
-      <div className="relative">
-        {Icon && (
-          <Icon 
-            className={cn(
-              "absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors",
-              isFocused ? "text-[hsl(var(--text-primary))]" : "text-[hsl(var(--text-muted))]"
-            )}
-            style={isFocused ? { color: accentColor } : undefined}
-          />
-        )}
-        <input
-          type={type}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          placeholder={placeholder}
-          disabled={disabled}
-          className={cn(
-            "w-full py-3 rounded-xl text-[14px] transition-all duration-200",
-            "bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))]",
-            "text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))]",
-            "hover:border-[hsl(var(--border-default))]",
-            "focus:outline-none focus:ring-2 focus:ring-offset-2",
-            "disabled:opacity-50 disabled:cursor-not-allowed",
-            Icon ? "pl-11 pr-4" : "px-4"
-          )}
-          style={{
-            ...(isFocused && { 
-              borderColor: accentColor,
-              "--tw-ring-color": accentColor 
-            } as React.CSSProperties)
-          }}
-        />
-      </div>
-      {helper && (
-        <p className="text-[12px] text-[hsl(var(--text-muted))]">{helper}</p>
-      )}
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════════
-   Photo Upload Component
-   ═══════════════════════════════════════════════════════════════════════════════ */
-function PhotoUpload({ 
-  currentImage, 
-  userName,
-  onUpload,
-}: { 
-  currentImage?: string | null; 
-  userName: string;
-  onUpload?: (file: File) => void;
-}) {
-  const { color: accentColor } = useCurrentAccent();
-  const [isDragging, setIsDragging] = React.useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  const initials = userName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = () => setIsDragging(false);
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file && onUpload) onUpload(file);
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && onUpload) onUpload(file);
-  };
-
-  return (
-    <div className="space-y-2">
-      <label className="flex items-center gap-1 text-[13px] font-medium text-[hsl(var(--text-secondary))]">
-        Votre photo
-        <span className="text-[hsl(var(--text-muted))] font-normal ml-1">(optionnel)</span>
-      </label>
-      <p className="text-[12px] text-[hsl(var(--text-muted))]">
-        Cette photo sera affichée sur votre profil
-      </p>
-      
-      <div className="flex items-start gap-5 mt-3">
-        {/* Current Avatar */}
-        <div className="relative group">
-          <div 
-            className="w-20 h-20 rounded-2xl flex items-center justify-center text-white text-xl font-bold overflow-hidden ring-4 ring-[hsl(var(--bg-muted))]"
-            style={{ 
-              background: currentImage 
-                ? undefined 
-                : `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)` 
-            }}
-          >
-            {currentImage ? (
-              <Image
-                src={currentImage}
-                alt={userName}
-                fill
-                className="object-cover"
-              />
-            ) : (
-              initials
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className={cn(
-              "absolute inset-0 rounded-2xl flex items-center justify-center",
-              "bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity",
-              "text-white"
-            )}
-          >
-            <Camera className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Upload Zone */}
-        <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-          className={cn(
-            "flex-1 flex flex-col items-center justify-center py-6 px-4 rounded-xl cursor-pointer transition-all duration-200",
-            "border-2 border-dashed",
-            isDragging
-              ? "border-[var(--accent)] bg-[var(--accent)]/5"
-              : "border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] hover:border-[hsl(var(--border-default))] hover:bg-[hsl(var(--bg-elevated))]"
-          )}
-          style={{
-            "--accent": accentColor,
-          } as React.CSSProperties}
-        >
-          <div 
-            className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
-            style={{ background: `${accentColor}15`, color: accentColor }}
-          >
-            <Upload className="h-5 w-5" />
-          </div>
-          <p className="text-[13px] font-medium text-[hsl(var(--text-primary))]">
-            <span style={{ color: accentColor }}>Cliquez pour téléverser</span>
-            {" "}ou glissez-déposez
-          </p>
-          <p className="text-[12px] text-[hsl(var(--text-muted))] mt-1">
-            SVG, PNG, JPG ou GIF (max. 800×400px)
-          </p>
-        </div>
-        
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          className="hidden"
-        />
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════════
-   Current Role Display (Read-only for non-admins)
-   ═══════════════════════════════════════════════════════════════════════════════ */
-function CurrentRoleDisplay({ userRole }: { userRole: string }) {
-  const roleInfo = AVAILABLE_ROLES.find(r => r.id.toLowerCase() === userRole?.toLowerCase());
-  
-  return (
-    <div className="space-y-4">
-      <div>
-        <h3 className="text-[15px] font-semibold text-[hsl(var(--text-primary))]">
-          Rôle actuel
-        </h3>
-        <p className="text-[13px] text-[hsl(var(--text-muted))] mt-1">
-          Votre rôle détermine vos permissions dans l&apos;application
-        </p>
-      </div>
-
-      <div 
-        className="flex items-center gap-4 p-4 rounded-xl border-2"
-        style={{ borderColor: roleInfo?.color || "#6B7280" }}
-      >
-        <div 
-          className="w-12 h-12 rounded-xl flex items-center justify-center"
-          style={{ background: `${roleInfo?.color || "#6B7280"}20`, color: roleInfo?.color || "#6B7280" }}
-        >
-          <Shield className="h-6 w-6" />
-        </div>
-        <div>
-          <p className="text-[14px] font-semibold text-[hsl(var(--text-primary))]">
-            {roleInfo?.name || userRole || "Non défini"}
-          </p>
-          <p className="text-[12px] text-[hsl(var(--text-muted))] mt-0.5">
-            {roleInfo?.description || "Contactez un administrateur pour modifier votre rôle"}
-          </p>
-        </div>
-      </div>
-
-      <p className="text-[12px] text-[hsl(var(--text-muted))] flex items-center gap-2">
-        <AlertCircle className="h-3.5 w-3.5" />
-        Pour modifier votre rôle, contactez un administrateur ou accédez à la page Rôles & Permissions
-      </p>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════════
-   Section Card Component
-   ═══════════════════════════════════════════════════════════════════════════════ */
 function SectionCard({
   title,
   description,
-  children,
   icon: Icon,
+  children,
+  accentColor,
 }: {
   title: string;
   description?: string;
+  icon: React.ElementType;
   children: React.ReactNode;
-  icon?: React.ElementType;
+  accentColor: string;
 }) {
-  const { color: accentColor } = useCurrentAccent();
-
   return (
-    <div 
-      className="rounded-2xl p-6 transition-all"
-      style={{
-        background: "hsl(var(--bg-surface))",
-        border: "1px solid hsl(var(--border-subtle))",
-      }}
-    >
-      <div className="flex items-start gap-4 mb-6">
-        {Icon && (
-          <div 
-            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: `${accentColor}15`, color: accentColor }}
+    <div className="bg-[#1a1a2e]/80 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden">
+      <div className="p-6 border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{ backgroundColor: `${accentColor}20` }}
           >
-            <Icon className="h-5 w-5" />
+            <Icon className="w-5 h-5" style={{ color: accentColor }} />
           </div>
-        )}
-        <div>
-          <h2 className="text-[15px] font-semibold text-[hsl(var(--text-primary))]">
-            {title}
-          </h2>
-          {description && (
-            <p className="text-[13px] text-[hsl(var(--text-muted))] mt-0.5">
-              {description}
-            </p>
-          )}
+          <div>
+            <h2 className="text-lg font-semibold text-white">{title}</h2>
+            {description && (
+              <p className="text-sm text-white/50">{description}</p>
+            )}
+          </div>
         </div>
       </div>
-      {children}
+      <div className="p-6">{children}</div>
     </div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
-   Main Profile Page Component
-   ═══════════════════════════════════════════════════════════════════════════════ */
-export default function ProfileSettingsPage() {
-  const { data: session, update: updateSession } = useSession();
-  const { color: accentColor } = useCurrentAccent();
-  const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = React.useState(false);
-  
-  const mode = mounted && resolvedTheme === "light" ? "light" : "dark";
+function RoleBadge({ role }: { role: string }) {
+  const config = getRoleConfig(role);
+  const Icon = config.icon;
 
-  React.useEffect(() => setMounted(true), []);
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border ${config.color}`}
+    >
+      <Icon className="w-3 h-3" />
+      {config.label}
+    </span>
+  );
+}
 
-  // Form state
-  const [formData, setFormData] = React.useState<ProfileFormData>({
-    firstName: "",
-    lastName: "",
-    email: "",
-    jobTitle: "",
-    department: "",
-    country: "CA",
-    timezone: "America/Toronto",
-  });
+function RoleSelector({
+  currentRole,
+  onRoleChange,
+  disabled,
+  accentColor,
+}: {
+  currentRole: string;
+  onRoleChange: (role: RoleValue) => void;
+  disabled?: boolean;
+  accentColor: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
 
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [isSaving, setIsSaving] = React.useState(false);
-  const [hasChanges, setHasChanges] = React.useState(false);
-  const [saveMessage, setSaveMessage] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
+  return (
+    <div className="relative">
+      <button
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
+          disabled
+            ? "opacity-50 cursor-not-allowed bg-white/5 border-white/10"
+            : "bg-white/5 border-white/10 hover:border-white/20 cursor-pointer"
+        }`}
+      >
+        <RoleBadge role={currentRole} />
+        {!disabled && (
+          <ChevronDown
+            className={`w-4 h-4 text-white/50 transition-transform ${
+              isOpen ? "rotate-180" : ""
+            }`}
+          />
+        )}
+      </button>
 
-  // Get user role from session
-  const userRole = (session?.user as any)?.role || "user";
-  const userId = (session?.user as any)?.id;
+      {isOpen && !disabled && (
+        <>
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => setIsOpen(false)}
+          />
+          <div className="absolute right-0 mt-2 w-80 bg-[#1a1a2e] border border-white/10 rounded-xl shadow-xl z-20 overflow-hidden max-h-96 overflow-y-auto">
+            {AVAILABLE_ROLES.map((role) => {
+              const Icon = role.icon;
+              const isSelected = currentRole === role.value;
 
-  // Initialize form with session data
-  React.useEffect(() => {
-    if (session?.user) {
-      const nameParts = (session.user.name || "").split(" ");
-      setFormData((prev) => ({
-        ...prev,
-        firstName: nameParts[0] || "",
-        lastName: nameParts.slice(1).join(" ") || "",
-        email: session.user?.email || "",
-      }));
+              return (
+                <button
+                  key={role.value}
+                  onClick={() => {
+                    onRoleChange(role.value);
+                    setIsOpen(false);
+                  }}
+                  className={`w-full flex items-start gap-3 p-3 text-left transition-colors ${
+                    isSelected
+                      ? "bg-white/10"
+                      : "hover:bg-white/5"
+                  }`}
+                >
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{
+                      backgroundColor: isSelected
+                        ? `${accentColor}20`
+                        : "rgba(255,255,255,0.1)",
+                    }}
+                  >
+                    <Icon
+                      className="w-4 h-4"
+                      style={{ color: isSelected ? accentColor : "white" }}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-white">
+                        {role.label}
+                      </span>
+                      {isSelected && (
+                        <Check
+                          className="w-4 h-4"
+                          style={{ color: accentColor }}
+                        />
+                      )}
+                    </div>
+                    <p className="text-xs text-white/50 mt-0.5">
+                      {role.description}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function UserRow({
+  user,
+  currentUserEmail,
+  onRoleChange,
+  isUpdating,
+  accentColor,
+}: {
+  user: UserData;
+  currentUserEmail: string;
+  onRoleChange: (userId: string, role: RoleValue) => void;
+  isUpdating: boolean;
+  accentColor: string;
+}) {
+  const isSelf = user.email === currentUserEmail;
+  const isProtectedAdmin = ADMIN_EMAILS.includes(user.email);
+
+  return (
+    <div className="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/10 hover:border-white/20 transition-colors">
+      {/* Avatar */}
+      <div className="relative flex-shrink-0">
+        {user.image ? (
+          <img
+            src={user.image}
+            alt={user.name}
+            className="w-12 h-12 rounded-xl object-cover"
+          />
+        ) : (
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-medium"
+            style={{ backgroundColor: `${accentColor}40` }}
+          >
+            {user.name?.charAt(0)?.toUpperCase() || "?"}
+          </div>
+        )}
+        {isProtectedAdmin && (
+          <div
+            className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center"
+            style={{ backgroundColor: accentColor }}
+          >
+            <Crown className="w-3 h-3 text-white" />
+          </div>
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-medium text-white truncate">
+            {user.name}
+          </h3>
+          {isSelf && (
+            <span className="px-2 py-0.5 text-xs rounded-full bg-white/10 text-white/70">
+              Vous
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-white/50 truncate">{user.email}</p>
+      </div>
+
+      {/* Role Selector */}
+      <div className="flex-shrink-0">
+        {isUpdating ? (
+          <div className="flex items-center gap-2 px-3 py-2">
+            <Loader2 className="w-4 h-4 animate-spin text-white/50" />
+            <span className="text-sm text-white/50">Mise à jour...</span>
+          </div>
+        ) : (
+          <RoleSelector
+            currentRole={user.role}
+            onRoleChange={(role) => onRoleChange(user.id, role)}
+            disabled={isProtectedAdmin && !ADMIN_EMAILS.includes(currentUserEmail)}
+            accentColor={accentColor}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// MAIN PAGE COMPONENT
+// ============================================================================
+
+export default function RolesPage() {
+  const { data: session } = useSession();
+  const { accentColor } = useAccentColor();
+
+  const [users, setUsers] = useState<UserData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const currentUserEmail = session?.user?.email || "";
+  const currentUserRole = users.find((u) => u.email === currentUserEmail)?.role;
+  const userIsAdmin = isAdmin(currentUserEmail, currentUserRole);
+
+  // Fetch users
+  useEffect(() => {
+    async function fetchUsers() {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const response = await fetch("/api/user/role");
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || "Erreur lors du chargement");
+        }
+
+        const data = await response.json();
+        setUsers(data.users);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Erreur inconnue");
+      } finally {
+        setIsLoading(false);
+      }
     }
-  }, [session]);
 
-  const updateFormData = (field: keyof ProfileFormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    setHasChanges(true);
-    setSaveMessage(null);
-  };
+    fetchUsers();
+  }, []);
 
-  const handleSave = async () => {
-    if (!userId) return;
-    
-    setIsSaving(true);
-    setSaveMessage(null);
-
+  // Handle role change
+  const handleRoleChange = async (userId: string, newRole: RoleValue) => {
     try {
-      const response = await fetch("/api/user/profile", {
+      setUpdatingUserId(userId);
+      setError(null);
+      setSuccessMessage(null);
+
+      const response = await fetch("/api/user/role", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: `${formData.firstName} ${formData.lastName}`.trim(),
-          // Add other fields as needed based on your User model
-        }),
+        body: JSON.stringify({ userId, role: newRole }),
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to update profile");
+        const data = await response.json();
+        throw new Error(data.error || "Erreur lors de la mise à jour");
       }
 
-      // Update the session with new data
-      await updateSession({
-        user: {
-          ...session?.user,
-          name: `${formData.firstName} ${formData.lastName}`.trim(),
-        },
-      });
+      // Update local state
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
+      );
 
-      setSaveMessage({ type: "success", text: "Profil mis à jour avec succès" });
-      setHasChanges(false);
-    } catch (error) {
-      console.error("Error saving profile:", error);
-      setSaveMessage({ 
-        type: "error", 
-        text: error instanceof Error ? error.message : "Erreur lors de la sauvegarde" 
-      });
+      setSuccessMessage("Rôle mis à jour avec succès");
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur inconnue");
     } finally {
-      setIsSaving(false);
+      setUpdatingUserId(null);
     }
   };
 
-  const handleCancel = () => {
-    // Reset form to original values
-    if (session?.user) {
-      const nameParts = (session.user.name || "").split(" ");
-      setFormData({
-        firstName: nameParts[0] || "",
-        lastName: nameParts.slice(1).join(" ") || "",
-        email: session.user?.email || "",
-        jobTitle: "",
-        department: "",
-        country: "CA",
-        timezone: "America/Toronto",
-      });
-    }
-    setHasChanges(false);
-    setSaveMessage(null);
-  };
+  // Filter users
+  const filteredUsers = useMemo(() => {
+    if (!searchQuery.trim()) return users;
+
+    const query = searchQuery.toLowerCase();
+    return users.filter(
+      (user) =>
+        user.name?.toLowerCase().includes(query) ||
+        user.email?.toLowerCase().includes(query) ||
+        user.role?.toLowerCase().includes(query)
+    );
+  }, [users, searchQuery]);
+
+  // Role statistics
+  const roleStats = useMemo(() => {
+    const stats: Record<string, number> = {};
+    users.forEach((user) => {
+      const role = user.role || "user";
+      stats[role] = (stats[role] || 0) + 1;
+    });
+    return stats;
+  }, [users]);
+
+  // Access denied
+  if (!isLoading && !userIsAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <div
+          className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+          style={{ backgroundColor: "#ef444420" }}
+        >
+          <AlertCircle className="w-8 h-8 text-red-400" />
+        </div>
+        <h2 className="text-xl font-semibold text-white mb-2">
+          Accès non autorisé
+        </h2>
+        <p className="text-white/50 text-center max-w-md">
+          Vous n&apos;avez pas les droits nécessaires pour accéder à cette page.
+          Seuls les gestionnaires peuvent gérer les rôles des utilisateurs.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Personal Info Section */}
-      <SectionCard
-        title="Informations personnelles"
-        description="Mettez à jour vos informations personnelles et photo de profil"
-        icon={User}
-      >
-        <div className="space-y-6">
-          {/* Name Fields */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <InputField
-              label="Prénom"
-              value={formData.firstName}
-              onChange={(v) => updateFormData("firstName", v)}
-              placeholder="Votre prénom"
-              required
-            />
-            <InputField
-              label="Nom"
-              value={formData.lastName}
-              onChange={(v) => updateFormData("lastName", v)}
-              placeholder="Votre nom de famille"
-              required
-            />
-          </div>
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-white">
+          Gestion des rôles
+        </h1>
+        <p className="text-white/50 mt-1">
+          Gérez les permissions et les rôles des utilisateurs de la plateforme
+        </p>
+      </div>
 
-          {/* Email */}
-          <InputField
-            label="Adresse courriel"
-            value={formData.email}
-            onChange={(v) => updateFormData("email", v)}
-            placeholder="votre@email.com"
-            type="email"
-            icon={Mail}
-            required
-            disabled
-            helper="Le courriel ne peut pas être modifié. Contactez l'administrateur pour le changer."
-          />
-
-          {/* Photo Upload */}
-          <PhotoUpload
-            currentImage={session?.user?.image}
-            userName={`${formData.firstName} ${formData.lastName}` || "User"}
-          />
+      {/* Messages */}
+      {error && (
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+          <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+          <p className="text-sm text-red-400">{error}</p>
         </div>
-      </SectionCard>
+      )}
 
-      {/* Work Info Section */}
-      <SectionCard
-        title="Informations professionnelles"
-        description="Détails sur votre poste et département"
-        icon={Building2}
-      >
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <InputField
-              label="Poste / Titre"
-              value={formData.jobTitle}
-              onChange={(v) => updateFormData("jobTitle", v)}
-              placeholder="Ex: Directeur des ventes"
-            />
-            <InputField
-              label="Département"
-              value={formData.department}
-              onChange={(v) => updateFormData("department", v)}
-              placeholder="Ex: Ventes & Marketing"
-            />
-          </div>
-        </div>
-      </SectionCard>
-
-      {/* Current Role Display (Read-only) */}
-      <SectionCard
-        title="Contrôle d'accès"
-        description="Votre rôle et permissions dans le système"
-        icon={Shield}
-      >
-        <CurrentRoleDisplay userRole={userRole} />
-      </SectionCard>
-
-      {/* Locale Section */}
-      <SectionCard
-        title="Localisation"
-        description="Définissez votre pays et fuseau horaire"
-        icon={Globe}
-      >
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-[13px] font-medium text-[hsl(var(--text-secondary))]">
-              Pays
-            </label>
-            <CustomSelect
-              value={formData.country}
-              onChange={(v) => updateFormData("country", v)}
-              options={COUNTRIES.map((c) => ({ value: c.code, label: c.name }))}
-              placeholder="Sélectionnez un pays"
-              icon={Globe}
-              renderOption={(option) => {
-                const country = COUNTRIES.find((c) => c.code === option.value);
-                return (
-                  <>
-                    <span className="text-lg">{country?.flag}</span>
-                    <span className="flex-1 text-[hsl(var(--text-primary))]">{option.label}</span>
-                    {formData.country === option.value && (
-                      <Check className="h-4 w-4" style={{ color: accentColor }} />
-                    )}
-                  </>
-                );
-              }}
-              renderValue={(option) => {
-                if (!option) return null;
-                const country = COUNTRIES.find((c) => c.code === option.value);
-                return (
-                  <span className="flex items-center gap-2">
-                    <span className="text-lg">{country?.flag}</span>
-                    {option.label}
-                  </span>
-                );
-              }}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[13px] font-medium text-[hsl(var(--text-secondary))]">
-              Fuseau horaire
-            </label>
-            <CustomSelect
-              value={formData.timezone}
-              onChange={(v) => updateFormData("timezone", v)}
-              options={TIMEZONES.map((tz) => ({ value: tz.value, label: tz.label }))}
-              placeholder="Sélectionnez un fuseau horaire"
-              icon={Clock}
-              renderOption={(option) => {
-                const tz = TIMEZONES.find((t) => t.value === option.value);
-                return (
-                  <>
-                    <span className="flex-1">
-                      <span className="text-[hsl(var(--text-primary))]">{option.label}</span>
-                      <span className="text-[12px] text-[hsl(var(--text-muted))] ml-2">{tz?.offset}</span>
-                    </span>
-                    {formData.timezone === option.value && (
-                      <Check className="h-4 w-4" style={{ color: accentColor }} />
-                    )}
-                  </>
-                );
-              }}
-            />
-          </div>
-        </div>
-      </SectionCard>
-
-      {/* Save Message */}
-      {saveMessage && (
-        <div 
-          className={cn(
-            "flex items-center gap-2 p-3 rounded-lg",
-            saveMessage.type === "success" 
-              ? "bg-emerald-500/10 border border-emerald-500/20" 
-              : "bg-red-500/10 border border-red-500/20"
-          )}
+      {successMessage && (
+        <div
+          className="flex items-center gap-3 p-4 rounded-xl border"
+          style={{
+            backgroundColor: `${accentColor}10`,
+            borderColor: `${accentColor}30`,
+          }}
         >
-          {saveMessage.type === "success" ? (
-            <Check className="h-4 w-4 text-emerald-500" />
-          ) : (
-            <X className="h-4 w-4 text-red-500" />
-          )}
-          <p className={cn(
-            "text-[13px]",
-            saveMessage.type === "success" ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
-          )}>
-            {saveMessage.text}
+          <Check className="w-5 h-5 flex-shrink-0" style={{ color: accentColor }} />
+          <p className="text-sm" style={{ color: accentColor }}>
+            {successMessage}
           </p>
         </div>
       )}
 
-      {/* Action Buttons */}
-      <div 
-        className="flex items-center justify-end gap-3 pt-4 border-t"
-        style={{ borderColor: "hsl(var(--border-subtle))" }}
-      >
-        <button
-          type="button"
-          onClick={handleCancel}
-          disabled={!hasChanges || isSaving}
-          className={cn(
-            "px-5 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-200",
-            "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))]",
-            "hover:bg-[hsl(var(--bg-elevated))] hover:text-[hsl(var(--text-primary))]",
-            "disabled:opacity-50 disabled:cursor-not-allowed"
-          )}
-        >
-          Annuler
-        </button>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={!hasChanges || isSaving}
-          className={cn(
-            "flex items-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-semibold text-white transition-all duration-200",
-            "hover:opacity-90 hover:scale-[1.02]",
-            "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-          )}
-          style={{ background: accentColor }}
-        >
-          {isSaving ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Enregistrement...
-            </>
-          ) : (
-            <>
-              <Save className="h-4 w-4" />
-              Enregistrer
-            </>
-          )}
-        </button>
+      {/* Stats - Show total + top 3 roles */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-[#1a1a2e]/80 backdrop-blur-sm rounded-xl border border-white/10 p-4">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: `${accentColor}20` }}
+            >
+              <Users className="w-5 h-5" style={{ color: accentColor }} />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-white">{users.length}</p>
+              <p className="text-xs text-white/50">Total utilisateurs</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Show stats for roles that have users */}
+        {AVAILABLE_ROLES.slice(0, 3).map((role) => {
+          const Icon = role.icon;
+          const count = roleStats[role.value] || 0;
+
+          return (
+            <div
+              key={role.value}
+              className="bg-[#1a1a2e]/80 backdrop-blur-sm rounded-xl border border-white/10 p-4"
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center ${role.color.split(" ")[0]}`}
+                >
+                  <Icon className={`w-5 h-5 ${role.color.split(" ")[1]}`} />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-white">{count}</p>
+                  <p className="text-xs text-white/50">{role.label}s</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
+
+      {/* User List */}
+      <SectionCard
+        title="Utilisateurs"
+        description="Cliquez sur le rôle pour le modifier"
+        icon={UserCog}
+        accentColor={accentColor}
+      >
+        {/* Search */}
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+            <input
+              type="text"
+              placeholder="Rechercher par nom, email ou rôle..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
+            />
+          </div>
+        </div>
+
+        {/* List */}
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-white/50 mb-4" />
+            <p className="text-white/50">Chargement des utilisateurs...</p>
+          </div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Users className="w-12 h-12 text-white/20 mb-4" />
+            <p className="text-white/50">
+              {searchQuery
+                ? "Aucun utilisateur trouvé"
+                : "Aucun utilisateur enregistré"}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredUsers.map((user) => (
+              <UserRow
+                key={user.id}
+                user={user}
+                currentUserEmail={currentUserEmail}
+                onRoleChange={handleRoleChange}
+                isUpdating={updatingUserId === user.id}
+                accentColor={accentColor}
+              />
+            ))}
+          </div>
+        )}
+      </SectionCard>
+
+      {/* Role Descriptions */}
+      <SectionCard
+        title="Description des rôles"
+        description="Permissions associées à chaque rôle"
+        icon={Shield}
+        accentColor={accentColor}
+      >
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {AVAILABLE_ROLES.map((role) => {
+            const Icon = role.icon;
+
+            return (
+              <div
+                key={role.value}
+                className="p-4 bg-white/5 rounded-xl border border-white/10"
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center ${role.color.split(" ")[0]}`}
+                  >
+                    <Icon className={`w-5 h-5 ${role.color.split(" ")[1]}`} />
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-white">{role.label}</h3>
+                    <p className="text-xs text-white/50">{role.value}</p>
+                  </div>
+                </div>
+                <p className="text-sm text-white/70">{role.description}</p>
+              </div>
+            );
+          })}
+        </div>
+      </SectionCard>
     </div>
   );
 }
