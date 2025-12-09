@@ -3,12 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
 
-// Hardcoded Price IDs based on your system
-const EXP_PRICE_ID = 4;   // 01-EXP
-const DET_PRICE_ID = 2;   // 02-DET
-const IND_PRICE_ID = 3;   // 03-IND
-const GROS_PRICE_ID = 1;  // 05-GROS
-const PDS_PRICE_ID = 17;  // 08-PDS
+const PDS_PRICE_ID = 17;
+const EXP_PRICE_ID = 4;
 
 export async function GET(request: NextRequest) {
   try {
@@ -45,10 +41,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Filter for Active items only
-    // Using i."isActive" as seen in your screenshot
+    // NOTE: Confirmed capitalization from screenshot is "isActive" (camelCase)
+    // However, user code used "IsActive" previously. Adjusting based on standard PG behavior
+    // If your DB columns are quoted "isActive", use i."isActive". If standard, i.isactive.
+    // Based on screenshot {596F6041...}, standard PG lowercases unless quoted. 
+    // BUT image_784963.png shows "isActive" in green header -> likely i."isActive"
     const activeFilter = `AND i."isActive" = true`;
 
-    // 1. Fetch Main Data (Items + Selected Price List)
     const mainQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", MAX(ipr."itempricedateid") as "latestDateId"
@@ -75,28 +74,40 @@ export async function GET(request: NextRequest) {
     `;
     const mainParams = [...baseParams, priceIdNum];
 
-    // 2. Fetch ALL relevant price columns to support templates (01, 02, 03, 05, 17)
-    // We execute one query to get all alternate prices for these items
-    const altPricesQuery = `
+    const pdsQuery = `
       WITH LatestDatePerItem AS (
-        SELECT ipr."itemid", ipr."priceid", MAX(ipr."itempricedateid") as "latestDateId"
+        SELECT ipr."itemid", MAX(ipr."itempricedateid") as "latestDateId"
         FROM public."itempricerange" ipr
         INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
-        WHERE ipr."priceid" IN (1, 2, 3, 4, 17) AND i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
-        GROUP BY ipr."itemid", ipr."priceid"
+        WHERE ipr."priceid" = ${PDS_PRICE_ID} AND i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
+        GROUP BY ipr."itemid"
       )
-      SELECT 
-        i."ItemId" as "itemId", 
-        ipr."priceid" as "priceId",
-        ipr."fromqty" as "qtyMin", 
-        ipr."price" as "price"
+      SELECT i."ItemId" as "itemId", ipr."fromqty" as "qtyMin", ipr."price" as "pdsPrice"
       FROM public."itempricerange" ipr
       INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
-      INNER JOIN LatestDatePerItem ld ON ipr."itemid" = ld."itemid" AND ipr."priceid" = ld."priceid" AND ipr."itempricedateid" = ld."latestDateId"
-      WHERE i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
+      INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
+      INNER JOIN LatestDatePerItem ld ON ipr."itemid" = ld."itemid" AND ipr."itempricedateid" = ld."latestDateId"
+      WHERE ipr."priceid" = ${PDS_PRICE_ID} AND i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
+      ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
     `;
 
-    // 3. Fetch Discount Data (for display only)
+    const expQuery = `
+      WITH LatestDatePerItem AS (
+        SELECT ipr."itemid", MAX(ipr."itempricedateid") as "latestDateId"
+        FROM public."itempricerange" ipr
+        INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
+        WHERE ipr."priceid" = ${EXP_PRICE_ID} AND i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
+        GROUP BY ipr."itemid"
+      )
+      SELECT i."ItemId" as "itemId", ipr."fromqty" as "qtyMin", ipr."price" as "expPrice"
+      FROM public."itempricerange" ipr
+      INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
+      INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
+      INNER JOIN LatestDatePerItem ld ON ipr."itemid" = ld."itemid" AND ipr."itempricedateid" = ld."latestDateId"
+      WHERE ipr."priceid" = ${EXP_PRICE_ID} AND i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
+      ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
+    `;
+
     const discountQuery = `
       SELECT 
         i."ItemId" as "itemId", 
@@ -116,10 +127,10 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemId" ASC, dmd."GreatherThan" ASC
     `;
 
-    // 4. Execute queries
-    const [mainResult, altPricesResult, discountResult] = await Promise.all([
+    const [mainResult, pdsResult, expResult, discountResult] = await Promise.all([
       pg.query(mainQuery, mainParams),
-      pg.query(altPricesQuery, baseParams),
+      pg.query(pdsQuery, baseParams),
+      pg.query(expQuery, baseParams),
       pg.query(discountQuery, baseParams).catch(err => {
         console.error("Discount query error:", err.message);
         return { rows: [] };
@@ -127,19 +138,23 @@ export async function GET(request: NextRequest) {
     ]);
 
     const rows = mainResult.rows;
-    const altRows = altPricesResult.rows;
+    const pdsRows = pdsResult.rows;
+    const expRows = expResult.rows;
     const discountRows = discountResult.rows;
 
-    // 5. Build Map for Alternate Prices
-    // Structure: itemId -> priceId -> qtyMin -> price
-    const priceMap: Record<number, Record<number, Record<number, number>>> = {};
-    for (const row of altRows) {
-      if (!priceMap[row.itemId]) priceMap[row.itemId] = {};
-      if (!priceMap[row.itemId][row.priceId]) priceMap[row.itemId][row.priceId] = {};
-      priceMap[row.itemId][row.priceId][parseInt(row.qtyMin)] = parseFloat(row.price);
+    // Build Maps
+    const pdsMap: Record<number, Record<number, number>> = {};
+    for (const row of pdsRows) {
+      if (!pdsMap[row.itemId]) pdsMap[row.itemId] = {};
+      pdsMap[row.itemId][parseInt(row.qtyMin)] = parseFloat(row.pdsPrice);
     }
 
-    // 6. Build Discount Map
+    const expMap: Record<number, Record<number, number>> = {};
+    for (const row of expRows) {
+      if (!expMap[row.itemId]) expMap[row.itemId] = {};
+      expMap[row.itemId][parseInt(row.qtyMin)] = parseFloat(row.expPrice);
+    }
+
     const discountMap: Record<number, Record<number, number>> = {};
     for (const row of discountRows) {
       if (!discountMap[row.itemId]) discountMap[row.itemId] = {};
@@ -147,8 +162,8 @@ export async function GET(request: NextRequest) {
       const discountAmt = parseFloat(row.costingDiscountAmt) || 0;
       discountMap[row.itemId][greaterThan] = discountAmt;
     }
-
-    // 7. Build Result
+    
+    // Process Items
     const itemsMap: Record<number, any> = {};
     
     for (const row of rows) {
@@ -161,7 +176,7 @@ export async function GET(request: NextRequest) {
           format: row.format || null,
           volume: row.volume ? parseFloat(row.volume) : null,
           categoryName: row.categoryName,
-          className: row.className || "Autres", // Grouping key
+          className: row.className,
           priceListName: row.priceListName,
           priceCode: row.priceCode,
           ranges: []
@@ -169,11 +184,10 @@ export async function GET(request: NextRequest) {
       }
       
       const qtyMin = parseInt(row.qtyMin);
+      const pdsPrice = pdsMap[row.itemId]?.[qtyMin] ?? null;
+      const expBasePrice = expMap[row.itemId]?.[qtyMin] ?? null;
       
-      // Helper to safely get price from map
-      const getPrice = (pid: number) => priceMap[row.itemId]?.[pid]?.[qtyMin] ?? null;
-
-      // Get discount for this quantity tier (for display only)
+      // Calculate Discount
       let costingDiscountAmt = 0;
       const itemDiscounts = discountMap[row.itemId];
       if (itemDiscounts) {
@@ -189,22 +203,19 @@ export async function GET(request: NextRequest) {
           }
         }
       }
-
+      
+      // FIX: COÛT EXP = EXP Base Price ONLY (As requested by Manager)
+      // We still pass costingDiscountAmt to frontend for the 'Escompte' column
+      const coutExp = expBasePrice; 
+      
       itemsMap[row.itemId].ranges.push({
         id: row.id,
         qtyMin: qtyMin,
-        unitPrice: parseFloat(row.unitPrice), // The selected price list price
-        
-        // Specific columns for templates
-        pdsPrice: getPrice(PDS_PRICE_ID),
-        expPrice: getPrice(EXP_PRICE_ID),
-        detPrice: getPrice(DET_PRICE_ID),
-        indPrice: getPrice(IND_PRICE_ID),
-        grosPrice: getPrice(GROS_PRICE_ID),
-        
-        // Coût Exp logic (Equal to 01-EXP price as requested)
-        coutExp: getPrice(EXP_PRICE_ID), 
-        costingDiscountAmt: costingDiscountAmt // Passed for display column only
+        unitPrice: parseFloat(row.unitPrice),
+        pdsPrice: pdsPrice,
+        expBasePrice: expBasePrice,
+        coutExp: coutExp,
+        costingDiscountAmt: costingDiscountAmt
       });
     }
 
