@@ -2,23 +2,10 @@
 "use client";
 
 import * as React from "react";
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-
-// Self-contained accent color hook - no external dependency
-const DEFAULT_ACCENT_COLOR = "#6366f1";
-function useAccentColor() {
-  const [color, setColor] = useState(DEFAULT_ACCENT_COLOR);
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("nartex-accent-color");
-      if (stored) setColor(stored);
-    }
-  }, []);
-  return { color };
-}
+import { useCurrentAccent } from "@/components/accent-color-provider";
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    Settings Tab Configuration
@@ -43,7 +30,7 @@ export default function SettingsLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { color: accentColor } = useAccentColor();
+  const { color: accentColor } = useCurrentAccent();
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)]">
