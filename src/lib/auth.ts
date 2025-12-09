@@ -78,47 +78,48 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    // 1. ADD THIS NEW SIGNIN CALLBACK
+    // 1. INSERT THIS SIGNIN CALLBACK
     async signIn({ user, account, profile }) {
       if (account?.provider === "google" && user.email) {
         try {
-          // Force update the image from the Google profile
-          // We also implicitly trust Google emails, so we can mark it verified
-          await prisma.user.update({
-            where: { email: user.email },
-            data: {
-              image: (profile as any)?.picture || user.image, 
-              emailVerified: new Date(),
-            }
-          });
+          // Google sends the image URL in the 'picture' field of the profile
+          const newImage = (profile as any)?.picture;
+          
+          if (newImage) {
+            await prisma.user.update({
+              where: { email: user.email },
+              data: { 
+                image: newImage,
+                emailVerified: new Date() // Optional: Mark email as verified since it's from Google
+              }
+            });
+          }
         } catch (error) {
-          console.error("Error refreshing user data from Google:", error);
+          console.error("Error updating user profile from Google:", error);
         }
       }
-      return true;
+      return true; // Return true to allow the sign-in
     },
 
+    // 2. KEEP YOUR EXISTING CALLBACKS BELOW
     async jwt({ token, user, trigger, session }) {
+      // ... your existing jwt logic ...
       if (trigger === "update" && session?.user) {
         token.role = session.user.role;
       }
-
       if (user) {
         token.id = user.id;
         token.role = (user as any).role || "user";
       }
-
-      // Always refresh role from DB
       if (token.email) {
          try {
            const dbUser = await prisma.user.findUnique({ 
               where: { email: token.email },
               select: { id: true, role: true } 
            });
-           
            if (dbUser) {
                token.id = dbUser.id;
-               token.role = dbUser.role as string; // Cast Enum to string
+               token.role = dbUser.role as string;
            }
          } catch (error) {
            console.error("Error refreshing role:", error);
@@ -127,6 +128,7 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
+      // ... your existing session logic ...
       if (session.user) {
         (session.user as any).id = token.id as string;
         (session.user as any).role = token.role as string;
@@ -134,6 +136,7 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
     async redirect({ url, baseUrl }) {
+      // ... your existing redirect logic ...
       if (url.startsWith("/")) return `${baseUrl}${url}`;
       if (new URL(url).origin === baseUrl) return url;
       return baseUrl + "/dashboard";
