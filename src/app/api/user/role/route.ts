@@ -1,53 +1,78 @@
 // src/app/api/user/role/route.ts
+// Fixed version that works with actual UserRole enum: user, Gestionnaire
+
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
-// List of admin emails that can manage roles
-const ADMIN_EMAILS = ["n.labranche@sinto.ca"];
+// Admin emails - these users have full admin access regardless of role
+const ADMIN_EMAILS = ["n.labranche@sinto.ca", "d.drouin@sinto.ca"];
 
-// Check if user is admin
-async function isAdmin(email: string): Promise<boolean> {
-  if (ADMIN_EMAILS.includes(email.toLowerCase())) {
-    return true;
-  }
-  
-  const user = await prisma.user.findUnique({
-    where: { email },
-    select: { role: true },
-  });
-  
-  return user?.role === "admin";
+// Roles that have admin privileges (based on your actual database)
+const ADMIN_ROLES = ["Gestionnaire"];
+
+// Helper to check if user is admin
+function isAdmin(email: string | null | undefined, role: string | null | undefined): boolean {
+  if (!email) return false;
+  // Check by email first (bypass)
+  if (ADMIN_EMAILS.includes(email)) return true;
+  // Check by role
+  if (role && ADMIN_ROLES.includes(role)) return true;
+  return false;
 }
 
 // GET - List all users with their roles (admin only)
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.email) {
-      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
-    const isUserAdmin = await isAdmin(session.user.email);
-    if (!isUserAdmin) {
-      return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+    // Get current user to check admin status
+    const currentUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { role: true, email: true },
+    });
+
+    // Check if user is admin
+    if (!isAdmin(currentUser?.email, currentUser?.role)) {
+      return NextResponse.json(
+        { error: "Accès non autorisé. Droits administrateur requis." },
+        { status: 403 }
+      );
     }
 
+    // Fetch all users
     const users = await prisma.user.findMany({
       select: {
         id: true,
         name: true,
+        first_name: true,
+        last_name: true,
         email: true,
         image: true,
         role: true,
-        createdAt: true,
+        created_at: true,
+        updated_at: true,
       },
-      orderBy: { name: "asc" },
+      orderBy: { created_at: "desc" },
     });
 
-    return NextResponse.json(users);
+    // Transform to expected format
+    const transformedUsers = users.map((user) => ({
+      id: user.id,
+      name: user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email,
+      email: user.email,
+      image: user.image,
+      role: user.role || "user",
+      createdAt: user.created_at,
+      updatedAt: user.updated_at,
+    }));
+
+    return NextResponse.json({ users: transformedUsers });
   } catch (error) {
     console.error("Error fetching users:", error);
     return NextResponse.json(
@@ -61,14 +86,23 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.email) {
-      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+      return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
-    const isUserAdmin = await isAdmin(session.user.email);
-    if (!isUserAdmin) {
-      return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+    // Get current user to check admin status
+    const currentUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true, role: true, email: true },
+    });
+
+    // Check if user is admin
+    if (!isAdmin(currentUser?.email, currentUser?.role)) {
+      return NextResponse.json(
+        { error: "Accès non autorisé. Droits administrateur requis." },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -81,44 +115,39 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Validate role - these should match your Prisma Role enum
-    const validRoles = [
-      "admin",
-      "Gestionnaire",
-      "ventes-exec",
-      "ventes_exec",
-      "Expert",
-      "facturation",
-      "user",
-    ];
-
+    // Valid roles based on your actual database schema
+    const validRoles = ["user", "Gestionnaire"];
+    
     if (!validRoles.includes(role)) {
       return NextResponse.json(
-        { error: `Rôle invalide. Rôles valides: ${validRoles.join(", ")}` },
+        { error: `Rôle invalide. Valeurs acceptées: ${validRoles.join(", ")}` },
         { status: 400 }
       );
     }
 
-    // Prevent removing admin role from self
-    const targetUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true, role: true },
-    });
+    // Prevent admin from demoting themselves if they're the last admin
+    if (currentUser?.id === userId && role === "user") {
+      const adminCount = await prisma.user.count({
+        where: {
+          OR: [
+            { role: "Gestionnaire" },
+            { email: { in: ADMIN_EMAILS } },
+          ],
+        },
+      });
 
-    if (
-      targetUser?.email?.toLowerCase() === session.user.email.toLowerCase() &&
-      targetUser?.role === "admin" &&
-      role !== "admin"
-    ) {
-      return NextResponse.json(
-        { error: "Vous ne pouvez pas retirer votre propre rôle admin" },
-        { status: 400 }
-      );
+      if (adminCount <= 1) {
+        return NextResponse.json(
+          { error: "Impossible de rétrograder le dernier administrateur" },
+          { status: 400 }
+        );
+      }
     }
 
+    // Update the user's role
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: { role: role as any }, // Cast to match your Prisma enum
+      data: { role },
       select: {
         id: true,
         name: true,
@@ -127,7 +156,10 @@ export async function PATCH(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(updatedUser);
+    return NextResponse.json({
+      message: "Rôle mis à jour avec succès",
+      user: updatedUser,
+    });
   } catch (error) {
     console.error("Error updating role:", error);
     return NextResponse.json(
