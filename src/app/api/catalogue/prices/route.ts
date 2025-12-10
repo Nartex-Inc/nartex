@@ -3,8 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
 
-// --- Configuration Matrix (FIXED CODES) ---
-// Keys/Values match the dropdown screenshots exactly (No spaces in codes like GROSEXP)
+// --- Configuration Matrix ---
+// UPDATED: Keys now match your DB Dump perfectly (No spaces in GROSEXP, INDHZ, etc)
 const COLUMN_MATRIX: Record<string, string[]> = {
   // Template: EXPERT
   "01-EXP": ["01-EXP", "02-DET", "03-IND", "05-GROS", "08-PDS"],
@@ -16,18 +16,18 @@ const COLUMN_MATRIX: Record<string, string[]> = {
   "03-IND": ["03-IND"], 
 
   // Template: EXPERT GROSSISTE 
-  // Fixed: "04-GROSEXP" (Matches screenshot, no spaces)
+  // Fixed: "04-GROSEXP" matches DB dump (was "04- GROS EXP")
   "04-GROSEXP": ["02-DET", "04-GROSEXP", "05-GROS", "06-INDHZ", "08-PDS"],
 
   // Template: GROSSISTE
   "05-GROS": ["05-GROS"],
 
   // Template: INDUSTRIEL HZ
-  // Fixed: "06-INDHZ" (Matches screenshot, no spaces)
+  // Fixed: "06-INDHZ" matches DB dump
   "06-INDHZ": ["06-INDHZ"],
 
   // Template: DETAILLANT HZ
-  // Fixed: "07-DETHZ" (Matches screenshot, no spaces)
+  // Fixed: "07-DETHZ" matches DB dump
   "07-DETHZ": ["07-DETHZ", "08-PDS"],
 };
 
@@ -61,17 +61,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Liste de prix introuvable" }, { status: 404 });
     }
 
-    // Trim whitespace to be safe, though screenshot suggests clean data
-    const selectedCode = plRes.rows[0].code.trim(); 
+    // Trim is crucial to remove any potential DB padding (CHAR types)
+    const selectedCode = plRes.rows[0].code.trim();
 
     // 2. Determine Target Columns
-    // Because we fixed the keys in COLUMN_MATRIX, this lookup will now succeed
+    // Because keys now match the DB, this lookup will succeed.
     const targetCodes = COLUMN_MATRIX[selectedCode] || [selectedCode];
 
     // 3. Build Query Filters
     let itemFilterSQL = "";
     const baseParams: any[] = [prodIdNum];
-    let paramIdx = 2; 
+    let paramIdx = 2; // $1 is prodId
 
     if (itemId) {
       itemFilterSQL = `AND i."ItemId" = $${paramIdx}`;
@@ -99,14 +99,14 @@ export async function GET(request: NextRequest) {
     `;
 
     // 5. Fetch ALL Prices for Target Columns
-    // Uses ANY($array) to fetch multiple price lists at once
+    // We use TRIM in SQL to ensure we match codes even if DB has padding
     const pricesQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", ipr."priceid", MAX(ipr."itempricedateid") as "latestDateId"
         FROM public."itempricerange" ipr
         INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
         INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
-        WHERE pl."Pricecode" = ANY($${paramIdx}) 
+        WHERE TRIM(pl."Pricecode") = ANY($${paramIdx}) 
           AND i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
         GROUP BY ipr."itemid", ipr."priceid"
       )
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
         ipr."itemid" as "itemId",
         ipr."fromqty" as "qtyMin",
         ipr."price" as "price",
-        pl."Pricecode" as "priceCode",
+        TRIM(pl."Pricecode") as "priceCode",
         pl."priceid" as "priceId",
         ipr."itempricerangeid" as "id"
       FROM public."itempricerange" ipr
@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
         ON ipr."itemid" = ld."itemid" 
         AND ipr."priceid" = ld."priceid"
         AND ipr."itempricedateid" = ld."latestDateId"
-      WHERE pl."Pricecode" = ANY($${paramIdx})
+      WHERE TRIM(pl."Pricecode") = ANY($${paramIdx})
       ORDER BY ipr."itemid", ipr."fromqty"
     `;
 
@@ -169,7 +169,7 @@ export async function GET(request: NextRequest) {
     for (const row of pricesRes.rows) {
       const iId = row.itemId;
       const qty = parseInt(row.qtyMin);
-      const code = row.priceCode.trim(); // Trim to ensure match
+      const code = row.priceCode; // Already trimmed in SQL
       const price = parseFloat(row.price);
 
       if (!pricesMap[iId]) pricesMap[iId] = {};
@@ -185,19 +185,17 @@ export async function GET(request: NextRequest) {
       
       const quantities = Object.keys(itemPrices).map(Number).sort((a, b) => a - b);
 
-      // If no prices exist, we still want to show the item? 
-      // Typically handled by frontend logic showing "Aucun prix" if ranges empty.
-      
       const ranges = quantities.map(qty => {
         const pricesAtQty = itemPrices[qty] || {};
         
         // --- CRITICAL FIX: FORCE COLUMNS ---
-        // Instead of only sending columns found in DB, we iterate 'targetCodes'
-        // and force them into the response, even if null.
+        // Iterate through the EXPECTED columns (targetCodes) and ensure they exist.
+        // If the DB has no price, we explicitly set it to null.
+        // This ensures the Frontend sees the key and renders the column header.
         const columns: Record<string, number | null> = {};
+        
         targetCodes.forEach(code => {
-            // If code exists in DB result, use it. Else null.
-            columns[code] = pricesAtQty[code] !== undefined ? pricesAtQty[code] : null;
+           columns[code] = pricesAtQty[code] !== undefined ? pricesAtQty[code] : null;
         });
 
         // Calculate Discount
@@ -216,19 +214,20 @@ export async function GET(request: NextRequest) {
            }
         }
 
-        // Backward compatibility mapping
+        // Backward Compatibility Fields
         const unitPrice = pricesAtQty[selectedCode] || null;
         const pdsPrice = pricesAtQty["08-PDS"] || null;
+        // Map 01-EXP or 04-GROSEXP to "Exp Base"
         const expBasePrice = pricesAtQty["01-EXP"] || pricesAtQty["04-GROSEXP"] || null;
 
         return {
           id: `${iId}-${qty}`,
           qtyMin: qty,
-          unitPrice, 
-          pdsPrice,
+          unitPrice: unitPrice, 
+          pdsPrice: pdsPrice,
           coutExp: expBasePrice,
           costingDiscountAmt,
-          columns // Now guarantees keys like "08-PDS": null if missing
+          columns // Contains ALL matrix keys (e.g. "05-GROS": null)
         };
       });
 
