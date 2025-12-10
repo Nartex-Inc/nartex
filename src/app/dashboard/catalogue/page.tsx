@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useCurrentAccent } from "@/components/accent-color-provider";
-import { startAuthentication } from '@simplewebauthn/browser';
+import { startRegistration } from '@simplewebauthn/browser';
 
 // --- Interfaces ---
 interface Product {
@@ -385,7 +385,7 @@ function PriceModal({
 
   const itemsWithPrices = data.filter(item => item.ranges && item.ranges.length > 0);
 
-  // --- AUTH HANDLER (STEP-UP) ---
+  // --- 3. AUTH HANDLER (STEP-UP) ---
   const handleToggleDetails = async (newValue: boolean) => {
     if (!newValue) {
         setShowDetails(false);
@@ -394,12 +394,15 @@ function PriceModal({
 
     setIsAuthenticating(true);
     try {
+        // A. Get Challenge (Now returns Registration Options)
         const resp = await fetch('/api/auth/challenge');
         if (!resp.ok) throw new Error('Challenge fetch failed');
         const options = await resp.json();
 
-        const authResp = await startAuthentication(options);
+        // B. Trigger iPad FaceID / PIN (Using Registration to force Platform Auth)
+        const authResp = await startRegistration(options); // <--- CHANGED THIS
 
+        // C. Verify
         const verifyResp = await fetch('/api/auth/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -416,7 +419,7 @@ function PriceModal({
         }
     } catch (error) {
         console.error("Auth error", error);
-        alert("Authentification annulée ou impossible.");
+        // User likely cancelled the prompt
         setShowDetails(false);
     } finally {
         setIsAuthenticating(false);
