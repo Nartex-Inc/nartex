@@ -43,7 +43,8 @@ interface PriceRange {
   expBasePrice: number | null;
   coutExp: number | null;
   costingDiscountAmt?: number;
-  columns?: Record<string, number>;
+  // FIX: Allow null values for columns where price doesn't exist
+  columns?: Record<string, number | null>;
 }
 
 interface ItemPriceData {
@@ -254,8 +255,8 @@ interface PriceModalProps {
   onItemChange: (itemId: string) => void;
   
   onAddItems: (itemIds: number[]) => void;
-  onReset: () => void; // Reset Handler
-  onLoadSelection: () => void; // Trigger manual fetch for current dropdown selection
+  onReset: () => void; 
+  onLoadSelection: () => void;
 
   loading: boolean;
   error: string | null;
@@ -326,16 +327,13 @@ function PriceModal({
                 accentColor={accentColor}
               />
 
-              {/* Reset Button */}
+              {/* Reset Button (Circular Arrow) */}
               <button 
                 onClick={onReset}
                 className="h-10 w-10 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors"
                 title="Réinitialiser la liste (Tout effacer)"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                  <path d="M3 3v5h5"/>
-                </svg>
+                <span className="text-xl font-bold">↺</span>
               </button>
 
               <button 
@@ -417,7 +415,7 @@ function PriceModal({
                   className="h-10 w-10 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white text-xl transition-colors"
                   title="Recherche Rapide"
                 >
-                  🔍
+                  +
                 </button>
               </div>
           </div>
@@ -456,10 +454,12 @@ function PriceModal({
               {Object.entries(groupedItems).map(([className, classItems]) => {
                 
                 const firstItem = classItems[0];
+                // Determine price columns from first item, defaulting to current selection if empty
                 let priceColumns = firstItem.ranges[0]?.columns 
                     ? Object.keys(firstItem.ranges[0].columns).sort()
                     : [selectedPriceList?.code || 'Prix'];
 
+                // VISIBILITY FILTER: Hide '01-EXP' if details OFF, unless it's the selected list
                 if (!showDetails && selectedPriceList?.code !== "01-EXP") {
                     priceColumns = priceColumns.filter(c => c !== "01-EXP");
                 }
@@ -479,7 +479,9 @@ function PriceModal({
                       </p>
                     </div>
                     
+                    {/* TABLE */}
                     <div className="overflow-x-auto">
+                      {/* Using min-w-full to prevent crushing */}
                       <table className="min-w-full w-full text-sm md:text-base border-collapse">
                         <thead>
                           <tr className="bg-neutral-200 dark:bg-neutral-800">
@@ -512,7 +514,9 @@ function PriceModal({
                                 const ppc = calcPricePerCaisse(range.unitPrice, item.caisse);
                                 const ppl = calcPricePerLitre(range.unitPrice, item.volume);
                                 
+                                // Calculation Data
                                 const selectedPriceCode = selectedPriceList?.code || "";
+                                // Use fallback to unitPrice if columns is undefined (backward compat)
                                 const selectedPriceVal = range.columns?.[selectedPriceCode] ?? range.unitPrice;
                                 const expBaseVal = range.columns?.["01-EXP"] ?? null;
                                 const pdsVal = range.columns?.["08-PDS"] ?? null;
@@ -525,6 +529,7 @@ function PriceModal({
                                   <tr key={range.id} className={cn("transition-colors group", rowBg)} style={{ '--hover-color': `${accentColor}15` } as React.CSSProperties}>
                                     <style jsx>{`tr:hover { background-color: var(--hover-color) !important; }`}</style>
 
+                                    {/* Basic Info */}
                                     <td className={cn("p-3 border border-neutral-200 dark:border-neutral-700 align-top sticky left-0 z-10", rowBg, "group-hover:bg-[var(--hover-color)]")}>
                                       {isFirstRowOfItem && (
                                         <div className="flex flex-col">
@@ -538,24 +543,27 @@ function PriceModal({
                                     <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700 align-top">{isFirstRowOfItem && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}</td>
                                     <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700"><span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span></td>
                                     
+                                    {/* % Marge */}
                                     <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-green-50 dark:bg-green-900/10">
                                       <span className={cn("font-mono font-bold whitespace-nowrap", percentMarge && percentMarge < 0 ? "text-red-600" : "text-green-700 dark:text-green-400")}>
                                         {percentMarge !== null ? `${percentMarge.toFixed(1)}%` : '-'}
                                       </span>
                                     </td>
 
+                                    {/* Price Cells */}
                                     {priceColumns.map((colCode) => {
                                         const priceVal = range.columns ? range.columns[colCode] : (colCode === selectedPriceList?.code ? range.unitPrice : null);
                                         const isSelectedList = colCode === selectedPriceList?.code;
                                         return (
                                             <td key={colCode} className={cn("p-3 text-right border border-neutral-200 dark:border-neutral-700", isSelectedList && "bg-amber-50 dark:bg-amber-900/10")}>
                                                 <span className={cn("font-mono font-black whitespace-nowrap", isSelectedList ? "text-amber-700 dark:text-amber-400" : "text-neutral-900 dark:text-neutral-300")} style={{ color: isSelectedList && isFirstRowOfItem ? accentColor : undefined }}>
-                                                    {priceVal ? <AnimatedPrice value={priceVal} /> : '-'}
+                                                    {priceVal !== null && priceVal !== undefined ? <AnimatedPrice value={priceVal} /> : '-'}
                                                 </span>
                                             </td>
                                         );
                                     })}
                                     
+                                    {/* Details */}
                                     {showDetails && (
                                       <>
                                         <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10"><span className="font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">{ppc ? ppc.toFixed(2) : '-'}</span></td>
@@ -631,10 +639,8 @@ export default function CataloguePage() {
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [priceError, setPriceError] = useState<string | null>(null);
   
-  // For re-fetching
+  // For re-fetching logic
   const [modalProdId, setModalProdId] = useState<number | null>(null);
-  const [modalTypeId, setModalTypeId] = useState<number | null>(null);
-  const [modalItemId, setModalItemId] = useState<number | null>(null);
   
   // Loading states
   const [loadingTypes, setLoadingTypes] = useState(false);
@@ -825,8 +831,6 @@ export default function CataloguePage() {
   const handleGenerate = async () => {
     if (!selectedPriceList || !selectedProduct) return;
     setModalProdId(selectedProduct.prodId);
-    setModalTypeId(selectedType?.itemTypeId || null);
-    setModalItemId(selectedItem?.itemId || null);
     setPriceData([]);
     setPriceError(null);
     setShowPriceModal(true);
@@ -842,11 +846,6 @@ export default function CataloguePage() {
     const pl = priceLists.find(p => p.priceId === priceId);
     if (pl) {
       setSelectedPriceList(pl);
-      // Logic for changing price list while in modal:
-      // We need to re-fetch ALL currently displayed items with the new price ID.
-      // This requires sending ALL current item IDs to the API.
-      // For performance, we limit this logic or just re-fetch the base if simpler.
-      // Robust Way: Extract IDs from priceData and re-fetch.
       if (priceData.length > 0) {
           setLoadingPrices(true);
           const allIds = Array.from(new Set(priceData.map(i => i.itemId))).join(',');
@@ -861,13 +860,16 @@ export default function CataloguePage() {
     }
   };
 
+  // Define canGenerate here to be in scope for the return
+  const canGenerate = selectedPriceList && selectedProduct;
+
   return (
     <div className="min-h-screen bg-neutral-100 dark:bg-neutral-950">
       <div className="min-h-screen flex flex-col">
         <main className="flex-1 p-4 md:p-6 flex flex-col justify-center items-center">
           <div className="w-full max-w-3xl">
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-lg p-5 md:p-8">
-              {/* Branding & Search (unchanged) */}
+              {/* Branding & Search */}
               <div className="flex items-center gap-4 mb-8">
                 <Image src="/sinto-logo.svg" alt="SINTO Logo" width={64} height={64} className="h-16 w-16 object-contain" />
                 <div>
@@ -892,7 +894,7 @@ export default function CataloguePage() {
                 )}
               </div>
 
-              {/* Main Form Fields (unchanged) */}
+              {/* Main Form Fields */}
               <div className="space-y-5">
                 <div><label className="block text-xs font-bold text-neutral-500 mb-2 uppercase tracking-wide">1. Liste de Prix</label><select value={selectedPriceList?.priceId || ""} onChange={(e) => handlePriceListChange(e.target.value)} className="w-full h-14 px-4 text-base font-semibold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-0 focus:outline-none transition-colors" style={{ '--focus-color': accentColor } as React.CSSProperties}><option value="" disabled>Sélectionner...</option>{priceLists.map(pl => (<option key={pl.priceId} value={pl.priceId}>{pl.code} - {pl.name}</option>))}</select><style jsx>{`select:focus { border-color: var(--focus-color) !important; }`}</style></div>
                 <div><label className="block text-xs font-bold text-neutral-500 mb-2 uppercase tracking-wide">2. Catégorie</label><select value={selectedProduct?.prodId || ""} onChange={(e) => handleProductChange(e.target.value)} disabled={!selectedPriceList} className={cn("w-full h-14 px-4 text-base font-semibold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-0 focus:outline-none transition-all", !selectedPriceList && "opacity-50 cursor-not-allowed")} style={{ '--focus-color': accentColor } as React.CSSProperties}><option value="" disabled>Sélectionner...</option>{products.map(p => (<option key={p.prodId} value={p.prodId}>{p.name} ({p.itemCount})</option>))}</select></div>
@@ -911,27 +913,27 @@ export default function CataloguePage() {
         onClose={() => setShowPriceModal(false)}
         data={priceData}
         
-        // Passing dropdown data
+        // Dropdown Data
         priceLists={priceLists}
         products={products}
         itemTypes={itemTypes}
         items={items}
 
-        // Passing selections
+        // Selections
         selectedPriceList={selectedPriceList}
         selectedProduct={selectedProduct}
         selectedType={selectedType}
         selectedItem={selectedItem}
 
-        // Passing handlers
+        // Handlers
         onPriceListChange={handleModalPriceListChange}
         onProductChange={handleProductChange}
         onTypeChange={handleTypeChange}
         onItemChange={handleItemChange}
         
         onAddItems={handleAddItems}
-        onReset={() => setPriceData([])} // Reset Logic
-        onLoadSelection={handleLoadSelection} // Load Button Logic
+        onReset={() => setPriceData([])}
+        onLoadSelection={handleLoadSelection}
 
         loading={loadingPrices}
         error={priceError}
