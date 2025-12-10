@@ -40,6 +40,10 @@ phases:
       - npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - echo "📦 INSTALL – install from clean lockfile"
       - npm ci
+      
+      # 👇 ADD THIS LINE HERE 👇
+      - npm install @simplewebauthn/browser @simplewebauthn/server
+      
       - node -e "console.log('prisma:',require('./node_modules/prisma/package.json').version,'| @prisma/client:',require('./node_modules/@prisma/client/package.json').version)"
 
   pre_build:
