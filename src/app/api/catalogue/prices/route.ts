@@ -3,17 +3,32 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
 
-// --- Configuration Matrix ---
-// UPDATED: Keys match the DB codes exactly (e.g. "04-GROSEXP" instead of "04- GROS EXP")
+// --- Configuration Matrix (FIXED CODES) ---
+// Keys/Values match the dropdown screenshots exactly (No spaces in codes like GROSEXP)
 const COLUMN_MATRIX: Record<string, string[]> = {
+  // Template: EXPERT
   "01-EXP": ["01-EXP", "02-DET", "03-IND", "05-GROS", "08-PDS"],
+  
+  // Template: DETAILLANT
   "02-DET": ["02-DET", "08-PDS"],
+  
+  // Template: INDUSTRIEL
   "03-IND": ["03-IND"], 
-  // FIX: Updated key and value to match screenshot (No spaces in 04-GROSEXP)
-  "04-GROSEXP": ["02-DET", "04-GROSEXP", "05-GROS", "06-IND HZ", "08-PDS"],
-  "05-GROS": ["05-GROS"], // Added based on pattern, just in case
-  "06-IND HZ": ["06-IND HZ"],
-  "07-DET HZ": ["07-DET HZ", "08-PDS"],
+
+  // Template: EXPERT GROSSISTE 
+  // Fixed: "04-GROSEXP" (Matches screenshot, no spaces)
+  "04-GROSEXP": ["02-DET", "04-GROSEXP", "05-GROS", "06-INDHZ", "08-PDS"],
+
+  // Template: GROSSISTE
+  "05-GROS": ["05-GROS"],
+
+  // Template: INDUSTRIEL HZ
+  // Fixed: "06-INDHZ" (Matches screenshot, no spaces)
+  "06-INDHZ": ["06-INDHZ"],
+
+  // Template: DETAILLANT HZ
+  // Fixed: "07-DETHZ" (Matches screenshot, no spaces)
+  "07-DETHZ": ["07-DETHZ", "08-PDS"],
 };
 
 export async function GET(request: NextRequest) {
@@ -46,10 +61,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Liste de prix introuvable" }, { status: 404 });
     }
 
-    const selectedCode = plRes.rows[0].code; // e.g., "04-GROSEXP"
+    // Trim whitespace to be safe, though screenshot suggests clean data
+    const selectedCode = plRes.rows[0].code.trim(); 
 
     // 2. Determine Target Columns
-    // FIX: This now correctly finds "04-GROSEXP" because we fixed the key in COLUMN_MATRIX
+    // Because we fixed the keys in COLUMN_MATRIX, this lookup will now succeed
     const targetCodes = COLUMN_MATRIX[selectedCode] || [selectedCode];
 
     // 3. Build Query Filters
@@ -69,7 +85,7 @@ export async function GET(request: NextRequest) {
 
     const activeFilter = `AND i."isActive" = true`;
 
-    // 4. Fetch Products Info
+    // 4. Fetch Products Info (Metadata)
     const itemsQuery = `
       SELECT 
         i."ItemId" as "itemId", i."ItemCode" as "itemCode", i."Descr" as "description",
@@ -83,6 +99,7 @@ export async function GET(request: NextRequest) {
     `;
 
     // 5. Fetch ALL Prices for Target Columns
+    // Uses ANY($array) to fetch multiple price lists at once
     const pricesQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", ipr."priceid", MAX(ipr."itempricedateid") as "latestDateId"
@@ -152,7 +169,7 @@ export async function GET(request: NextRequest) {
     for (const row of pricesRes.rows) {
       const iId = row.itemId;
       const qty = parseInt(row.qtyMin);
-      const code = row.priceCode;
+      const code = row.priceCode.trim(); // Trim to ensure match
       const price = parseFloat(row.price);
 
       if (!pricesMap[iId]) pricesMap[iId] = {};
@@ -168,18 +185,22 @@ export async function GET(request: NextRequest) {
       
       const quantities = Object.keys(itemPrices).map(Number).sort((a, b) => a - b);
 
+      // If no prices exist, we still want to show the item? 
+      // Typically handled by frontend logic showing "Aucun prix" if ranges empty.
+      
       const ranges = quantities.map(qty => {
         const pricesAtQty = itemPrices[qty] || {};
         
-        // FIX: Force ALL target columns to exist, even if null.
-        // This ensures the frontend 'Object.keys' sees the column header.
+        // --- CRITICAL FIX: FORCE COLUMNS ---
+        // Instead of only sending columns found in DB, we iterate 'targetCodes'
+        // and force them into the response, even if null.
         const columns: Record<string, number | null> = {};
         targetCodes.forEach(code => {
-            // Check if price exists, otherwise set to null
+            // If code exists in DB result, use it. Else null.
             columns[code] = pricesAtQty[code] !== undefined ? pricesAtQty[code] : null;
         });
 
-        // Calculate Discount logic (same as before)
+        // Calculate Discount
         let costingDiscountAmt = 0;
         if (itemDiscounts) {
            if (itemDiscounts[qty] !== undefined) {
@@ -195,6 +216,7 @@ export async function GET(request: NextRequest) {
            }
         }
 
+        // Backward compatibility mapping
         const unitPrice = pricesAtQty[selectedCode] || null;
         const pdsPrice = pricesAtQty["08-PDS"] || null;
         const expBasePrice = pricesAtQty["01-EXP"] || pricesAtQty["04-GROSEXP"] || null;
@@ -202,11 +224,11 @@ export async function GET(request: NextRequest) {
         return {
           id: `${iId}-${qty}`,
           qtyMin: qty,
-          unitPrice: unitPrice, 
-          pdsPrice: pdsPrice,
+          unitPrice, 
+          pdsPrice,
           coutExp: expBasePrice,
           costingDiscountAmt,
-          columns // This now contains all matrix keys (e.g. 08-PDS: null)
+          columns // Now guarantees keys like "08-PDS": null if missing
         };
       });
 
