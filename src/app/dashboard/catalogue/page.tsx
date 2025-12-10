@@ -229,6 +229,125 @@ function QuickAddSearch({
   );
 }
 
+// --- NEW COMPONENT: MultiSelect Dropdown for Articles ---
+function MultiSelectDropdown({
+  items,
+  selectedIds,
+  onChange,
+  disabled,
+  placeholder = "Articles..."
+}: {
+  items: Item[];
+  selectedIds: Set<number>;
+  onChange: (ids: Set<number>) => void;
+  disabled?: boolean;
+  placeholder?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredItems = items.filter(i => 
+    i.itemCode.toLowerCase().includes(search.toLowerCase()) || 
+    i.description.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const toggleSelection = (id: number) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onChange(next);
+  };
+
+  return (
+    <div className="relative flex-1 min-w-[180px]" ref={dropdownRef}>
+      {/* Trigger Button */}
+      <div
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        className={cn(
+          "h-10 px-3 bg-white/20 text-white rounded-lg font-medium text-sm border border-white/30 flex items-center justify-between cursor-pointer transition-all",
+          disabled && "opacity-50 cursor-not-allowed",
+          isOpen && "border-white bg-white/30"
+        )}
+      >
+        <span className="truncate">
+          {selectedIds.size > 0 
+            ? `${selectedIds.size} article(s) sélectionné(s)` 
+            : placeholder}
+        </span>
+        <span className="text-xs opacity-70 ml-2">▼</span>
+      </div>
+
+      {/* Dropdown Content */}
+      {isOpen && (
+        <div className="absolute top-12 left-0 w-full min-w-[300px] z-50 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+          
+          {/* Search Bar */}
+          <div className="p-2 border-b border-neutral-100 dark:border-neutral-800">
+            <input 
+              autoFocus
+              className="w-full bg-neutral-100 dark:bg-neutral-800 rounded-lg px-3 py-2 text-sm outline-none text-neutral-900 dark:text-white placeholder:text-neutral-400"
+              placeholder="Filtrer..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+
+          {/* List */}
+          <div className="max-h-64 overflow-y-auto p-1">
+            {filteredItems.length > 0 ? (
+              filteredItems.map(item => (
+                <div 
+                  key={item.itemId}
+                  onClick={() => toggleSelection(item.itemId)}
+                  className={cn(
+                    "flex items-center gap-3 p-2 rounded-lg cursor-pointer text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors",
+                    selectedIds.has(item.itemId) && "bg-neutral-100 dark:bg-neutral-800"
+                  )}
+                >
+                  <div className={cn(
+                    "w-4 h-4 rounded border flex items-center justify-center transition-colors flex-shrink-0",
+                    selectedIds.has(item.itemId) 
+                      ? "bg-neutral-900 border-neutral-900 dark:bg-white dark:border-white" 
+                      : "border-neutral-300 dark:border-neutral-600"
+                  )}>
+                    {selectedIds.has(item.itemId) && (
+                      <span className="text-[10px] text-white dark:text-black font-bold">✓</span>
+                    )}
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <div className="font-bold text-neutral-900 dark:text-white truncate">
+                      {item.itemCode}
+                    </div>
+                    <div className="text-xs text-neutral-500 truncate">
+                      {item.description}
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="p-4 text-center text-xs text-neutral-400">
+                Aucun article trouvé
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // --- Price Modal Component ---
 interface PriceModalProps {
   isOpen: boolean;
@@ -245,16 +364,16 @@ interface PriceModalProps {
   selectedPriceList: PriceList | null;
   selectedProduct: Product | null;
   selectedType: ItemType | null;
-  selectedItem: Item | null;
+  selectedItemIds: Set<number>; // CHANGED: Set for multi-select
 
   // Handlers
   onPriceListChange: (priceId: number) => void;
   onProductChange: (prodId: string) => void;
   onTypeChange: (typeId: string) => void;
-  onItemChange: (itemId: string) => void;
+  onItemsChange: (ids: Set<number>) => void; // CHANGED
   
   onAddItems: (itemIds: number[]) => void;
-  onReset: () => void; 
+  onReset: () => void;
   onLoadSelection: () => void;
 
   loading: boolean;
@@ -266,8 +385,8 @@ interface PriceModalProps {
 function PriceModal({ 
   isOpen, onClose, data, 
   priceLists, products, itemTypes, items,
-  selectedPriceList, selectedProduct, selectedType, selectedItem,
-  onPriceListChange, onProductChange, onTypeChange, onItemChange,
+  selectedPriceList, selectedProduct, selectedType, selectedItemIds,
+  onPriceListChange, onProductChange, onTypeChange, onItemsChange,
   onAddItems, onReset, onLoadSelection,
   loading, error,
   accentColor, accentMuted
@@ -326,7 +445,7 @@ function PriceModal({
                 accentColor={accentColor}
               />
 
-              {/* Reset Button (Circular Arrow) */}
+              {/* Reset Button */}
               <button 
                 onClick={onReset}
                 className="h-10 w-10 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors"
@@ -345,7 +464,7 @@ function PriceModal({
           </div>
 
           {/* Row 2: Filters & Actions Toolbar */}
-          <div className="flex flex-col md:flex-row gap-2 bg-black/10 p-2 rounded-xl border border-white/10">
+          <div className="flex flex-col md:flex-row gap-2 bg-black/10 p-2 rounded-xl border border-white/10 items-center">
              
              {/* Price List Select */}
              <select
@@ -386,33 +505,29 @@ function PriceModal({
                 ))}
               </select>
 
-              {/* Article Select */}
-              <select
-                value={selectedItem?.itemId || ""}
-                onChange={(e) => onItemChange(e.target.value)}
+              {/* Article Multi-Select (Replaced standard select) */}
+              <MultiSelectDropdown
+                items={items}
+                selectedIds={selectedItemIds}
+                onChange={onItemsChange}
                 disabled={!selectedType && !selectedProduct}
-                className="h-10 px-3 bg-white/20 text-white rounded-lg font-medium text-sm border border-white/30 focus:border-white outline-none flex-1 min-w-[140px] disabled:opacity-50"
-              >
-                <option value="" className="text-black">Article...</option>
-                {items.map(i => (
-                  <option key={i.itemId} value={i.itemId} className="text-black">{i.itemCode} - {i.description}</option>
-                ))}
-              </select>
+              />
 
               {/* Action Buttons */}
-              <div className="flex gap-2">
+              <div className="flex gap-2 ml-2">
                 <button 
                   onClick={onLoadSelection}
-                  disabled={loading || (!selectedProduct && !selectedItem)}
-                  className="h-10 px-4 rounded-lg bg-white text-black font-bold text-sm hover:bg-white/90 disabled:opacity-50 transition-colors whitespace-nowrap"
+                  // Disable if currently loading OR (no category selected AND no individual items selected)
+                  disabled={loading || (!selectedProduct && selectedItemIds.size === 0)}
+                  className="h-10 px-4 rounded-lg bg-white text-black font-bold text-sm hover:bg-white/90 disabled:opacity-50 transition-colors whitespace-nowrap shadow-sm"
                 >
-                  Ajouter
+                  Ajouter {selectedItemIds.size > 0 ? `(${selectedItemIds.size})` : ''}
                 </button>
 
                 <button 
                   onClick={() => setShowQuickAdd(!showQuickAdd)}
                   className="h-10 w-10 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white text-xl transition-colors"
-                  title="Recherche Rapide"
+                  title="Recherche Rapide Globale"
                 >
                   🔍
                 </button>
@@ -531,12 +646,10 @@ function PriceModal({
                                       )}
                                     </td>
                                     
-                                    {/* FIX: Caisse Column (Integer) */}
                                     <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700 align-top">{isFirstRowOfItem && <span className="font-black text-neutral-900 dark:text-white">{item.caisse ? Math.round(item.caisse) : '-'}</span>}</td>
                                     <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700 align-top">{isFirstRowOfItem && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}</td>
                                     <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700"><span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span></td>
                                     
-                                    {/* FIX: % Marge Column (No grouping, shows on all rows) */}
                                     <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-green-50 dark:bg-green-900/10">
                                       <span className={cn("font-mono font-bold whitespace-nowrap", percentMarge && percentMarge < 0 ? "text-red-600" : "text-green-700 dark:text-green-400")}>
                                         {percentMarge !== null ? `${percentMarge.toFixed(1)}%` : '-'}
@@ -617,7 +730,10 @@ export default function CataloguePage() {
   const [selectedPriceList, setSelectedPriceList] = useState<PriceList | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedType, setSelectedType] = useState<ItemType | null>(null);
-  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  
+  // CHANGED: Using Set for Multi-Select
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(new Set());
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null); // Kept for main page single-select compatibility
   
   // Search
   const [searchQuery, setSearchQuery] = useState("");
@@ -678,28 +794,6 @@ export default function CataloguePage() {
     return () => clearTimeout(timeout);
   }, [searchQuery]);
 
-  // --- Fetch Prices General ---
-  const fetchPrices = async (priceId: number, prodId: number | null, typeId?: number | null, itemId?: number | null) => {
-    setPriceData([]);
-    setPriceError(null);
-    setLoadingPrices(true);
-    try {
-      let url = `/api/catalogue/prices?priceId=${priceId}`;
-      if (prodId) url += `&prodId=${prodId}`;
-      if (itemId) url += `&itemId=${itemId}`;
-      else if (typeId) url += `&typeId=${typeId}`;
-      
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Erreur fetch");
-      const data = await res.json();
-      setPriceData(data);
-    } catch (err: any) {
-      setPriceError(err.message || "Erreur");
-    } finally {
-      setLoadingPrices(false);
-    }
-  };
-
   // --- Handle Adding Items via Quick Add / Modal Dropdown ---
   const handleAddItems = async (itemIds: number[]) => {
     if (!selectedPriceList || itemIds.length === 0) return;
@@ -725,31 +819,33 @@ export default function CataloguePage() {
   // --- Handle Load Selection from Modal Dropdowns ---
   const handleLoadSelection = async () => {
     if (!selectedPriceList) return;
-    // Strategy: If specific item selected, add it. If not, add whole category/class.
-    if (selectedItem) {
-        await handleAddItems([selectedItem.itemId]);
-    } else {
-        // Fetch based on Category/Class and APPEND
-        setLoadingPrices(true);
-        try {
-            let url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}`;
-            if (selectedProduct) url += `&prodId=${selectedProduct.prodId}`;
-            if (selectedType) url += `&typeId=${selectedType.itemTypeId}`;
-            
-            const res = await fetch(url);
-            if (!res.ok) throw new Error("Erreur fetch");
-            const newItems: ItemPriceData[] = await res.json();
-            
-            setPriceData(prev => {
-                const existingIds = new Set(prev.map(i => i.itemId));
-                const filteredNew = newItems.filter(i => !existingIds.has(i.itemId));
-                return [...prev, ...filteredNew];
-            });
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoadingPrices(false);
-        }
+    
+    // CASE A: User has selected specific items via checkboxes
+    if (selectedItemIds.size > 0) {
+        await handleAddItems(Array.from(selectedItemIds));
+        return;
+    }
+
+    // CASE B: User hasn't selected items, so we fetch based on Category/Class context
+    setLoadingPrices(true);
+    try {
+        let url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}`;
+        if (selectedProduct) url += `&prodId=${selectedProduct.prodId}`;
+        if (selectedType) url += `&typeId=${selectedType.itemTypeId}`;
+        
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Erreur fetch");
+        const newItems: ItemPriceData[] = await res.json();
+        
+        setPriceData(prev => {
+            const existingIds = new Set(prev.map(i => i.itemId));
+            const filteredNew = newItems.filter(i => !existingIds.has(i.itemId));
+            return [...prev, ...filteredNew];
+        });
+    } catch (err) {
+        console.error(err);
+    } finally {
+        setLoadingPrices(false);
     }
   };
 
@@ -765,6 +861,7 @@ export default function CataloguePage() {
     setSelectedProduct(prod);
     setSelectedType(null);
     setSelectedItem(null);
+    setSelectedItemIds(new Set()); // Reset selections on category change
     setItems([]);
     setItemTypes([]);
     setLoadingTypes(true);
@@ -775,11 +872,12 @@ export default function CataloguePage() {
   };
 
   const handleTypeChange = async (typeId: string) => {
-    if (!typeId) { setSelectedType(null); setSelectedItem(null); setItems([]); return; }
+    if (!typeId) { setSelectedType(null); setSelectedItem(null); setSelectedItemIds(new Set()); setItems([]); return; }
     const type = itemTypes.find(t => t.itemTypeId === parseInt(typeId));
     if (!type) return;
     setSelectedType(type);
     setSelectedItem(null);
+    setSelectedItemIds(new Set()); // Reset selections on class change
     setItems([]);
     setLoadingItems(true);
     try {
@@ -825,12 +923,22 @@ export default function CataloguePage() {
     setPriceData([]);
     setPriceError(null);
     setShowPriceModal(true);
-    await fetchPrices(
-      selectedPriceList.priceId,
-      selectedProduct.prodId,
-      selectedType?.itemTypeId || null,
-      selectedItem?.itemId || null
-    );
+    
+    // Initial fetch based on page selections
+    setLoadingPrices(true);
+    try {
+        let url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}&prodId=${selectedProduct.prodId}`;
+        if (selectedType) url += `&typeId=${selectedType.itemTypeId}`;
+        if (selectedItem) url += `&itemId=${selectedItem.itemId}`;
+        
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Erreur fetch");
+        setPriceData(await res.json());
+    } catch(err: any) {
+        setPriceError(err.message);
+    } finally {
+        setLoadingPrices(false);
+    }
   };
 
   const handleModalPriceListChange = async (priceId: number) => {
@@ -903,27 +1011,27 @@ export default function CataloguePage() {
         onClose={() => setShowPriceModal(false)}
         data={priceData}
         
-        // Passing dropdown data
+        // Dropdown Data
         priceLists={priceLists}
         products={products}
         itemTypes={itemTypes}
         items={items}
 
-        // Passing selections
+        // Selections
         selectedPriceList={selectedPriceList}
         selectedProduct={selectedProduct}
         selectedType={selectedType}
-        selectedItem={selectedItem}
+        selectedItemIds={selectedItemIds} // CHANGED to MultiSelect
 
-        // Passing handlers
+        // Handlers
         onPriceListChange={handleModalPriceListChange}
         onProductChange={handleProductChange}
         onTypeChange={handleTypeChange}
-        onItemChange={handleItemChange}
+        onItemsChange={setSelectedItemIds} // CHANGED
         
         onAddItems={handleAddItems}
-        onReset={() => setPriceData([])} // Reset Logic
-        onLoadSelection={handleLoadSelection} // Load Button Logic
+        onReset={() => setPriceData([])}
+        onLoadSelection={handleLoadSelection}
 
         loading={loadingPrices}
         error={priceError}
