@@ -151,7 +151,7 @@ interface PriceModalProps {
   selectedPriceList: PriceList | null;
   columnsConfig: PriceColumnConfig[];
   primaryPriceId: number;
-  onPriceListChange: (priceId: number, includeMultipleColumns: boolean) => void;
+  onPriceListChange: (priceId: number) => void;
   loading: boolean;
   error: string | null;
   accentColor: string;
@@ -164,17 +164,6 @@ function PriceModal({
   accentColor, accentMuted
 }: PriceModalProps) {
   const [showDetails, setShowDetails] = useState(false);
-  const [showMultiColumn, setShowMultiColumn] = useState(false);
-
-  // Automatically update the toggle visual state based on incoming data
-  useEffect(() => {
-    if (columnsConfig.length > 1 && !showMultiColumn) {
-      setShowMultiColumn(true);
-    } else if (columnsConfig.length <= 1 && showMultiColumn) {
-      setShowMultiColumn(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columnsConfig]);
 
   if (!isOpen) return null;
 
@@ -183,18 +172,11 @@ function PriceModal({
   // Calculation Helpers
   const calcPricePerCaisse = (price: number, caisse: number | null) => caisse ? price * caisse : null;
   const calcPricePerLitre = (price: number, volume: number | null) => volume ? price / volume : null;
-  const calcMarginExp = (unit: number, cout: number | null) => cout && unit ? ((unit - cout) / unit) * 100 : null;
+  const calcMarginPds = (unit: number, pds: number | null) => pds && unit ? ((pds - unit) / pds) * 100 : null;
 
   // Handlers
   const handleListChange = (newPriceId: number) => {
-    onPriceListChange(newPriceId, showMultiColumn);
-  };
-
-  const handleMultiColumnToggle = (enabled: boolean) => {
-    setShowMultiColumn(enabled);
-    if (selectedPriceList) {
-      onPriceListChange(selectedPriceList.priceId, enabled);
-    }
+    onPriceListChange(newPriceId);
   };
 
   return (
@@ -217,19 +199,12 @@ function PriceModal({
             </h2>
             
             <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-              {/* Controls Group */}
+              {/* Controls Group - Only Details toggle now */}
               <div className="flex items-center gap-4">
                 <Toggle 
                   enabled={showDetails} 
                   onChange={setShowDetails} 
                   label="Détails" 
-                  accentColor={accentColor}
-                />
-                
-                <Toggle 
-                  enabled={showMultiColumn} 
-                  onChange={handleMultiColumnToggle} 
-                  label="Comparer" 
                   accentColor={accentColor}
                 />
               </div>
@@ -309,57 +284,62 @@ function PriceModal({
                             Article
                           </th>
                           <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-16">
-                            Cs
-                          </th>
-                          <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-20">
-                            Fmt
+                            Format
                           </th>
                           <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-16">
-                            Qté
+                            Qte/Qty
                           </th>
-                          
-                          {/* Coût Exp (Left of Price) */}
-                          {showDetails && (
-                            <th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 w-24">
-                              Coût
-                            </th>
-                          )}
+                          <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-16">
+                            (+) Unit
+                          </th>
 
-                          {/* Dynamic Price Columns - Generated entirely from columnsConfig */}
-                          {/* PDS and other columns are now handled here exclusively */}
-                          {columnsConfig.map(col => {
-                            // Check if this column corresponds to the selected price list to highlight it
+                          {/* Dynamic Price Columns - Generated from columnsConfig */}
+                          {columnsConfig.map((col, colIdx) => {
+                            // Check if this column corresponds to the selected price list
                             const isPrimary = col.priceId === selectedPriceList?.priceId;
+                            const isPds = col.code === "PDS";
+                            
                             return (
                               <th 
                                 key={col.priceId}
                                 className={cn(
-                                  "text-right p-3 font-bold border border-neutral-300 dark:border-neutral-700 min-w-[100px]",
+                                  "text-right p-3 font-bold border border-neutral-300 dark:border-neutral-700 min-w-[90px]",
                                   isPrimary 
                                     ? "text-neutral-900 dark:text-white bg-white dark:bg-neutral-900 border-b-2" 
+                                    : isPds
+                                    ? "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20"
                                     : "text-neutral-600 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800/80"
                                 )}
                                 style={isPrimary ? { borderBottomColor: accentColor } : undefined}
                               >
-                                {col.code}
+                                {col.label}
                               </th>
                             );
                           })}
 
-                          {/* Expanded Details Columns (Right of Price) */}
+                          {/* Cas (Price per Case) Column - After all price columns */}
+                          <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[80px]">
+                            Cas
+                          </th>
+
+                          {/* $/L Column */}
+                          <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[80px]">
+                            ($/L)
+                          </th>
+
+                          {/* Margin % Column */}
+                          <th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 min-w-[60px]">
+                            (%)
+                          </th>
+
+                          {/* Expanded Details Columns */}
                           {showDetails && (
                             <>
-                              <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 w-24">
-                                $/Cs
-                              </th>
-                              <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 w-24">
-                                $/L
+                              <th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 w-24">
+                                Coût
                               </th>
                               <th className="text-right p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20 w-24">
                                 Esc.
-                              </th>
-                              <th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 w-16">
-                                %
                               </th>
                             </>
                           )}
@@ -370,7 +350,7 @@ function PriceModal({
                           const isFirstRow = rIdx === 0;
                           const ppc = calcPricePerCaisse(range.unitPrice, item.caisse);
                           const ppl = calcPricePerLitre(range.unitPrice, item.volume);
-                          const marginExp = calcMarginExp(range.unitPrice, range.coutExp);
+                          const marginPds = calcMarginPds(range.unitPrice, range.pdsPrice);
                           
                           return (
                             <tr 
@@ -391,29 +371,21 @@ function PriceModal({
                               <td className="p-3 border border-neutral-200 dark:border-neutral-700 whitespace-nowrap">
                                 {isFirstRow && <span className="font-mono font-black text-neutral-900 dark:text-white">{item.itemCode}</span>}
                               </td>
-                              <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700">
-                                {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.caisse || '-'}</span>}
-                              </td>
                               <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700 whitespace-nowrap">
                                 {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}
                               </td>
                               <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700">
                                 <span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span>
                               </td>
-                              
-                              {/* Coût Exp */}
-                              {showDetails && (
-                                <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10">
-                                  <span className="font-mono font-bold text-purple-700 dark:text-purple-400">
-                                    {range.coutExp ? range.coutExp.toFixed(2) : '-'}
-                                  </span>
-                                </td>
-                              )}
+                              <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700">
+                                {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.caisse || '-'}</span>}
+                              </td>
 
                               {/* Dynamic Price Columns Data */}
                               {columnsConfig.map(col => {
                                 const priceVal = range.prices ? range.prices[col.priceId] : null;
                                 const isPrimary = col.priceId === selectedPriceList?.priceId;
+                                const isPds = col.code === "PDS";
                                 
                                 return (
                                   <td 
@@ -422,13 +394,19 @@ function PriceModal({
                                       "p-3 text-right border border-neutral-200 dark:border-neutral-700",
                                       isPrimary 
                                         ? "relative" 
+                                        : isPds
+                                        ? "bg-green-50/50 dark:bg-green-900/10"
                                         : "bg-neutral-100/50 dark:bg-neutral-800/30"
                                     )}
                                   >
                                     <span 
                                       className={cn(
                                         "font-mono",
-                                        isPrimary ? "font-black text-base md:text-lg" : "font-medium text-neutral-600 dark:text-neutral-400"
+                                        isPrimary 
+                                          ? "font-black text-base md:text-lg" 
+                                          : isPds
+                                          ? "font-bold text-green-700 dark:text-green-400"
+                                          : "font-medium text-neutral-600 dark:text-neutral-400"
                                       )}
                                       style={isPrimary && isFirstRow ? { color: accentColor } : undefined}
                                     >
@@ -440,32 +418,42 @@ function PriceModal({
                                 );
                               })}
                               
+                              {/* Cas (Price per Case) */}
+                              <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10">
+                                <span className="font-mono text-blue-700 dark:text-blue-400">
+                                  {ppc ? `(${ppc.toFixed(2)})` : '-'}
+                                </span>
+                              </td>
+
+                              {/* $/L */}
+                              <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10">
+                                <span className="font-mono text-blue-700 dark:text-blue-400">
+                                  {ppl ? ppl.toFixed(2) : '-'}
+                                </span>
+                              </td>
+
+                              {/* Margin % */}
+                              <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10">
+                                <span className={cn(
+                                  "font-mono font-bold",
+                                  marginPds && marginPds > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                                )}>
+                                  {marginPds ? `${marginPds.toFixed(0)}%` : '-'}
+                                </span>
+                              </td>
+                              
                               {/* Expanded Details Data */}
                               {showDetails && (
                                 <>
-                                  <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10">
-                                    <span className="font-mono text-blue-700 dark:text-blue-400">
-                                      {ppc ? ppc.toFixed(2) : '-'}
-                                    </span>
-                                  </td>
-                                  <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10">
-                                    <span className="font-mono text-blue-700 dark:text-blue-400">
-                                      {ppl ? ppl.toFixed(2) : '-'}
+                                  <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10">
+                                    <span className="font-mono font-bold text-purple-700 dark:text-purple-400">
+                                      {range.coutExp ? range.coutExp.toFixed(2) : '-'}
                                     </span>
                                   </td>
                                   
                                   <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-orange-50/50 dark:bg-orange-900/10">
                                     <span className="font-mono font-bold text-orange-700 dark:text-orange-400">
                                       {range.costingDiscountAmt !== undefined ? range.costingDiscountAmt.toFixed(2) : '-'}
-                                    </span>
-                                  </td>
-                                  
-                                  <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10">
-                                    <span className={cn(
-                                      "font-mono font-bold",
-                                      marginExp && marginExp > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                                    )}>
-                                      {marginExp ? `${marginExp.toFixed(1)}%` : '-'}
                                     </span>
                                   </td>
                                 </>
@@ -498,7 +486,7 @@ function PriceModal({
         {!loading && itemsWithPrices.length > 0 && (
           <div className="flex-shrink-0 bg-neutral-200 dark:bg-neutral-800 px-4 py-3 text-center">
             <span className="text-neutral-600 dark:text-neutral-400 font-medium text-sm">
-              {itemsWithPrices.length} article(s) • {showDetails ? "Détails activés" : "Vue simple"} • {columnsConfig.length > 1 ? "Comparaison active" : "Liste unique"}
+              {itemsWithPrices.length} article(s) • {columnsConfig.length} colonnes de prix • {showDetails ? "Détails activés" : "Vue standard"}
             </span>
           </div>
         )}
@@ -537,7 +525,7 @@ export default function CataloguePage() {
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [priceError, setPriceError] = useState<string | null>(null);
   
-  // NEW: Multi-column state
+  // Multi-column state (always enabled)
   const [columnsConfig, setColumnsConfig] = useState<PriceColumnConfig[]>([]);
   const [primaryPriceId, setPrimaryPriceId] = useState<number>(0);
 
@@ -564,8 +552,8 @@ export default function CataloguePage() {
           const pls: PriceList[] = await plRes.json();
           setPriceLists(pls);
           
-          // Look for price list starting with "03", otherwise fallback to the first one
-          const defaultList = pls.find(p => p.code.startsWith("03")) || pls[0];
+          // Look for price list starting with "01" (EXPERT), otherwise fallback to the first one
+          const defaultList = pls.find(p => p.code.startsWith("01")) || pls[0];
           
           if (defaultList) setSelectedPriceList(defaultList);
         }
@@ -594,24 +582,22 @@ export default function CataloguePage() {
     return () => clearTimeout(timeout);
   }, [searchQuery]);
 
-  // --- Fetch Prices ---
+  // --- Fetch Prices (Always includes multiple columns) ---
   const fetchPrices = async (
     priceId: number, 
     prodId: number, 
     typeId: number | null, 
-    itemId: number | null,
-    includeMultipleColumns: boolean = false 
+    itemId: number | null
   ) => {
     setLoadingPrices(true);
     setPriceError(null);
     setPriceData([]);
-    setColumnsConfig([]); // Reset columns config
+    setColumnsConfig([]);
 
     try {
       const params = new URLSearchParams({
         priceId: priceId.toString(),
         prodId: prodId.toString(),
-        multipleColumns: includeMultipleColumns.toString(),
       });
       
       if (typeId) params.set("typeId", typeId.toString());
@@ -630,7 +616,7 @@ export default function CataloguePage() {
         setColumnsConfig(json.columnsConfig || []);
         setPrimaryPriceId(json.primaryPriceId || priceId);
       } else if (Array.isArray(json)) {
-        // Fallback
+        // Fallback for old API format
         setPriceData(json);
       } else {
         setPriceError("Format de réponse invalide");
@@ -754,15 +740,11 @@ export default function CataloguePage() {
       selectedPriceList.priceId,
       selectedProduct.prodId,
       selectedType?.itemTypeId || null,
-      selectedItem?.itemId || null,
-      false // Start with single column
+      selectedItem?.itemId || null
     );
   };
 
-  const handleModalPriceListChange = async (
-    priceId: number, 
-    includeMultipleColumns: boolean = false
-  ) => {
+  const handleModalPriceListChange = async (priceId: number) => {
     const pl = priceLists.find(p => p.priceId === priceId);
     if (pl && modalProdId) {
       setSelectedPriceList(pl);
@@ -770,8 +752,7 @@ export default function CataloguePage() {
         priceId, 
         modalProdId, 
         modalTypeId, 
-        modalItemId, 
-        includeMultipleColumns
+        modalItemId
       );
     }
   };
@@ -991,7 +972,7 @@ export default function CataloguePage() {
               <div 
                 className="mt-4 p-4 rounded-xl border"
                 style={{ 
-                  backgroundColor: `${accentColor}10`, // 10% opacity hex
+                  backgroundColor: `${accentColor}10`,
                   borderColor: `${accentColor}30` 
                 }}
               >
@@ -1016,8 +997,8 @@ export default function CataloguePage() {
         data={priceData}
         priceLists={priceLists}
         selectedPriceList={selectedPriceList}
-        columnsConfig={columnsConfig}    // NEW
-        primaryPriceId={primaryPriceId}  // NEW
+        columnsConfig={columnsConfig}
+        primaryPriceId={primaryPriceId}
         onPriceListChange={handleModalPriceListChange}
         loading={loadingPrices}
         error={priceError}
