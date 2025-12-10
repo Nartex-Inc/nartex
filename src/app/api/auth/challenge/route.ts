@@ -22,8 +22,14 @@ export async function GET(request: Request) {
   // --- CRITICAL FIX END ---
 
   const options = await generateAuthenticationOptions({
-    rpID: rpID, 
-    userVerification: "required", // Forces FaceID/PIN
+    rpID: rpID,
+    userVerification: "required",
+    // 👇 THIS IS THE KEY CHANGE
+    authenticatorSelection: {
+      authenticatorAttachment: 'platform', // Forces Windows Hello / FaceID
+      userVerification: 'required',
+      residentKey: 'preferred', // Helps with avoiding "choose an account" steps if possible
+    },
     allowCredentials: [],
   });
   
