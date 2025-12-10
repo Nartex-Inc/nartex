@@ -174,11 +174,6 @@ function PriceModal({
   const calcPricePerLitre = (price: number, volume: number | null) => volume ? price / volume : null;
   const calcMarginPds = (unit: number, pds: number | null) => pds && unit ? ((pds - unit) / pds) * 100 : null;
 
-  // Handlers
-  const handleListChange = (newPriceId: number) => {
-    onPriceListChange(newPriceId);
-  };
-
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 md:p-4">
       <div 
@@ -199,7 +194,7 @@ function PriceModal({
             </h2>
             
             <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-              {/* Controls Group - Only Details toggle now */}
+              {/* Controls Group - Only Details toggle */}
               <div className="flex items-center gap-4">
                 <Toggle 
                   enabled={showDetails} 
@@ -212,7 +207,7 @@ function PriceModal({
               <div className="flex items-center gap-3 flex-1">
                 <select
                   value={selectedPriceList?.priceId || ""}
-                  onChange={(e) => handleListChange(parseInt(e.target.value))}
+                  onChange={(e) => onPriceListChange(parseInt(e.target.value))}
                   disabled={loading}
                   className="h-12 px-4 bg-white/20 text-white rounded-xl font-bold text-base border-2 border-white/30 focus:border-white outline-none min-w-[200px] disabled:opacity-50"
                 >
@@ -260,19 +255,17 @@ function PriceModal({
                   className="bg-white dark:bg-neutral-900 rounded-xl overflow-hidden shadow-lg border border-neutral-200 dark:border-neutral-800"
                 >
                   {/* Item Header */}
-                  <div className="px-4 py-3" style={{ backgroundColor: accentColor }}>
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h3 className="text-lg font-black text-white">
-                          {item.description.split(' ')[0].toUpperCase()}
-                        </h3>
-                        <p className="text-white/80 text-sm">
-                          {item.className || item.description}
-                        </p>
-                      </div>
-                      <div className="text-white/60 font-mono text-xs">
-                        {item.itemCode}
-                      </div>
+                  <div className="px-4 py-3 flex justify-between items-center" style={{ backgroundColor: accentColor }}>
+                    <div>
+                      <h3 className="text-lg font-black text-white">
+                        {item.description.split(' ')[0].toUpperCase()}
+                      </h3>
+                      <p className="text-white/80 text-sm">
+                        {item.className || item.description}
+                      </p>
+                    </div>
+                    <div className="text-white/60 font-mono text-xs">
+                      {item.itemCode}
                     </div>
                   </div>
                   
@@ -280,22 +273,21 @@ function PriceModal({
                     <table className="w-full text-sm md:text-base border-collapse">
                       <thead>
                         <tr className="bg-neutral-200 dark:bg-neutral-800">
-                          <th className="text-left p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-32 md:w-auto">
+                          <th className="text-left p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 whitespace-nowrap">
                             Article
                           </th>
-                          <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-16">
+                          <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 whitespace-nowrap">
                             Format
                           </th>
-                          <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-16">
+                          <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 whitespace-nowrap">
                             Qte/Qty
                           </th>
-                          <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-16">
+                          <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 whitespace-nowrap">
                             (+) Unit
                           </th>
 
                           {/* Dynamic Price Columns - Generated from columnsConfig */}
-                          {columnsConfig.map((col, colIdx) => {
-                            // Check if this column corresponds to the selected price list
+                          {columnsConfig.map((col) => {
                             const isPrimary = col.priceId === selectedPriceList?.priceId;
                             const isPds = col.code === "PDS";
                             
@@ -303,7 +295,7 @@ function PriceModal({
                               <th 
                                 key={col.priceId}
                                 className={cn(
-                                  "text-right p-3 font-bold border border-neutral-300 dark:border-neutral-700 min-w-[90px]",
+                                  "text-right p-3 font-bold border border-neutral-300 dark:border-neutral-700 min-w-[100px] whitespace-nowrap",
                                   isPrimary 
                                     ? "text-neutral-900 dark:text-white bg-white dark:bg-neutral-900 border-b-2" 
                                     : isPds
@@ -317,28 +309,28 @@ function PriceModal({
                             );
                           })}
 
-                          {/* Cas (Price per Case) Column - After all price columns */}
-                          <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[80px]">
+                          {/* Cas (Price per Case) Column */}
+                          <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[80px] whitespace-nowrap">
                             Cas
                           </th>
 
                           {/* $/L Column */}
-                          <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[80px]">
+                          <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[80px] whitespace-nowrap">
                             ($/L)
                           </th>
 
                           {/* Margin % Column */}
-                          <th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 min-w-[60px]">
+                          <th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 min-w-[60px] whitespace-nowrap">
                             (%)
                           </th>
 
                           {/* Expanded Details Columns */}
                           {showDetails && (
                             <>
-                              <th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 w-24">
+                              <th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 whitespace-nowrap">
                                 Coût
                               </th>
-                              <th className="text-right p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20 w-24">
+                              <th className="text-right p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20 whitespace-nowrap">
                                 Esc.
                               </th>
                             </>
@@ -383,7 +375,7 @@ function PriceModal({
 
                               {/* Dynamic Price Columns Data */}
                               {columnsConfig.map(col => {
-                                const priceVal = range.prices ? range.prices[col.priceId] : null;
+                                const priceVal = range.prices?.[col.priceId];
                                 const isPrimary = col.priceId === selectedPriceList?.priceId;
                                 const isPds = col.code === "PDS";
                                 
@@ -525,7 +517,7 @@ export default function CataloguePage() {
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [priceError, setPriceError] = useState<string | null>(null);
   
-  // Multi-column state (always enabled)
+  // Multi-column state
   const [columnsConfig, setColumnsConfig] = useState<PriceColumnConfig[]>([]);
   const [primaryPriceId, setPrimaryPriceId] = useState<number>(0);
 
@@ -552,9 +544,8 @@ export default function CataloguePage() {
           const pls: PriceList[] = await plRes.json();
           setPriceLists(pls);
           
-          // Look for price list starting with "01" (EXPERT), otherwise fallback to the first one
+          // Default to first price list (01-EXP)
           const defaultList = pls.find(p => p.code.startsWith("01")) || pls[0];
-          
           if (defaultList) setSelectedPriceList(defaultList);
         }
       } catch (err) {
@@ -582,7 +573,7 @@ export default function CataloguePage() {
     return () => clearTimeout(timeout);
   }, [searchQuery]);
 
-  // --- Fetch Prices (Always includes multiple columns) ---
+  // --- Fetch Prices ---
   const fetchPrices = async (
     priceId: number, 
     prodId: number, 
@@ -606,19 +597,27 @@ export default function CataloguePage() {
       const res = await fetch(`/api/catalogue/prices?${params}`);
       const json = await res.json();
 
-      if (!json.ok && json.error) {
-         setPriceError(json.error);
-         return;
-      }
-
+      // Handle new API format with { ok, items, columnsConfig }
       if (json.ok) {
         setPriceData(json.items || []);
         setColumnsConfig(json.columnsConfig || []);
         setPrimaryPriceId(json.primaryPriceId || priceId);
-      } else if (Array.isArray(json)) {
-        // Fallback for old API format
+      } 
+      // Handle old API format (array directly)
+      else if (Array.isArray(json)) {
         setPriceData(json);
-      } else {
+        // For old format, create basic columns config
+        setColumnsConfig([
+          { priceId: priceId, label: "Prix", code: "PRIX" },
+          { priceId: 17, label: "PDS_MSRP", code: "PDS" }
+        ]);
+        setPrimaryPriceId(priceId);
+      }
+      // Handle error
+      else if (json.error) {
+        setPriceError(json.error);
+      }
+      else {
         setPriceError("Format de réponse invalide");
       }
       
