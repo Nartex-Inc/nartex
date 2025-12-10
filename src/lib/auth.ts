@@ -54,6 +54,7 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) throw new Error("Adresse e-mail et mot de passe requis.");
         
+        // Fix: Case-insensitive search for the user
         const user = await prisma.user.findFirst({ 
           where: { 
             email: { equals: String(credentials.email), mode: "insensitive" } 
@@ -76,14 +77,13 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    // 1. FORCE DB UPDATE ON SIGN IN
+    // 1. SIGN IN: Force the Database to update with the Google Image
     async signIn({ user, account, profile }) {
       if (account?.provider === "google" && user.email) {
         try {
-          // Google sends the image URL in the 'picture' field
+          // Get the image URL directly from the Google profile
           const newImage = (profile as any)?.picture;
           
-          // Only update if we actually got an image
           if (newImage) {
             await prisma.user.update({
               where: { email: user.email },
@@ -100,6 +100,7 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
 
+    // 2. JWT: Fetch the NEW image from the database
     async jwt({ token, user, trigger, session }) {
       if (trigger === "update" && session?.user) {
         token.role = session.user.role;
@@ -108,24 +109,29 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = (user as any).role || "user";
-        // Ensure we capture the image initially if available
+        // If the user object already has an image, use it
         if (user.image) token.picture = user.image;
       }
 
-      // 2. FORCE REFRESH FROM DB (CRITICAL FIX)
+      // CRITICAL: Refresh from DB to get the updated image
       if (token.email) {
          try {
            const dbUser = await prisma.user.findUnique({ 
               where: { email: token.email },
-              // ADDED 'image: true' HERE so the token actually gets the new URL
-              select: { id: true, role: true, image: true } 
+              select: { 
+                id: true, 
+                role: true, 
+                image: true // <--- THIS WAS MISSING
+              } 
            });
            
            if (dbUser) {
                token.id = dbUser.id;
                token.role = dbUser.role as string;
-               // Overwrite the token picture with the one from the database
-               token.picture = dbUser.image; 
+               // Force the token to use the database image
+               if (dbUser.image) {
+                 token.picture = dbUser.image;
+               }
            }
          } catch (error) {
            console.error("Error refreshing user data:", error);
@@ -134,12 +140,12 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
 
+    // 3. SESSION: Pass the token image to the client
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = token.id as string;
         (session.user as any).role = token.role as string;
-        // Ensure the session uses the token's picture
-        session.user.image = token.picture; 
+        session.user.image = token.picture; // Ensure the session gets the image
       }
       return session;
     },
