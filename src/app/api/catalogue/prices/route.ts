@@ -8,79 +8,83 @@ import { pg } from "@/lib/db";
 // ============================================================================
 
 const PDS_PRICE_ID = 17;
-const EXP_PRICE_ID = 4; // Used for "Costing Base" calculation if needed
+const EXP_PRICE_ID = 1; // Used for "Costing Base" calculation - EXPERT price
 
 // Standard Database Price IDs
 const PRICE_LIST_IDS = {
-  EXP: 1,        // 01-EXP
-  DET: 2,        // 02-DET
-  IND: 3,        // 03-IND
-  GROSEXP: 4,    // 04-GROSEXP
-  GROS: 5,       // 05-GROS
-  INDHZ: 6,      // 06-INDHZ
-  DETHZ: 7,      // 07-DETHZ
-  PDS: 17,       // 08-PDS
+  EXP: 1,        // 01-EXP (EXPERT)
+  DET: 2,        // 02-DET (DÉTAILLANT)
+  IND: 3,        // 03-IND (INDUSTRIEL)
+  GROSEXP: 4,    // 04-GROSEXP (GROSSISTE EXPERT)
+  GROS: 5,       // 05-GROS (GROSSISTE)
+  INDHZ: 6,      // 06-INDHZ (INDUSTRIEL HZ)
+  DETHZ: 7,      // 07-DETHZ (DÉTAILLANT HZ)
+  PDS: 17,       // PDS/MSRP
 };
 
-// COLUMN MAPPING - FIXED ORDER AS REQUESTED
+// COLUMN MAPPING - Each price list shows specific columns in order
+// The column matching the selected priceId is the "primary" (highlighted)
 const PRICE_LIST_COLUMN_MAPPING: Record<number, { code: string; columns: { priceId: number; label: string; code: string }[] }> = {
   [PRICE_LIST_IDS.EXP]: {
-    code: "01-EXP",
+    code: "01-EXPERT",
     columns: [
       { priceId: PRICE_LIST_IDS.EXP, label: "EXPERT", code: "EXPERT" },
-      { priceId: PRICE_LIST_IDS.GROS, label: "GROSSISTE", code: "GROSSISTE" },
-      { priceId: PRICE_LIST_IDS.DET, label: "DÉTAILLANT", code: "DÉTAILLANT" },
-      { priceId: PRICE_LIST_IDS.IND, label: "INDUSTRIEL", code: "INDUSTRIEL" },
-      { priceId: PRICE_LIST_IDS.PDS, label: "PDS", code: "PDS" },
+      { priceId: PRICE_LIST_IDS.GROS, label: "GROSSISTE_WHOLESALE", code: "GROSSISTE" },
+      { priceId: PRICE_LIST_IDS.DET, label: "DÉTAILLANT_RETAILER", code: "DÉTAILLANT" },
+      { priceId: PRICE_LIST_IDS.IND, label: "INDUSTRIEL_INDUSTRIAL", code: "INDUSTRIEL" },
+      { priceId: PRICE_LIST_IDS.PDS, label: "PDS_MSRP", code: "PDS" },
     ],
   },
   [PRICE_LIST_IDS.DET]: {
-    code: "02-DET",
+    code: "02-DÉTAILLANT",
     columns: [
-      { priceId: PRICE_LIST_IDS.DET, label: "DÉTAILLANT", code: "DÉTAILLANT" },
-      { priceId: PRICE_LIST_IDS.IND, label: "INDUSTRIEL", code: "INDUSTRIEL" },
-      { priceId: PRICE_LIST_IDS.PDS, label: "PDS", code: "PDS" },
+      { priceId: PRICE_LIST_IDS.DET, label: "DÉTAILLANT_RETAILER", code: "DÉTAILLANT" },
+      { priceId: PRICE_LIST_IDS.IND, label: "INDUSTRIEL_INDUSTRIAL", code: "INDUSTRIEL" },
+      { priceId: PRICE_LIST_IDS.PDS, label: "PDS_MSRP", code: "PDS" },
     ],
   },
   [PRICE_LIST_IDS.IND]: {
-    code: "03-IND",
+    code: "03-INDUSTRIEL",
     columns: [
-      { priceId: PRICE_LIST_IDS.IND, label: "INDUSTRIEL", code: "INDUSTRIEL" },
-      { priceId: PRICE_LIST_IDS.PDS, label: "PDS", code: "PDS" },
+      { priceId: PRICE_LIST_IDS.IND, label: "INDUSTRIEL_INDUSTRIAL", code: "INDUSTRIEL" },
+      { priceId: PRICE_LIST_IDS.PDS, label: "PDS_MSRP", code: "PDS" },
     ],
   },
   [PRICE_LIST_IDS.GROSEXP]: {
-    code: "04-GROSEXP",
+    code: "04-GROSSISTE EXPERT",
     columns: [
-      { priceId: PRICE_LIST_IDS.EXP, label: "EXPERT", code: "EXPERT" },
       { priceId: PRICE_LIST_IDS.GROSEXP, label: "GROSS-EXP", code: "GROSS-EXP" },
-      { priceId: PRICE_LIST_IDS.GROS, label: "GROSSISTE", code: "GROSSISTE" },
-      { priceId: PRICE_LIST_IDS.IND, label: "INDUSTRIEL", code: "INDUSTRIEL" },
-      { priceId: PRICE_LIST_IDS.PDS, label: "PDS", code: "PDS" },
+      { priceId: PRICE_LIST_IDS.EXP, label: "EXPERT", code: "EXPERT" },
+      { priceId: PRICE_LIST_IDS.GROS, label: "GROSSISTE_WHOLESALE", code: "GROSSISTE" },
+      { priceId: PRICE_LIST_IDS.DET, label: "DÉTAILLANT_RETAILER", code: "DÉTAILLANT" },
+      { priceId: PRICE_LIST_IDS.IND, label: "INDUSTRIEL_INDUSTRIAL", code: "INDUSTRIEL" },
+      { priceId: PRICE_LIST_IDS.PDS, label: "PDS_MSRP", code: "PDS" },
     ],
   },
   [PRICE_LIST_IDS.GROS]: {
-    code: "05-GROS",
+    code: "05-GROSSISTE",
     columns: [
-      { priceId: PRICE_LIST_IDS.GROS, label: "GROSSISTE", code: "GROSSISTE" },
-      { priceId: PRICE_LIST_IDS.DET, label: "DÉTAILLANT", code: "DÉTAILLANT" },
-      { priceId: PRICE_LIST_IDS.IND, label: "INDUSTRIEL", code: "INDUSTRIEL" },
-      { priceId: PRICE_LIST_IDS.PDS, label: "PDS", code: "PDS" },
+      { priceId: PRICE_LIST_IDS.GROS, label: "GROSSISTE_WHOLESALE", code: "GROSSISTE" },
+      { priceId: PRICE_LIST_IDS.DET, label: "DÉTAILLANT_RETAILER", code: "DÉTAILLANT" },
+      { priceId: PRICE_LIST_IDS.IND, label: "INDUSTRIEL_INDUSTRIAL", code: "INDUSTRIEL" },
+      { priceId: PRICE_LIST_IDS.PDS, label: "PDS_MSRP", code: "PDS" },
     ],
   },
-  // Fallbacks for HZ lists
   [PRICE_LIST_IDS.INDHZ]: {
-    code: "06-INDHZ",
+    code: "06-INDUSTRIEL HZ",
     columns: [
-      { priceId: PRICE_LIST_IDS.INDHZ, label: "INDUSTRIEL HZ", code: "IND-HZ" },
-      { priceId: PRICE_LIST_IDS.PDS, label: "PDS", code: "PDS" },
+      { priceId: PRICE_LIST_IDS.INDHZ, label: "INDUSTRIEL_HZ", code: "IND-HZ" },
+      { priceId: PRICE_LIST_IDS.IND, label: "INDUSTRIEL_INDUSTRIAL", code: "INDUSTRIEL" },
+      { priceId: PRICE_LIST_IDS.PDS, label: "PDS_MSRP", code: "PDS" },
     ],
   },
   [PRICE_LIST_IDS.DETHZ]: {
-    code: "07-DETHZ",
+    code: "07-DÉTAILLANT HZ",
     columns: [
-      { priceId: PRICE_LIST_IDS.DETHZ, label: "DÉTAILLANT HZ", code: "DET-HZ" },
-      { priceId: PRICE_LIST_IDS.PDS, label: "PDS", code: "PDS" },
+      { priceId: PRICE_LIST_IDS.DETHZ, label: "DÉTAILLANT_HZ", code: "DET-HZ" },
+      { priceId: PRICE_LIST_IDS.DET, label: "DÉTAILLANT_RETAILER", code: "DÉTAILLANT" },
+      { priceId: PRICE_LIST_IDS.IND, label: "INDUSTRIEL_INDUSTRIAL", code: "INDUSTRIEL" },
+      { priceId: PRICE_LIST_IDS.PDS, label: "PDS_MSRP", code: "PDS" },
     ],
   },
 };
@@ -88,7 +92,7 @@ const PRICE_LIST_COLUMN_MAPPING: Record<number, { code: string; columns: { price
 function getPrimaryPriceId(selectedPriceId: number): number {
   const mapping = PRICE_LIST_COLUMN_MAPPING[selectedPriceId];
   if (!mapping) return selectedPriceId;
-  // Primary is the first non-PDS column
+  // Primary is the first non-PDS column (the main price for this list)
   const primary = mapping.columns.find(c => c.priceId !== PRICE_LIST_IDS.PDS);
   return primary?.priceId ?? selectedPriceId;
 }
@@ -109,7 +113,6 @@ export async function GET(request: NextRequest) {
     const prodId = searchParams.get("prodId");
     const typeId = searchParams.get("typeId");
     const itemId = searchParams.get("itemId");
-    const includeMultipleColumns = searchParams.get("multipleColumns") === "true";
 
     if (!priceId || !prodId) {
       return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
@@ -133,17 +136,18 @@ export async function GET(request: NextRequest) {
       paramIdx++;
     }
 
-    // Determine IDs to fetch
+    // Get the column mapping for this price list - ALWAYS use multiple columns
     const mapping = PRICE_LIST_COLUMN_MAPPING[priceIdNum];
-    const priceIdsToFetch = includeMultipleColumns && mapping 
-      ? mapping.columns.map(c => c.priceId)
-      : [priceIdNum, PDS_PRICE_ID]; // Minimal fetch if single column
     
-    // Ensure unique IDs and create Postgres Array string
+    // If no mapping exists for this priceId, create a default one
+    const priceIdsToFetch = mapping 
+      ? mapping.columns.map(c => c.priceId)
+      : [priceIdNum, PDS_PRICE_ID];
+    
+    // Ensure unique IDs
     const uniquePriceIds = [...new Set(priceIdsToFetch)];
 
-    // 1. MAIN QUERY (Multi-Column Capable)
-    // Uses ANY($param) to fetch all relevant prices in one go
+    // 1. MAIN QUERY - Fetches all relevant price columns
     const mainQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", ipr."priceid", MAX(ipr."itempricedateid") as "latestDateId"
@@ -172,7 +176,7 @@ export async function GET(request: NextRequest) {
     `;
     const mainParams = [...baseParams, uniquePriceIds];
 
-    // 2. PDS QUERY (For specific margin calculations if needed separate)
+    // 2. PDS QUERY - For MSRP margin calculations
     const pdsQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", MAX(ipr."itempricedateid") as "latestDateId"
@@ -190,7 +194,7 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
     `;
 
-    // 3. EXP QUERY (For Costing Base)
+    // 3. EXP QUERY - For Costing Base calculations
     const expQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", MAX(ipr."itempricedateid") as "latestDateId"
@@ -208,7 +212,7 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
     `;
 
-    // 4. DISCOUNT QUERY (Fixed Regex Check)
+    // 4. DISCOUNT QUERY
     const discountQuery = `
       SELECT 
         i."ItemId" as "itemId", 
@@ -281,8 +285,8 @@ export async function GET(request: NextRequest) {
         item.rangesMap.set(qty, {
           rangeId: row.id,
           qtyMin: qty,
-          unitPrice: 0, // Default
-          prices: {} // Dictionary
+          unitPrice: 0,
+          prices: {} // Dictionary of priceId -> value
         });
       }
 
@@ -314,7 +318,7 @@ export async function GET(request: NextRequest) {
           // Find applicable discount (largest greaterThan that is <= qtyMin)
           const applicable = discounts
             .filter((d: any) => range.qtyMin >= d.greaterThan)
-            .pop(); // Since sorted ASC, pop gives highest valid
+            .pop();
           
           if (applicable) discountAmt = applicable.amt;
         }
@@ -335,10 +339,11 @@ export async function GET(request: NextRequest) {
       return item;
     });
 
-    // Determine columns configuration to send to frontend
-    const columnsConfig = includeMultipleColumns && mapping
-      ? mapping.columns
-      : [{ priceId: priceIdNum, label: "Prix", code: "Prix" }];
+    // Determine columns configuration - ALWAYS return the full mapping
+    const columnsConfig = mapping?.columns || [
+      { priceId: priceIdNum, label: "Prix", code: "Prix" },
+      { priceId: PDS_PRICE_ID, label: "PDS_MSRP", code: "PDS" }
+    ];
 
     return NextResponse.json({
       ok: true,
