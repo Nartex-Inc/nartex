@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useCurrentAccent } from "@/components/accent-color-provider";
+// 1. WEBAUTHN IMPORT
+import { startAuthentication } from '@simplewebauthn/browser';
 
 // --- Interfaces ---
 interface Product {
@@ -103,7 +105,8 @@ function AnimatedPrice({ value, duration = 600 }: { value: number; duration?: nu
 }
 
 // --- Toggle Component ---
-function Toggle({ enabled, onChange, label, accentColor }: { enabled: boolean; onChange: (v: boolean) => void; label: string; accentColor: string }) {
+// Updated type to accept async functions
+function Toggle({ enabled, onChange, label, accentColor }: { enabled: boolean; onChange: (v: boolean) => void | Promise<void>; label: string; accentColor: string }) {
   return (
     <label className="flex items-center gap-2 cursor-pointer select-none">
       <span className="text-white text-sm font-medium hidden md:inline-block">{label}</span>
@@ -229,7 +232,7 @@ function QuickAddSearch({
   );
 }
 
-// --- NEW COMPONENT: MultiSelect Dropdown for Articles ---
+// --- MultiSelect Dropdown for Articles ---
 function MultiSelectDropdown({
   items,
   selectedIds,
@@ -247,7 +250,6 @@ function MultiSelectDropdown({
   const [search, setSearch] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -272,7 +274,6 @@ function MultiSelectDropdown({
 
   return (
     <div className="relative flex-1 min-w-[180px]" ref={dropdownRef}>
-      {/* Trigger Button */}
       <div
         onClick={() => !disabled && setIsOpen(!isOpen)}
         className={cn(
@@ -289,11 +290,8 @@ function MultiSelectDropdown({
         <span className="text-xs opacity-70 ml-2">▼</span>
       </div>
 
-      {/* Dropdown Content */}
       {isOpen && (
         <div className="absolute top-12 left-0 w-full min-w-[300px] z-50 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
-          
-          {/* Search Bar */}
           <div className="p-2 border-b border-neutral-100 dark:border-neutral-800">
             <input 
               autoFocus
@@ -303,8 +301,6 @@ function MultiSelectDropdown({
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-
-          {/* List */}
           <div className="max-h-64 overflow-y-auto p-1">
             {filteredItems.length > 0 ? (
               filteredItems.map(item => (
@@ -327,19 +323,13 @@ function MultiSelectDropdown({
                     )}
                   </div>
                   <div className="flex-1 overflow-hidden">
-                    <div className="font-bold text-neutral-900 dark:text-white truncate">
-                      {item.itemCode}
-                    </div>
-                    <div className="text-xs text-neutral-500 truncate">
-                      {item.description}
-                    </div>
+                    <div className="font-bold text-neutral-900 dark:text-white truncate">{item.itemCode}</div>
+                    <div className="text-xs text-neutral-500 truncate">{item.description}</div>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="p-4 text-center text-xs text-neutral-400">
-                Aucun article trouvé
-              </div>
+              <div className="p-4 text-center text-xs text-neutral-400">Aucun article trouvé</div>
             )}
           </div>
         </div>
@@ -354,23 +344,20 @@ interface PriceModalProps {
   onClose: () => void;
   data: ItemPriceData[];
   
-  // Data for Dropdowns
   priceLists: PriceList[];
   products: Product[];
   itemTypes: ItemType[];
   items: Item[];
 
-  // Selections
   selectedPriceList: PriceList | null;
   selectedProduct: Product | null;
   selectedType: ItemType | null;
-  selectedItemIds: Set<number>; // CHANGED: Set for multi-select
+  selectedItemIds: Set<number>;
 
-  // Handlers
   onPriceListChange: (priceId: number) => void;
   onProductChange: (prodId: string) => void;
   onTypeChange: (typeId: string) => void;
-  onItemsChange: (ids: Set<number>) => void; // CHANGED
+  onItemsChange: (ids: Set<number>) => void;
   
   onAddItems: (itemIds: number[]) => void;
   onReset: () => void;
@@ -393,10 +380,56 @@ function PriceModal({
 }: PriceModalProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+  
+  // 2. AUTH STATE
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   if (!isOpen) return null;
 
   const itemsWithPrices = data.filter(item => item.ranges && item.ranges.length > 0);
+
+  // --- 3. AUTH HANDLER (STEP-UP) ---
+  const handleToggleDetails = async (newValue: boolean) => {
+    // If turning OFF, just do it.
+    if (!newValue) {
+        setShowDetails(false);
+        return;
+    }
+
+    // If turning ON, trigger Step-up Auth
+    setIsAuthenticating(true);
+    try {
+        // A. Get Challenge
+        const resp = await fetch('/api/auth/challenge');
+        if (!resp.ok) throw new Error('Challenge fetch failed');
+        const options = await resp.json();
+
+        // B. Trigger iPad FaceID / PIN
+        const authResp = await startAuthentication(options);
+
+        // C. Verify
+        const verifyResp = await fetch('/api/auth/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(authResp),
+        });
+
+        const verification = await verifyResp.json();
+
+        if (verification.verified) {
+            setShowDetails(true); // Success
+        } else {
+            alert("Vérification échouée.");
+            setShowDetails(false);
+        }
+    } catch (error) {
+        console.error("Auth error", error);
+        alert("Authentification annulée ou impossible.");
+        setShowDetails(false);
+    } finally {
+        setIsAuthenticating(false);
+    }
+  };
 
   // --- GROUPING LOGIC ---
   const groupedItems = itemsWithPrices.reduce((acc, item) => {
@@ -438,14 +471,20 @@ function PriceModal({
             </h2>
             
             <div className="flex items-center gap-3">
+              {/* Authenticating Spinner Text */}
+              {isAuthenticating && (
+                <span className="text-white text-xs font-bold animate-pulse uppercase tracking-wider mr-2">
+                  Vérification FaceID...
+                </span>
+              )}
+
               <Toggle 
                 enabled={showDetails} 
-                onChange={setShowDetails} 
+                onChange={handleToggleDetails} // CONNECTED HANDLER
                 label="Afficher détails" 
                 accentColor={accentColor}
               />
 
-              {/* Reset Button */}
               <button 
                 onClick={onReset}
                 className="h-10 w-10 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors"
@@ -505,7 +544,7 @@ function PriceModal({
                 ))}
               </select>
 
-              {/* Article Multi-Select (Replaced standard select) */}
+              {/* Article Multi-Select */}
               <MultiSelectDropdown
                 items={items}
                 selectedIds={selectedItemIds}
@@ -517,7 +556,6 @@ function PriceModal({
               <div className="flex gap-2 ml-2">
                 <button 
                   onClick={onLoadSelection}
-                  // Disable if currently loading OR (no category selected AND no individual items selected)
                   disabled={loading || (!selectedProduct && selectedItemIds.size === 0)}
                   className="h-10 px-4 rounded-lg bg-white text-black font-bold text-sm hover:bg-white/90 disabled:opacity-50 transition-colors whitespace-nowrap shadow-sm"
                 >
@@ -572,6 +610,7 @@ function PriceModal({
                     ? Object.keys(firstItem.ranges[0].columns).sort()
                     : [selectedPriceList?.code || 'Prix'];
 
+                // VISIBILITY FILTER: Hide '01-EXP' if details OFF, unless it's the selected list
                 if (!showDetails && selectedPriceList?.code !== "01-EXP") {
                     priceColumns = priceColumns.filter(c => c !== "01-EXP");
                 }
@@ -720,40 +759,32 @@ function 片({ children }: { children: React.ReactNode }) {
 export default function CataloguePage() {
   const { color: accentColor, muted: accentMuted } = useCurrentAccent();
 
-  // Data
   const [products, setProducts] = useState<Product[]>([]);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [priceLists, setPriceLists] = useState<PriceList[]>([]);
   
-  // Selections
   const [selectedPriceList, setSelectedPriceList] = useState<PriceList | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedType, setSelectedType] = useState<ItemType | null>(null);
   
-  // CHANGED: Using Set for Multi-Select
   const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(new Set());
-  const [selectedItem, setSelectedItem] = useState<Item | null>(null); // Kept for main page single-select compatibility
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   
-  // Search
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Item[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   
-  // Price Modal
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [priceData, setPriceData] = useState<ItemPriceData[]>([]);
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [priceError, setPriceError] = useState<string | null>(null);
   
-  // For re-fetching
   const [modalProdId, setModalProdId] = useState<number | null>(null);
   
-  // Loading states
   const [loadingTypes, setLoadingTypes] = useState(false);
   const [loadingItems, setLoadingItems] = useState(false);
 
-  // --- Initial Load ---
   useEffect(() => {
     async function init() {
       try {
@@ -776,7 +807,6 @@ export default function CataloguePage() {
     init();
   }, []);
 
-  // --- Search Debounce ---
   useEffect(() => {
     const timeout = setTimeout(async () => {
       if (searchQuery.length > 1) {
@@ -794,7 +824,6 @@ export default function CataloguePage() {
     return () => clearTimeout(timeout);
   }, [searchQuery]);
 
-  // --- Handle Adding Items via Quick Add / Modal Dropdown ---
   const handleAddItems = async (itemIds: number[]) => {
     if (!selectedPriceList || itemIds.length === 0) return;
     setLoadingPrices(true);
@@ -816,17 +845,14 @@ export default function CataloguePage() {
     }
   };
 
-  // --- Handle Load Selection from Modal Dropdowns ---
   const handleLoadSelection = async () => {
     if (!selectedPriceList) return;
     
-    // CASE A: User has selected specific items via checkboxes
     if (selectedItemIds.size > 0) {
         await handleAddItems(Array.from(selectedItemIds));
         return;
     }
 
-    // CASE B: User hasn't selected items, so we fetch based on Category/Class context
     setLoadingPrices(true);
     try {
         let url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}`;
@@ -849,7 +875,6 @@ export default function CataloguePage() {
     }
   };
 
-  // --- Handlers ---
   const handlePriceListChange = (priceId: string) => {
     const pl = priceLists.find(p => p.priceId === parseInt(priceId));
     if (pl) setSelectedPriceList(pl);
@@ -861,7 +886,7 @@ export default function CataloguePage() {
     setSelectedProduct(prod);
     setSelectedType(null);
     setSelectedItem(null);
-    setSelectedItemIds(new Set()); // Reset selections on category change
+    setSelectedItemIds(new Set());
     setItems([]);
     setItemTypes([]);
     setLoadingTypes(true);
@@ -877,7 +902,7 @@ export default function CataloguePage() {
     if (!type) return;
     setSelectedType(type);
     setSelectedItem(null);
-    setSelectedItemIds(new Set()); // Reset selections on class change
+    setSelectedItemIds(new Set());
     setItems([]);
     setLoadingItems(true);
     try {
@@ -924,7 +949,6 @@ export default function CataloguePage() {
     setPriceError(null);
     setShowPriceModal(true);
     
-    // Initial fetch based on page selections
     setLoadingPrices(true);
     try {
         let url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}&prodId=${selectedProduct.prodId}`;
@@ -967,7 +991,7 @@ export default function CataloguePage() {
         <main className="flex-1 p-4 md:p-6 flex flex-col justify-center items-center">
           <div className="w-full max-w-3xl">
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-lg p-5 md:p-8">
-              {/* Branding & Search (unchanged) */}
+              {/* Branding & Search */}
               <div className="flex items-center gap-4 mb-8">
                 <Image src="/sinto-logo.svg" alt="SINTO Logo" width={64} height={64} className="h-16 w-16 object-contain" />
                 <div>
@@ -992,7 +1016,7 @@ export default function CataloguePage() {
                 )}
               </div>
 
-              {/* Main Form Fields (unchanged) */}
+              {/* Main Form Fields */}
               <div className="space-y-5">
                 <div><label className="block text-xs font-bold text-neutral-500 mb-2 uppercase tracking-wide">1. Liste de Prix</label><select value={selectedPriceList?.priceId || ""} onChange={(e) => handlePriceListChange(e.target.value)} className="w-full h-14 px-4 text-base font-semibold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-0 focus:outline-none transition-colors" style={{ '--focus-color': accentColor } as React.CSSProperties}><option value="" disabled>Sélectionner...</option>{priceLists.map(pl => (<option key={pl.priceId} value={pl.priceId}>{pl.code} - {pl.name}</option>))}</select><style jsx>{`select:focus { border-color: var(--focus-color) !important; }`}</style></div>
                 <div><label className="block text-xs font-bold text-neutral-500 mb-2 uppercase tracking-wide">2. Catégorie</label><select value={selectedProduct?.prodId || ""} onChange={(e) => handleProductChange(e.target.value)} disabled={!selectedPriceList} className={cn("w-full h-14 px-4 text-base font-semibold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-0 focus:outline-none transition-all", !selectedPriceList && "opacity-50 cursor-not-allowed")} style={{ '--focus-color': accentColor } as React.CSSProperties}><option value="" disabled>Sélectionner...</option>{products.map(p => (<option key={p.prodId} value={p.prodId}>{p.name} ({p.itemCount})</option>))}</select></div>
@@ -1021,13 +1045,13 @@ export default function CataloguePage() {
         selectedPriceList={selectedPriceList}
         selectedProduct={selectedProduct}
         selectedType={selectedType}
-        selectedItemIds={selectedItemIds} // CHANGED to MultiSelect
+        selectedItemIds={selectedItemIds}
 
         // Handlers
         onPriceListChange={handleModalPriceListChange}
         onProductChange={handleProductChange}
         onTypeChange={handleTypeChange}
-        onItemsChange={setSelectedItemIds} // CHANGED
+        onItemsChange={setSelectedItemIds}
         
         onAddItems={handleAddItems}
         onReset={() => setPriceData([])}
