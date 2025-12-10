@@ -152,9 +152,7 @@ function PriceModal({
   const itemsWithPrices = data.filter(item => item.ranges && item.ranges.length > 0);
 
   // --- GROUPING LOGIC ---
-  // We group items by their className so we can render one header per class
   const groupedItems = itemsWithPrices.reduce((acc, item) => {
-    // Use className as key, fallback to "Autres" if missing
     const groupKey = item.className || "Autres";
     if (!acc[groupKey]) {
       acc[groupKey] = [];
@@ -238,10 +236,10 @@ function PriceModal({
             </div>
           ) : Object.keys(groupedItems).length > 0 ? (
             <div className="space-y-8">
-              {/* ITERATE OVER GROUPS INSTEAD OF INDIVIDUAL ITEMS */}
+              {/* ITERATE OVER GROUPS */}
               {Object.entries(groupedItems).map(([className, classItems]) => {
                 
-                // Determine Columns from the first item in the group (they share the same structure)
+                // Determine Columns from the first item
                 const firstItem = classItems[0];
                 const priceColumns = firstItem.ranges[0]?.columns 
                     ? Object.keys(firstItem.ranges[0].columns).sort()
@@ -252,63 +250,50 @@ function PriceModal({
                     key={className}
                     className="bg-white dark:bg-neutral-900 rounded-xl overflow-hidden shadow-lg border border-neutral-200 dark:border-neutral-800"
                   >
-                    {/* GROUP HEADER (Banner) - Rendered ONCE per Class */}
+                    {/* GROUP HEADER (Banner) */}
                     <div className="px-4 py-3" style={{ backgroundColor: accentColor }}>
                       <h3 className="text-lg font-black text-white uppercase tracking-wider">
                         {className}
                       </h3>
-                      {/* Optional subtitle using the description of the first item, or generic text */}
                       <p className="text-white/80 text-xs mt-0.5">
                         {classItems.length} article(s) dans cette classe
                       </p>
                     </div>
                     
-                    {/* SINGLE TABLE for the entire class */}
+                    {/* SINGLE TABLE for the class */}
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm md:text-base border-collapse table-fixed">
+                      {/* FIX: Removed 'table-fixed', added 'min-w-full' to prevent crushing */}
+                      <table className="min-w-full w-full text-sm md:text-base border-collapse">
                         <thead>
                           <tr className="bg-neutral-200 dark:bg-neutral-800">
-                            <th 
-                              className="text-left p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                              style={{ width: showDetails ? '16%' : '20%' }}
-                            >
+                            {/* Article Name - Needs nice width */}
+                            <th className="text-left p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 sticky left-0 z-10 bg-neutral-200 dark:bg-neutral-800 min-w-[200px]">
                               Article
                             </th>
-                            <th 
-                              className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                              style={{ width: showDetails ? '6%' : '8%' }}
-                            >
+                            
+                            {/* Static Columns - Fixed small widths */}
+                            <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-24 min-w-[90px]">
                               CAISSE
                             </th>
-                            <th 
-                              className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                              style={{ width: showDetails ? '8%' : '12%' }}
-                            >
+                            <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-24 min-w-[90px]">
                               Format
                             </th>
-                            <th 
-                              className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                              style={{ width: showDetails ? '6%' : '8%' }}
-                            >
-                              Qte/Qty
+                            <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-20 min-w-[80px]">
+                              Qty
                             </th>
                             
                             {/* Coût Exp */}
                             {showDetails && (
-                              <th 
-                                className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20"
-                                style={{ width: '10%' }}
-                              >
+                              <th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 min-w-[110px]">
                                 Coût Exp
                               </th>
                             )}
 
-                            {/* Dynamic Price Headers */}
+                            {/* Dynamic Price Headers - Give them breathing room */}
                             {priceColumns.map((colCode) => (
                                 <th 
                                     key={colCode}
-                                    className="text-right p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                                    style={{ minWidth: '100px' }}
+                                    className="text-right p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 whitespace-nowrap min-w-[120px]"
                                 >
                                     {colCode}
                                 </th>
@@ -317,19 +302,17 @@ function PriceModal({
                             {/* Expanded Details Headers */}
                             {showDetails && (
                               <>
-                                <th className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20" style={{ width: '11%' }}>($)/Caisse</th>
-                                <th className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20" style={{ width: '11%' }}>($)/L</th>
-                                <th className="text-right p-2 md:p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20" style={{ width: '10%' }}>Escompte</th>
-                                <th className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20" style={{ width: '8%' }}>% Exp</th>
+                                <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[110px]">($)/Caisse</th>
+                                <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[110px]">($)/L</th>
+                                <th className="text-right p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20 min-w-[100px]">Escompte</th>
+                                <th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 min-w-[90px]">% Exp</th>
                               </>
                             )}
                           </tr>
                         </thead>
                         
-                        {/* Table Body iterates through ALL items in this class */}
                         <tbody>
                           {classItems.map((item, itemIndex) => (
-                            // Use Fragment to return multiple rows (ranges) for one item
                             <片 key={item.itemId}>
                               {item.ranges.map((range, rIdx) => {
                                 const isFirstRowOfItem = rIdx === 0;
@@ -337,44 +320,47 @@ function PriceModal({
                                 const ppl = calcPricePerLitre(range.unitPrice, item.volume);
                                 const marginExp = calcMarginExp(range.unitPrice, range.coutExp);
                                 
-                                // Alternating background logic can be based on itemIndex to group items visually
                                 const rowBg = itemIndex % 2 === 0 ? "bg-white dark:bg-neutral-900" : "bg-neutral-50/50 dark:bg-neutral-800/30";
 
                                 return (
                                   <tr 
                                     key={range.id} 
                                     className={cn(
-                                      "transition-colors",
+                                      "transition-colors group",
                                       rowBg
                                     )}
                                     style={{ '--hover-color': `${accentColor}15` } as React.CSSProperties}
                                   >
                                     <style jsx>{`tr:hover { background-color: var(--hover-color) !important; }`}</style>
 
-                                    {/* Basic Info - Only Show on First Row of Item */}
-                                    <td className="p-2 md:p-3 border border-neutral-200 dark:border-neutral-700 truncate align-top">
+                                    {/* Basic Info - Sticky Left to keep context while scrolling right */}
+                                    <td className={cn(
+                                      "p-3 border border-neutral-200 dark:border-neutral-700 align-top sticky left-0 z-10",
+                                      rowBg,
+                                      "group-hover:bg-[var(--hover-color)]" // Ensure sticky column also gets hover effect
+                                    )}>
                                       {isFirstRowOfItem && (
                                         <div className="flex flex-col">
-                                          <span className="font-mono font-black text-neutral-900 dark:text-white">{item.itemCode}</span>
-                                          <span className="text-xs text-neutral-500 truncate max-w-[150px]" title={item.description}>{item.description}</span>
+                                          <span className="font-mono font-black text-neutral-900 dark:text-white whitespace-nowrap">{item.itemCode}</span>
+                                          <span className="text-xs text-neutral-500 truncate max-w-[180px]" title={item.description}>{item.description}</span>
                                         </div>
                                       )}
                                     </td>
-                                    <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate align-top">
+                                    
+                                    <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700 align-top">
                                       {isFirstRowOfItem && <span className="font-black text-neutral-900 dark:text-white">{item.caisse || '-'}</span>}
                                     </td>
-                                    <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate align-top">
+                                    <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700 align-top">
                                       {isFirstRowOfItem && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}
                                     </td>
-                                    
-                                    <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate">
+                                    <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700">
                                       <span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span>
                                     </td>
                                     
                                     {/* Coût Exp */}
                                     {showDetails && (
-                                      <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10 truncate">
-                                        <span className="font-mono font-bold text-purple-700 dark:text-purple-400">
+                                      <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10">
+                                        <span className="font-mono font-bold text-purple-700 dark:text-purple-400 whitespace-nowrap">
                                           {range.coutExp ? range.coutExp.toFixed(2) : '-'}
                                         </span>
                                       </td>
@@ -389,13 +375,13 @@ function PriceModal({
                                             <td 
                                                 key={colCode} 
                                                 className={cn(
-                                                    "p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 truncate",
+                                                    "p-3 text-right border border-neutral-200 dark:border-neutral-700",
                                                     isSelectedList && "bg-amber-50 dark:bg-amber-900/10"
                                                 )}
                                             >
                                                 <span 
                                                     className={cn(
-                                                        "font-mono font-black",
+                                                        "font-mono font-black whitespace-nowrap",
                                                         isSelectedList ? "text-amber-700 dark:text-amber-400" : "text-neutral-900 dark:text-neutral-300"
                                                     )}
                                                     style={{ color: isSelectedList && isFirstRowOfItem ? accentColor : undefined }}
@@ -409,17 +395,17 @@ function PriceModal({
                                     {/* Expanded Details Data */}
                                     {showDetails && (
                                       <>
-                                        <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10 truncate">
-                                          <span className="font-mono text-blue-700 dark:text-blue-400">{ppc ? ppc.toFixed(2) : '-'}</span>
+                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10">
+                                          <span className="font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">{ppc ? ppc.toFixed(2) : '-'}</span>
                                         </td>
-                                        <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10 truncate">
-                                          <span className="font-mono text-blue-700 dark:text-blue-400">{ppl ? ppl.toFixed(2) : '-'}</span>
+                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10">
+                                          <span className="font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">{ppl ? ppl.toFixed(2) : '-'}</span>
                                         </td>
-                                        <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-orange-50/50 dark:bg-orange-900/10 truncate">
-                                          <span className="font-mono font-bold text-orange-700 dark:text-orange-400">{range.costingDiscountAmt !== undefined ? range.costingDiscountAmt.toFixed(2) : '-'}</span>
+                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-orange-50/50 dark:bg-orange-900/10">
+                                          <span className="font-mono font-bold text-orange-700 dark:text-orange-400 whitespace-nowrap">{range.costingDiscountAmt !== undefined ? range.costingDiscountAmt.toFixed(2) : '-'}</span>
                                         </td>
-                                        <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10 truncate">
-                                          <span className={cn("font-mono font-bold", marginExp && marginExp > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
+                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10">
+                                          <span className={cn("font-mono font-bold whitespace-nowrap", marginExp && marginExp > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
                                             {marginExp ? `${marginExp.toFixed(1)}%` : '-'}
                                           </span>
                                         </td>
@@ -429,7 +415,7 @@ function PriceModal({
                                 );
                               })}
                               
-                              {/* Add a subtle separator between distinct items within the same class */}
+                              {/* Separator */}
                               {itemIndex < classItems.length - 1 && (
                                 <tr className="h-px bg-neutral-200 dark:bg-neutral-700">
                                   <td colSpan={100} className="p-0"></td>
