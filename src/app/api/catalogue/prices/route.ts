@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
 
 // --- Configuration Matrix ---
-// UPDATED: Keys now match your DB Dump perfectly (No spaces in GROSEXP, INDHZ, etc)
+// Keys match your DB Dump perfectly
 const COLUMN_MATRIX: Record<string, string[]> = {
   // Template: EXPERT
   "01-EXP": ["01-EXP", "02-DET", "03-IND", "05-GROS", "08-PDS"],
@@ -16,18 +16,15 @@ const COLUMN_MATRIX: Record<string, string[]> = {
   "03-IND": ["03-IND"], 
 
   // Template: EXPERT GROSSISTE 
-  // Fixed: "04-GROSEXP" matches DB dump (was "04- GROS EXP")
   "04-GROSEXP": ["02-DET", "04-GROSEXP", "05-GROS", "06-INDHZ", "08-PDS"],
 
   // Template: GROSSISTE
   "05-GROS": ["05-GROS"],
 
   // Template: INDUSTRIEL HZ
-  // Fixed: "06-INDHZ" matches DB dump
   "06-INDHZ": ["06-INDHZ"],
 
   // Template: DETAILLANT HZ
-  // Fixed: "07-DETHZ" matches DB dump
   "07-DETHZ": ["07-DETHZ", "08-PDS"],
 };
 
@@ -51,9 +48,10 @@ export async function GET(request: NextRequest) {
     const selectedPriceId = parseInt(priceId, 10);
     const prodIdNum = parseInt(prodId, 10);
 
-    // 1. Identify the Selected Price List Code
+    // 1. Identify the Selected Price List AND Company ID
+    // We need 'cieid' to ensure we pick the correct '05-GROS' (e.g. Company 2 vs Company 3)
     const plRes = await pg.query(
-      `SELECT "Pricecode" as code FROM public."PriceList" WHERE "priceid" = $1`,
+      `SELECT "Pricecode" as code, "cieid" FROM public."PriceList" WHERE "priceid" = $1`,
       [selectedPriceId]
     );
 
@@ -61,17 +59,34 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Liste de prix introuvable" }, { status: 404 });
     }
 
-    // Trim is crucial to remove any potential DB padding (CHAR types)
     const selectedCode = plRes.rows[0].code.trim();
+    const currentCieId = plRes.rows[0].cieid; // Capture the Company ID
 
-    // 2. Determine Target Columns
-    // Because keys now match the DB, this lookup will succeed.
+    // 2. Determine Target Codes from Matrix
     const targetCodes = COLUMN_MATRIX[selectedCode] || [selectedCode];
 
-    // 3. Build Query Filters
+    // 3. Resolve Codes to PriceIDs (The critical fix)
+    // We fetch the specific ID for each code required by the matrix, restricted to the same company.
+    const idRes = await pg.query(
+      `SELECT "priceid", TRIM("Pricecode") as code 
+       FROM public."PriceList" 
+       WHERE "cieid" = $1 AND TRIM("Pricecode") = ANY($2)`,
+      [currentCieId, targetCodes]
+    );
+
+    // Map Code -> ID (e.g. "05-GROS" -> 8)
+    const codeToIdMap: Record<string, number> = {};
+    const targetIds: number[] = [];
+
+    idRes.rows.forEach(row => {
+      codeToIdMap[row.code] = row.priceid;
+      targetIds.push(row.priceid);
+    });
+
+    // 4. Build Query Filters
     let itemFilterSQL = "";
     const baseParams: any[] = [prodIdNum];
-    let paramIdx = 2; // $1 is prodId
+    let paramIdx = 2; 
 
     if (itemId) {
       itemFilterSQL = `AND i."ItemId" = $${paramIdx}`;
@@ -85,7 +100,7 @@ export async function GET(request: NextRequest) {
 
     const activeFilter = `AND i."isActive" = true`;
 
-    // 4. Fetch Products Info (Metadata)
+    // 5. Fetch Products Info (Metadata)
     const itemsQuery = `
       SELECT 
         i."ItemId" as "itemId", i."ItemCode" as "itemCode", i."Descr" as "description",
@@ -98,15 +113,14 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemCode" ASC
     `;
 
-    // 5. Fetch ALL Prices for Target Columns
-    // We use TRIM in SQL to ensure we match codes even if DB has padding
+    // 6. Fetch Prices using IDs (Robust Fetching)
+    // We now filter by ipr."priceid" = ANY($targetIds) instead of matching strings
     const pricesQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", ipr."priceid", MAX(ipr."itempricedateid") as "latestDateId"
         FROM public."itempricerange" ipr
         INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
-        INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
-        WHERE TRIM(pl."Pricecode") = ANY($${paramIdx}) 
+        WHERE ipr."priceid" = ANY($${paramIdx}) 
           AND i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
         GROUP BY ipr."itemid", ipr."priceid"
       )
@@ -114,22 +128,20 @@ export async function GET(request: NextRequest) {
         ipr."itemid" as "itemId",
         ipr."fromqty" as "qtyMin",
         ipr."price" as "price",
-        TRIM(pl."Pricecode") as "priceCode",
-        pl."priceid" as "priceId",
+        ipr."priceid" as "priceId",
         ipr."itempricerangeid" as "id"
       FROM public."itempricerange" ipr
-      INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
       INNER JOIN LatestDatePerItem ld 
         ON ipr."itemid" = ld."itemid" 
         AND ipr."priceid" = ld."priceid"
         AND ipr."itempricedateid" = ld."latestDateId"
-      WHERE TRIM(pl."Pricecode") = ANY($${paramIdx})
+      WHERE ipr."priceid" = ANY($${paramIdx})
       ORDER BY ipr."itemid", ipr."fromqty"
     `;
 
-    const pricesParams = [...baseParams, targetCodes];
+    const pricesParams = [...baseParams, targetIds];
 
-    // 6. Fetch Discounts
+    // 7. Fetch Discounts
     const discountQuery = `
       SELECT 
         i."ItemId" as "itemId", 
@@ -165,17 +177,18 @@ export async function GET(request: NextRequest) {
       discountMap[row.itemId][parseInt(row.greaterThan)] = parseFloat(row.costingDiscountAmt) || 0;
     }
 
-    const pricesMap: Record<number, Record<number, Record<string, number>>> = {};
+    // Map Prices: ItemID -> Qty -> PriceID -> Price
+    const pricesMap: Record<number, Record<number, Record<number, number>>> = {};
     for (const row of pricesRes.rows) {
       const iId = row.itemId;
       const qty = parseInt(row.qtyMin);
-      const code = row.priceCode; // Already trimmed in SQL
+      const pId = row.priceId; // We map by ID first
       const price = parseFloat(row.price);
 
       if (!pricesMap[iId]) pricesMap[iId] = {};
       if (!pricesMap[iId][qty]) pricesMap[iId][qty] = {};
       
-      pricesMap[iId][qty][code] = price;
+      pricesMap[iId][qty][pId] = price;
     }
 
     const result = itemsRes.rows.map((item: any) => {
@@ -188,14 +201,19 @@ export async function GET(request: NextRequest) {
       const ranges = quantities.map(qty => {
         const pricesAtQty = itemPrices[qty] || {};
         
-        // --- CRITICAL FIX: FORCE COLUMNS ---
-        // Iterate through the EXPECTED columns (targetCodes) and ensure they exist.
-        // If the DB has no price, we explicitly set it to null.
-        // This ensures the Frontend sees the key and renders the column header.
+        // --- 8. Force Columns with Code Mapping ---
+        // We iterate the target CODES (e.g. "05-GROS").
+        // We look up the ID for that code (e.g. 8).
+        // We fetch the price using the ID.
         const columns: Record<string, number | null> = {};
         
         targetCodes.forEach(code => {
-           columns[code] = pricesAtQty[code] !== undefined ? pricesAtQty[code] : null;
+           const pId = codeToIdMap[code]; // Resolve Code -> ID
+           if (pId && pricesAtQty[pId] !== undefined) {
+             columns[code] = pricesAtQty[pId];
+           } else {
+             columns[code] = null;
+           }
         });
 
         // Calculate Discount
@@ -214,20 +232,24 @@ export async function GET(request: NextRequest) {
            }
         }
 
-        // Backward Compatibility Fields
-        const unitPrice = pricesAtQty[selectedCode] || null;
-        const pdsPrice = pricesAtQty["08-PDS"] || null;
-        // Map 01-EXP or 04-GROSEXP to "Exp Base"
-        const expBasePrice = pricesAtQty["01-EXP"] || pricesAtQty["04-GROSEXP"] || null;
+        // Backward compatibility
+        const selectedId = codeToIdMap[selectedCode];
+        const unitPrice = selectedId ? pricesAtQty[selectedId] : null;
+        
+        const pdsId = codeToIdMap["08-PDS"];
+        const pdsPrice = pdsId ? pricesAtQty[pdsId] : null;
+        
+        const expId = codeToIdMap["01-EXP"] || codeToIdMap["04-GROSEXP"];
+        const expBasePrice = expId ? pricesAtQty[expId] : null;
 
         return {
           id: `${iId}-${qty}`,
           qtyMin: qty,
-          unitPrice: unitPrice, 
-          pdsPrice: pdsPrice,
+          unitPrice, 
+          pdsPrice,
           coutExp: expBasePrice,
           costingDiscountAmt,
-          columns // Contains ALL matrix keys (e.g. "05-GROS": null)
+          columns // Now populated correctly via ID lookup
         };
       });
 
