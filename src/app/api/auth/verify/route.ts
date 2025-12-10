@@ -3,32 +3,27 @@ import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
+  const challenge = req.cookies.get("auth-challenge")?.value;
 
-  // Retrieve the expected challenge you saved in the previous step
-  // const expectedChallenge = await getChallengeFromSession(); 
-  
-  // Retrieve the user's stored Public Key from your DB
-  // const authenticator = await db.query('SELECT publicKey FROM authenticators WHERE credentialID = ...');
+  if (!challenge) return NextResponse.json({ verified: false, error: "No challenge found" });
 
-  /* const verification = await verifyAuthenticationResponse({
+  // In real app, fetch the public key for this user from DB
+  // const expectedPublicKey = ... 
+
+  // MOCK VERIFICATION for drop-in (Replace with actual verifyAuthenticationResponse logic)
+  // Since we don't have the DB setup for public keys in this snippet, 
+  // we are simulating the success flow to let you test the UI.
+  // UNCOMMENT BELOW FOR REAL PROD:
+  /*
+  const verification = await verifyAuthenticationResponse({
     response: body,
-    expectedChallenge: "...", // From DB/Cookie
+    expectedChallenge: challenge,
     expectedOrigin: process.env.ORIGIN || "http://localhost:3000",
     expectedRPID: process.env.RP_ID || "localhost",
-    authenticator: {
-      credentialPublicKey: authenticator.publicKey,
-      credentialID: authenticator.credentialID,
-      counter: authenticator.counter,
-    },
+    authenticator: { ... }
   });
   */
-
-  // MOCK SUCCESS for drop-in testing (Replace with logic above for real security)
-  const verification = { verified: true }; 
-
-  if (verification.verified) {
-    return NextResponse.json({ verified: true });
-  }
-
-  return NextResponse.json({ verified: false }, { status: 400 });
+ 
+  // Allow UI testing:
+  return NextResponse.json({ verified: true });
 }
