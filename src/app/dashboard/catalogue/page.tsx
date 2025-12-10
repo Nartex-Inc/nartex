@@ -164,7 +164,13 @@ function PriceModal({
   // Calculation Helpers
   const calcPricePerCaisse = (price: number, caisse: number | null) => caisse ? price * caisse : null;
   const calcPricePerLitre = (price: number, volume: number | null) => volume ? price / volume : null;
-  const calcMarginExp = (unit: number, cout: number | null) => cout && unit ? ((unit - cout) / unit) * 100 : null;
+  
+  // NEW HELPER: Generic Margin Calculation
+  // Formula: ((SellingPrice - CostPrice) / SellingPrice) * 100
+  const calcMargin = (sell: number | null, cost: number | null) => {
+    if (!sell || !cost || sell === 0) return null;
+    return ((sell - cost) / sell) * 100;
+  };
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 md:p-4">
@@ -262,16 +268,15 @@ function PriceModal({
                     
                     {/* SINGLE TABLE for the class */}
                     <div className="overflow-x-auto">
-                      {/* FIX: Removed 'table-fixed', added 'min-w-full' to prevent crushing */}
                       <table className="min-w-full w-full text-sm md:text-base border-collapse">
                         <thead>
                           <tr className="bg-neutral-200 dark:bg-neutral-800">
-                            {/* Article Name - Needs nice width */}
+                            {/* Article Name */}
                             <th className="text-left p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 sticky left-0 z-10 bg-neutral-200 dark:bg-neutral-800 min-w-[200px]">
                               Article
                             </th>
                             
-                            {/* Static Columns - Fixed small widths */}
+                            {/* Static Columns */}
                             <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-24 min-w-[90px]">
                               CAISSE
                             </th>
@@ -282,14 +287,13 @@ function PriceModal({
                               Qty
                             </th>
                             
-                            {/* Coût Exp */}
-                            {showDetails && (
-                              <th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 min-w-[110px]">
-                                Coût Exp
-                              </th>
-                            )}
+                            {/* % Marge (ALWAYS VISIBLE) */}
+                            {/* Formula: (08-PDS - SelectedPrice) / 08-PDS */}
+                            <th className="text-right p-3 font-bold text-green-700 dark:text-green-400 border border-neutral-300 dark:border-neutral-700 bg-green-50 dark:bg-green-900/20 min-w-[90px]">
+                              % Marge
+                            </th>
 
-                            {/* Dynamic Price Headers - Give them breathing room */}
+                            {/* Dynamic Price Headers */}
                             {priceColumns.map((colCode) => (
                                 <th 
                                     key={colCode}
@@ -305,7 +309,12 @@ function PriceModal({
                                 <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[110px]">($)/Caisse</th>
                                 <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[110px]">($)/L</th>
                                 <th className="text-right p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20 min-w-[100px]">Escompte</th>
-                                <th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 min-w-[90px]">% Exp</th>
+                                
+                                {/* % Exp (Toggle Visible) */}
+                                {/* Formula: (SelectedPrice - 01-EXP) / SelectedPrice */}
+                                <th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 min-w-[90px]">
+                                  % Exp
+                                </th>
                               </>
                             )}
                           </tr>
@@ -318,7 +327,30 @@ function PriceModal({
                                 const isFirstRowOfItem = rIdx === 0;
                                 const ppc = calcPricePerCaisse(range.unitPrice, item.caisse);
                                 const ppl = calcPricePerLitre(range.unitPrice, item.volume);
-                                const marginExp = calcMarginExp(range.unitPrice, range.coutExp);
+                                
+                                // --- DATA PREPARATION FOR CALCULATIONS ---
+                                // 1. Selected Price (The specific price of the dropdown selection)
+                                const selectedPriceCode = selectedPriceList?.code || "";
+                                // Use columns map if available, otherwise fallback (for safety)
+                                const selectedPriceVal = range.columns?.[selectedPriceCode] ?? range.unitPrice;
+
+                                // 2. 01-EXP Price (Cost for Expert)
+                                // We check columns for "01-EXP". If strict mode logic was used, it should be there.
+                                // Fallback to range.coutExp which the API mapped to Base Cost.
+                                const expBaseVal = range.columns?.["01-EXP"] ?? range.coutExp;
+
+                                // 3. 08-PDS Price (MSRP)
+                                const pdsVal = range.columns?.["08-PDS"] ?? range.pdsPrice;
+
+                                // --- CALCULATIONS ---
+                                
+                                // % Exp: Profit margin for Expert selling to Selected List
+                                // (SelectedPrice - 01-EXP) / SelectedPrice
+                                const percentExp = calcMargin(selectedPriceVal, expBaseVal);
+
+                                // % Marge: Profit margin for Customer selling at MSRP
+                                // (08-PDS - SelectedPrice) / 08-PDS
+                                const percentMarge = calcMargin(pdsVal, selectedPriceVal);
                                 
                                 const rowBg = itemIndex % 2 === 0 ? "bg-white dark:bg-neutral-900" : "bg-neutral-50/50 dark:bg-neutral-800/30";
 
@@ -333,11 +365,11 @@ function PriceModal({
                                   >
                                     <style jsx>{`tr:hover { background-color: var(--hover-color) !important; }`}</style>
 
-                                    {/* Basic Info - Sticky Left to keep context while scrolling right */}
+                                    {/* Basic Info */}
                                     <td className={cn(
                                       "p-3 border border-neutral-200 dark:border-neutral-700 align-top sticky left-0 z-10",
                                       rowBg,
-                                      "group-hover:bg-[var(--hover-color)]" // Ensure sticky column also gets hover effect
+                                      "group-hover:bg-[var(--hover-color)]"
                                     )}>
                                       {isFirstRowOfItem && (
                                         <div className="flex flex-col">
@@ -357,14 +389,15 @@ function PriceModal({
                                       <span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span>
                                     </td>
                                     
-                                    {/* Coût Exp */}
-                                    {showDetails && (
-                                      <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10">
-                                        <span className="font-mono font-bold text-purple-700 dark:text-purple-400 whitespace-nowrap">
-                                          {range.coutExp ? range.coutExp.toFixed(2) : '-'}
-                                        </span>
-                                      </td>
-                                    )}
+                                    {/* % Marge (Public) - Based on PDS vs Selected */}
+                                    <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-green-50 dark:bg-green-900/10">
+                                      <span className={cn(
+                                        "font-mono font-bold whitespace-nowrap", 
+                                        percentMarge && percentMarge < 0 ? "text-red-600" : "text-green-700 dark:text-green-400"
+                                      )}>
+                                        {percentMarge !== null ? `${percentMarge.toFixed(1)}%` : '-'}
+                                      </span>
+                                    </td>
 
                                     {/* Dynamic Price Cells */}
                                     {priceColumns.map((colCode) => {
@@ -404,9 +437,14 @@ function PriceModal({
                                         <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-orange-50/50 dark:bg-orange-900/10">
                                           <span className="font-mono font-bold text-orange-700 dark:text-orange-400 whitespace-nowrap">{range.costingDiscountAmt !== undefined ? range.costingDiscountAmt.toFixed(2) : '-'}</span>
                                         </td>
+                                        
+                                        {/* % Exp (Details) - Based on Selected vs 01-EXP */}
                                         <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10">
-                                          <span className={cn("font-mono font-bold whitespace-nowrap", marginExp && marginExp > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
-                                            {marginExp ? `${marginExp.toFixed(1)}%` : '-'}
+                                          <span className={cn(
+                                            "font-mono font-bold whitespace-nowrap", 
+                                            percentExp && percentExp < 0 ? "text-red-600" : "text-purple-700 dark:text-purple-400"
+                                          )}>
+                                            {percentExp !== null ? `${percentExp.toFixed(1)}%` : '-'}
                                           </span>
                                         </td>
                                       </>
