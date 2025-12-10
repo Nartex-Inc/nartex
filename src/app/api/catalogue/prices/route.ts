@@ -26,14 +26,16 @@ export async function GET(request: NextRequest) {
     const prodId = searchParams.get("prodId");
     const typeId = searchParams.get("typeId");
     const itemId = searchParams.get("itemId");
+    // NEW: Accept a comma-separated list of IDs
+    const itemIds = searchParams.get("itemIds"); 
 
-    if (!priceId || !prodId) {
+    // Validation: We need priceId AND (prodId OR itemIds)
+    if (!priceId || (!prodId && !itemIds)) {
       return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
     }
 
     const selectedPriceId = parseInt(priceId, 10);
-    const prodIdNum = parseInt(prodId, 10);
-
+    
     // 1. Identify the Selected Price List Code and Company
     const plRes = await pg.query(
       `SELECT "Pricecode" as code, "cieid" FROM public."PriceList" WHERE "priceid" = $1`,
@@ -48,14 +50,9 @@ export async function GET(request: NextRequest) {
     const currentCieId = plRes.rows[0].cieid;
 
     // 2. Determine Target Codes
-    // We use a Set to ensure we always fetch 01-EXP and 08-PDS for calculations,
-    // even if the Matrix doesn't explicitly ask for them for this template.
     const targetCodesSet = new Set(COLUMN_MATRIX[selectedCode] || [selectedCode]);
-    
-    // FORCE FETCH THESE for calculations (Backend will return them, Frontend decides visibility)
     targetCodesSet.add("01-EXP"); 
     targetCodesSet.add("08-PDS");
-
     const targetCodes = Array.from(targetCodesSet);
 
     // 3. Resolve Codes to PriceIDs
@@ -74,24 +71,40 @@ export async function GET(request: NextRequest) {
       targetIds.push(row.priceid);
     });
 
-    // 4. Build Query Filters
+    // 4. Build Query Filters (DYNAMIC LOGIC UPDATED)
     let itemFilterSQL = "";
-    const baseParams: any[] = [prodIdNum];
-    let paramIdx = 2; 
+    const baseParams: any[] = []; // We will push params dynamically
+    let paramIdx = 1;
 
-    if (itemId) {
-      itemFilterSQL = `AND i."ItemId" = $${paramIdx}`;
-      baseParams.push(parseInt(itemId, 10));
-      paramIdx++;
-    } else if (typeId) {
-      itemFilterSQL = `AND i."locitemtype" = $${paramIdx}`;
-      baseParams.push(parseInt(typeId, 10));
-      paramIdx++;
+    // Logic: If itemIds string is provided, specific fetch. Else, category fetch.
+    if (itemIds) {
+        // Handle Multi-Item Fetch
+        const idsArray = itemIds.split(',').map(id => parseInt(id.trim(), 10));
+        itemFilterSQL = `AND i."ItemId" = ANY($${paramIdx})`;
+        baseParams.push(idsArray);
+        paramIdx++;
+    } else {
+        // Handle Standard Category/Class Fetch
+        const prodIdNum = parseInt(prodId!, 10);
+        itemFilterSQL = `AND i."ProdId" = $${paramIdx}`;
+        baseParams.push(prodIdNum);
+        paramIdx++;
+
+        if (itemId) {
+            itemFilterSQL += ` AND i."ItemId" = $${paramIdx}`;
+            baseParams.push(parseInt(itemId, 10));
+            paramIdx++;
+        } else if (typeId) {
+            itemFilterSQL += ` AND i."locitemtype" = $${paramIdx}`;
+            baseParams.push(parseInt(typeId, 10));
+            paramIdx++;
+        }
     }
 
     const activeFilter = `AND i."isActive" = true`;
 
     // 5. Fetch Products Info
+    // Note: We removed the strict requirement for ProdId in the base query if itemIds exists
     const itemsQuery = `
       SELECT 
         i."ItemId" as "itemId", i."ItemCode" as "itemCode", i."Descr" as "description",
@@ -100,7 +113,7 @@ export async function GET(request: NextRequest) {
       FROM public."Items" i
       LEFT JOIN public."Products" p ON i."ProdId" = p."ProdId"
       LEFT JOIN public."itemtype" t ON i."locitemtype" = t."itemtypeid"
-      WHERE i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
+      WHERE 1=1 ${itemFilterSQL} ${activeFilter}
       ORDER BY i."ItemCode" ASC
     `;
 
@@ -111,7 +124,7 @@ export async function GET(request: NextRequest) {
         FROM public."itempricerange" ipr
         INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
         WHERE ipr."priceid" = ANY($${paramIdx}) 
-          AND i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
+          ${itemFilterSQL} ${activeFilter}
         GROUP BY ipr."itemid", ipr."priceid"
       )
       SELECT 
@@ -129,6 +142,7 @@ export async function GET(request: NextRequest) {
       ORDER BY ipr."itemid", ipr."fromqty"
     `;
 
+    // Combine params: [ ...baseParams (prodId OR itemIds), targetIds ]
     const pricesParams = [...baseParams, targetIds];
 
     // 7. Fetch Discounts
@@ -147,7 +161,7 @@ export async function GET(request: NextRequest) {
         ON CAST(rsd."FieldValue" AS INTEGER) = dmh."DiscountMaintenanceHdrId"
       INNER JOIN public."_DiscountMaintenanceDtl" dmd 
         ON dmh."DiscountMaintenanceHdrId" = dmd."DiscountMaintenanceHdrId"
-      WHERE i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
+      WHERE 1=1 ${itemFilterSQL} ${activeFilter}
     `;
 
     const [itemsRes, pricesRes, discountRes] = await Promise.all([
@@ -190,9 +204,7 @@ export async function GET(request: NextRequest) {
       const ranges = quantities.map(qty => {
         const pricesAtQty = itemPrices[qty] || {};
         
-        // Force Columns: Populate data for every code we requested
         const columns: Record<string, number | null> = {};
-        
         targetCodes.forEach(code => {
            const pId = codeToIdMap[code];
            if (pId && pricesAtQty[pId] !== undefined) {
@@ -220,7 +232,6 @@ export async function GET(request: NextRequest) {
         const selectedId = codeToIdMap[selectedCode];
         const unitPrice = selectedId ? pricesAtQty[selectedId] : null;
         
-        // Explicitly set these for legacy fallback, though 'columns' is preferred
         const pdsId = codeToIdMap["08-PDS"];
         const pdsPrice = pdsId ? pricesAtQty[pdsId] : null;
         
@@ -234,7 +245,7 @@ export async function GET(request: NextRequest) {
           pdsPrice,
           coutExp: expBasePrice,
           costingDiscountAmt,
-          columns // Now contains 01-EXP and 08-PDS data always
+          columns
         };
       });
 
