@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useCurrentAccent } from "@/components/accent-color-provider";
-// 1. WEBAUTHN IMPORT
 import { startAuthentication } from '@simplewebauthn/browser';
 
 // --- Interfaces ---
@@ -105,7 +104,6 @@ function AnimatedPrice({ value, duration = 600 }: { value: number; duration?: nu
 }
 
 // --- Toggle Component ---
-// Updated type to accept async functions
 function Toggle({ enabled, onChange, label, accentColor }: { enabled: boolean; onChange: (v: boolean) => void | Promise<void>; label: string; accentColor: string }) {
   return (
     <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -381,33 +379,27 @@ function PriceModal({
   const [showDetails, setShowDetails] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   
-  // 2. AUTH STATE
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   if (!isOpen) return null;
 
   const itemsWithPrices = data.filter(item => item.ranges && item.ranges.length > 0);
 
-  // --- 3. AUTH HANDLER (STEP-UP) ---
+  // --- AUTH HANDLER (STEP-UP) ---
   const handleToggleDetails = async (newValue: boolean) => {
-    // If turning OFF, just do it.
     if (!newValue) {
         setShowDetails(false);
         return;
     }
 
-    // If turning ON, trigger Step-up Auth
     setIsAuthenticating(true);
     try {
-        // A. Get Challenge
         const resp = await fetch('/api/auth/challenge');
         if (!resp.ok) throw new Error('Challenge fetch failed');
         const options = await resp.json();
 
-        // B. Trigger iPad FaceID / PIN
         const authResp = await startAuthentication(options);
 
-        // C. Verify
         const verifyResp = await fetch('/api/auth/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -417,7 +409,7 @@ function PriceModal({
         const verification = await verifyResp.json();
 
         if (verification.verified) {
-            setShowDetails(true); // Success
+            setShowDetails(true);
         } else {
             alert("Vérification échouée.");
             setShowDetails(false);
@@ -471,7 +463,6 @@ function PriceModal({
             </h2>
             
             <div className="flex items-center gap-3">
-              {/* Authenticating Spinner Text */}
               {isAuthenticating && (
                 <span className="text-white text-xs font-bold animate-pulse uppercase tracking-wider mr-2">
                   Vérification FaceID...
@@ -480,7 +471,7 @@ function PriceModal({
 
               <Toggle 
                 enabled={showDetails} 
-                onChange={handleToggleDetails} // CONNECTED HANDLER
+                onChange={handleToggleDetails}
                 label="Afficher détails" 
                 accentColor={accentColor}
               />
@@ -505,7 +496,6 @@ function PriceModal({
           {/* Row 2: Filters & Actions Toolbar */}
           <div className="flex flex-col md:flex-row gap-2 bg-black/10 p-2 rounded-xl border border-white/10 items-center">
              
-             {/* Price List Select */}
              <select
                 value={selectedPriceList?.priceId || ""}
                 onChange={(e) => onPriceListChange(parseInt(e.target.value))}
@@ -519,7 +509,6 @@ function PriceModal({
                 ))}
               </select>
 
-              {/* Category Select */}
               <select
                 value={selectedProduct?.prodId || ""}
                 onChange={(e) => onProductChange(e.target.value)}
@@ -531,7 +520,6 @@ function PriceModal({
                 ))}
               </select>
 
-              {/* Class Select */}
               <select
                 value={selectedType?.itemTypeId || ""}
                 onChange={(e) => onTypeChange(e.target.value)}
@@ -544,7 +532,6 @@ function PriceModal({
                 ))}
               </select>
 
-              {/* Article Multi-Select */}
               <MultiSelectDropdown
                 items={items}
                 selectedIds={selectedItemIds}
@@ -552,7 +539,6 @@ function PriceModal({
                 disabled={!selectedType && !selectedProduct}
               />
 
-              {/* Action Buttons */}
               <div className="flex gap-2 ml-2">
                 <button 
                   onClick={onLoadSelection}
@@ -572,7 +558,6 @@ function PriceModal({
               </div>
           </div>
 
-          {/* Quick Add Popover */}
           {showQuickAdd && (
             <QuickAddSearch 
               accentColor={accentColor}
@@ -602,7 +587,6 @@ function PriceModal({
             </div>
           ) : Object.keys(groupedItems).length > 0 ? (
             <div className="space-y-8">
-              {/* ITERATE OVER GROUPS */}
               {Object.entries(groupedItems).map(([className, classItems]) => {
                 
                 const firstItem = classItems[0];
@@ -610,7 +594,6 @@ function PriceModal({
                     ? Object.keys(firstItem.ranges[0].columns).sort()
                     : [selectedPriceList?.code || 'Prix'];
 
-                // VISIBILITY FILTER: Hide '01-EXP' if details OFF, unless it's the selected list
                 if (!showDetails && selectedPriceList?.code !== "01-EXP") {
                     priceColumns = priceColumns.filter(c => c !== "01-EXP");
                 }
@@ -620,7 +603,6 @@ function PriceModal({
                     key={className}
                     className="bg-white dark:bg-neutral-900 rounded-xl overflow-hidden shadow-lg border border-neutral-200 dark:border-neutral-800"
                   >
-                    {/* GROUP HEADER */}
                     <div className="px-4 py-3" style={{ backgroundColor: accentColor }}>
                       <h3 className="text-lg font-black text-white uppercase tracking-wider">
                         {className}
@@ -983,6 +965,7 @@ export default function CataloguePage() {
     }
   };
 
+  // 4. FIX: Define canGenerate HERE, before return
   const canGenerate = selectedPriceList && selectedProduct;
 
   return (
@@ -991,7 +974,7 @@ export default function CataloguePage() {
         <main className="flex-1 p-4 md:p-6 flex flex-col justify-center items-center">
           <div className="w-full max-w-3xl">
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-lg p-5 md:p-8">
-              {/* Branding & Search */}
+              {/* Branding & Search (unchanged) */}
               <div className="flex items-center gap-4 mb-8">
                 <Image src="/sinto-logo.svg" alt="SINTO Logo" width={64} height={64} className="h-16 w-16 object-contain" />
                 <div>
@@ -1016,7 +999,7 @@ export default function CataloguePage() {
                 )}
               </div>
 
-              {/* Main Form Fields */}
+              {/* Main Form Fields (unchanged) */}
               <div className="space-y-5">
                 <div><label className="block text-xs font-bold text-neutral-500 mb-2 uppercase tracking-wide">1. Liste de Prix</label><select value={selectedPriceList?.priceId || ""} onChange={(e) => handlePriceListChange(e.target.value)} className="w-full h-14 px-4 text-base font-semibold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-0 focus:outline-none transition-colors" style={{ '--focus-color': accentColor } as React.CSSProperties}><option value="" disabled>Sélectionner...</option>{priceLists.map(pl => (<option key={pl.priceId} value={pl.priceId}>{pl.code} - {pl.name}</option>))}</select><style jsx>{`select:focus { border-color: var(--focus-color) !important; }`}</style></div>
                 <div><label className="block text-xs font-bold text-neutral-500 mb-2 uppercase tracking-wide">2. Catégorie</label><select value={selectedProduct?.prodId || ""} onChange={(e) => handleProductChange(e.target.value)} disabled={!selectedPriceList} className={cn("w-full h-14 px-4 text-base font-semibold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-0 focus:outline-none transition-all", !selectedPriceList && "opacity-50 cursor-not-allowed")} style={{ '--focus-color': accentColor } as React.CSSProperties}><option value="" disabled>Sélectionner...</option>{products.map(p => (<option key={p.prodId} value={p.prodId}>{p.name} ({p.itemCount})</option>))}</select></div>
