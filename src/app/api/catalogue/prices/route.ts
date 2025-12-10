@@ -3,94 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
 
-// ============================================================================
-// CONFIGURATION & CONSTANTS
-// ============================================================================
-
 const PDS_PRICE_ID = 17;
-const EXP_PRICE_ID = 4; // For costing base calculation
-
-// Standard Database Price IDs
-const PRICE_LIST_IDS = {
-  EXP: 1,        // 01-EXP (EXPERT)
-  DET: 2,        // 02-DET (DÉTAILLANT)
-  IND: 3,        // 03-IND (INDUSTRIEL)
-  GROSEXP: 4,    // 04-GROSEXP (GROSSISTE EXPERT)
-  GROS: 5,       // 05-GROS (GROSSISTE)
-  INDHZ: 6,      // 06-INDHZ (INDUSTRIEL HZ)
-  DETHZ: 7,      // 07-DETHZ (DÉTAILLANT HZ)
-  PDS: 17,       // PDS/MSRP
-};
-
-// COLUMN MAPPING - Defines which columns to show for each selected price list
-const PRICE_LIST_COLUMN_MAPPING: Record<number, { code: string; columns: { priceId: number; label: string; code: string }[] }> = {
-  [PRICE_LIST_IDS.EXP]: {
-    code: "01-EXPERT",
-    columns: [
-      { priceId: PRICE_LIST_IDS.EXP, label: "EXPERT", code: "EXPERT" },
-      { priceId: PRICE_LIST_IDS.GROS, label: "GROSSISTE_WHOLESALE", code: "GROSSISTE" },
-      { priceId: PRICE_LIST_IDS.DET, label: "DÉTAILLANT_RETAILER", code: "DÉTAILLANT" },
-      { priceId: PRICE_LIST_IDS.IND, label: "INDUSTRIEL_INDUSTRIAL", code: "INDUSTRIEL" },
-      { priceId: PRICE_LIST_IDS.PDS, label: "PDS_MSRP", code: "PDS" },
-    ],
-  },
-  [PRICE_LIST_IDS.DET]: {
-    code: "02-DÉTAILLANT",
-    columns: [
-      { priceId: PRICE_LIST_IDS.DET, label: "DÉTAILLANT_RETAILER", code: "DÉTAILLANT" },
-      { priceId: PRICE_LIST_IDS.IND, label: "INDUSTRIEL_INDUSTRIAL", code: "INDUSTRIEL" },
-      { priceId: PRICE_LIST_IDS.PDS, label: "PDS_MSRP", code: "PDS" },
-    ],
-  },
-  [PRICE_LIST_IDS.IND]: {
-    code: "03-INDUSTRIEL",
-    columns: [
-      { priceId: PRICE_LIST_IDS.IND, label: "INDUSTRIEL_INDUSTRIAL", code: "INDUSTRIEL" },
-      { priceId: PRICE_LIST_IDS.PDS, label: "PDS_MSRP", code: "PDS" },
-    ],
-  },
-  [PRICE_LIST_IDS.GROSEXP]: {
-    code: "04-GROSSISTE EXPERT",
-    columns: [
-      { priceId: PRICE_LIST_IDS.GROSEXP, label: "GROSS-EXP", code: "GROSS-EXP" },
-      { priceId: PRICE_LIST_IDS.EXP, label: "EXPERT", code: "EXPERT" },
-      { priceId: PRICE_LIST_IDS.GROS, label: "GROSSISTE_WHOLESALE", code: "GROSSISTE" },
-      { priceId: PRICE_LIST_IDS.DET, label: "DÉTAILLANT_RETAILER", code: "DÉTAILLANT" },
-      { priceId: PRICE_LIST_IDS.IND, label: "INDUSTRIEL_INDUSTRIAL", code: "INDUSTRIEL" },
-      { priceId: PRICE_LIST_IDS.PDS, label: "PDS_MSRP", code: "PDS" },
-    ],
-  },
-  [PRICE_LIST_IDS.GROS]: {
-    code: "05-GROSSISTE",
-    columns: [
-      { priceId: PRICE_LIST_IDS.GROS, label: "GROSSISTE_WHOLESALE", code: "GROSSISTE" },
-      { priceId: PRICE_LIST_IDS.DET, label: "DÉTAILLANT_RETAILER", code: "DÉTAILLANT" },
-      { priceId: PRICE_LIST_IDS.IND, label: "INDUSTRIEL_INDUSTRIAL", code: "INDUSTRIEL" },
-      { priceId: PRICE_LIST_IDS.PDS, label: "PDS_MSRP", code: "PDS" },
-    ],
-  },
-  [PRICE_LIST_IDS.INDHZ]: {
-    code: "06-INDUSTRIEL HZ",
-    columns: [
-      { priceId: PRICE_LIST_IDS.INDHZ, label: "INDUSTRIEL_HZ", code: "IND-HZ" },
-      { priceId: PRICE_LIST_IDS.IND, label: "INDUSTRIEL_INDUSTRIAL", code: "INDUSTRIEL" },
-      { priceId: PRICE_LIST_IDS.PDS, label: "PDS_MSRP", code: "PDS" },
-    ],
-  },
-  [PRICE_LIST_IDS.DETHZ]: {
-    code: "07-DÉTAILLANT HZ",
-    columns: [
-      { priceId: PRICE_LIST_IDS.DETHZ, label: "DÉTAILLANT_HZ", code: "DET-HZ" },
-      { priceId: PRICE_LIST_IDS.DET, label: "DÉTAILLANT_RETAILER", code: "DÉTAILLANT" },
-      { priceId: PRICE_LIST_IDS.IND, label: "INDUSTRIEL_INDUSTRIAL", code: "INDUSTRIEL" },
-      { priceId: PRICE_LIST_IDS.PDS, label: "PDS_MSRP", code: "PDS" },
-    ],
-  },
-};
-
-// ============================================================================
-// MAIN HANDLER
-// ============================================================================
+const EXP_PRICE_ID = 4;
 
 export async function GET(request: NextRequest) {
   try {
@@ -112,7 +26,6 @@ export async function GET(request: NextRequest) {
     const priceIdNum = parseInt(priceId, 10);
     const prodIdNum = parseInt(prodId, 10);
 
-    // Build item filter
     let itemFilterSQL = "";
     const baseParams: any[] = [prodIdNum];
     let paramIdx = 2;
@@ -127,22 +40,14 @@ export async function GET(request: NextRequest) {
       paramIdx++;
     }
 
+    // Filter for Active items only
+    // NOTE: Confirmed capitalization from screenshot is "isActive" (camelCase)
+    // However, user code used "IsActive" previously. Adjusting based on standard PG behavior
+    // If your DB columns are quoted "isActive", use i."isActive". If standard, i.isactive.
+    // Based on screenshot {596F6041...}, standard PG lowercases unless quoted. 
+    // BUT image_784963.png shows "isActive" in green header -> likely i."isActive"
     const activeFilter = `AND i."isActive" = true`;
 
-    // Get column mapping for selected price list
-    const mapping = PRICE_LIST_COLUMN_MAPPING[priceIdNum];
-    const columnsConfig = mapping?.columns || [
-      { priceId: priceIdNum, label: "Prix", code: "PRIX" },
-      { priceId: PDS_PRICE_ID, label: "PDS_MSRP", code: "PDS" },
-    ];
-
-    // Get unique price IDs we need to fetch
-    const priceIdsToFetch = [...new Set(columnsConfig.map(c => c.priceId))];
-
-    // ========================================================================
-    // MAIN QUERY - Get item details using the PRIMARY (selected) price list
-    // This establishes our base items and their quantity ranges
-    // ========================================================================
     const mainQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", MAX(ipr."itempricedateid") as "latestDateId"
@@ -169,29 +74,23 @@ export async function GET(request: NextRequest) {
     `;
     const mainParams = [...baseParams, priceIdNum];
 
-    // ========================================================================
-    // BUILD SEPARATE QUERY FOR EACH ADDITIONAL PRICE COLUMN
-    // ========================================================================
-    const buildPriceQuery = (targetPriceId: number) => `
+    const pdsQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", MAX(ipr."itempricedateid") as "latestDateId"
         FROM public."itempricerange" ipr
         INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
-        WHERE ipr."priceid" = ${targetPriceId} AND i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
+        WHERE ipr."priceid" = ${PDS_PRICE_ID} AND i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
         GROUP BY ipr."itemid"
       )
-      SELECT i."ItemId" as "itemId", ipr."fromqty" as "qtyMin", ipr."price" as "price"
+      SELECT i."ItemId" as "itemId", ipr."fromqty" as "qtyMin", ipr."price" as "pdsPrice"
       FROM public."itempricerange" ipr
       INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
       INNER JOIN public."PriceList" pl ON ipr."priceid" = pl."priceid"
       INNER JOIN LatestDatePerItem ld ON ipr."itemid" = ld."itemid" AND ipr."itempricedateid" = ld."latestDateId"
-      WHERE ipr."priceid" = ${targetPriceId} AND i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
+      WHERE ipr."priceid" = ${PDS_PRICE_ID} AND i."ProdId" = $1 ${itemFilterSQL} ${activeFilter}
       ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
     `;
 
-    // ========================================================================
-    // EXP QUERY - For costing base calculation (always needed)
-    // ========================================================================
     const expQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", MAX(ipr."itempricedateid") as "latestDateId"
@@ -209,9 +108,6 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemId" ASC, ipr."fromqty" ASC
     `;
 
-    // ========================================================================
-    // DISCOUNT QUERY
-    // ========================================================================
     const discountQuery = `
       SELECT 
         i."ItemId" as "itemId", 
@@ -231,75 +127,46 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemId" ASC, dmd."GreatherThan" ASC
     `;
 
-    // ========================================================================
-    // EXECUTE ALL QUERIES
-    // ========================================================================
-    
-    // Build list of additional price IDs to query (excluding the main one)
-    const additionalPriceIds = priceIdsToFetch.filter(pid => pid !== priceIdNum);
-    
-    const queryPromises: Promise<any>[] = [
+    const [mainResult, pdsResult, expResult, discountResult] = await Promise.all([
       pg.query(mainQuery, mainParams),
+      pg.query(pdsQuery, baseParams),
       pg.query(expQuery, baseParams),
       pg.query(discountQuery, baseParams).catch(err => {
         console.error("Discount query error:", err.message);
         return { rows: [] };
       })
-    ];
+    ]);
 
-    // Add a query for each additional price column
-    for (const pid of additionalPriceIds) {
-      queryPromises.push(pg.query(buildPriceQuery(pid), baseParams));
+    const rows = mainResult.rows;
+    const pdsRows = pdsResult.rows;
+    const expRows = expResult.rows;
+    const discountRows = discountResult.rows;
+
+    // Build Maps
+    const pdsMap: Record<number, Record<number, number>> = {};
+    for (const row of pdsRows) {
+      if (!pdsMap[row.itemId]) pdsMap[row.itemId] = {};
+      pdsMap[row.itemId][parseInt(row.qtyMin)] = parseFloat(row.pdsPrice);
     }
 
-    const results = await Promise.all(queryPromises);
-
-    const mainResult = results[0];
-    const expResult = results[1];
-    const discountResult = results[2];
-    const additionalPriceResults = results.slice(3);
-
-    // ========================================================================
-    // BUILD PRICE MAPS
-    // ========================================================================
-    
-    // Map for EXP prices (for costing)
     const expMap: Record<number, Record<number, number>> = {};
-    for (const row of expResult.rows) {
+    for (const row of expRows) {
       if (!expMap[row.itemId]) expMap[row.itemId] = {};
       expMap[row.itemId][parseInt(row.qtyMin)] = parseFloat(row.expPrice);
     }
 
-    // Map for discounts
     const discountMap: Record<number, Record<number, number>> = {};
-    for (const row of discountResult.rows) {
+    for (const row of discountRows) {
       if (!discountMap[row.itemId]) discountMap[row.itemId] = {};
       const greaterThan = parseInt(row.greaterThan);
       const discountAmt = parseFloat(row.costingDiscountAmt) || 0;
       discountMap[row.itemId][greaterThan] = discountAmt;
     }
-
-    // Maps for each additional price column: { priceId: { itemId: { qtyMin: price } } }
-    const priceColumnMaps: Record<number, Record<number, Record<number, number>>> = {};
     
-    additionalPriceIds.forEach((pid, idx) => {
-      const result = additionalPriceResults[idx];
-      priceColumnMaps[pid] = {};
-      
-      for (const row of result.rows) {
-        if (!priceColumnMaps[pid][row.itemId]) {
-          priceColumnMaps[pid][row.itemId] = {};
-        }
-        priceColumnMaps[pid][row.itemId][parseInt(row.qtyMin)] = parseFloat(row.price);
-      }
-    });
-
-    // ========================================================================
-    // PROCESS MAIN RESULTS AND MERGE ALL PRICES
-    // ========================================================================
+    // Process Items
     const itemsMap: Record<number, any> = {};
     
-    for (const row of mainResult.rows) {
+    for (const row of rows) {
       if (!itemsMap[row.itemId]) {
         itemsMap[row.itemId] = {
           itemId: row.itemId,
@@ -317,9 +184,7 @@ export async function GET(request: NextRequest) {
       }
       
       const qtyMin = parseInt(row.qtyMin);
-      const unitPrice = parseFloat(row.unitPrice);
-      
-      // Get EXP base price for costing
+      const pdsPrice = pdsMap[row.itemId]?.[qtyMin] ?? null;
       const expBasePrice = expMap[row.itemId]?.[qtyMin] ?? null;
       
       // Calculate Discount
@@ -339,57 +204,32 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      // Coût EXP = EXP Base Price only (as requested)
-      const coutExp = expBasePrice;
-
-      // Build the prices dictionary for all columns
-      const prices: Record<number, number> = {};
-      
-      // Add the main/selected price
-      prices[priceIdNum] = unitPrice;
-      
-      // Add all additional prices from our column maps
-      for (const pid of additionalPriceIds) {
-        const priceVal = priceColumnMaps[pid]?.[row.itemId]?.[qtyMin];
-        if (priceVal !== undefined) {
-          prices[pid] = priceVal;
-        }
-      }
-
-      // Get PDS price for margin calculation
-      const pdsPrice = prices[PDS_PRICE_ID] ?? null;
+      // FIX: COÛT EXP = EXP Base Price ONLY (As requested by Manager)
+      // We still pass costingDiscountAmt to frontend for the 'Escompte' column
+      const coutExp = expBasePrice; 
       
       itemsMap[row.itemId].ranges.push({
         id: row.id,
         qtyMin: qtyMin,
-        unitPrice: unitPrice,
+        unitPrice: parseFloat(row.unitPrice),
         pdsPrice: pdsPrice,
         expBasePrice: expBasePrice,
         coutExp: coutExp,
-        costingDiscountAmt: costingDiscountAmt,
-        prices: prices // All prices for all columns
+        costingDiscountAmt: costingDiscountAmt
       });
     }
 
-    // Sort ranges and convert to array
     const result = Object.values(itemsMap).map((item: any) => ({
       ...item,
       ranges: item.ranges.sort((a: any, b: any) => a.qtyMin - b.qtyMin)
     }));
 
-    // Return with columns config for frontend
-    return NextResponse.json({
-      ok: true,
-      items: result,
-      columnsConfig: columnsConfig,
-      selectedPriceId: priceIdNum,
-      primaryPriceId: priceIdNum
-    });
+    return NextResponse.json(result);
     
   } catch (error: any) {
     console.error("Prices API error:", error);
     return NextResponse.json(
-      { ok: false, error: error.message || "Erreur lors de la génération des prix" }, 
+      { error: error.message || "Erreur lors de la génération des prix" }, 
       { status: 500 }
     );
   }
