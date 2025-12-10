@@ -38,11 +38,13 @@ interface PriceList {
 interface PriceRange {
   id: number;
   qtyMin: number;
-  unitPrice: number;
+  unitPrice: number; // Represents the price of the SELECTED list (for calculations)
   pdsPrice: number | null;
   expBasePrice: number | null;
   coutExp: number | null;
   costingDiscountAmt?: number;
+  // UPDATED: Added columns map for dynamic header support
+  columns?: Record<string, number>;
 }
 
 interface ItemPriceData {
@@ -225,215 +227,233 @@ function PriceModal({
             </div>
           ) : itemsWithPrices.length > 0 ? (
             <div className="space-y-4">
-              {itemsWithPrices.map((item) => (
-                <div 
-                  key={item.itemId}
-                  className="bg-white dark:bg-neutral-900 rounded-xl overflow-hidden shadow-lg border border-neutral-200 dark:border-neutral-800"
-                >
-                  {/* Item Header */}
-                  <div className="px-4 py-3" style={{ backgroundColor: accentColor }}>
-                    <h3 className="text-lg font-black text-white">
-                      {item.description.split(' ')[0].toUpperCase()}
-                    </h3>
-                    <p className="text-white/80 text-sm">
-                      {item.className || item.description}
-                    </p>
-                  </div>
-                  
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm md:text-base border-collapse table-fixed">
-                      <thead>
-                        <tr className="bg-neutral-200 dark:bg-neutral-800">
-                          <th 
-                            className="text-left p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                            style={{ width: showDetails ? '16%' : '25%' }}
-                          >
-                            Article
-                          </th>
-                          <th 
-                            className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                            style={{ width: showDetails ? '6%' : '10%' }}
-                          >
-                            CAISSE
-                          </th>
-                          <th 
-                            className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                            style={{ width: showDetails ? '8%' : '15%' }}
-                          >
-                            Format
-                          </th>
-                          <th 
-                            className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                            style={{ width: showDetails ? '6%' : '10%' }}
-                          >
-                            Qte/Qty
-                          </th>
-                          
-                          {/* Coût Exp (Left of Price) */}
-                          {showDetails && (
-                            <th 
-                              className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20"
-                              style={{ width: '10%' }}
-                            >
-                              Coût Exp
-                            </th>
-                          )}
+              {itemsWithPrices.map((item) => {
+                
+                // --- DYNAMIC COLUMNS LOGIC ---
+                // We identify the columns from the first range of the item.
+                // We sort them to ensure consistent order (e.g. 01, 02, 05, 08).
+                const priceColumns = item.ranges[0]?.columns 
+                    ? Object.keys(item.ranges[0].columns).sort()
+                    : [selectedPriceList?.code || 'Prix'];
 
-                          <th 
-                            className="text-right p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
-                            style={{ width: showDetails ? '12%' : '20%' }}
-                          >
-                            {selectedPriceList?.code || 'Prix'}
-                          </th>
-                          
-                          {/* Expanded Details Columns (Right of Price) */}
-                          {showDetails && (
-                            <>
-                              <th 
-                                className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20"
-                                style={{ width: '11%' }}
-                              >
-                                ($)/Caisse
-                              </th>
-                              <th 
-                                className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20"
-                                style={{ width: '11%' }}
-                              >
-                                ($)/L
-                              </th>
-                              
-                              {/* Escompte */}
-                              <th 
-                                className="text-right p-2 md:p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20"
-                                style={{ width: '10%' }}
-                              >
-                                Escompte
-                              </th>
-                              
-                              {/* % Exp */}
+                return (
+                  <div 
+                    key={item.itemId}
+                    className="bg-white dark:bg-neutral-900 rounded-xl overflow-hidden shadow-lg border border-neutral-200 dark:border-neutral-800"
+                  >
+                    {/* Item Header */}
+                    <div className="px-4 py-3" style={{ backgroundColor: accentColor }}>
+                      <h3 className="text-lg font-black text-white">
+                        {item.description.split(' ')[0].toUpperCase()}
+                      </h3>
+                      <p className="text-white/80 text-sm">
+                        {item.className || item.description}
+                      </p>
+                    </div>
+                    
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm md:text-base border-collapse table-fixed">
+                        <thead>
+                          <tr className="bg-neutral-200 dark:bg-neutral-800">
+                            <th 
+                              className="text-left p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
+                              style={{ width: showDetails ? '16%' : '20%' }}
+                            >
+                              Article
+                            </th>
+                            <th 
+                              className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
+                              style={{ width: showDetails ? '6%' : '8%' }}
+                            >
+                              CAISSE
+                            </th>
+                            <th 
+                              className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
+                              style={{ width: showDetails ? '8%' : '12%' }}
+                            >
+                              Format
+                            </th>
+                            <th 
+                              className="text-center p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
+                              style={{ width: showDetails ? '6%' : '8%' }}
+                            >
+                              Qte/Qty
+                            </th>
+                            
+                            {/* Coût Exp (Left of Price) */}
+                            {showDetails && (
                               <th 
                                 className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20"
-                                style={{ width: '8%' }}
+                                style={{ width: '10%' }}
                               >
-                                % Exp
+                                Coût Exp
                               </th>
-                            </>
-                          )}
-                          
-                          <th 
-                            className="text-right p-2 md:p-3 font-bold text-amber-700 dark:text-amber-400 border border-neutral-300 dark:border-neutral-700 bg-amber-50 dark:bg-amber-900/20"
-                            style={{ width: showDetails ? '12%' : '20%' }}
-                          >
-                            PDS
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {item.ranges.map((range, rIdx) => {
-                          const isFirstRow = rIdx === 0;
-                          const ppc = calcPricePerCaisse(range.unitPrice, item.caisse);
-                          const ppl = calcPricePerLitre(range.unitPrice, item.volume);
-                          const marginExp = calcMarginExp(range.unitPrice, range.coutExp);
-                          
-                          return (
-                            <tr 
-                              key={range.id} 
-                              className={cn(
-                                "transition-colors",
-                                isFirstRow ? "bg-white dark:bg-neutral-900" : "bg-neutral-50 dark:bg-neutral-800/50"
-                              )}
-                              style={{ 
-                                '--hover-color': `${accentColor}15`, 
-                              } as React.CSSProperties}
-                            >
-                              <style jsx>{`
-                                tr:hover { background-color: var(--hover-color) !important; }
-                              `}</style>
+                            )}
 
-                              {/* Basic Info */}
-                              <td className="p-2 md:p-3 border border-neutral-200 dark:border-neutral-700 truncate">
-                                {isFirstRow && <span className="font-mono font-black text-neutral-900 dark:text-white">{item.itemCode}</span>}
-                              </td>
-                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate">
-                                {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.caisse || '-'}</span>}
-                              </td>
-                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate">
-                                {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}
-                              </td>
-                              <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate">
-                                <span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span>
-                              </td>
-                              
-                              {/* Coût Exp (Left of Price) */}
-                              {showDetails && (
-                                <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10 truncate">
-                                  <span className="font-mono font-bold text-purple-700 dark:text-purple-400">
-                                    {range.coutExp ? range.coutExp.toFixed(2) : '-'}
-                                  </span>
-                                </td>
-                              )}
-
-                              {/* Unit Price */}
-                              <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 truncate">
-                                <span 
-                                  className="font-mono font-black"
-                                  style={{ color: isFirstRow ? accentColor : undefined }}
+                            {/* --- DYNAMIC PRICE HEADERS --- */}
+                            {priceColumns.map((colCode) => (
+                                <th 
+                                    key={colCode}
+                                    className="text-right p-2 md:p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700"
+                                    style={{ minWidth: '100px' }}
                                 >
-                                  <AnimatedPrice value={range.unitPrice} />
-                                </span>
-                              </td>
-                              
-                              {/* Expanded Details Data (Right of Price) */}
-                              {showDetails && (
-                                <>
-                                  {/* ($)/Caisse */}
-                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10 truncate">
-                                    <span className="font-mono text-blue-700 dark:text-blue-400">
-                                      {ppc ? ppc.toFixed(2) : '-'}
-                                    </span>
-                                  </td>
-                                  {/* ($)/L */}
-                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10 truncate">
-                                    <span className="font-mono text-blue-700 dark:text-blue-400">
-                                      {ppl ? ppl.toFixed(2) : '-'}
-                                    </span>
-                                  </td>
-                                  
-                                  {/* Escompte */}
-                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-orange-50/50 dark:bg-orange-900/10 truncate">
-                                    <span className="font-mono font-bold text-orange-700 dark:text-orange-400">
-                                      {range.costingDiscountAmt !== undefined ? range.costingDiscountAmt.toFixed(2) : '-'}
-                                    </span>
-                                  </td>
-                                  
-                                  {/* % Exp */}
+                                    {colCode}
+                                </th>
+                            ))}
+                            
+                            {/* Expanded Details Columns (Right of Price) */}
+                            {showDetails && (
+                              <>
+                                <th 
+                                  className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20"
+                                  style={{ width: '11%' }}
+                                >
+                                  ($)/Caisse
+                                </th>
+                                <th 
+                                  className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20"
+                                  style={{ width: '11%' }}
+                                >
+                                  ($)/L
+                                </th>
+                                
+                                {/* Escompte */}
+                                <th 
+                                  className="text-right p-2 md:p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20"
+                                  style={{ width: '10%' }}
+                                >
+                                  Escompte
+                                </th>
+                                
+                                {/* % Exp */}
+                                <th 
+                                  className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20"
+                                  style={{ width: '8%' }}
+                                >
+                                  % Exp
+                                </th>
+                              </>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {item.ranges.map((range, rIdx) => {
+                            const isFirstRow = rIdx === 0;
+                            const ppc = calcPricePerCaisse(range.unitPrice, item.caisse);
+                            const ppl = calcPricePerLitre(range.unitPrice, item.volume);
+                            const marginExp = calcMarginExp(range.unitPrice, range.coutExp);
+                            
+                            return (
+                              <tr 
+                                key={range.id} 
+                                className={cn(
+                                  "transition-colors",
+                                  isFirstRow ? "bg-white dark:bg-neutral-900" : "bg-neutral-50 dark:bg-neutral-800/50"
+                                )}
+                                style={{ 
+                                  '--hover-color': `${accentColor}15`, 
+                                } as React.CSSProperties}
+                              >
+                                <style jsx>{`
+                                  tr:hover { background-color: var(--hover-color) !important; }
+                                `}</style>
+
+                                {/* Basic Info */}
+                                <td className="p-2 md:p-3 border border-neutral-200 dark:border-neutral-700 truncate">
+                                  {isFirstRow && <span className="font-mono font-black text-neutral-900 dark:text-white">{item.itemCode}</span>}
+                                </td>
+                                <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate">
+                                  {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.caisse || '-'}</span>}
+                                </td>
+                                <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate">
+                                  {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}
+                                </td>
+                                <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate">
+                                  <span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span>
+                                </td>
+                                
+                                {/* Coût Exp (Left of Price) */}
+                                {showDetails && (
                                   <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10 truncate">
-                                    <span className={cn(
-                                      "font-mono font-bold",
-                                      marginExp && marginExp > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                                    )}>
-                                      {marginExp ? `${marginExp.toFixed(1)}%` : '-'}
+                                    <span className="font-mono font-bold text-purple-700 dark:text-purple-400">
+                                      {range.coutExp ? range.coutExp.toFixed(2) : '-'}
                                     </span>
                                   </td>
-                                </>
-                              )}
-                              
-                              {/* PDS */}
-                              <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-amber-50/50 dark:bg-amber-900/10 truncate">
-                                <span className="font-mono font-bold text-amber-700 dark:text-amber-400">
-                                  {range.pdsPrice !== null ? (
-                                    <AnimatedPrice value={range.pdsPrice} />
-                                  ) : '-'}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                                )}
+
+                                {/* --- DYNAMIC PRICE CELLS --- */}
+                                {priceColumns.map((colCode) => {
+                                    // Fetch the price from the 'columns' record
+                                    // Fallback to unitPrice only if legacy API (columns undefined)
+                                    const priceVal = range.columns ? range.columns[colCode] : (colCode === selectedPriceList?.code ? range.unitPrice : null);
+                                    
+                                    // Optional: Highlight the cell corresponding to the currently selected dropdown
+                                    const isSelectedList = colCode === selectedPriceList?.code;
+
+                                    return (
+                                        <td 
+                                            key={colCode} 
+                                            className={cn(
+                                                "p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 truncate",
+                                                isSelectedList && "bg-amber-50 dark:bg-amber-900/10"
+                                            )}
+                                        >
+                                            <span 
+                                                className={cn(
+                                                    "font-mono font-black",
+                                                    isSelectedList ? "text-amber-700 dark:text-amber-400" : "text-neutral-900 dark:text-neutral-300"
+                                                )}
+                                                style={{ color: isSelectedList && isFirstRow ? accentColor : undefined }}
+                                            >
+                                                {priceVal ? <AnimatedPrice value={priceVal} /> : '-'}
+                                            </span>
+                                        </td>
+                                    );
+                                })}
+                                
+                                {/* Expanded Details Data (Right of Price) */}
+                                {showDetails && (
+                                  <>
+                                    {/* ($)/Caisse */}
+                                    <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10 truncate">
+                                      <span className="font-mono text-blue-700 dark:text-blue-400">
+                                        {ppc ? ppc.toFixed(2) : '-'}
+                                      </span>
+                                    </td>
+                                    {/* ($)/L */}
+                                    <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10 truncate">
+                                      <span className="font-mono text-blue-700 dark:text-blue-400">
+                                        {ppl ? ppl.toFixed(2) : '-'}
+                                      </span>
+                                    </td>
+                                    
+                                    {/* Escompte */}
+                                    <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-orange-50/50 dark:bg-orange-900/10 truncate">
+                                      <span className="font-mono font-bold text-orange-700 dark:text-orange-400">
+                                        {range.costingDiscountAmt !== undefined ? range.costingDiscountAmt.toFixed(2) : '-'}
+                                      </span>
+                                    </td>
+                                    
+                                    {/* % Exp */}
+                                    <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10 truncate">
+                                      <span className={cn(
+                                        "font-mono font-bold",
+                                        marginExp && marginExp > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                                      )}>
+                                        {marginExp ? `${marginExp.toFixed(1)}%` : '-'}
+                                      </span>
+                                    </td>
+                                  </>
+                                )}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-64 gap-4">
