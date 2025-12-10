@@ -165,7 +165,7 @@ function PriceModal({
   const calcPricePerCaisse = (price: number, caisse: number | null) => caisse ? price * caisse : null;
   const calcPricePerLitre = (price: number, volume: number | null) => volume ? price / volume : null;
   
-  // NEW HELPER: Generic Margin Calculation
+  // Generic Margin Calculation
   // Formula: ((SellingPrice - CostPrice) / SellingPrice) * 100
   const calcMargin = (sell: number | null, cost: number | null) => {
     if (!sell || !cost || sell === 0) return null;
@@ -245,11 +245,17 @@ function PriceModal({
               {/* ITERATE OVER GROUPS */}
               {Object.entries(groupedItems).map(([className, classItems]) => {
                 
-                // Determine Columns from the first item
                 const firstItem = classItems[0];
-                const priceColumns = firstItem.ranges[0]?.columns 
+                let priceColumns = firstItem.ranges[0]?.columns 
                     ? Object.keys(firstItem.ranges[0].columns).sort()
                     : [selectedPriceList?.code || 'Prix'];
+
+                // --- VISIBILITY FILTER ---
+                // If details are hidden, do not show '01-EXP' unless it is the selected price list.
+                // If details are SHOWN, we show everything the API sent us (which now includes 01-EXP).
+                if (!showDetails && selectedPriceList?.code !== "01-EXP") {
+                    priceColumns = priceColumns.filter(c => c !== "01-EXP");
+                }
 
                 return (
                   <div 
@@ -328,28 +334,23 @@ function PriceModal({
                                 const ppc = calcPricePerCaisse(range.unitPrice, item.caisse);
                                 const ppl = calcPricePerLitre(range.unitPrice, item.volume);
                                 
-                                // --- DATA PREPARATION FOR CALCULATIONS ---
-                                // 1. Selected Price (The specific price of the dropdown selection)
+                                // --- DATA PREPARATION ---
+                                // 1. Selected Price
                                 const selectedPriceCode = selectedPriceList?.code || "";
-                                // Use columns map if available, otherwise fallback (for safety)
                                 const selectedPriceVal = range.columns?.[selectedPriceCode] ?? range.unitPrice;
 
-                                // 2. 01-EXP Price (Cost for Expert)
-                                // We check columns for "01-EXP". If strict mode logic was used, it should be there.
-                                // Fallback to range.coutExp which the API mapped to Base Cost.
-                                const expBaseVal = range.columns?.["01-EXP"] ?? range.coutExp;
+                                // 2. 01-EXP Price (Cost for Expert) - Now guaranteed by API
+                                const expBaseVal = range.columns?.["01-EXP"] ?? null;
 
-                                // 3. 08-PDS Price (MSRP)
-                                const pdsVal = range.columns?.["08-PDS"] ?? range.pdsPrice;
+                                // 3. 08-PDS Price (MSRP) - Now guaranteed by API
+                                const pdsVal = range.columns?.["08-PDS"] ?? null;
 
                                 // --- CALCULATIONS ---
                                 
-                                // % Exp: Profit margin for Expert selling to Selected List
-                                // (SelectedPrice - 01-EXP) / SelectedPrice
+                                // % Exp: (SelectedPrice - 01-EXP) / SelectedPrice
                                 const percentExp = calcMargin(selectedPriceVal, expBaseVal);
 
-                                // % Marge: Profit margin for Customer selling at MSRP
-                                // (08-PDS - SelectedPrice) / 08-PDS
+                                // % Marge: (08-PDS - SelectedPrice) / 08-PDS
                                 const percentMarge = calcMargin(pdsVal, selectedPriceVal);
                                 
                                 const rowBg = itemIndex % 2 === 0 ? "bg-white dark:bg-neutral-900" : "bg-neutral-50/50 dark:bg-neutral-800/30";
@@ -389,7 +390,7 @@ function PriceModal({
                                       <span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span>
                                     </td>
                                     
-                                    {/* % Marge (Public) - Based on PDS vs Selected */}
+                                    {/* % Marge (Public) */}
                                     <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-green-50 dark:bg-green-900/10">
                                       <span className={cn(
                                         "font-mono font-bold whitespace-nowrap", 
@@ -438,7 +439,7 @@ function PriceModal({
                                           <span className="font-mono font-bold text-orange-700 dark:text-orange-400 whitespace-nowrap">{range.costingDiscountAmt !== undefined ? range.costingDiscountAmt.toFixed(2) : '-'}</span>
                                         </td>
                                         
-                                        {/* % Exp (Details) - Based on Selected vs 01-EXP */}
+                                        {/* % Exp (Details) */}
                                         <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10">
                                           <span className={cn(
                                             "font-mono font-bold whitespace-nowrap", 
