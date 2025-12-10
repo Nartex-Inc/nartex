@@ -3,27 +3,16 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
 
-// --- Configuration Matrix (Based on your Screenshot) ---
-// Keys = The PriceCode of the *selected* dropdown option
-// Values = The list of PriceCodes to fetch and display columns for
+// --- Configuration Matrix ---
+// UPDATED: Keys match the DB codes exactly (e.g. "04-GROSEXP" instead of "04- GROS EXP")
 const COLUMN_MATRIX: Record<string, string[]> = {
-  // Template: EXPERT
   "01-EXP": ["01-EXP", "02-DET", "03-IND", "05-GROS", "08-PDS"],
-  
-  // Template: DETAILLANT
   "02-DET": ["02-DET", "08-PDS"],
-  
-  // Template: INDUSTRIEL (Assuming code 03-IND based on pattern)
   "03-IND": ["03-IND"], 
-
-  // Template: EXPERT GROSSISTE (Assuming code is 04-GROS EXP or similar)
-  // YOU MUST VERIFY THE KEY HERE matches your DB 'PriceCode' for 'Expert Grossiste'
-  "04-GROS EXP": ["02-DET", "04-GROS EXP", "05-GROS", "06-IND HZ", "08-PDS"],
-
-  // Template: INDUSTRIEL HZ
+  // FIX: Updated key and value to match screenshot (No spaces in 04-GROSEXP)
+  "04-GROSEXP": ["02-DET", "04-GROSEXP", "05-GROS", "06-IND HZ", "08-PDS"],
+  "05-GROS": ["05-GROS"], // Added based on pattern, just in case
   "06-IND HZ": ["06-IND HZ"],
-
-  // Template: DETAILLANT HZ
   "07-DET HZ": ["07-DET HZ", "08-PDS"],
 };
 
@@ -48,7 +37,6 @@ export async function GET(request: NextRequest) {
     const prodIdNum = parseInt(prodId, 10);
 
     // 1. Identify the Selected Price List Code
-    // We need to know if the user selected "01-EXP" or "02-DET" to apply the matrix
     const plRes = await pg.query(
       `SELECT "Pricecode" as code FROM public."PriceList" WHERE "priceid" = $1`,
       [selectedPriceId]
@@ -58,16 +46,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Liste de prix introuvable" }, { status: 404 });
     }
 
-    const selectedCode = plRes.rows[0].code; // e.g., "01-EXP"
+    const selectedCode = plRes.rows[0].code; // e.g., "04-GROSEXP"
 
     // 2. Determine Target Columns
-    // Default to showing ONLY the selected list if it's not in our matrix
+    // FIX: This now correctly finds "04-GROSEXP" because we fixed the key in COLUMN_MATRIX
     const targetCodes = COLUMN_MATRIX[selectedCode] || [selectedCode];
 
     // 3. Build Query Filters
     let itemFilterSQL = "";
     const baseParams: any[] = [prodIdNum];
-    let paramIdx = 2; // $1 is prodId
+    let paramIdx = 2; 
 
     if (itemId) {
       itemFilterSQL = `AND i."ItemId" = $${paramIdx}`;
@@ -81,8 +69,7 @@ export async function GET(request: NextRequest) {
 
     const activeFilter = `AND i."isActive" = true`;
 
-    // 4. Fetch Products Info (Metadata)
-    // We fetch items first to ensure we have the list even if prices are missing
+    // 4. Fetch Products Info
     const itemsQuery = `
       SELECT 
         i."ItemId" as "itemId", i."ItemCode" as "itemCode", i."Descr" as "description",
@@ -96,7 +83,6 @@ export async function GET(request: NextRequest) {
     `;
 
     // 5. Fetch ALL Prices for Target Columns
-    // We use ANY($array) to fetch all required columns in one go
     const pricesQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", ipr."priceid", MAX(ipr."itempricedateid") as "latestDateId"
@@ -126,7 +112,7 @@ export async function GET(request: NextRequest) {
 
     const pricesParams = [...baseParams, targetCodes];
 
-    // 6. Fetch Discounts (Unchanged logic)
+    // 6. Fetch Discounts
     const discountQuery = `
       SELECT 
         i."ItemId" as "itemId", 
@@ -156,16 +142,13 @@ export async function GET(request: NextRequest) {
 
     // --- Processing Data ---
 
-    // Map Discounts
     const discountMap: Record<number, Record<number, number>> = {};
     for (const row of discountRes.rows) {
       if (!discountMap[row.itemId]) discountMap[row.itemId] = {};
       discountMap[row.itemId][parseInt(row.greaterThan)] = parseFloat(row.costingDiscountAmt) || 0;
     }
 
-    // Map Prices to Structure: ItemID -> QtyMin -> PriceCode -> Price
     const pricesMap: Record<number, Record<number, Record<string, number>>> = {};
-    
     for (const row of pricesRes.rows) {
       const iId = row.itemId;
       const qty = parseInt(row.qtyMin);
@@ -178,26 +161,30 @@ export async function GET(request: NextRequest) {
       pricesMap[iId][qty][code] = price;
     }
 
-    // Build Final Result
     const result = itemsRes.rows.map((item: any) => {
       const iId = item.itemId;
       const itemPrices = pricesMap[iId] || {};
       const itemDiscounts = discountMap[iId];
       
-      // We need to determine all unique Qty breaks for this item across ALL retrieved price lists
-      // (e.g., Expert might have break at 12, PDS might have break at 1)
       const quantities = Object.keys(itemPrices).map(Number).sort((a, b) => a - b);
 
       const ranges = quantities.map(qty => {
         const pricesAtQty = itemPrices[qty] || {};
         
-        // Calculate Discount
+        // FIX: Force ALL target columns to exist, even if null.
+        // This ensures the frontend 'Object.keys' sees the column header.
+        const columns: Record<string, number | null> = {};
+        targetCodes.forEach(code => {
+            // Check if price exists, otherwise set to null
+            columns[code] = pricesAtQty[code] !== undefined ? pricesAtQty[code] : null;
+        });
+
+        // Calculate Discount logic (same as before)
         let costingDiscountAmt = 0;
         if (itemDiscounts) {
            if (itemDiscounts[qty] !== undefined) {
              costingDiscountAmt = itemDiscounts[qty];
            } else {
-             // Find closest lower tier
              const tiers = Object.keys(itemDiscounts).map(Number).sort((a, b) => b - a);
              for (const tier of tiers) {
                if (tier <= qty) {
@@ -208,39 +195,24 @@ export async function GET(request: NextRequest) {
            }
         }
 
-        // Backward Compatibility Fields
-        // "unitPrice" = The price of the SELECTED list
         const unitPrice = pricesAtQty[selectedCode] || null;
-        
-        // "pdsPrice" and "coutExp" were hardcoded before. 
-        // Now we try to find them dynamically if they exist in the fetched columns.
-        // Assuming "08-PDS" is standard code for PDS
         const pdsPrice = pricesAtQty["08-PDS"] || null;
-        // Assuming "04-GROS EXP" or similar is Exp Base. 
-        // Note: In your previous code, "coutExp" was derived from "expPrice".
-        // You might need to adjust which column code represents 'Exp Base'. 
-        // For now, let's assume if "01-EXP" exists, it's the base, or leave null.
-        const expBasePrice = pricesAtQty["01-EXP"] || pricesAtQty["04-GROS EXP"] || null;
+        const expBasePrice = pricesAtQty["01-EXP"] || pricesAtQty["04-GROSEXP"] || null;
 
         return {
-          id: `${iId}-${qty}`, // composite key
+          id: `${iId}-${qty}`,
           qtyMin: qty,
-          
-          // Legacy fields for immediate frontend compatibility
           unitPrice: unitPrice, 
           pdsPrice: pdsPrice,
           coutExp: expBasePrice,
           costingDiscountAmt,
-
-          // NEW FIELD: map of all columns for this row
-          // Frontend can iterate this to show all columns requested in matrix
-          columns: pricesAtQty 
+          columns // This now contains all matrix keys (e.g. 08-PDS: null)
         };
       });
 
       return {
         ...item,
-        priceListName: selectedCode, // Use code as name for simplicity in identifying logic
+        priceListName: selectedCode,
         priceCode: selectedCode,
         ranges
       };
