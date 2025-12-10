@@ -126,6 +126,109 @@ function Toggle({ enabled, onChange, label, accentColor }: { enabled: boolean; o
   );
 }
 
+// --- Quick Add Search Component ---
+function QuickAddSearch({ 
+  onAddItems, 
+  onClose, 
+  accentColor 
+}: { 
+  onAddItems: (itemIds: number[]) => void; 
+  onClose: () => void; 
+  accentColor: string;
+}) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<Item[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    const timeout = setTimeout(async () => {
+      if (query.length > 1) {
+        setSearching(true);
+        try {
+          const res = await fetch(`/api/catalogue/items?search=${encodeURIComponent(query)}`);
+          if (res.ok) setResults(await res.json());
+        } finally {
+          setSearching(false);
+        }
+      } else {
+        setResults([]);
+      }
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [query]);
+
+  const toggleSelect = (id: number) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
+  };
+
+  const handleAdd = () => {
+    onAddItems(Array.from(selectedIds));
+    onClose();
+  };
+
+  return (
+    <div className="absolute top-16 right-4 z-50 w-96 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-700 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="p-3 border-b border-neutral-100 dark:border-neutral-800 flex gap-2">
+        <input 
+          autoFocus
+          className="flex-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg px-3 py-2 text-sm outline-none"
+          placeholder="Rechercher article..."
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+        />
+        <button onClick={onClose} className="px-2 text-neutral-400 hover:text-neutral-600">✕</button>
+      </div>
+      
+      <div className="max-h-64 overflow-y-auto p-1">
+        {searching ? (
+          <div className="p-4 text-center text-sm text-neutral-400">Recherche...</div>
+        ) : results.length > 0 ? (
+          results.map(item => (
+            <div 
+              key={item.itemId} 
+              onClick={() => toggleSelect(item.itemId)}
+              className={cn(
+                "flex items-center gap-3 p-2 rounded-lg cursor-pointer text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800",
+                selectedIds.has(item.itemId) && "bg-neutral-100 dark:bg-neutral-800"
+              )}
+            >
+              <div className={cn(
+                "w-4 h-4 rounded border flex items-center justify-center transition-colors",
+                selectedIds.has(item.itemId) ? "bg-black border-black dark:bg-white dark:border-white" : "border-neutral-300"
+              )}>
+                {selectedIds.has(item.itemId) && <span className="text-[10px] text-white dark:text-black">✓</span>}
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <div className="font-bold truncate">{item.itemCode}</div>
+                <div className="text-xs text-neutral-500 truncate">{item.description}</div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="p-4 text-center text-sm text-neutral-400">
+            {query.length > 1 ? "Aucun résultat" : "Tapez pour chercher"}
+          </div>
+        )}
+      </div>
+
+      <div className="p-3 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50">
+        <button
+          onClick={handleAdd}
+          disabled={selectedIds.size === 0}
+          className="w-full py-2 rounded-lg text-sm font-bold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ backgroundColor: accentColor }}
+        >
+          Ajouter ({selectedIds.size})
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // --- Price Modal Component ---
 interface PriceModalProps {
   isOpen: boolean;
@@ -134,6 +237,7 @@ interface PriceModalProps {
   priceLists: PriceList[];
   selectedPriceList: PriceList | null;
   onPriceListChange: (priceId: number) => void;
+  onAddItems: (itemIds: number[]) => void; // New Prop
   loading: boolean;
   error: string | null;
   accentColor: string;
@@ -142,10 +246,11 @@ interface PriceModalProps {
 
 function PriceModal({ 
   isOpen, onClose, data, priceLists, 
-  selectedPriceList, onPriceListChange, loading, error,
+  selectedPriceList, onPriceListChange, onAddItems, loading, error,
   accentColor, accentMuted
 }: PriceModalProps) {
   const [showDetails, setShowDetails] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
 
   if (!isOpen) return null;
 
@@ -153,7 +258,7 @@ function PriceModal({
 
   // --- GROUPING LOGIC ---
   const groupedItems = itemsWithPrices.reduce((acc, item) => {
-    const groupKey = item.className || "Autres";
+    const groupKey = item.className || "Articles Ajoutés";
     if (!acc[groupKey]) {
       acc[groupKey] = [];
     }
@@ -165,8 +270,6 @@ function PriceModal({
   const calcPricePerCaisse = (price: number, caisse: number | null) => caisse ? price * caisse : null;
   const calcPricePerLitre = (price: number, volume: number | null) => volume ? price / volume : null;
   
-  // Generic Margin Calculation
-  // Formula: ((SellingPrice - CostPrice) / SellingPrice) * 100
   const calcMargin = (sell: number | null, cost: number | null) => {
     if (!sell || !cost || sell === 0) return null;
     return ((sell - cost) / sell) * 100;
@@ -183,7 +286,7 @@ function PriceModal({
         
         {/* Modal Header */}
         <div 
-          className="flex-shrink-0 px-4 md:px-6 py-4"
+          className="flex-shrink-0 px-4 md:px-6 py-4 relative"
           style={{ backgroundColor: accentColor }}
         >
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -198,6 +301,14 @@ function PriceModal({
                 label="Afficher détails" 
                 accentColor={accentColor}
               />
+
+              <button 
+                onClick={() => setShowQuickAdd(!showQuickAdd)}
+                className="h-12 w-12 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center text-white font-bold text-2xl transition-colors"
+                title="Ajouter des articles"
+              >
+                +
+              </button>
 
               <select
                 value={selectedPriceList?.priceId || ""}
@@ -220,11 +331,20 @@ function PriceModal({
               </button>
             </div>
           </div>
+
+          {/* Quick Add Popover */}
+          {showQuickAdd && (
+            <QuickAddSearch 
+              accentColor={accentColor}
+              onClose={() => setShowQuickAdd(false)}
+              onAddItems={onAddItems}
+            />
+          )}
         </div>
         
         {/* Modal Content */}
         <div className="flex-1 overflow-auto p-3 md:p-5 bg-neutral-100 dark:bg-neutral-950">
-          {loading ? (
+          {loading && data.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 gap-4">
               <div 
                 className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin" 
@@ -250,9 +370,6 @@ function PriceModal({
                     ? Object.keys(firstItem.ranges[0].columns).sort()
                     : [selectedPriceList?.code || 'Prix'];
 
-                // --- VISIBILITY FILTER ---
-                // If details are hidden, do not show '01-EXP' unless it is the selected price list.
-                // If details are SHOWN, we show everything the API sent us (which now includes 01-EXP).
                 if (!showDetails && selectedPriceList?.code !== "01-EXP") {
                     priceColumns = priceColumns.filter(c => c !== "01-EXP");
                 }
@@ -262,7 +379,7 @@ function PriceModal({
                     key={className}
                     className="bg-white dark:bg-neutral-900 rounded-xl overflow-hidden shadow-lg border border-neutral-200 dark:border-neutral-800"
                   >
-                    {/* GROUP HEADER (Banner) */}
+                    {/* GROUP HEADER */}
                     <div className="px-4 py-3" style={{ backgroundColor: accentColor }}>
                       <h3 className="text-lg font-black text-white uppercase tracking-wider">
                         {className}
@@ -272,55 +389,26 @@ function PriceModal({
                       </p>
                     </div>
                     
-                    {/* SINGLE TABLE for the class */}
                     <div className="overflow-x-auto">
                       <table className="min-w-full w-full text-sm md:text-base border-collapse">
                         <thead>
                           <tr className="bg-neutral-200 dark:bg-neutral-800">
-                            {/* Article Name */}
-                            <th className="text-left p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 sticky left-0 z-10 bg-neutral-200 dark:bg-neutral-800 min-w-[200px]">
-                              Article
-                            </th>
-                            
-                            {/* Static Columns */}
-                            <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-24 min-w-[90px]">
-                              CAISSE
-                            </th>
-                            <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-24 min-w-[90px]">
-                              Format
-                            </th>
-                            <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-20 min-w-[80px]">
-                              Qty
-                            </th>
-                            
-                            {/* % Marge (ALWAYS VISIBLE) */}
-                            {/* Formula: (08-PDS - SelectedPrice) / 08-PDS */}
-                            <th className="text-right p-3 font-bold text-green-700 dark:text-green-400 border border-neutral-300 dark:border-neutral-700 bg-green-50 dark:bg-green-900/20 min-w-[90px]">
-                              % Marge
-                            </th>
+                            <th className="text-left p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 sticky left-0 z-10 bg-neutral-200 dark:bg-neutral-800 min-w-[200px]">Article</th>
+                            <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-24 min-w-[90px]">CAISSE</th>
+                            <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-24 min-w-[90px]">Format</th>
+                            <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-20 min-w-[80px]">Qty</th>
+                            <th className="text-right p-3 font-bold text-green-700 dark:text-green-400 border border-neutral-300 dark:border-neutral-700 bg-green-50 dark:bg-green-900/20 min-w-[90px]">% Marge</th>
 
-                            {/* Dynamic Price Headers */}
                             {priceColumns.map((colCode) => (
-                                <th 
-                                    key={colCode}
-                                    className="text-right p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 whitespace-nowrap min-w-[120px]"
-                                >
-                                    {colCode}
-                                </th>
+                                <th key={colCode} className="text-right p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 whitespace-nowrap min-w-[120px]">{colCode}</th>
                             ))}
                             
-                            {/* Expanded Details Headers */}
                             {showDetails && (
                               <>
                                 <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[110px]">($)/Caisse</th>
                                 <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[110px]">($)/L</th>
                                 <th className="text-right p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20 min-w-[100px]">Escompte</th>
-                                
-                                {/* % Exp (Toggle Visible) */}
-                                {/* Formula: (SelectedPrice - 01-EXP) / SelectedPrice */}
-                                <th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 min-w-[90px]">
-                                  % Exp
-                                </th>
+                                <th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 min-w-[90px]">% Exp</th>
                               </>
                             )}
                           </tr>
@@ -334,44 +422,20 @@ function PriceModal({
                                 const ppc = calcPricePerCaisse(range.unitPrice, item.caisse);
                                 const ppl = calcPricePerLitre(range.unitPrice, item.volume);
                                 
-                                // --- DATA PREPARATION ---
-                                // 1. Selected Price
                                 const selectedPriceCode = selectedPriceList?.code || "";
                                 const selectedPriceVal = range.columns?.[selectedPriceCode] ?? range.unitPrice;
-
-                                // 2. 01-EXP Price (Cost for Expert) - Now guaranteed by API
                                 const expBaseVal = range.columns?.["01-EXP"] ?? null;
-
-                                // 3. 08-PDS Price (MSRP) - Now guaranteed by API
                                 const pdsVal = range.columns?.["08-PDS"] ?? null;
 
-                                // --- CALCULATIONS ---
-                                
-                                // % Exp: (SelectedPrice - 01-EXP) / SelectedPrice
                                 const percentExp = calcMargin(selectedPriceVal, expBaseVal);
-
-                                // % Marge: (08-PDS - SelectedPrice) / 08-PDS
                                 const percentMarge = calcMargin(pdsVal, selectedPriceVal);
-                                
                                 const rowBg = itemIndex % 2 === 0 ? "bg-white dark:bg-neutral-900" : "bg-neutral-50/50 dark:bg-neutral-800/30";
 
                                 return (
-                                  <tr 
-                                    key={range.id} 
-                                    className={cn(
-                                      "transition-colors group",
-                                      rowBg
-                                    )}
-                                    style={{ '--hover-color': `${accentColor}15` } as React.CSSProperties}
-                                  >
+                                  <tr key={range.id} className={cn("transition-colors group", rowBg)} style={{ '--hover-color': `${accentColor}15` } as React.CSSProperties}>
                                     <style jsx>{`tr:hover { background-color: var(--hover-color) !important; }`}</style>
 
-                                    {/* Basic Info */}
-                                    <td className={cn(
-                                      "p-3 border border-neutral-200 dark:border-neutral-700 align-top sticky left-0 z-10",
-                                      rowBg,
-                                      "group-hover:bg-[var(--hover-color)]"
-                                    )}>
+                                    <td className={cn("p-3 border border-neutral-200 dark:border-neutral-700 align-top sticky left-0 z-10", rowBg, "group-hover:bg-[var(--hover-color)]")}>
                                       {isFirstRowOfItem && (
                                         <div className="flex flex-col">
                                           <span className="font-mono font-black text-neutral-900 dark:text-white whitespace-nowrap">{item.itemCode}</span>
@@ -380,74 +444,37 @@ function PriceModal({
                                       )}
                                     </td>
                                     
-                                    <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700 align-top">
-                                      {isFirstRowOfItem && <span className="font-black text-neutral-900 dark:text-white">{item.caisse || '-'}</span>}
-                                    </td>
-                                    <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700 align-top">
-                                      {isFirstRowOfItem && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}
-                                    </td>
-                                    <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700">
-                                      <span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span>
-                                    </td>
+                                    <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700 align-top">{isFirstRowOfItem && <span className="font-black text-neutral-900 dark:text-white">{item.caisse || '-'}</span>}</td>
+                                    <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700 align-top">{isFirstRowOfItem && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}</td>
+                                    <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700"><span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span></td>
                                     
-                                    {/* % Marge (Public) */}
+                                    {/* % Marge */}
                                     <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-green-50 dark:bg-green-900/10">
-                                      <span className={cn(
-                                        "font-mono font-bold whitespace-nowrap", 
-                                        percentMarge && percentMarge < 0 ? "text-red-600" : "text-green-700 dark:text-green-400"
-                                      )}>
+                                      <span className={cn("font-mono font-bold whitespace-nowrap", percentMarge && percentMarge < 0 ? "text-red-600" : "text-green-700 dark:text-green-400")}>
                                         {percentMarge !== null ? `${percentMarge.toFixed(1)}%` : '-'}
                                       </span>
                                     </td>
 
-                                    {/* Dynamic Price Cells */}
+                                    {/* Price Cells */}
                                     {priceColumns.map((colCode) => {
                                         const priceVal = range.columns ? range.columns[colCode] : (colCode === selectedPriceList?.code ? range.unitPrice : null);
                                         const isSelectedList = colCode === selectedPriceList?.code;
-
                                         return (
-                                            <td 
-                                                key={colCode} 
-                                                className={cn(
-                                                    "p-3 text-right border border-neutral-200 dark:border-neutral-700",
-                                                    isSelectedList && "bg-amber-50 dark:bg-amber-900/10"
-                                                )}
-                                            >
-                                                <span 
-                                                    className={cn(
-                                                        "font-mono font-black whitespace-nowrap",
-                                                        isSelectedList ? "text-amber-700 dark:text-amber-400" : "text-neutral-900 dark:text-neutral-300"
-                                                    )}
-                                                    style={{ color: isSelectedList && isFirstRowOfItem ? accentColor : undefined }}
-                                                >
+                                            <td key={colCode} className={cn("p-3 text-right border border-neutral-200 dark:border-neutral-700", isSelectedList && "bg-amber-50 dark:bg-amber-900/10")}>
+                                                <span className={cn("font-mono font-black whitespace-nowrap", isSelectedList ? "text-amber-700 dark:text-amber-400" : "text-neutral-900 dark:text-neutral-300")} style={{ color: isSelectedList && isFirstRowOfItem ? accentColor : undefined }}>
                                                     {priceVal ? <AnimatedPrice value={priceVal} /> : '-'}
                                                 </span>
                                             </td>
                                         );
                                     })}
                                     
-                                    {/* Expanded Details Data */}
+                                    {/* Expanded Details */}
                                     {showDetails && (
                                       <>
-                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10">
-                                          <span className="font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">{ppc ? ppc.toFixed(2) : '-'}</span>
-                                        </td>
-                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10">
-                                          <span className="font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">{ppl ? ppl.toFixed(2) : '-'}</span>
-                                        </td>
-                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-orange-50/50 dark:bg-orange-900/10">
-                                          <span className="font-mono font-bold text-orange-700 dark:text-orange-400 whitespace-nowrap">{range.costingDiscountAmt !== undefined ? range.costingDiscountAmt.toFixed(2) : '-'}</span>
-                                        </td>
-                                        
-                                        {/* % Exp (Details) */}
-                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10">
-                                          <span className={cn(
-                                            "font-mono font-bold whitespace-nowrap", 
-                                            percentExp && percentExp < 0 ? "text-red-600" : "text-purple-700 dark:text-purple-400"
-                                          )}>
-                                            {percentExp !== null ? `${percentExp.toFixed(1)}%` : '-'}
-                                          </span>
-                                        </td>
+                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10"><span className="font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">{ppc ? ppc.toFixed(2) : '-'}</span></td>
+                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10"><span className="font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">{ppl ? ppl.toFixed(2) : '-'}</span></td>
+                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-orange-50/50 dark:bg-orange-900/10"><span className="font-mono font-bold text-orange-700 dark:text-orange-400 whitespace-nowrap">{range.costingDiscountAmt !== undefined ? range.costingDiscountAmt.toFixed(2) : '-'}</span></td>
+                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10"><span className={cn("font-mono font-bold whitespace-nowrap", percentExp && percentExp < 0 ? "text-red-600" : "text-purple-700 dark:text-purple-400")}>{percentExp !== null ? `${percentExp.toFixed(1)}%` : '-'}</span></td>
                                       </>
                                     )}
                                   </tr>
@@ -455,11 +482,7 @@ function PriceModal({
                               })}
                               
                               {/* Separator */}
-                              {itemIndex < classItems.length - 1 && (
-                                <tr className="h-px bg-neutral-200 dark:bg-neutral-700">
-                                  <td colSpan={100} className="p-0"></td>
-                                </tr>
-                              )}
+                              {itemIndex < classItems.length - 1 && <tr className="h-px bg-neutral-200 dark:bg-neutral-700"><td colSpan={100} className="p-0"></td></tr>}
                             </片>
                           ))}
                         </tbody>
@@ -473,23 +496,16 @@ function PriceModal({
             <div className="flex flex-col items-center justify-center h-64 gap-4">
               <div className="text-6xl text-neutral-300">∅</div>
               <div className="text-center">
-                <p className="text-xl font-bold text-neutral-600 dark:text-neutral-400">
-                  Aucun prix trouvé
-                </p>
-                <p className="text-neutral-500 mt-1">
-                  Aucun article avec prix pour cette sélection.
-                </p>
+                <p className="text-xl font-bold text-neutral-600 dark:text-neutral-400">Aucun prix trouvé</p>
+                <p className="text-neutral-500 mt-1">Aucun article avec prix pour cette sélection.</p>
               </div>
             </div>
           )}
         </div>
         
-        {/* Footer */}
         {!loading && itemsWithPrices.length > 0 && (
           <div className="flex-shrink-0 bg-neutral-200 dark:bg-neutral-800 px-4 py-3 text-center">
-            <span className="text-neutral-600 dark:text-neutral-400 font-medium">
-              {itemsWithPrices.length} article(s) {showDetails && " • Détails activés"}
-            </span>
+            <span className="text-neutral-600 dark:text-neutral-400 font-medium">{itemsWithPrices.length} article(s) {showDetails && " • Détails activés"}</span>
           </div>
         )}
       </div>
@@ -497,7 +513,7 @@ function PriceModal({
   );
 }
 
-// --- Helper component to replace Fragment because using <></> inside map sometimes causes issues without keys
+// --- Helper component ---
 function 片({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
@@ -582,19 +598,16 @@ export default function CataloguePage() {
   }, [searchQuery]);
 
   // --- Fetch Prices ---
-  const fetchPrices = async (priceId: number, prodId: number, typeId?: number | null, itemId?: number | null) => {
+  const fetchPrices = async (priceId: number, prodId: number | null, typeId?: number | null, itemId?: number | null) => {
     setPriceData([]);
     setPriceError(null);
     setLoadingPrices(true);
     
     try {
-      let url = `/api/catalogue/prices?priceId=${priceId}&prodId=${prodId}`;
-      
-      if (itemId) {
-        url += `&itemId=${itemId}`;
-      } else if (typeId) {
-        url += `&typeId=${typeId}`;
-      }
+      let url = `/api/catalogue/prices?priceId=${priceId}`;
+      if (prodId) url += `&prodId=${prodId}`;
+      if (itemId) url += `&itemId=${itemId}`;
+      else if (typeId) url += `&typeId=${typeId}`;
       
       const res = await fetch(url);
       
@@ -609,6 +622,36 @@ export default function CataloguePage() {
     } catch (err: any) {
       console.error("Price fetch failed:", err);
       setPriceError(err.message || "Erreur lors du chargement des prix");
+    } finally {
+      setLoadingPrices(false);
+    }
+  };
+
+  // --- Handle Adding Items via Quick Add ---
+  const handleAddItems = async (itemIds: number[]) => {
+    if (!selectedPriceList) return;
+    setLoadingPrices(true);
+    
+    try {
+      // Fetch prices for the NEW items only
+      // Note: We don't pass prodId here, we use itemIds
+      const idsString = itemIds.join(',');
+      const url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}&itemIds=${idsString}`;
+      
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Erreur fetch items");
+      
+      const newItems: ItemPriceData[] = await res.json();
+      
+      // Merge with existing items, avoiding duplicates
+      setPriceData(prev => {
+        const existingIds = new Set(prev.map(i => i.itemId));
+        const filteredNew = newItems.filter(i => !existingIds.has(i.itemId));
+        return [...prev, ...filteredNew];
+      });
+      
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoadingPrices(false);
     }
@@ -732,9 +775,15 @@ export default function CataloguePage() {
 
   const handleModalPriceListChange = async (priceId: number) => {
     const pl = priceLists.find(p => p.priceId === priceId);
-    if (pl && modalProdId) {
+    if (pl) {
       setSelectedPriceList(pl);
-      await fetchPrices(priceId, modalProdId, modalTypeId, modalItemId);
+      // Re-fetch EVERYTHING currently in the table but with new price ID
+      // NOTE: For simplicity, we just re-fetch the base selection. 
+      // If user added manual items, they would be lost here unless we tracked IDs.
+      // For now, let's stick to base logic + if modalProdId exists.
+      if (modalProdId) {
+         await fetchPrices(priceId, modalProdId, modalTypeId, modalItemId);
+      }
     }
   };
 
@@ -828,7 +877,6 @@ export default function CataloguePage() {
 
               {/* FORM FIELDS */}
               <div className="space-y-5">
-                
                 {/* Step 1: Price List */}
                 <div>
                   <label className="block text-xs font-bold text-neutral-500 mb-2 uppercase tracking-wide">
@@ -979,6 +1027,7 @@ export default function CataloguePage() {
         priceLists={priceLists}
         selectedPriceList={selectedPriceList}
         onPriceListChange={handleModalPriceListChange}
+        onAddItems={handleAddItems} // Pass the handler
         loading={loadingPrices}
         error={priceError}
         accentColor={accentColor}
