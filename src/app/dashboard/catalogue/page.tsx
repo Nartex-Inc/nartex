@@ -38,12 +38,11 @@ interface PriceList {
 interface PriceRange {
   id: number;
   qtyMin: number;
-  unitPrice: number; // Represents the price of the SELECTED list (for calculations)
+  unitPrice: number;
   pdsPrice: number | null;
   expBasePrice: number | null;
   coutExp: number | null;
   costingDiscountAmt?: number;
-  // UPDATED: Added columns map for dynamic header support
   columns?: Record<string, number>;
 }
 
@@ -152,6 +151,18 @@ function PriceModal({
 
   const itemsWithPrices = data.filter(item => item.ranges && item.ranges.length > 0);
 
+  // --- GROUPING LOGIC ---
+  // We group items by their className so we can render one header per class
+  const groupedItems = itemsWithPrices.reduce((acc, item) => {
+    // Use className as key, fallback to "Autres" if missing
+    const groupKey = item.className || "Autres";
+    if (!acc[groupKey]) {
+      acc[groupKey] = [];
+    }
+    acc[groupKey].push(item);
+    return acc;
+  }, {} as Record<string, ItemPriceData[]>);
+
   // Calculation Helpers
   const calcPricePerCaisse = (price: number, caisse: number | null) => caisse ? price * caisse : null;
   const calcPricePerLitre = (price: number, volume: number | null) => volume ? price / volume : null;
@@ -225,32 +236,34 @@ function PriceModal({
                 <p className="text-neutral-500 mt-1">{error}</p>
               </div>
             </div>
-          ) : itemsWithPrices.length > 0 ? (
-            <div className="space-y-4">
-              {itemsWithPrices.map((item) => {
+          ) : Object.keys(groupedItems).length > 0 ? (
+            <div className="space-y-8">
+              {/* ITERATE OVER GROUPS INSTEAD OF INDIVIDUAL ITEMS */}
+              {Object.entries(groupedItems).map(([className, classItems]) => {
                 
-                // --- DYNAMIC COLUMNS LOGIC ---
-                // We identify the columns from the first range of the item.
-                // We sort them to ensure consistent order (e.g. 01, 02, 05, 08).
-                const priceColumns = item.ranges[0]?.columns 
-                    ? Object.keys(item.ranges[0].columns).sort()
+                // Determine Columns from the first item in the group (they share the same structure)
+                const firstItem = classItems[0];
+                const priceColumns = firstItem.ranges[0]?.columns 
+                    ? Object.keys(firstItem.ranges[0].columns).sort()
                     : [selectedPriceList?.code || 'Prix'];
 
                 return (
                   <div 
-                    key={item.itemId}
+                    key={className}
                     className="bg-white dark:bg-neutral-900 rounded-xl overflow-hidden shadow-lg border border-neutral-200 dark:border-neutral-800"
                   >
-                    {/* Item Header */}
+                    {/* GROUP HEADER (Banner) - Rendered ONCE per Class */}
                     <div className="px-4 py-3" style={{ backgroundColor: accentColor }}>
-                      <h3 className="text-lg font-black text-white">
-                        {item.description.split(' ')[0].toUpperCase()}
+                      <h3 className="text-lg font-black text-white uppercase tracking-wider">
+                        {className}
                       </h3>
-                      <p className="text-white/80 text-sm">
-                        {item.className || item.description}
+                      {/* Optional subtitle using the description of the first item, or generic text */}
+                      <p className="text-white/80 text-xs mt-0.5">
+                        {classItems.length} article(s) dans cette classe
                       </p>
                     </div>
                     
+                    {/* SINGLE TABLE for the entire class */}
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm md:text-base border-collapse table-fixed">
                         <thead>
@@ -280,7 +293,7 @@ function PriceModal({
                               Qte/Qty
                             </th>
                             
-                            {/* Coût Exp (Left of Price) */}
+                            {/* Coût Exp */}
                             {showDetails && (
                               <th 
                                 className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20"
@@ -290,7 +303,7 @@ function PriceModal({
                               </th>
                             )}
 
-                            {/* --- DYNAMIC PRICE HEADERS --- */}
+                            {/* Dynamic Price Headers */}
                             {priceColumns.map((colCode) => (
                                 <th 
                                     key={colCode}
@@ -301,153 +314,129 @@ function PriceModal({
                                 </th>
                             ))}
                             
-                            {/* Expanded Details Columns (Right of Price) */}
+                            {/* Expanded Details Headers */}
                             {showDetails && (
                               <>
-                                <th 
-                                  className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20"
-                                  style={{ width: '11%' }}
-                                >
-                                  ($)/Caisse
-                                </th>
-                                <th 
-                                  className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20"
-                                  style={{ width: '11%' }}
-                                >
-                                  ($)/L
-                                </th>
-                                
-                                {/* Escompte */}
-                                <th 
-                                  className="text-right p-2 md:p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20"
-                                  style={{ width: '10%' }}
-                                >
-                                  Escompte
-                                </th>
-                                
-                                {/* % Exp */}
-                                <th 
-                                  className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20"
-                                  style={{ width: '8%' }}
-                                >
-                                  % Exp
-                                </th>
+                                <th className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20" style={{ width: '11%' }}>($)/Caisse</th>
+                                <th className="text-right p-2 md:p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20" style={{ width: '11%' }}>($)/L</th>
+                                <th className="text-right p-2 md:p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20" style={{ width: '10%' }}>Escompte</th>
+                                <th className="text-right p-2 md:p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20" style={{ width: '8%' }}>% Exp</th>
                               </>
                             )}
                           </tr>
                         </thead>
+                        
+                        {/* Table Body iterates through ALL items in this class */}
                         <tbody>
-                          {item.ranges.map((range, rIdx) => {
-                            const isFirstRow = rIdx === 0;
-                            const ppc = calcPricePerCaisse(range.unitPrice, item.caisse);
-                            const ppl = calcPricePerLitre(range.unitPrice, item.volume);
-                            const marginExp = calcMarginExp(range.unitPrice, range.coutExp);
-                            
-                            return (
-                              <tr 
-                                key={range.id} 
-                                className={cn(
-                                  "transition-colors",
-                                  isFirstRow ? "bg-white dark:bg-neutral-900" : "bg-neutral-50 dark:bg-neutral-800/50"
-                                )}
-                                style={{ 
-                                  '--hover-color': `${accentColor}15`, 
-                                } as React.CSSProperties}
-                              >
-                                <style jsx>{`
-                                  tr:hover { background-color: var(--hover-color) !important; }
-                                `}</style>
-
-                                {/* Basic Info */}
-                                <td className="p-2 md:p-3 border border-neutral-200 dark:border-neutral-700 truncate">
-                                  {isFirstRow && <span className="font-mono font-black text-neutral-900 dark:text-white">{item.itemCode}</span>}
-                                </td>
-                                <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate">
-                                  {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.caisse || '-'}</span>}
-                                </td>
-                                <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate">
-                                  {isFirstRow && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}
-                                </td>
-                                <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate">
-                                  <span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span>
-                                </td>
+                          {classItems.map((item, itemIndex) => (
+                            // Use Fragment to return multiple rows (ranges) for one item
+                            <片 key={item.itemId}>
+                              {item.ranges.map((range, rIdx) => {
+                                const isFirstRowOfItem = rIdx === 0;
+                                const ppc = calcPricePerCaisse(range.unitPrice, item.caisse);
+                                const ppl = calcPricePerLitre(range.unitPrice, item.volume);
+                                const marginExp = calcMarginExp(range.unitPrice, range.coutExp);
                                 
-                                {/* Coût Exp (Left of Price) */}
-                                {showDetails && (
-                                  <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10 truncate">
-                                    <span className="font-mono font-bold text-purple-700 dark:text-purple-400">
-                                      {range.coutExp ? range.coutExp.toFixed(2) : '-'}
-                                    </span>
-                                  </td>
-                                )}
+                                // Alternating background logic can be based on itemIndex to group items visually
+                                const rowBg = itemIndex % 2 === 0 ? "bg-white dark:bg-neutral-900" : "bg-neutral-50/50 dark:bg-neutral-800/30";
 
-                                {/* --- DYNAMIC PRICE CELLS --- */}
-                                {priceColumns.map((colCode) => {
-                                    // Fetch the price from the 'columns' record
-                                    // Fallback to unitPrice only if legacy API (columns undefined)
-                                    const priceVal = range.columns ? range.columns[colCode] : (colCode === selectedPriceList?.code ? range.unitPrice : null);
+                                return (
+                                  <tr 
+                                    key={range.id} 
+                                    className={cn(
+                                      "transition-colors",
+                                      rowBg
+                                    )}
+                                    style={{ '--hover-color': `${accentColor}15` } as React.CSSProperties}
+                                  >
+                                    <style jsx>{`tr:hover { background-color: var(--hover-color) !important; }`}</style>
+
+                                    {/* Basic Info - Only Show on First Row of Item */}
+                                    <td className="p-2 md:p-3 border border-neutral-200 dark:border-neutral-700 truncate align-top">
+                                      {isFirstRowOfItem && (
+                                        <div className="flex flex-col">
+                                          <span className="font-mono font-black text-neutral-900 dark:text-white">{item.itemCode}</span>
+                                          <span className="text-xs text-neutral-500 truncate max-w-[150px]" title={item.description}>{item.description}</span>
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate align-top">
+                                      {isFirstRowOfItem && <span className="font-black text-neutral-900 dark:text-white">{item.caisse || '-'}</span>}
+                                    </td>
+                                    <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate align-top">
+                                      {isFirstRowOfItem && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}
+                                    </td>
                                     
-                                    // Optional: Highlight the cell corresponding to the currently selected dropdown
-                                    const isSelectedList = colCode === selectedPriceList?.code;
+                                    <td className="p-2 md:p-3 text-center border border-neutral-200 dark:border-neutral-700 truncate">
+                                      <span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span>
+                                    </td>
+                                    
+                                    {/* Coût Exp */}
+                                    {showDetails && (
+                                      <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10 truncate">
+                                        <span className="font-mono font-bold text-purple-700 dark:text-purple-400">
+                                          {range.coutExp ? range.coutExp.toFixed(2) : '-'}
+                                        </span>
+                                      </td>
+                                    )}
 
-                                    return (
-                                        <td 
-                                            key={colCode} 
-                                            className={cn(
-                                                "p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 truncate",
-                                                isSelectedList && "bg-amber-50 dark:bg-amber-900/10"
-                                            )}
-                                        >
-                                            <span 
+                                    {/* Dynamic Price Cells */}
+                                    {priceColumns.map((colCode) => {
+                                        const priceVal = range.columns ? range.columns[colCode] : (colCode === selectedPriceList?.code ? range.unitPrice : null);
+                                        const isSelectedList = colCode === selectedPriceList?.code;
+
+                                        return (
+                                            <td 
+                                                key={colCode} 
                                                 className={cn(
-                                                    "font-mono font-black",
-                                                    isSelectedList ? "text-amber-700 dark:text-amber-400" : "text-neutral-900 dark:text-neutral-300"
+                                                    "p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 truncate",
+                                                    isSelectedList && "bg-amber-50 dark:bg-amber-900/10"
                                                 )}
-                                                style={{ color: isSelectedList && isFirstRow ? accentColor : undefined }}
                                             >
-                                                {priceVal ? <AnimatedPrice value={priceVal} /> : '-'}
-                                            </span>
+                                                <span 
+                                                    className={cn(
+                                                        "font-mono font-black",
+                                                        isSelectedList ? "text-amber-700 dark:text-amber-400" : "text-neutral-900 dark:text-neutral-300"
+                                                    )}
+                                                    style={{ color: isSelectedList && isFirstRowOfItem ? accentColor : undefined }}
+                                                >
+                                                    {priceVal ? <AnimatedPrice value={priceVal} /> : '-'}
+                                                </span>
+                                            </td>
+                                        );
+                                    })}
+                                    
+                                    {/* Expanded Details Data */}
+                                    {showDetails && (
+                                      <>
+                                        <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10 truncate">
+                                          <span className="font-mono text-blue-700 dark:text-blue-400">{ppc ? ppc.toFixed(2) : '-'}</span>
                                         </td>
-                                    );
-                                })}
-                                
-                                {/* Expanded Details Data (Right of Price) */}
-                                {showDetails && (
-                                  <>
-                                    {/* ($)/Caisse */}
-                                    <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10 truncate">
-                                      <span className="font-mono text-blue-700 dark:text-blue-400">
-                                        {ppc ? ppc.toFixed(2) : '-'}
-                                      </span>
-                                    </td>
-                                    {/* ($)/L */}
-                                    <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10 truncate">
-                                      <span className="font-mono text-blue-700 dark:text-blue-400">
-                                        {ppl ? ppl.toFixed(2) : '-'}
-                                      </span>
-                                    </td>
-                                    
-                                    {/* Escompte */}
-                                    <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-orange-50/50 dark:bg-orange-900/10 truncate">
-                                      <span className="font-mono font-bold text-orange-700 dark:text-orange-400">
-                                        {range.costingDiscountAmt !== undefined ? range.costingDiscountAmt.toFixed(2) : '-'}
-                                      </span>
-                                    </td>
-                                    
-                                    {/* % Exp */}
-                                    <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10 truncate">
-                                      <span className={cn(
-                                        "font-mono font-bold",
-                                        marginExp && marginExp > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                                      )}>
-                                        {marginExp ? `${marginExp.toFixed(1)}%` : '-'}
-                                      </span>
-                                    </td>
-                                  </>
-                                )}
-                              </tr>
-                            );
-                          })}
+                                        <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10 truncate">
+                                          <span className="font-mono text-blue-700 dark:text-blue-400">{ppl ? ppl.toFixed(2) : '-'}</span>
+                                        </td>
+                                        <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-orange-50/50 dark:bg-orange-900/10 truncate">
+                                          <span className="font-mono font-bold text-orange-700 dark:text-orange-400">{range.costingDiscountAmt !== undefined ? range.costingDiscountAmt.toFixed(2) : '-'}</span>
+                                        </td>
+                                        <td className="p-2 md:p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10 truncate">
+                                          <span className={cn("font-mono font-bold", marginExp && marginExp > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
+                                            {marginExp ? `${marginExp.toFixed(1)}%` : '-'}
+                                          </span>
+                                        </td>
+                                      </>
+                                    )}
+                                  </tr>
+                                );
+                              })}
+                              
+                              {/* Add a subtle separator between distinct items within the same class */}
+                              {itemIndex < classItems.length - 1 && (
+                                <tr className="h-px bg-neutral-200 dark:bg-neutral-700">
+                                  <td colSpan={100} className="p-0"></td>
+                                </tr>
+                              )}
+                            </片>
+                          ))}
                         </tbody>
                       </table>
                     </div>
@@ -481,6 +470,11 @@ function PriceModal({
       </div>
     </div>
   );
+}
+
+// --- Helper component to replace Fragment because using <></> inside map sometimes causes issues without keys
+function 片({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
 }
 
 // --- Main Page Component ---
@@ -533,7 +527,6 @@ export default function CataloguePage() {
           const pls: PriceList[] = await plRes.json();
           setPriceLists(pls);
           
-          // CHANGE: Look for price list starting with "03", otherwise fallback to the first one
           const defaultList = pls.find(p => p.code.startsWith("03")) || pls[0];
           
           if (defaultList) setSelectedPriceList(defaultList);
