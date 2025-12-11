@@ -385,7 +385,7 @@ function PriceModal({
 
   const itemsWithPrices = data.filter(item => item.ranges && item.ranges.length > 0);
 
-  // --- 3. AUTH HANDLER (STEP-UP) ---
+  // --- AUTH HANDLER (STEP-UP) ---
   const handleToggleDetails = async (newValue: boolean) => {
     if (!newValue) {
         setShowDetails(false);
@@ -394,15 +394,12 @@ function PriceModal({
 
     setIsAuthenticating(true);
     try {
-        // A. Get Challenge (Now returns Registration Options)
         const resp = await fetch('/api/auth/challenge');
         if (!resp.ok) throw new Error('Challenge fetch failed');
         const options = await resp.json();
 
-        // B. Trigger iPad FaceID / PIN (Using Registration to force Platform Auth)
-        const authResp = await startRegistration(options); // <--- CHANGED THIS
+        const authResp = await startRegistration(options);
 
-        // C. Verify
         const verifyResp = await fetch('/api/auth/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -419,7 +416,7 @@ function PriceModal({
         }
     } catch (error) {
         console.error("Auth error", error);
-        // User likely cancelled the prompt
+        alert("Authentification annulée ou impossible.");
         setShowDetails(false);
     } finally {
         setIsAuthenticating(false);
@@ -601,6 +598,11 @@ function PriceModal({
                     priceColumns = priceColumns.filter(c => c !== "01-EXP");
                 }
 
+                // Force PDS to be at end of list (visually handled in loop below)
+                // Filter PDS out of standard columns so we can append it at the end
+                const standardColumns = priceColumns.filter(c => c !== "08-PDS");
+                const hasPDS = priceColumns.includes("08-PDS");
+
                 return (
                   <div 
                     key={className}
@@ -623,19 +625,28 @@ function PriceModal({
                             <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-24 min-w-[90px]">CAISSE</th>
                             <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-24 min-w-[90px]">Format</th>
                             <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-20 min-w-[80px]">Qty</th>
-                            <th className="text-right p-3 font-bold text-green-700 dark:text-green-400 border border-neutral-300 dark:border-neutral-700 bg-green-50 dark:bg-green-900/20 min-w-[90px]">% Marge</th>
 
-                            {priceColumns.map((colCode) => (
-                                <th key={colCode} className="text-right p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 whitespace-nowrap min-w-[120px]">{colCode}</th>
-                            ))}
-                            
-                            {showDetails && (
-                              <>
-                                <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[110px]">($)/Caisse</th>
-                                <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[110px]">($)/L</th>
-                                <th className="text-right p-3 font-bold text-orange-700 dark:text-orange-400 border border-neutral-300 dark:border-neutral-700 bg-orange-50 dark:bg-orange-900/20 min-w-[100px]">Escompte</th>
-                                <th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 min-w-[90px]">% Exp</th>
-                              </>
+                            {standardColumns.map((colCode) => {
+                                const isSelectedList = colCode === selectedPriceList?.code;
+                                return (
+                                    <>
+                                        <th key={colCode} className="text-right p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 whitespace-nowrap min-w-[120px]">{colCode}</th>
+                                        
+                                        {/* DETAIL COLUMNS inserted immediately after selected price list */}
+                                        {showDetails && isSelectedList && (
+                                            <>
+                                                <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[110px]">($)/Caisse</th>
+                                                <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[110px]">($)/L</th>
+                                                <th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 min-w-[90px]">% Exp</th>
+                                            </>
+                                        )}
+                                    </>
+                                );
+                            })}
+
+                            {/* PDS ALWAYS AT END */}
+                            {hasPDS && (
+                                <th className="text-right p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 whitespace-nowrap min-w-[120px]">08-PDS</th>
                             )}
                           </tr>
                         </thead>
@@ -651,10 +662,10 @@ function PriceModal({
                                 const selectedPriceCode = selectedPriceList?.code || "";
                                 const selectedPriceVal = range.columns?.[selectedPriceCode] ?? range.unitPrice;
                                 const expBaseVal = range.columns?.["01-EXP"] ?? null;
-                                const pdsVal = range.columns?.["08-PDS"] ?? null;
-
+                                
+                                // Specific margin calculations
                                 const percentExp = calcMargin(selectedPriceVal, expBaseVal);
-                                const percentMarge = calcMargin(pdsVal, selectedPriceVal);
+                                
                                 const rowBg = itemIndex % 2 === 0 ? "bg-white dark:bg-neutral-900" : "bg-neutral-50/50 dark:bg-neutral-800/30";
 
                                 return (
@@ -674,32 +685,41 @@ function PriceModal({
                                     <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700 align-top">{isFirstRowOfItem && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}</td>
                                     <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700"><span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span></td>
                                     
-                                    <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-green-50 dark:bg-green-900/10">
-                                      <span className={cn("font-mono font-bold whitespace-nowrap", percentMarge && percentMarge < 0 ? "text-red-600" : "text-green-700 dark:text-green-400")}>
-                                        {percentMarge !== null ? `${percentMarge.toFixed(1)}%` : '-'}
-                                      </span>
-                                    </td>
-
-                                    {priceColumns.map((colCode) => {
+                                    {standardColumns.map((colCode) => {
                                         const priceVal = range.columns ? range.columns[colCode] : (colCode === selectedPriceList?.code ? range.unitPrice : null);
                                         const isSelectedList = colCode === selectedPriceList?.code;
                                         return (
-                                            <td key={colCode} className={cn("p-3 text-right border border-neutral-200 dark:border-neutral-700", isSelectedList && "bg-amber-50 dark:bg-amber-900/10")}>
-                                                <span className={cn("font-mono font-black whitespace-nowrap", isSelectedList ? "text-amber-700 dark:text-amber-400" : "text-neutral-900 dark:text-neutral-300")} style={{ color: isSelectedList && isFirstRowOfItem ? accentColor : undefined }}>
-                                                    {priceVal !== null && priceVal !== undefined ? <AnimatedPrice value={priceVal} /> : '-'}
-                                                </span>
-                                            </td>
+                                            <>
+                                                <td key={colCode} className={cn("p-3 text-right border border-neutral-200 dark:border-neutral-700", isSelectedList && "bg-amber-50 dark:bg-amber-900/10")}>
+                                                    <span className={cn("font-mono font-black whitespace-nowrap", isSelectedList ? "text-amber-700 dark:text-amber-400" : "text-neutral-900 dark:text-neutral-300")} style={{ color: isSelectedList && isFirstRowOfItem ? accentColor : undefined }}>
+                                                        {priceVal !== null && priceVal !== undefined ? <AnimatedPrice value={priceVal} /> : '-'}
+                                                    </span>
+                                                </td>
+
+                                                {/* DETAILS INSERTED HERE IF SELECTED */}
+                                                {showDetails && isSelectedList && (
+                                                    <>
+                                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10"><span className="font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">{ppc ? ppc.toFixed(2) : '-'}</span></td>
+                                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10"><span className="font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">{ppl ? ppl.toFixed(2) : '-'}</span></td>
+                                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10"><span className={cn("font-mono font-bold whitespace-nowrap", percentExp && percentExp < 0 ? "text-red-600" : "text-purple-700 dark:text-purple-400")}>{percentExp !== null ? `${percentExp.toFixed(1)}%` : '-'}</span></td>
+                                                    </>
+                                                )}
+                                            </>
                                         );
                                     })}
                                     
-                                    {showDetails && (
-                                      <>
-                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10"><span className="font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">{ppc ? ppc.toFixed(2) : '-'}</span></td>
-                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10"><span className="font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">{ppl ? ppl.toFixed(2) : '-'}</span></td>
-                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-orange-50/50 dark:bg-orange-900/10"><span className="font-mono font-bold text-orange-700 dark:text-orange-400 whitespace-nowrap">{range.costingDiscountAmt !== undefined ? range.costingDiscountAmt.toFixed(2) : '-'}</span></td>
-                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10"><span className={cn("font-mono font-bold whitespace-nowrap", percentExp && percentExp < 0 ? "text-red-600" : "text-purple-700 dark:text-purple-400")}>{percentExp !== null ? `${percentExp.toFixed(1)}%` : '-'}</span></td>
-                                      </>
-                                    )}
+                                    {/* PDS ALWAYS AT END */}
+                                    {hasPDS && (() => {
+                                        const pdsVal = range.columns?.["08-PDS"] ?? null;
+                                        return (
+                                            <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700">
+                                                <span className="font-mono font-black text-neutral-900 dark:text-neutral-300 whitespace-nowrap">
+                                                    {pdsVal !== null ? <AnimatedPrice value={pdsVal} /> : '-'}
+                                                </span>
+                                            </td>
+                                        );
+                                    })()}
+
                                   </tr>
                                 );
                               })}
@@ -968,7 +988,6 @@ export default function CataloguePage() {
     }
   };
 
-  // 4. FIX: Define canGenerate HERE, before return
   const canGenerate = selectedPriceList && selectedProduct;
 
   return (
