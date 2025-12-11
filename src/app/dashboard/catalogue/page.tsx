@@ -595,13 +595,14 @@ function PriceModal({
                     : [selectedPriceList?.code || 'Prix'];
 
                 if (!showDetails && selectedPriceList?.code !== "01-EXP") {
-                    priceColumns = priceColumns.filter(c => c !== "01-EXP");
+                    // FIX: Also Trim comparisons
+                    priceColumns = priceColumns.filter(c => c.trim() !== "01-EXP");
                 }
 
                 // Force PDS to be at end of list (visually handled in loop below)
                 // Filter PDS out of standard columns so we can append it at the end
-                const standardColumns = priceColumns.filter(c => c !== "08-PDS");
-                const hasPDS = priceColumns.includes("08-PDS");
+                const standardColumns = priceColumns.filter(c => c.trim() !== "08-PDS");
+                const hasPDS = priceColumns.some(c => c.trim() === "08-PDS");
 
                 return (
                   <div 
@@ -627,7 +628,8 @@ function PriceModal({
                             <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-20 min-w-[80px]">Qty</th>
 
                             {standardColumns.map((colCode) => {
-                                const isSelectedList = colCode === selectedPriceList?.code;
+                                // TRIM FIX: Trim both sides to ensure matching
+                                const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
                                 return (
                                     <>
                                         <th key={colCode} className="text-right p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 whitespace-nowrap min-w-[120px]">{colCode}</th>
@@ -687,7 +689,8 @@ function PriceModal({
                                     
                                     {standardColumns.map((colCode) => {
                                         const priceVal = range.columns ? range.columns[colCode] : (colCode === selectedPriceList?.code ? range.unitPrice : null);
-                                        const isSelectedList = colCode === selectedPriceList?.code;
+                                        // TRIM FIX in body as well
+                                        const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
                                         return (
                                             <>
                                                 <td key={colCode} className={cn("p-3 text-right border border-neutral-200 dark:border-neutral-700", isSelectedList && "bg-amber-50 dark:bg-amber-900/10")}>
