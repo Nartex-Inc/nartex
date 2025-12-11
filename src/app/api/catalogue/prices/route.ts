@@ -26,10 +26,8 @@ export async function GET(request: NextRequest) {
     const prodId = searchParams.get("prodId");
     const typeId = searchParams.get("typeId");
     const itemId = searchParams.get("itemId");
-    // NEW: Accept a comma-separated list of IDs
     const itemIds = searchParams.get("itemIds"); 
 
-    // Validation: We need priceId AND (prodId OR itemIds)
     if (!priceId || (!prodId && !itemIds)) {
       return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
     }
@@ -71,20 +69,17 @@ export async function GET(request: NextRequest) {
       targetIds.push(row.priceid);
     });
 
-    // 4. Build Query Filters (DYNAMIC LOGIC UPDATED)
+    // 4. Build Query Filters
     let itemFilterSQL = "";
-    const baseParams: any[] = []; // We will push params dynamically
+    const baseParams: any[] = []; 
     let paramIdx = 1;
 
-    // Logic: If itemIds string is provided, specific fetch. Else, category fetch.
     if (itemIds) {
-        // Handle Multi-Item Fetch
         const idsArray = itemIds.split(',').map(id => parseInt(id.trim(), 10));
         itemFilterSQL = `AND i."ItemId" = ANY($${paramIdx})`;
         baseParams.push(idsArray);
         paramIdx++;
     } else {
-        // Handle Standard Category/Class Fetch
         const prodIdNum = parseInt(prodId!, 10);
         itemFilterSQL = `AND i."ProdId" = $${paramIdx}`;
         baseParams.push(prodIdNum);
@@ -104,7 +99,6 @@ export async function GET(request: NextRequest) {
     const activeFilter = `AND i."isActive" = true`;
 
     // 5. Fetch Products Info
-    // Note: We removed the strict requirement for ProdId in the base query if itemIds exists
     const itemsQuery = `
       SELECT 
         i."ItemId" as "itemId", i."ItemCode" as "itemCode", i."Descr" as "description",
@@ -117,7 +111,7 @@ export async function GET(request: NextRequest) {
       ORDER BY i."ItemCode" ASC
     `;
 
-    // 6. Fetch Prices using IDs
+    // 6. Fetch Prices using IDs (Updated to fetch _discount)
     const pricesQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", ipr."priceid", MAX(ipr."itempricedateid") as "latestDateId"
@@ -131,6 +125,7 @@ export async function GET(request: NextRequest) {
         ipr."itemid" as "itemId",
         ipr."fromqty" as "qtyMin",
         ipr."price" as "price",
+        ipr."_discount" as "discount",  -- <--- FETCHING DISCOUNT DIRECTLY
         ipr."priceid" as "priceId",
         ipr."itempricerangeid" as "id"
       FROM public."itempricerange" ipr
@@ -142,62 +137,37 @@ export async function GET(request: NextRequest) {
       ORDER BY ipr."itemid", ipr."fromqty"
     `;
 
-    // Combine params: [ ...baseParams (prodId OR itemIds), targetIds ]
     const pricesParams = [...baseParams, targetIds];
 
-    // 7. Fetch Discounts
-    const discountQuery = `
-      SELECT 
-        i."ItemId" as "itemId", 
-        dmd."GreatherThan" as "greaterThan",
-        dmd."_CostingDiscountAmt" as "costingDiscountAmt"
-      FROM public."Items" i
-      INNER JOIN public."RecordSpecData" rsd 
-        ON i."ItemId" = rsd."TableId"
-        AND rsd."FieldName" = 'DiscountMaintenance'
-        AND rsd."TableName" = 'items'
-        AND rsd."FieldValue" ~ '^[0-9]+$' 
-      INNER JOIN public."_DiscountMaintenanceHdr" dmh
-        ON CAST(rsd."FieldValue" AS INTEGER) = dmh."DiscountMaintenanceHdrId"
-      INNER JOIN public."_DiscountMaintenanceDtl" dmd 
-        ON dmh."DiscountMaintenanceHdrId" = dmd."DiscountMaintenanceHdrId"
-      WHERE 1=1 ${itemFilterSQL} ${activeFilter}
-    `;
+    // NOTE: Old discountQuery removed.
 
-    const [itemsRes, pricesRes, discountRes] = await Promise.all([
+    const [itemsRes, pricesRes] = await Promise.all([
       pg.query(itemsQuery, baseParams),
-      pg.query(pricesQuery, pricesParams),
-      pg.query(discountQuery, baseParams).catch(err => {
-        console.error("Discount query error:", err.message);
-        return { rows: [] };
-      })
+      pg.query(pricesQuery, pricesParams)
     ]);
 
     // --- Processing Data ---
 
-    const discountMap: Record<number, Record<number, number>> = {};
-    for (const row of discountRes.rows) {
-      if (!discountMap[row.itemId]) discountMap[row.itemId] = {};
-      discountMap[row.itemId][parseInt(row.greaterThan)] = parseFloat(row.costingDiscountAmt) || 0;
-    }
-
-    const pricesMap: Record<number, Record<number, Record<number, number>>> = {};
+    // Map Prices: ItemID -> Qty -> PriceID -> { price, discount }
+    const pricesMap: Record<number, Record<number, Record<number, { price: number, discount: number }>>> = {};
+    
     for (const row of pricesRes.rows) {
       const iId = row.itemId;
       const qty = parseInt(row.qtyMin);
       const pId = row.priceId;
       const price = parseFloat(row.price);
+      // Ensure discount is a number, default to 0 if null
+      const discount = row.discount ? parseFloat(row.discount) : 0; 
 
       if (!pricesMap[iId]) pricesMap[iId] = {};
       if (!pricesMap[iId][qty]) pricesMap[iId][qty] = {};
       
-      pricesMap[iId][qty][pId] = price;
+      pricesMap[iId][qty][pId] = { price, discount };
     }
 
     const result = itemsRes.rows.map((item: any) => {
       const iId = item.itemId;
       const itemPrices = pricesMap[iId] || {};
-      const itemDiscounts = discountMap[iId];
       
       const quantities = Object.keys(itemPrices).map(Number).sort((a, b) => a - b);
 
@@ -208,35 +178,26 @@ export async function GET(request: NextRequest) {
         targetCodes.forEach(code => {
            const pId = codeToIdMap[code];
            if (pId && pricesAtQty[pId] !== undefined) {
-             columns[code] = pricesAtQty[pId];
+             columns[code] = pricesAtQty[pId].price;
            } else {
              columns[code] = null;
            }
         });
 
-        let costingDiscountAmt = 0;
-        if (itemDiscounts) {
-           if (itemDiscounts[qty] !== undefined) {
-             costingDiscountAmt = itemDiscounts[qty];
-           } else {
-             const tiers = Object.keys(itemDiscounts).map(Number).sort((a, b) => b - a);
-             for (const tier of tiers) {
-               if (tier <= qty) {
-                 costingDiscountAmt = itemDiscounts[tier];
-                 break;
-               }
-             }
-           }
-        }
-
+        // Resolve Data for Selected Price List
         const selectedId = codeToIdMap[selectedCode];
-        const unitPrice = selectedId ? pricesAtQty[selectedId] : null;
+        const selectedData = selectedId ? pricesAtQty[selectedId] : null;
+
+        const unitPrice = selectedData ? selectedData.price : null;
+        
+        // Escompte: Comes from the _discount column of the SELECTED price list row
+        const costingDiscountAmt = selectedData ? selectedData.discount : 0;
         
         const pdsId = codeToIdMap["08-PDS"];
-        const pdsPrice = pdsId ? pricesAtQty[pdsId] : null;
+        const pdsPrice = pdsId && pricesAtQty[pdsId] ? pricesAtQty[pdsId].price : null;
         
         const expId = codeToIdMap["01-EXP"] || codeToIdMap["04-GROSEXP"];
-        const expBasePrice = expId ? pricesAtQty[expId] : null;
+        const expBasePrice = expId && pricesAtQty[expId] ? pricesAtQty[expId].price : null;
 
         return {
           id: `${iId}-${qty}`,
@@ -244,7 +205,7 @@ export async function GET(request: NextRequest) {
           unitPrice, 
           pdsPrice,
           coutExp: expBasePrice,
-          costingDiscountAmt,
+          costingDiscountAmt, // Now populated from itempricerange._discount
           columns
         };
       });
