@@ -5,6 +5,8 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useCurrentAccent } from "@/components/accent-color-provider";
 import { startRegistration } from '@simplewebauthn/browser';
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 // --- Interfaces ---
 interface Product {
@@ -59,6 +61,23 @@ interface ItemPriceData {
   priceListName: string;
   priceCode: string;
   ranges: PriceRange[];
+}
+
+// --- Helper: Convert Image URL to Data URI (for PDF) ---
+async function getDataUri(url: string): Promise<string> {
+  return new Promise((resolve) => {
+    const image = new window.Image();
+    image.setAttribute('crossOrigin', 'anonymous');
+    image.onload = function () {
+      const canvas = document.createElement('canvas');
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      canvas.getContext('2d')?.drawImage(image, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    image.onerror = () => resolve(""); // Fallback empty
+    image.src = url;
+  });
 }
 
 // --- Animated Number Component ---
@@ -336,6 +355,68 @@ function MultiSelectDropdown({
   );
 }
 
+// --- Email Modal Component ---
+function EmailModal({ 
+    isOpen, 
+    onClose, 
+    onSend, 
+    sending,
+    accentColor 
+}: { 
+    isOpen: boolean; 
+    onClose: () => void; 
+    onSend: (email: string) => void; 
+    sending: boolean;
+    accentColor: string; 
+}) {
+  const [email, setEmail] = useState("");
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+      <div 
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      
+      <div className="relative w-full max-w-sm bg-white dark:bg-neutral-900 rounded-xl shadow-2xl p-6 border border-neutral-200 dark:border-neutral-800 animate-in zoom-in-95 duration-200">
+        <h3 className="text-lg font-bold mb-2 text-neutral-900 dark:text-white">Envoyer par Courriel</h3>
+        <p className="text-sm text-neutral-500 mb-4">
+          Entrez l'adresse courriel du destinataire.
+        </p>
+
+        <input 
+          type="email"
+          autoFocus
+          className="w-full h-10 px-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-sm mb-4 outline-none focus:border-black dark:focus:border-white transition-colors"
+          placeholder="nom@exemple.com"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+        />
+
+        <div className="flex gap-2">
+          <button 
+            onClick={onClose}
+            disabled={sending}
+            className="flex-1 h-10 rounded-lg border border-neutral-200 dark:border-neutral-700 text-sm font-medium hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors text-neutral-900 dark:text-white"
+          >
+            Annuler
+          </button>
+          <button 
+            onClick={() => onSend(email)}
+            disabled={!email || sending}
+            className="flex-1 h-10 rounded-lg text-sm font-bold text-white transition-colors disabled:opacity-50"
+            style={{ backgroundColor: accentColor }}
+          >
+            {sending ? "Envoi..." : "Envoyer"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // --- Price Modal Component ---
 interface PriceModalProps {
   isOpen: boolean;
@@ -378,12 +459,34 @@ function PriceModal({
 }: PriceModalProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
-  
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+
+  // Email State
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   if (!isOpen) return null;
 
   const itemsWithPrices = data.filter(item => item.ranges && item.ranges.length > 0);
+
+  // --- GROUPING LOGIC ---
+  const groupedItems = itemsWithPrices.reduce((acc, item) => {
+    const groupKey = item.className || "Articles Ajoutés";
+    if (!acc[groupKey]) {
+      acc[groupKey] = [];
+    }
+    acc[groupKey].push(item);
+    return acc;
+  }, {} as Record<string, ItemPriceData[]>);
+
+  // Calculation Helpers
+  const calcPricePerCaisse = (price: number, caisse: number | null) => caisse ? price * caisse : null;
+  const calcPricePerLitre = (price: number, volume: number | null) => volume ? price / volume : null;
+  
+  const calcMargin = (sell: number | null, cost: number | null) => {
+    if (!sell || !cost || sell === 0) return null;
+    return ((sell - cost) / sell) * 100;
+  };
 
   // --- AUTH HANDLER (STEP-UP) ---
   const handleToggleDetails = async (newValue: boolean) => {
@@ -423,23 +526,149 @@ function PriceModal({
     }
   };
 
-  // --- GROUPING LOGIC ---
-  const groupedItems = itemsWithPrices.reduce((acc, item) => {
-    const groupKey = item.className || "Articles Ajoutés";
-    if (!acc[groupKey]) {
-      acc[groupKey] = [];
-    }
-    acc[groupKey].push(item);
-    return acc;
-  }, {} as Record<string, ItemPriceData[]>);
+  // --- PDF GENERATION & EMAIL ---
+  const handleEmailPDF = async (recipientEmail: string) => {
+    setIsSendingEmail(true);
+    try {
+      const doc = new jsPDF();
+      
+      // Load Logo
+      const logoData = await getDataUri('/sinto-logo.svg'); 
+      if (logoData) {
+         doc.addImage(logoData, 'PNG', 15, 10, 30, 30);
+         doc.setFontSize(22);
+         doc.text("Liste de Prix", 50, 25);
+      } else {
+         doc.setFontSize(22);
+         doc.text("Liste de Prix SINTO", 15, 25);
+      }
 
-  // Calculation Helpers
-  const calcPricePerCaisse = (price: number, caisse: number | null) => caisse ? price * caisse : null;
-  const calcPricePerLitre = (price: number, volume: number | null) => volume ? price / volume : null;
-  
-  const calcMargin = (sell: number | null, cost: number | null) => {
-    if (!sell || !cost || sell === 0) return null;
-    return ((sell - cost) / sell) * 100;
+      doc.setFontSize(10);
+      doc.text(`Liste: ${selectedPriceList?.code} - ${selectedPriceList?.name}`, 15, 45);
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, 15, 50);
+
+      let finalY = 55;
+
+      for (const [className, classItems] of Object.entries(groupedItems)) {
+        if (finalY > 270) { doc.addPage(); finalY = 20; }
+        
+        doc.setFillColor(220, 220, 220);
+        doc.rect(14, finalY, 182, 8, 'F');
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0,0,0);
+        doc.text(className.toUpperCase(), 16, finalY + 6);
+        finalY += 10;
+
+        const firstItem = classItems[0];
+        let priceColumns = firstItem.ranges[0]?.columns 
+            ? Object.keys(firstItem.ranges[0].columns).sort()
+            : [selectedPriceList?.code || 'Prix'];
+        
+        if (!showDetails && selectedPriceList?.code !== "01-EXP") {
+             priceColumns = priceColumns.filter(c => c.trim() !== "01-EXP");
+        }
+        const standardColumns = priceColumns.filter(c => c.trim() !== "08-PDS");
+        const hasPDS = priceColumns.some(c => c.trim() === "08-PDS");
+
+        const tableBody: any[] = [];
+        
+        classItems.forEach((item) => {
+            item.ranges.forEach((range, idx) => {
+                const row: string[] = [];
+                if (idx === 0) {
+                    row.push(item.itemCode);
+                    row.push(item.caisse ? Math.round(item.caisse).toString() : '-');
+                    row.push(item.format || '-');
+                } else {
+                    row.push('');
+                    row.push('');
+                    row.push('');
+                }
+                
+                row.push(range.qtyMin.toString());
+
+                const selectedPriceCode = selectedPriceList?.code || "";
+                const selectedPriceVal = range.columns?.[selectedPriceCode] ?? range.unitPrice;
+                const pdsVal = range.columns?.["08-PDS"] ?? null;
+                const percentMarge = calcMargin(pdsVal, selectedPriceVal);
+                row.push(percentMarge ? `${percentMarge.toFixed(1)}%` : '-');
+
+                standardColumns.forEach(col => {
+                    const val = range.columns?.[col] ?? null;
+                    row.push(val ? val.toFixed(2) : '-');
+                    
+                    if (showDetails && col.trim() === selectedPriceList?.code?.trim()) {
+                         const ppc = calcPricePerCaisse(val || 0, item.caisse);
+                         const ppl = calcPricePerLitre(val || 0, item.volume);
+                         const expVal = range.columns?.["01-EXP"] ?? null;
+                         const pExp = calcMargin(val, expVal);
+
+                         row.push(ppc ? ppc.toFixed(2) : '-');
+                         row.push(ppl ? ppl.toFixed(2) : '-');
+                         row.push(pExp ? `${pExp.toFixed(1)}%` : '-');
+                    }
+                });
+
+                if (hasPDS) {
+                    const p = range.columns?.["08-PDS"] ?? null;
+                    row.push(p ? p.toFixed(2) : '-');
+                }
+                
+                tableBody.push(row);
+            });
+        });
+
+        const headRow = ['Article', 'Caisse', 'Fmt', 'Qty', '% Marge'];
+        standardColumns.forEach(c => {
+            headRow.push(c);
+            if (showDetails && c.trim() === selectedPriceList?.code?.trim()) {
+                headRow.push('$/Caisse');
+                headRow.push('$/L');
+                headRow.push('% Exp');
+            }
+        });
+        if (hasPDS) headRow.push('08-PDS');
+
+        autoTable(doc, {
+            startY: finalY,
+            head: [headRow],
+            body: tableBody,
+            styles: { fontSize: 8, cellPadding: 1.5 },
+            headStyles: { fillColor: accentColor, textColor: 255 },
+            columnStyles: { 
+                0: { fontStyle: 'bold' },
+                4: { textColor: [0, 150, 0] }
+            },
+            theme: 'grid'
+        });
+
+        finalY = (doc as any).lastAutoTable.finalY + 10;
+      }
+
+      const pdfBlob = doc.output('blob');
+
+      const formData = new FormData();
+      formData.append("file", pdfBlob, "ListePrix.pdf");
+      formData.append("to", recipientEmail);
+      formData.append("subject", `Liste de Prix: ${selectedPriceList?.name}`);
+
+      const res = await fetch('/api/catalogue/email', {
+          method: 'POST',
+          body: formData
+      });
+
+      if (!res.ok) throw new Error("Erreur envoi");
+      
+      alert("Courriel envoyé avec succès!");
+      setShowEmailModal(false);
+
+    } catch (e: any) {
+        console.error(e);
+        alert("Erreur: " + e.message);
+    } finally {
+        setIsSendingEmail(false);
+    }
   };
 
   return (
@@ -476,6 +705,15 @@ function PriceModal({
                 accentColor={accentColor}
               />
 
+              {/* Email Button */}
+              <button 
+                onClick={() => setShowEmailModal(true)}
+                className="h-10 w-10 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors"
+                title="Envoyer par courriel"
+              >
+                <span className="text-lg">✉️</span>
+              </button>
+
               <button 
                 onClick={onReset}
                 className="h-10 w-10 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors"
@@ -496,6 +734,7 @@ function PriceModal({
           {/* Row 2: Filters & Actions Toolbar */}
           <div className="flex flex-col md:flex-row gap-2 bg-black/10 p-2 rounded-xl border border-white/10 items-center">
              
+             {/* Price List Select */}
              <select
                 value={selectedPriceList?.priceId || ""}
                 onChange={(e) => onPriceListChange(parseInt(e.target.value))}
@@ -509,6 +748,7 @@ function PriceModal({
                 ))}
               </select>
 
+              {/* Category Select */}
               <select
                 value={selectedProduct?.prodId || ""}
                 onChange={(e) => onProductChange(e.target.value)}
@@ -520,6 +760,7 @@ function PriceModal({
                 ))}
               </select>
 
+              {/* Class Select */}
               <select
                 value={selectedType?.itemTypeId || ""}
                 onChange={(e) => onTypeChange(e.target.value)}
@@ -532,6 +773,7 @@ function PriceModal({
                 ))}
               </select>
 
+              {/* Article Multi-Select */}
               <MultiSelectDropdown
                 items={items}
                 selectedIds={selectedItemIds}
@@ -539,6 +781,7 @@ function PriceModal({
                 disabled={!selectedType && !selectedProduct}
               />
 
+              {/* Action Buttons */}
               <div className="flex gap-2 ml-2">
                 <button 
                   onClick={onLoadSelection}
@@ -558,6 +801,7 @@ function PriceModal({
               </div>
           </div>
 
+          {/* Quick Add Popover */}
           {showQuickAdd && (
             <QuickAddSearch 
               accentColor={accentColor}
@@ -595,12 +839,10 @@ function PriceModal({
                     : [selectedPriceList?.code || 'Prix'];
 
                 if (!showDetails && selectedPriceList?.code !== "01-EXP") {
-                    // FIX: Also Trim comparisons
                     priceColumns = priceColumns.filter(c => c.trim() !== "01-EXP");
                 }
 
                 // Force PDS to be at end of list (visually handled in loop below)
-                // Filter PDS out of standard columns so we can append it at the end
                 const standardColumns = priceColumns.filter(c => c.trim() !== "08-PDS");
                 const hasPDS = priceColumns.some(c => c.trim() === "08-PDS");
 
@@ -626,9 +868,9 @@ function PriceModal({
                             <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-24 min-w-[90px]">CAISSE</th>
                             <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-24 min-w-[90px]">Format</th>
                             <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-20 min-w-[80px]">Qty</th>
+                            <th className="text-right p-3 font-bold text-green-700 dark:text-green-400 border border-neutral-300 dark:border-neutral-700 bg-green-50 dark:bg-green-900/20 min-w-[90px]">% Marge</th>
 
                             {standardColumns.map((colCode) => {
-                                // TRIM FIX: Trim both sides to ensure matching
                                 const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
                                 return (
                                     <>
@@ -665,7 +907,6 @@ function PriceModal({
                                 const selectedPriceVal = range.columns?.[selectedPriceCode] ?? range.unitPrice;
                                 const expBaseVal = range.columns?.["01-EXP"] ?? null;
                                 
-                                // Specific margin calculations
                                 const percentExp = calcMargin(selectedPriceVal, expBaseVal);
                                 
                                 const rowBg = itemIndex % 2 === 0 ? "bg-white dark:bg-neutral-900" : "bg-neutral-50/50 dark:bg-neutral-800/30";
@@ -689,7 +930,6 @@ function PriceModal({
                                     
                                     {standardColumns.map((colCode) => {
                                         const priceVal = range.columns ? range.columns[colCode] : (colCode === selectedPriceList?.code ? range.unitPrice : null);
-                                        // TRIM FIX in body as well
                                         const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
                                         return (
                                             <>
@@ -754,6 +994,15 @@ function PriceModal({
           </div>
         )}
       </div>
+
+      {/* Email Modal */}
+      <EmailModal 
+        isOpen={showEmailModal} 
+        onClose={() => setShowEmailModal(false)} 
+        onSend={handleEmailPDF} 
+        sending={isSendingEmail}
+        accentColor={accentColor} 
+      />
     </div>
   );
 }
