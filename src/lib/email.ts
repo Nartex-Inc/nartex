@@ -215,3 +215,39 @@ export async function sendVerificationEmail(email: string, token: string) {
     throw error; // Re-throw to let the caller handle it (e.g., /api/signup)
   }
 }
+
+export async function sendPriceListEmail(to: string, pdfBuffer: Buffer, subject: string) {
+  if (!isEmailServiceConfigured || !transporter) {
+    console.error("Email service not configured.");
+    throw new Error("Service courriel non disponible.");
+  }
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to: to,
+      subject: subject,
+      text: "Veuillez trouver ci-joint la liste de prix générée.",
+      html: `
+        <div style="font-family: Arial, sans-serif; color: #333;">
+          <h2>Liste de Prix Nartex</h2>
+          <p>Bonjour,</p>
+          <p>Veuillez trouver ci-joint la liste de prix que vous avez générée.</p>
+          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+          <p style="font-size: 12px; color: #888;">Ce message a été envoyé automatiquement par Nartex.</p>
+        </div>
+      `,
+      attachments: [
+        {
+          filename: "Liste_Prix_SINTO.pdf",
+          content: pdfBuffer,
+          contentType: "application/pdf",
+        },
+      ],
+    });
+    console.log(`Price list email sent to ${to}`);
+  } catch (error) {
+    console.error("Failed to send price list email:", error);
+    throw error;
+  }
+}
