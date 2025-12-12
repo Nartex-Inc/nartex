@@ -41,9 +41,11 @@ phases:
       - echo "📦 INSTALL – install from clean lockfile"
       - npm ci
       
-      # 👇 ADD THIS LINE HERE 👇
-      - npm install @simplewebauthn/browser @simplewebauthn/server
-      
+      # 👇 UPDATED DEPENDENCY INSTALLATION 👇
+      # Installs Auth (SimpleWebAuthn), PDF (jsPDF), and Email (Nodemailer) libs
+      - npm install @simplewebauthn/browser @simplewebauthn/server jspdf jspdf-autotable nodemailer
+      - npm install --save-dev @types/nodemailer
+
       - node -e "console.log('prisma:',require('./node_modules/prisma/package.json').version,'| @prisma/client:',require('./node_modules/@prisma/client/package.json').version)"
 
   pre_build:
