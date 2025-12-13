@@ -535,15 +535,20 @@ function PriceModal({
       // Load Logo
       const logoData = await getDataUri('/sinto-logo.svg'); 
       if (logoData) {
-         doc.addImage(logoData, 'PNG', 15, 10, 30, 30);
-         doc.setFontSize(22);
-         doc.text("Liste de Prix", 50, 25);
-      } else {
-         doc.setFontSize(22);
-         doc.text("Liste de Prix SINTO", 15, 25);
+         // Keep Aspect Ratio
+         // Assume logo width 40, auto height
+         doc.addImage(logoData, 'PNG', 15, 10, 40, 0); 
       }
+      
+      // Centered Title
+      doc.setFontSize(22);
+      doc.setFont("helvetica", "bold");
+      const title = "Liste de Prix SINTO";
+      const titleWidth = doc.getTextWidth(title);
+      doc.text(title, (doc.internal.pageSize.getWidth() / 2) - (titleWidth / 2), 25);
 
       doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
       doc.text(`Liste: ${selectedPriceList?.code} - ${selectedPriceList?.name}`, 15, 45);
       doc.text(`Date: ${new Date().toLocaleDateString()}`, 15, 50);
 
@@ -617,6 +622,7 @@ function PriceModal({
                 
                 tableBody.push(row);
             });
+            // Separator handled by autoTable logic or just space
         });
 
         const headRow = ['Article', 'Caisse', 'Fmt', 'Qty', '% Marge'];
@@ -651,7 +657,7 @@ function PriceModal({
       const formData = new FormData();
       formData.append("file", pdfBlob, "ListePrix.pdf");
       formData.append("to", recipientEmail);
-      formData.append("subject", `Liste de Prix: ${selectedPriceList?.name}`);
+      formData.append("subject", `Liste de Prix SINTO : ${selectedPriceList?.name}`);
 
       const res = await fetch('/api/catalogue/email', {
           method: 'POST',
@@ -928,6 +934,12 @@ function PriceModal({
                                     <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700 align-top">{isFirstRowOfItem && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}</td>
                                     <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700"><span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span></td>
                                     
+                                    <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-green-50 dark:bg-green-900/10">
+                                      <span className={cn("font-mono font-bold whitespace-nowrap", percentMarge && percentMarge < 0 ? "text-red-600" : "text-green-700 dark:text-green-400")}>
+                                        {percentMarge !== null ? `${percentMarge.toFixed(1)}%` : '-'}
+                                      </span>
+                                    </td>
+
                                     {standardColumns.map((colCode) => {
                                         const priceVal = range.columns ? range.columns[colCode] : (colCode === selectedPriceList?.code ? range.unitPrice : null);
                                         const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
@@ -967,7 +979,12 @@ function PriceModal({
                                 );
                               })}
                               
-                              {itemIndex < classItems.length - 1 && <tr className="h-px bg-neutral-200 dark:bg-neutral-700"><td colSpan={100} className="p-0"></td></tr>}
+                              {/* Spacer Row Between Items (Breathing Room) */}
+                              {itemIndex < classItems.length - 1 && (
+                                <tr className="h-6 bg-neutral-100 dark:bg-neutral-950 border-x border-neutral-200 dark:border-neutral-800">
+                                  <td colSpan={100}></td>
+                                </tr>
+                              )}
                             </片>
                           ))}
                         </tbody>
