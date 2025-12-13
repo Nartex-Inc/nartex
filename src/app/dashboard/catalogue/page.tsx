@@ -532,20 +532,21 @@ function PriceModal({
     try {
       const doc = new jsPDF();
       
-      // Load Logo
+      // Load Logo and maintain aspect ratio
       const logoData = await getDataUri('/sinto-logo.svg'); 
       if (logoData) {
-         // Keep Aspect Ratio
-         // Assume logo width 40, auto height
+         // w=40, h=0 (auto)
          doc.addImage(logoData, 'PNG', 15, 10, 40, 0); 
       }
       
-      // Centered Title
+      // Centered Title: "Liste de Prix SINTO"
       doc.setFontSize(22);
       doc.setFont("helvetica", "bold");
       const title = "Liste de Prix SINTO";
       const titleWidth = doc.getTextWidth(title);
-      doc.text(title, (doc.internal.pageSize.getWidth() / 2) - (titleWidth / 2), 25);
+      // Calculate center: (PageWidth / 2) - (TextWidth / 2)
+      const pageWidth = doc.internal.pageSize.getWidth();
+      doc.text(title, (pageWidth - titleWidth) / 2, 25);
 
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
@@ -557,6 +558,7 @@ function PriceModal({
       for (const [className, classItems] of Object.entries(groupedItems)) {
         if (finalY > 270) { doc.addPage(); finalY = 20; }
         
+        // Group Header (Banner)
         doc.setFillColor(220, 220, 220);
         doc.rect(14, finalY, 182, 8, 'F');
         doc.setFontSize(11);
@@ -578,7 +580,7 @@ function PriceModal({
 
         const tableBody: any[] = [];
         
-        classItems.forEach((item) => {
+        classItems.forEach((item, index) => {
             item.ranges.forEach((range, idx) => {
                 const row: string[] = [];
                 if (idx === 0) {
@@ -622,7 +624,14 @@ function PriceModal({
                 
                 tableBody.push(row);
             });
-            // Separator handled by autoTable logic or just space
+            
+            // --- SPACER ROW logic for PDF ---
+            // If this is NOT the last item in the class, add an empty row to table body
+            if (index < classItems.length - 1) {
+                // Create an array of empty strings matching the number of columns
+                const columnsCount = 5 + standardColumns.length + (hasPDS ? 1 : 0) + (showDetails ? 3 : 0);
+                tableBody.push(new Array(columnsCount).fill('')); 
+            }
         });
 
         const headRow = ['Article', 'Caisse', 'Fmt', 'Qty', '% Marge'];
@@ -657,7 +666,11 @@ function PriceModal({
       const formData = new FormData();
       formData.append("file", pdfBlob, "ListePrix.pdf");
       formData.append("to", recipientEmail);
-      formData.append("subject", `Liste de Prix SINTO : ${selectedPriceList?.name}`);
+      formData.append("subject", `Liste de prix SINTO : ${selectedPriceList?.name}`);
+      
+      // Pass the custom message so Backend can use it if configured
+      const messageBody = `Liste de Prix SINTO\n\nBonjour,\n\nVeuillez trouver ci-joint la liste de prix que vous avez demandée.`;
+      formData.append("message", messageBody);
 
       const res = await fetch('/api/catalogue/email', {
           method: 'POST',
@@ -679,38 +692,15 @@ function PriceModal({
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 md:p-4">
-      <div 
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-[98vw] max-h-[94vh] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-        
-        {/* Modal Header */}
-        <div 
-          className="flex-shrink-0 px-4 md:px-6 py-4 flex flex-col gap-4"
-          style={{ backgroundColor: accentColor }}
-        >
-          {/* Row 1: Title & Main Controls */}
+        <div className="flex-shrink-0 px-4 md:px-6 py-4 flex flex-col gap-4" style={{ backgroundColor: accentColor }}>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <h2 className="text-xl md:text-2xl font-bold text-white">
-              Liste de Prix
-            </h2>
-            
+            <h2 className="text-xl md:text-2xl font-bold text-white">Liste de Prix</h2>
             <div className="flex items-center gap-3">
-              {isAuthenticating && (
-                <span className="text-white text-xs font-bold animate-pulse uppercase tracking-wider mr-2">
-                  Vérification FaceID...
-                </span>
-              )}
-
-              <Toggle 
-                enabled={showDetails} 
-                onChange={handleToggleDetails}
-                label="Afficher détails" 
-                accentColor={accentColor}
-              />
-
+              {isAuthenticating && <span className="text-white text-xs font-bold animate-pulse uppercase tracking-wider mr-2">Vérification FaceID...</span>}
+              <Toggle enabled={showDetails} onChange={handleToggleDetails} label="Afficher détails" accentColor={accentColor} />
+              
               {/* Email Button */}
               <button 
                 onClick={() => setShowEmailModal(true)}
@@ -720,152 +710,61 @@ function PriceModal({
                 <span className="text-lg">✉️</span>
               </button>
 
-              <button 
-                onClick={onReset}
-                className="h-10 w-10 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors"
-                title="Réinitialiser la liste (Tout effacer)"
-              >
+              <button onClick={onReset} className="h-10 w-10 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors" title="Réinitialiser">
                 <span className="text-xl font-bold">↺</span>
               </button>
-
-              <button 
-                onClick={onClose}
-                className="h-10 w-10 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white font-bold text-lg transition-colors"
-              >
-                ✕
-              </button>
+              <button onClick={onClose} className="h-10 w-10 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white font-bold text-lg transition-colors">✕</button>
             </div>
           </div>
 
-          {/* Row 2: Filters & Actions Toolbar */}
           <div className="flex flex-col md:flex-row gap-2 bg-black/10 p-2 rounded-xl border border-white/10 items-center">
-             
-             {/* Price List Select */}
-             <select
-                value={selectedPriceList?.priceId || ""}
-                onChange={(e) => onPriceListChange(parseInt(e.target.value))}
-                disabled={loading}
-                className="h-10 px-3 bg-white/90 text-neutral-900 rounded-lg font-bold text-sm border-2 border-transparent focus:border-white outline-none flex-1 min-w-[200px]"
-              >
-                {priceLists.map(pl => (
-                  <option key={pl.priceId} value={pl.priceId}>
-                    {pl.code} - {pl.name}
-                  </option>
-                ))}
+             <select value={selectedPriceList?.priceId || ""} onChange={(e) => onPriceListChange(parseInt(e.target.value))} disabled={loading} className="h-10 px-3 bg-white/90 text-neutral-900 rounded-lg font-bold text-sm border-2 border-transparent focus:border-white outline-none flex-1 min-w-[200px]">
+                {priceLists.map(pl => (<option key={pl.priceId} value={pl.priceId}>{pl.code} - {pl.name}</option>))}
               </select>
-
-              {/* Category Select */}
-              <select
-                value={selectedProduct?.prodId || ""}
-                onChange={(e) => onProductChange(e.target.value)}
-                className="h-10 px-3 bg-white/20 text-white rounded-lg font-medium text-sm border border-white/30 focus:border-white outline-none flex-1 min-w-[140px]"
-              >
-                <option value="" className="text-black">Catégorie...</option>
-                {products.map(p => (
-                  <option key={p.prodId} value={p.prodId} className="text-black">{p.name}</option>
-                ))}
+              <select value={selectedProduct?.prodId || ""} onChange={(e) => onProductChange(e.target.value)} className="h-10 px-3 bg-white/20 text-white rounded-lg font-medium text-sm border border-white/30 focus:border-white outline-none flex-1 min-w-[140px]">
+                <option value="" className="text-black">Catégorie...</option>{products.map(p => (<option key={p.prodId} value={p.prodId} className="text-black">{p.name}</option>))}
               </select>
-
-              {/* Class Select */}
-              <select
-                value={selectedType?.itemTypeId || ""}
-                onChange={(e) => onTypeChange(e.target.value)}
-                disabled={!selectedProduct}
-                className="h-10 px-3 bg-white/20 text-white rounded-lg font-medium text-sm border border-white/30 focus:border-white outline-none flex-1 min-w-[140px] disabled:opacity-50"
-              >
-                <option value="" className="text-black">Classe...</option>
-                {itemTypes.map(t => (
-                  <option key={t.itemTypeId} value={t.itemTypeId} className="text-black">{t.description}</option>
-                ))}
+              <select value={selectedType?.itemTypeId || ""} onChange={(e) => onTypeChange(e.target.value)} disabled={!selectedProduct} className="h-10 px-3 bg-white/20 text-white rounded-lg font-medium text-sm border border-white/30 focus:border-white outline-none flex-1 min-w-[140px] disabled:opacity-50">
+                <option value="" className="text-black">Classe...</option>{itemTypes.map(t => (<option key={t.itemTypeId} value={t.itemTypeId} className="text-black">{t.description}</option>))}
               </select>
-
-              {/* Article Multi-Select */}
-              <MultiSelectDropdown
-                items={items}
-                selectedIds={selectedItemIds}
-                onChange={onItemsChange}
-                disabled={!selectedType && !selectedProduct}
-              />
-
-              {/* Action Buttons */}
+              <MultiSelectDropdown items={items} selectedIds={selectedItemIds} onChange={onItemsChange} disabled={!selectedType && !selectedProduct} />
               <div className="flex gap-2 ml-2">
-                <button 
-                  onClick={onLoadSelection}
-                  disabled={loading || (!selectedProduct && selectedItemIds.size === 0)}
-                  className="h-10 px-4 rounded-lg bg-white text-black font-bold text-sm hover:bg-white/90 disabled:opacity-50 transition-colors whitespace-nowrap shadow-sm"
-                >
+                <button onClick={onLoadSelection} disabled={loading || (!selectedProduct && selectedItemIds.size === 0)} className="h-10 px-4 rounded-lg bg-white text-black font-bold text-sm hover:bg-white/90 disabled:opacity-50 transition-colors whitespace-nowrap shadow-sm">
                   Ajouter {selectedItemIds.size > 0 ? `(${selectedItemIds.size})` : ''}
                 </button>
-
-                <button 
-                  onClick={() => setShowQuickAdd(!showQuickAdd)}
-                  className="h-10 w-10 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white text-xl transition-colors"
-                  title="Recherche Rapide Globale"
-                >
-                  🔍
-                </button>
+                <button onClick={() => setShowQuickAdd(!showQuickAdd)} className="h-10 w-10 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white text-xl transition-colors" title="Recherche Rapide Globale">🔍</button>
               </div>
           </div>
-
-          {/* Quick Add Popover */}
-          {showQuickAdd && (
-            <QuickAddSearch 
-              accentColor={accentColor}
-              onClose={() => setShowQuickAdd(false)}
-              onAddItems={onAddItems}
-            />
-          )}
+          {showQuickAdd && <QuickAddSearch accentColor={accentColor} onClose={() => setShowQuickAdd(false)} onAddItems={onAddItems} />}
         </div>
         
-        {/* Modal Content */}
+        {/* Table Content */}
         <div className="flex-1 overflow-auto p-3 md:p-5 bg-neutral-100 dark:bg-neutral-950">
           {loading && data.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 gap-4">
-              <div 
-                className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin" 
-                style={{ borderColor: accentColor, borderTopColor: 'transparent' }}
-              />
+              <div className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: accentColor, borderTopColor: 'transparent' }} />
               <p className="text-neutral-500 font-medium">Chargement des prix...</p>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center h-64 gap-4">
               <div className="text-6xl" style={{ color: `${accentColor}50` }}>!</div>
-              <div className="text-center">
-                <p className="text-xl font-bold" style={{ color: accentColor }}>Erreur</p>
-                <p className="text-neutral-500 mt-1">{error}</p>
-              </div>
+              <div className="text-center"><p className="text-xl font-bold" style={{ color: accentColor }}>Erreur</p><p className="text-neutral-500 mt-1">{error}</p></div>
             </div>
           ) : Object.keys(groupedItems).length > 0 ? (
             <div className="space-y-8">
               {Object.entries(groupedItems).map(([className, classItems]) => {
-                
                 const firstItem = classItems[0];
-                let priceColumns = firstItem.ranges[0]?.columns 
-                    ? Object.keys(firstItem.ranges[0].columns).sort()
-                    : [selectedPriceList?.code || 'Prix'];
-
-                if (!showDetails && selectedPriceList?.code !== "01-EXP") {
-                    priceColumns = priceColumns.filter(c => c.trim() !== "01-EXP");
-                }
-
-                // Force PDS to be at end of list (visually handled in loop below)
+                let priceColumns = firstItem.ranges[0]?.columns ? Object.keys(firstItem.ranges[0].columns).sort() : [selectedPriceList?.code || 'Prix'];
+                if (!showDetails && selectedPriceList?.code !== "01-EXP") priceColumns = priceColumns.filter(c => c.trim() !== "01-EXP");
                 const standardColumns = priceColumns.filter(c => c.trim() !== "08-PDS");
                 const hasPDS = priceColumns.some(c => c.trim() === "08-PDS");
 
                 return (
-                  <div 
-                    key={className}
-                    className="bg-white dark:bg-neutral-900 rounded-xl overflow-hidden shadow-lg border border-neutral-200 dark:border-neutral-800"
-                  >
+                  <div key={className} className="bg-white dark:bg-neutral-900 rounded-xl overflow-hidden shadow-lg border border-neutral-200 dark:border-neutral-800">
                     <div className="px-4 py-3" style={{ backgroundColor: accentColor }}>
-                      <h3 className="text-lg font-black text-white uppercase tracking-wider">
-                        {className}
-                      </h3>
-                      <p className="text-white/80 text-xs mt-0.5">
-                        {classItems.length} article(s) dans cette classe
-                      </p>
+                      <h3 className="text-lg font-black text-white uppercase tracking-wider">{className}</h3>
+                      <p className="text-white/80 text-xs mt-0.5">{classItems.length} article(s) dans cette classe</p>
                     </div>
-                    
                     <div className="overflow-x-auto">
                       <table className="min-w-full w-full text-sm md:text-base border-collapse">
                         <thead>
@@ -875,32 +774,18 @@ function PriceModal({
                             <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-24 min-w-[90px]">Format</th>
                             <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-20 min-w-[80px]">Qty</th>
                             <th className="text-right p-3 font-bold text-green-700 dark:text-green-400 border border-neutral-300 dark:border-neutral-700 bg-green-50 dark:bg-green-900/20 min-w-[90px]">% Marge</th>
-
                             {standardColumns.map((colCode) => {
                                 const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
                                 return (
                                     <>
                                         <th key={colCode} className="text-right p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 whitespace-nowrap min-w-[120px]">{colCode}</th>
-                                        
-                                        {/* DETAIL COLUMNS inserted immediately after selected price list */}
-                                        {showDetails && isSelectedList && (
-                                            <>
-                                                <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[110px]">($)/Caisse</th>
-                                                <th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[110px]">($)/L</th>
-                                                <th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 min-w-[90px]">% Exp</th>
-                                            </>
-                                        )}
+                                        {showDetails && isSelectedList && (<><th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[110px]">($)/Caisse</th><th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[110px]">($)/L</th><th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 min-w-[90px]">% Exp</th></>)}
                                     </>
                                 );
                             })}
-
-                            {/* PDS ALWAYS AT END */}
-                            {hasPDS && (
-                                <th className="text-right p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 whitespace-nowrap min-w-[120px]">08-PDS</th>
-                            )}
+                            {hasPDS && <th className="text-right p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 whitespace-nowrap min-w-[120px]">08-PDS</th>}
                           </tr>
                         </thead>
-                        
                         <tbody>
                           {classItems.map((item, itemIndex) => (
                             <片 key={item.itemId}>
@@ -908,83 +793,51 @@ function PriceModal({
                                 const isFirstRowOfItem = rIdx === 0;
                                 const ppc = calcPricePerCaisse(range.unitPrice, item.caisse);
                                 const ppl = calcPricePerLitre(range.unitPrice, item.volume);
-                                
                                 const selectedPriceCode = selectedPriceList?.code || "";
                                 const selectedPriceVal = range.columns?.[selectedPriceCode] ?? range.unitPrice;
                                 const expBaseVal = range.columns?.["01-EXP"] ?? null;
-                                
+                                const pdsVal = range.columns?.["08-PDS"] ?? null;
                                 const percentExp = calcMargin(selectedPriceVal, expBaseVal);
-                                
+                                const percentMarge = calcMargin(pdsVal, selectedPriceVal);
                                 const rowBg = itemIndex % 2 === 0 ? "bg-white dark:bg-neutral-900" : "bg-neutral-50/50 dark:bg-neutral-800/30";
 
                                 return (
                                   <tr key={range.id} className={cn("transition-colors group", rowBg)} style={{ '--hover-color': `${accentColor}15` } as React.CSSProperties}>
                                     <style jsx>{`tr:hover { background-color: var(--hover-color) !important; }`}</style>
-
                                     <td className={cn("p-3 border border-neutral-200 dark:border-neutral-700 align-top sticky left-0 z-10", rowBg, "group-hover:bg-[var(--hover-color)]")}>
-                                      {isFirstRowOfItem && (
-                                        <div className="flex flex-col">
-                                          <span className="font-mono font-black text-neutral-900 dark:text-white whitespace-nowrap">{item.itemCode}</span>
-                                          <span className="text-xs text-neutral-500 truncate max-w-[180px]" title={item.description}>{item.description}</span>
-                                        </div>
-                                      )}
+                                      {isFirstRowOfItem && (<div className="flex flex-col"><span className="font-mono font-black text-neutral-900 dark:text-white whitespace-nowrap">{item.itemCode}</span><span className="text-xs text-neutral-500 truncate max-w-[180px]" title={item.description}>{item.description}</span></div>)}
                                     </td>
-                                    
                                     <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700 align-top">{isFirstRowOfItem && <span className="font-black text-neutral-900 dark:text-white">{item.caisse ? Math.round(item.caisse) : '-'}</span>}</td>
                                     <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700 align-top">{isFirstRowOfItem && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}</td>
                                     <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700"><span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span></td>
-                                    
                                     <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-green-50 dark:bg-green-900/10">
-                                      <span className={cn("font-mono font-bold whitespace-nowrap", percentMarge && percentMarge < 0 ? "text-red-600" : "text-green-700 dark:text-green-400")}>
-                                        {percentMarge !== null ? `${percentMarge.toFixed(1)}%` : '-'}
-                                      </span>
+                                      <span className={cn("font-mono font-bold whitespace-nowrap", percentMarge && percentMarge < 0 ? "text-red-600" : "text-green-700 dark:text-green-400")}>{percentMarge !== null ? `${percentMarge.toFixed(1)}%` : '-'}</span>
                                     </td>
-
                                     {standardColumns.map((colCode) => {
                                         const priceVal = range.columns ? range.columns[colCode] : (colCode === selectedPriceList?.code ? range.unitPrice : null);
                                         const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
                                         return (
                                             <>
                                                 <td key={colCode} className={cn("p-3 text-right border border-neutral-200 dark:border-neutral-700", isSelectedList && "bg-amber-50 dark:bg-amber-900/10")}>
-                                                    <span className={cn("font-mono font-black whitespace-nowrap", isSelectedList ? "text-amber-700 dark:text-amber-400" : "text-neutral-900 dark:text-neutral-300")} style={{ color: isSelectedList && isFirstRowOfItem ? accentColor : undefined }}>
-                                                        {priceVal !== null && priceVal !== undefined ? <AnimatedPrice value={priceVal} /> : '-'}
-                                                    </span>
+                                                    <span className={cn("font-mono font-black whitespace-nowrap", isSelectedList ? "text-amber-700 dark:text-amber-400" : "text-neutral-900 dark:text-neutral-300")} style={{ color: isSelectedList && isFirstRowOfItem ? accentColor : undefined }}>{priceVal !== null && priceVal !== undefined ? <AnimatedPrice value={priceVal} /> : '-'}</span>
                                                 </td>
-
-                                                {/* DETAILS INSERTED HERE IF SELECTED */}
-                                                {showDetails && isSelectedList && (
-                                                    <>
-                                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10"><span className="font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">{ppc ? ppc.toFixed(2) : '-'}</span></td>
-                                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10"><span className="font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">{ppl ? ppl.toFixed(2) : '-'}</span></td>
-                                                        <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10"><span className={cn("font-mono font-bold whitespace-nowrap", percentExp && percentExp < 0 ? "text-red-600" : "text-purple-700 dark:text-purple-400")}>{percentExp !== null ? `${percentExp.toFixed(1)}%` : '-'}</span></td>
-                                                    </>
-                                                )}
+                                                {showDetails && isSelectedList && (<>
+                                                    <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10"><span className="font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">{ppc ? ppc.toFixed(2) : '-'}</span></td>
+                                                    <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10"><span className="font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">{ppl ? ppl.toFixed(2) : '-'}</span></td>
+                                                    <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10"><span className={cn("font-mono font-bold whitespace-nowrap", percentExp && percentExp < 0 ? "text-red-600" : "text-purple-700 dark:text-purple-400")}>{percentExp !== null ? `${percentExp.toFixed(1)}%` : '-'}</span></td>
+                                                </>)}
                                             </>
                                         );
                                     })}
-                                    
-                                    {/* PDS ALWAYS AT END */}
                                     {hasPDS && (() => {
                                         const pdsVal = range.columns?.["08-PDS"] ?? null;
-                                        return (
-                                            <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700">
-                                                <span className="font-mono font-black text-neutral-900 dark:text-neutral-300 whitespace-nowrap">
-                                                    {pdsVal !== null ? <AnimatedPrice value={pdsVal} /> : '-'}
-                                                </span>
-                                            </td>
-                                        );
+                                        return <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700"><span className="font-mono font-black text-neutral-900 dark:text-neutral-300 whitespace-nowrap">{pdsVal !== null ? <AnimatedPrice value={pdsVal} /> : '-'}</span></td>;
                                     })()}
-
                                   </tr>
                                 );
                               })}
-                              
-                              {/* Spacer Row Between Items (Breathing Room) */}
-                              {itemIndex < classItems.length - 1 && (
-                                <tr className="h-6 bg-neutral-100 dark:bg-neutral-950 border-x border-neutral-200 dark:border-neutral-800">
-                                  <td colSpan={100}></td>
-                                </tr>
-                              )}
+                              {/* Spacer Row Between Articles */}
+                              {itemIndex < classItems.length - 1 && <tr className="h-6 bg-neutral-100 dark:bg-neutral-950 border-x border-neutral-200 dark:border-neutral-800"><td colSpan={100}></td></tr>}
                             </片>
                           ))}
                         </tbody>
@@ -997,19 +850,11 @@ function PriceModal({
           ) : (
             <div className="flex flex-col items-center justify-center h-64 gap-4">
               <div className="text-6xl text-neutral-300">∅</div>
-              <div className="text-center">
-                <p className="text-xl font-bold text-neutral-600 dark:text-neutral-400">Aucun prix trouvé</p>
-                <p className="text-neutral-500 mt-1">Sélectionnez des articles et cliquez sur Ajouter.</p>
-              </div>
+              <div className="text-center"><p className="text-xl font-bold text-neutral-600 dark:text-neutral-400">Aucun prix trouvé</p><p className="text-neutral-500 mt-1">Sélectionnez des articles et cliquez sur Ajouter.</p></div>
             </div>
           )}
         </div>
-        
-        {!loading && itemsWithPrices.length > 0 && (
-          <div className="flex-shrink-0 bg-neutral-200 dark:bg-neutral-800 px-4 py-3 text-center">
-            <span className="text-neutral-600 dark:text-neutral-400 font-medium">{itemsWithPrices.length} article(s) {showDetails && " • Détails activés"}</span>
-          </div>
-        )}
+        {!loading && itemsWithPrices.length > 0 && <div className="flex-shrink-0 bg-neutral-200 dark:bg-neutral-800 px-4 py-3 text-center"><span className="text-neutral-600 dark:text-neutral-400 font-medium">{itemsWithPrices.length} article(s) {showDetails && " • Détails activés"}</span></div>}
       </div>
 
       {/* Email Modal */}
