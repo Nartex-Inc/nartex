@@ -837,7 +837,11 @@ function PriceModal({
                                 );
                               })}
                               {/* Spacer Row Between Articles */}
-                              {itemIndex < classItems.length - 1 && <tr className="h-6 bg-neutral-100 dark:bg-neutral-950 border-x border-neutral-200 dark:border-neutral-800"><td colSpan={100}></td></tr>}
+                              {itemIndex < classItems.length - 1 && (
+                                <tr className="h-6 bg-neutral-900 dark:bg-black border-x border-neutral-800 dark:border-neutral-900">
+                                  <td colSpan={100}></td>
+                                </tr>
+                              )}
                             </片>
                           ))}
                         </tbody>
