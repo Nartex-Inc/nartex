@@ -7,6 +7,29 @@ import { useCurrentAccent } from "@/components/accent-color-provider";
 import { startRegistration } from '@simplewebauthn/browser';
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { 
+  Search, 
+  X, 
+  RotateCcw, 
+  Mail, 
+  Eye, 
+  EyeOff, 
+  ChevronDown, 
+  Check, 
+  Plus,
+  Filter,
+  Sparkles,
+  Package,
+  Layers,
+  Tag,
+  FileText,
+  Send,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
+  Download,
+  Inbox
+} from "lucide-react";
 
 // --- Interfaces ---
 interface Product {
@@ -75,7 +98,7 @@ async function getDataUri(url: string): Promise<string> {
       canvas.getContext('2d')?.drawImage(image, 0, 0);
       resolve(canvas.toDataURL('image/png'));
     };
-    image.onerror = () => resolve(""); // Fallback empty
+    image.onerror = () => resolve("");
     image.src = url;
   });
 }
@@ -122,27 +145,74 @@ function AnimatedPrice({ value, duration = 600 }: { value: number; duration?: nu
   return <span>{displayValue.toFixed(2)}</span>;
 }
 
-// --- Toggle Component ---
+// --- Premium Toggle Component ---
 function Toggle({ enabled, onChange, label, accentColor }: { enabled: boolean; onChange: (v: boolean) => void | Promise<void>; label: string; accentColor: string }) {
   return (
-    <label className="flex items-center gap-2 cursor-pointer select-none">
-      <span className="text-white text-sm font-medium hidden md:inline-block">{label}</span>
+    <label className="flex items-center gap-3 cursor-pointer select-none group">
+      <span className="text-white/90 text-sm font-semibold hidden md:inline-block tracking-wide">{label}</span>
       <div 
         onClick={() => onChange(!enabled)} 
         className={cn(
-          "relative w-12 h-6 rounded-full transition-colors", 
-          enabled ? "bg-white" : "bg-white/30"
+          "relative w-14 h-7 rounded-full transition-all duration-300 shadow-inner",
+          enabled 
+            ? "bg-white shadow-lg" 
+            : "bg-white/20 hover:bg-white/30"
         )}
       >
         <div 
           className={cn(
-            "absolute top-1 w-4 h-4 rounded-full transition-all shadow-sm", 
-            enabled ? "left-7" : "left-1 bg-white"
+            "absolute top-1 w-5 h-5 rounded-full transition-all duration-300 shadow-md flex items-center justify-center",
+            enabled ? "left-8 scale-110" : "left-1 bg-white/90"
           )}
           style={{ backgroundColor: enabled ? accentColor : undefined }} 
-        />
+        >
+          {enabled ? (
+            <Eye className="w-3 h-3 text-white" />
+          ) : (
+            <EyeOff className="w-3 h-3 text-neutral-500" />
+          )}
+        </div>
       </div>
     </label>
+  );
+}
+
+// --- Premium Icon Button Component ---
+function IconButton({ 
+  onClick, 
+  icon: Icon, 
+  title, 
+  variant = "default",
+  loading = false,
+  className = ""
+}: { 
+  onClick: () => void; 
+  icon: React.ElementType; 
+  title: string;
+  variant?: "default" | "primary" | "danger";
+  loading?: boolean;
+  className?: string;
+}) {
+  return (
+    <button 
+      onClick={onClick}
+      disabled={loading}
+      title={title}
+      className={cn(
+        "h-11 w-11 rounded-xl flex items-center justify-center transition-all duration-300 backdrop-blur-sm",
+        "hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed",
+        variant === "default" && "bg-white/15 hover:bg-white/25 text-white border border-white/10",
+        variant === "primary" && "bg-white text-neutral-900 shadow-lg hover:shadow-xl",
+        variant === "danger" && "bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/20",
+        className
+      )}
+    >
+      {loading ? (
+        <Loader2 className="w-5 h-5 animate-spin" />
+      ) : (
+        <Icon className="w-5 h-5" strokeWidth={2} />
+      )}
+    </button>
   );
 }
 
@@ -191,77 +261,119 @@ function QuickAddSearch({
   };
 
   return (
-    <div className="absolute top-20 right-4 z-50 w-96 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-700 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-      <div className="p-3 border-b border-neutral-100 dark:border-neutral-800 flex gap-2">
-        <input 
-          autoFocus
-          className="flex-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg px-3 py-2 text-sm outline-none"
-          placeholder="Rechercher article..."
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-        />
-        <button onClick={onClose} className="px-2 text-neutral-400 hover:text-neutral-600">✕</button>
+    <div className="absolute top-20 right-4 z-50 w-[420px] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-700 flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+      {/* Header */}
+      <div className="p-4 border-b border-neutral-100 dark:border-neutral-800 bg-gradient-to-r from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}15` }}>
+            <Search className="w-5 h-5" style={{ color: accentColor }} />
+          </div>
+          <div className="flex-1">
+            <input 
+              autoFocus
+              className="w-full bg-transparent text-base font-semibold outline-none placeholder:text-neutral-400 dark:text-white"
+              placeholder="Rechercher un article..."
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+            />
+          </div>
+          <button 
+            onClick={onClose} 
+            className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+          >
+            <X className="w-4 h-4 text-neutral-500" />
+          </button>
+        </div>
       </div>
       
-      <div className="max-h-64 overflow-y-auto p-1">
+      {/* Results */}
+      <div className="max-h-72 overflow-y-auto">
         {searching ? (
-          <div className="p-4 text-center text-sm text-neutral-400">Recherche...</div>
+          <div className="p-8 flex flex-col items-center gap-3">
+            <Loader2 className="w-6 h-6 animate-spin" style={{ color: accentColor }} />
+            <span className="text-sm text-neutral-500">Recherche en cours...</span>
+          </div>
         ) : results.length > 0 ? (
-          results.map(item => (
-            <div 
-              key={item.itemId} 
-              onClick={() => toggleSelect(item.itemId)}
-              className={cn(
-                "flex items-center gap-3 p-2 rounded-lg cursor-pointer text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800",
-                selectedIds.has(item.itemId) && "bg-neutral-100 dark:bg-neutral-800"
-              )}
-            >
-              <div className={cn(
-                "w-4 h-4 rounded border flex items-center justify-center transition-colors",
-                selectedIds.has(item.itemId) ? "bg-black border-black dark:bg-white dark:border-white" : "border-neutral-300"
-              )}>
-                {selectedIds.has(item.itemId) && <span className="text-[10px] text-white dark:text-black">✓</span>}
+          <div className="p-2">
+            {results.map(item => (
+              <div 
+                key={item.itemId} 
+                onClick={() => toggleSelect(item.itemId)}
+                className={cn(
+                  "flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all duration-200",
+                  "hover:bg-neutral-50 dark:hover:bg-neutral-800",
+                  selectedIds.has(item.itemId) && "bg-neutral-100 dark:bg-neutral-800 ring-2 ring-offset-2 dark:ring-offset-neutral-900"
+                )}
+                style={{ 
+                  ringColor: selectedIds.has(item.itemId) ? accentColor : undefined 
+                }}
+              >
+                <div className={cn(
+                  "w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-200 flex-shrink-0",
+                  selectedIds.has(item.itemId) 
+                    ? "border-transparent" 
+                    : "border-neutral-300 dark:border-neutral-600"
+                )}
+                style={{ 
+                  backgroundColor: selectedIds.has(item.itemId) ? accentColor : undefined 
+                }}>
+                  {selectedIds.has(item.itemId) && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-neutral-900 dark:text-white truncate">{item.itemCode}</div>
+                  <div className="text-sm text-neutral-500 truncate">{item.description}</div>
+                </div>
               </div>
-              <div className="flex-1 overflow-hidden">
-                <div className="font-bold truncate">{item.itemCode}</div>
-                <div className="text-xs text-neutral-500 truncate">{item.description}</div>
-              </div>
-            </div>
-          ))
+            ))}
+          </div>
         ) : (
-          <div className="p-4 text-center text-sm text-neutral-400">
-            {query.length > 1 ? "Aucun résultat" : "Tapez pour chercher"}
+          <div className="p-8 flex flex-col items-center gap-3 text-center">
+            <div className="w-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
+              <Package className="w-6 h-6 text-neutral-400" />
+            </div>
+            <span className="text-sm text-neutral-500">
+              {query.length > 1 ? "Aucun résultat trouvé" : "Tapez pour rechercher"}
+            </span>
           </div>
         )}
       </div>
 
-      <div className="p-3 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50">
+      {/* Footer */}
+      <div className="p-4 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/80">
         <button
           onClick={handleAdd}
           disabled={selectedIds.size === 0}
-          className="w-full py-2 rounded-lg text-sm font-bold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className={cn(
+            "w-full py-3 rounded-xl text-sm font-bold text-white transition-all duration-300",
+            "flex items-center justify-center gap-2",
+            "disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none",
+            "hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]"
+          )}
           style={{ backgroundColor: accentColor }}
         >
-          Ajouter ({selectedIds.size})
+          <Plus className="w-4 h-4" />
+          Ajouter {selectedIds.size > 0 && `(${selectedIds.size})`}
         </button>
       </div>
     </div>
   );
 }
 
-// --- MultiSelect Dropdown for Articles ---
+// --- Premium MultiSelect Dropdown for Articles ---
 function MultiSelectDropdown({
   items,
   selectedIds,
   onChange,
   disabled,
-  placeholder = "Articles..."
+  placeholder = "Articles...",
+  accentColor
 }: {
   items: Item[];
   selectedIds: Set<number>;
   onChange: (ids: Set<number>) => void;
   disabled?: boolean;
   placeholder?: string;
+  accentColor: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -290,63 +402,81 @@ function MultiSelectDropdown({
   };
 
   return (
-    <div className="relative flex-1 min-w-[180px]" ref={dropdownRef}>
+    <div className="relative flex-1 min-w-[220px]" ref={dropdownRef}>
       <div
         onClick={() => !disabled && setIsOpen(!isOpen)}
         className={cn(
-          "h-10 px-3 bg-white/20 text-white rounded-lg font-medium text-sm border border-white/30 flex items-center justify-between cursor-pointer transition-all",
-          disabled && "opacity-50 cursor-not-allowed",
-          isOpen && "border-white bg-white/30"
+          "h-11 px-4 bg-white/15 text-white rounded-xl font-semibold text-sm",
+          "border border-white/20 flex items-center justify-between gap-2",
+          "cursor-pointer transition-all duration-300 backdrop-blur-sm",
+          disabled && "opacity-40 cursor-not-allowed",
+          isOpen && "border-white/50 bg-white/25 shadow-lg"
         )}
       >
-        <span className="truncate">
-          {selectedIds.size > 0 
-            ? `${selectedIds.size} article(s) sélectionné(s)` 
-            : placeholder}
-        </span>
-        <span className="text-xs opacity-70 ml-2">▼</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <Tag className="w-4 h-4 flex-shrink-0 opacity-70" />
+          <span className="truncate">
+            {selectedIds.size > 0 
+              ? `${selectedIds.size} article(s)` 
+              : placeholder}
+          </span>
+        </div>
+        <ChevronDown className={cn(
+          "w-4 h-4 flex-shrink-0 transition-transform duration-300",
+          isOpen && "rotate-180"
+        )} />
       </div>
 
       {isOpen && (
-        <div className="absolute top-12 left-0 w-full min-w-[300px] z-50 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
-          <div className="p-2 border-b border-neutral-100 dark:border-neutral-800">
-            <input 
-              autoFocus
-              className="w-full bg-neutral-100 dark:bg-neutral-800 rounded-lg px-3 py-2 text-sm outline-none text-neutral-900 dark:text-white placeholder:text-neutral-400"
-              placeholder="Filtrer..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+        <div className="absolute top-14 left-0 w-full min-w-[360px] z-50 bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="p-3 border-b border-neutral-100 dark:border-neutral-800">
+            <div className="flex items-center gap-2 bg-neutral-100 dark:bg-neutral-800 rounded-xl px-3">
+              <Filter className="w-4 h-4 text-neutral-400" />
+              <input 
+                autoFocus
+                className="flex-1 py-2.5 bg-transparent text-sm outline-none text-neutral-900 dark:text-white placeholder:text-neutral-400"
+                placeholder="Filtrer les articles..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
           </div>
-          <div className="max-h-64 overflow-y-auto p-1">
+          <div className="max-h-72 overflow-y-auto p-2">
             {filteredItems.length > 0 ? (
               filteredItems.map(item => (
                 <div 
                   key={item.itemId}
                   onClick={() => toggleSelection(item.itemId)}
                   className={cn(
-                    "flex items-center gap-3 p-2 rounded-lg cursor-pointer text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors",
+                    "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200",
+                    "hover:bg-neutral-50 dark:hover:bg-neutral-800",
                     selectedIds.has(item.itemId) && "bg-neutral-100 dark:bg-neutral-800"
                   )}
                 >
                   <div className={cn(
-                    "w-4 h-4 rounded border flex items-center justify-center transition-colors flex-shrink-0",
+                    "w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all duration-200 flex-shrink-0",
                     selectedIds.has(item.itemId) 
-                      ? "bg-neutral-900 border-neutral-900 dark:bg-white dark:border-white" 
+                      ? "border-transparent" 
                       : "border-neutral-300 dark:border-neutral-600"
-                  )}>
+                  )}
+                  style={{ 
+                    backgroundColor: selectedIds.has(item.itemId) ? accentColor : undefined 
+                  }}>
                     {selectedIds.has(item.itemId) && (
-                      <span className="text-[10px] text-white dark:text-black font-bold">✓</span>
+                      <Check className="w-3 h-3 text-white" strokeWidth={3} />
                     )}
                   </div>
-                  <div className="flex-1 overflow-hidden">
-                    <div className="font-bold text-neutral-900 dark:text-white truncate">{item.itemCode}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-neutral-900 dark:text-white truncate text-sm">{item.itemCode}</div>
                     <div className="text-xs text-neutral-500 truncate">{item.description}</div>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="p-4 text-center text-xs text-neutral-400">Aucun article trouvé</div>
+              <div className="p-6 text-center">
+                <Inbox className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
+                <span className="text-sm text-neutral-400">Aucun article trouvé</span>
+              </div>
             )}
           </div>
         </div>
@@ -355,7 +485,7 @@ function MultiSelectDropdown({
   );
 }
 
-// --- Email Modal Component ---
+// --- Premium Email Modal Component ---
 function EmailModal({ 
     isOpen, 
     onClose, 
@@ -376,40 +506,82 @@ function EmailModal({
   return (
     <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
       <div 
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-md"
         onClick={onClose}
       />
       
-      <div className="relative w-full max-w-sm bg-white dark:bg-neutral-900 rounded-xl shadow-2xl p-6 border border-neutral-200 dark:border-neutral-800 animate-in zoom-in-95 duration-200">
-        <h3 className="text-lg font-bold mb-2 text-neutral-900 dark:text-white">Envoyer par Courriel</h3>
-        <p className="text-sm text-neutral-500 mb-4">
-          Entrez l'adresse courriel du destinataire.
-        </p>
+      <div className="relative w-full max-w-md bg-white dark:bg-neutral-900 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+        {/* Header */}
+        <div className="p-6 pb-4">
+          <div className="flex items-center gap-4 mb-4">
+            <div 
+              className="w-14 h-14 rounded-2xl flex items-center justify-center"
+              style={{ backgroundColor: `${accentColor}15` }}
+            >
+              <Mail className="w-7 h-7" style={{ color: accentColor }} />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-neutral-900 dark:text-white">Envoyer par Courriel</h3>
+              <p className="text-sm text-neutral-500">La liste de prix sera jointe en PDF</p>
+            </div>
+          </div>
 
-        <input 
-          type="email"
-          autoFocus
-          className="w-full h-10 px-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-sm mb-4 outline-none focus:border-black dark:focus:border-white transition-colors"
-          placeholder="nom@exemple.com"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-        />
+          <div className="relative">
+            <input 
+              type="email"
+              autoFocus
+              className={cn(
+                "w-full h-14 px-4 rounded-xl text-base font-medium",
+                "bg-neutral-100 dark:bg-neutral-800 border-2 border-transparent",
+                "outline-none transition-all duration-300",
+                "placeholder:text-neutral-400"
+              )}
+              style={{ 
+                borderColor: email ? accentColor : undefined 
+              }}
+              placeholder="nom@exemple.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+            />
+          </div>
+        </div>
 
-        <div className="flex gap-2">
+        {/* Actions */}
+        <div className="p-6 pt-2 flex gap-3">
           <button 
             onClick={onClose}
             disabled={sending}
-            className="flex-1 h-10 rounded-lg border border-neutral-200 dark:border-neutral-700 text-sm font-medium hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors text-neutral-900 dark:text-white"
+            className={cn(
+              "flex-1 h-12 rounded-xl font-semibold transition-all duration-300",
+              "bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300",
+              "hover:bg-neutral-200 dark:hover:bg-neutral-700",
+              "disabled:opacity-50"
+            )}
           >
             Annuler
           </button>
           <button 
             onClick={() => onSend(email)}
             disabled={!email || sending}
-            className="flex-1 h-10 rounded-lg text-sm font-bold text-white transition-colors disabled:opacity-50"
+            className={cn(
+              "flex-1 h-12 rounded-xl font-bold text-white transition-all duration-300",
+              "flex items-center justify-center gap-2",
+              "disabled:opacity-40 disabled:cursor-not-allowed",
+              "hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]"
+            )}
             style={{ backgroundColor: accentColor }}
           >
-            {sending ? "Envoi..." : "Envoyer"}
+            {sending ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Envoi...
+              </>
+            ) : (
+              <>
+                <Send className="w-5 h-5" />
+                Envoyer
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -417,7 +589,7 @@ function EmailModal({
   );
 }
 
-// --- Price Modal Component ---
+// --- Premium Price Modal Component ---
 interface PriceModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -535,16 +707,14 @@ function PriceModal({
       // Load Logo and maintain aspect ratio
       const logoData = await getDataUri('/sinto-logo.svg'); 
       if (logoData) {
-         // w=40, h=0 (auto)
          doc.addImage(logoData, 'PNG', 15, 10, 40, 0); 
       }
       
-      // Centered Title: "Liste de Prix SINTO"
+      // Centered Title
       doc.setFontSize(22);
       doc.setFont("helvetica", "bold");
       const title = "Liste de Prix SINTO";
       const titleWidth = doc.getTextWidth(title);
-      // Calculate center: (PageWidth / 2) - (TextWidth / 2)
       const pageWidth = doc.internal.pageSize.getWidth();
       doc.text(title, (pageWidth - titleWidth) / 2, 25);
 
@@ -579,6 +749,9 @@ function PriceModal({
         const hasPDS = priceColumns.some(c => c.trim() === "08-PDS");
 
         const tableBody: any[] = [];
+        // Track spacer row indices for styling
+        const spacerRowIndices: number[] = [];
+        let rowIndex = 0;
         
         classItems.forEach((item, index) => {
             item.ranges.forEach((range, idx) => {
@@ -623,14 +796,15 @@ function PriceModal({
                 }
                 
                 tableBody.push(row);
+                rowIndex++;
             });
             
-            // --- SPACER ROW logic for PDF ---
-            // If this is NOT the last item in the class, add an empty row to table body
+            // --- SPACER ROW logic for PDF (BLACK for visual contrast) ---
             if (index < classItems.length - 1) {
-                // Create an array of empty strings matching the number of columns
                 const columnsCount = 5 + standardColumns.length + (hasPDS ? 1 : 0) + (showDetails ? 3 : 0);
                 tableBody.push(new Array(columnsCount).fill('')); 
+                spacerRowIndices.push(rowIndex);
+                rowIndex++;
             }
         });
 
@@ -655,7 +829,15 @@ function PriceModal({
                 0: { fontStyle: 'bold' },
                 4: { textColor: [0, 150, 0] }
             },
-            theme: 'grid'
+            theme: 'grid',
+            // Style spacer rows as BLACK for visual contrast
+            didParseCell: function(data) {
+                if (data.section === 'body' && spacerRowIndices.includes(data.row.index)) {
+                    data.cell.styles.fillColor = [0, 0, 0]; // BLACK background
+                    data.cell.styles.textColor = [0, 0, 0]; // BLACK text (invisible)
+                    data.cell.styles.minCellHeight = 4; // Shorter height for spacer
+                }
+            }
         });
 
         finalY = (doc as any).lastAutoTable.finalY + 10;
@@ -668,7 +850,6 @@ function PriceModal({
       formData.append("to", recipientEmail);
       formData.append("subject", `Liste de prix SINTO : ${selectedPriceList?.name}`);
       
-      // Pass the custom message so Backend can use it if configured
       const messageBody = `Liste de Prix SINTO\n\nBonjour,\n\nVeuillez trouver ci-joint la liste de prix que vous avez demandée.`;
       formData.append("message", messageBody);
 
@@ -692,103 +873,346 @@ function PriceModal({
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 md:p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-[98vw] max-h-[94vh] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-        <div className="flex-shrink-0 px-4 md:px-6 py-4 flex flex-col gap-4" style={{ backgroundColor: accentColor }}>
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <h2 className="text-xl md:text-2xl font-bold text-white">Liste de Prix</h2>
-            <div className="flex items-center gap-3">
-              {isAuthenticating && <span className="text-white text-xs font-bold animate-pulse uppercase tracking-wider mr-2">Vérification FaceID...</span>}
-              <Toggle enabled={showDetails} onChange={handleToggleDetails} label="Afficher détails" accentColor={accentColor} />
-              
-              {/* Email Button */}
-              <button 
-                onClick={() => setShowEmailModal(true)}
-                className="h-10 w-10 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors"
-                title="Envoyer par courriel"
-              >
-                <span className="text-lg">✉️</span>
-              </button>
-
-              <button onClick={onReset} className="h-10 w-10 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors" title="Réinitialiser">
-                <span className="text-xl font-bold">↺</span>
-              </button>
-              <button onClick={onClose} className="h-10 w-10 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white font-bold text-lg transition-colors">✕</button>
-            </div>
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/60 to-black/70 backdrop-blur-md" 
+        onClick={onClose} 
+      />
+      
+      {/* Modal Container */}
+      <div className="relative w-full max-w-[98vw] max-h-[94vh] bg-white dark:bg-neutral-950 rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+        
+        {/* Premium Header */}
+        <div 
+          className="flex-shrink-0 relative overflow-hidden"
+          style={{ 
+            background: `linear-gradient(135deg, ${accentColor} 0%, ${accentMuted} 100%)` 
+          }}
+        >
+          {/* Decorative Elements */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-white rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2" />
           </div>
-
-          <div className="flex flex-col md:flex-row gap-2 bg-black/10 p-2 rounded-xl border border-white/10 items-center">
-             <select value={selectedPriceList?.priceId || ""} onChange={(e) => onPriceListChange(parseInt(e.target.value))} disabled={loading} className="h-10 px-3 bg-white/90 text-neutral-900 rounded-lg font-bold text-sm border-2 border-transparent focus:border-white outline-none flex-1 min-w-[200px]">
-                {priceLists.map(pl => (<option key={pl.priceId} value={pl.priceId}>{pl.code} - {pl.name}</option>))}
-              </select>
-              <select value={selectedProduct?.prodId || ""} onChange={(e) => onProductChange(e.target.value)} className="h-10 px-3 bg-white/20 text-white rounded-lg font-medium text-sm border border-white/30 focus:border-white outline-none flex-1 min-w-[140px]">
-                <option value="" className="text-black">Catégorie...</option>{products.map(p => (<option key={p.prodId} value={p.prodId} className="text-black">{p.name}</option>))}
-              </select>
-              <select value={selectedType?.itemTypeId || ""} onChange={(e) => onTypeChange(e.target.value)} disabled={!selectedProduct} className="h-10 px-3 bg-white/20 text-white rounded-lg font-medium text-sm border border-white/30 focus:border-white outline-none flex-1 min-w-[140px] disabled:opacity-50">
-                <option value="" className="text-black">Classe...</option>{itemTypes.map(t => (<option key={t.itemTypeId} value={t.itemTypeId} className="text-black">{t.description}</option>))}
-              </select>
-              <MultiSelectDropdown items={items} selectedIds={selectedItemIds} onChange={onItemsChange} disabled={!selectedType && !selectedProduct} />
-              <div className="flex gap-2 ml-2">
-                <button onClick={onLoadSelection} disabled={loading || (!selectedProduct && selectedItemIds.size === 0)} className="h-10 px-4 rounded-lg bg-white text-black font-bold text-sm hover:bg-white/90 disabled:opacity-50 transition-colors whitespace-nowrap shadow-sm">
-                  Ajouter {selectedItemIds.size > 0 ? `(${selectedItemIds.size})` : ''}
-                </button>
-                <button onClick={() => setShowQuickAdd(!showQuickAdd)} className="h-10 w-10 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center text-white text-xl transition-colors" title="Recherche Rapide Globale">🔍</button>
+          
+          <div className="relative px-5 md:px-8 py-5">
+            {/* Top Row */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
+                  <FileText className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight">Liste de Prix</h2>
+                  <p className="text-white/70 text-sm mt-0.5">
+                    {itemsWithPrices.length} article(s) • {selectedPriceList?.code}
+                  </p>
+                </div>
               </div>
+              
+              <div className="flex items-center gap-3">
+                {isAuthenticating && (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                    <Loader2 className="w-4 h-4 text-white animate-spin" />
+                    <span className="text-white text-xs font-bold uppercase tracking-wider">Vérification FaceID...</span>
+                  </div>
+                )}
+                
+                <Toggle 
+                  enabled={showDetails} 
+                  onChange={handleToggleDetails} 
+                  label="Détails" 
+                  accentColor={accentColor} 
+                />
+                
+                <div className="hidden md:flex items-center gap-2 ml-2">
+                  <IconButton 
+                    onClick={() => setShowEmailModal(true)} 
+                    icon={Mail} 
+                    title="Envoyer par courriel" 
+                  />
+                  <IconButton 
+                    onClick={onReset} 
+                    icon={RotateCcw} 
+                    title="Réinitialiser" 
+                  />
+                  <IconButton 
+                    onClick={onClose} 
+                    icon={X} 
+                    title="Fermer" 
+                  />
+                </div>
+                
+                {/* Mobile Actions */}
+                <div className="flex md:hidden items-center gap-2">
+                  <IconButton onClick={() => setShowEmailModal(true)} icon={Mail} title="Envoyer" />
+                  <IconButton onClick={onClose} icon={X} title="Fermer" />
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Row */}
+            <div className="flex flex-col lg:flex-row gap-3 p-4 bg-black/15 backdrop-blur-sm rounded-2xl border border-white/10">
+              {/* Price List Select */}
+              <div className="relative min-w-[280px]">
+                <select 
+                  value={selectedPriceList?.priceId || ""} 
+                  onChange={(e) => onPriceListChange(parseInt(e.target.value))} 
+                  disabled={loading} 
+                  className={cn(
+                    "w-full h-11 px-4 pr-10 rounded-xl font-bold text-sm appearance-none cursor-pointer",
+                    "bg-white text-neutral-900 border-2 border-white",
+                    "focus:outline-none focus:ring-2 focus:ring-white/50",
+                    "disabled:opacity-50 disabled:cursor-not-allowed",
+                    "transition-all duration-300"
+                  )}
+                >
+                  {priceLists.map(pl => (
+                    <option key={pl.priceId} value={pl.priceId}>{pl.code} - {pl.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500 pointer-events-none" />
+              </div>
+              
+              {/* Category Select */}
+              <div className="relative flex-1 min-w-[180px]">
+                <select 
+                  value={selectedProduct?.prodId || ""} 
+                  onChange={(e) => onProductChange(e.target.value)} 
+                  className={cn(
+                    "w-full h-11 px-4 pr-10 rounded-xl font-semibold text-sm appearance-none cursor-pointer",
+                    "bg-white/15 text-white border border-white/20",
+                    "focus:outline-none focus:border-white/50 focus:bg-white/25",
+                    "transition-all duration-300"
+                  )}
+                >
+                  <option value="" className="text-neutral-900">Catégorie...</option>
+                  {products.map(p => (
+                    <option key={p.prodId} value={p.prodId} className="text-neutral-900">{p.name}</option>
+                  ))}
+                </select>
+                <Layers className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
+              </div>
+              
+              {/* Class Select */}
+              <div className="relative flex-1 min-w-[180px]">
+                <select 
+                  value={selectedType?.itemTypeId || ""} 
+                  onChange={(e) => onTypeChange(e.target.value)} 
+                  disabled={!selectedProduct} 
+                  className={cn(
+                    "w-full h-11 px-4 pr-10 rounded-xl font-semibold text-sm appearance-none cursor-pointer",
+                    "bg-white/15 text-white border border-white/20",
+                    "focus:outline-none focus:border-white/50 focus:bg-white/25",
+                    "disabled:opacity-40 disabled:cursor-not-allowed",
+                    "transition-all duration-300"
+                  )}
+                >
+                  <option value="" className="text-neutral-900">Classe...</option>
+                  {itemTypes.map(t => (
+                    <option key={t.itemTypeId} value={t.itemTypeId} className="text-neutral-900">{t.description}</option>
+                  ))}
+                </select>
+                <Package className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
+              </div>
+              
+              {/* Multi-select Articles */}
+              <MultiSelectDropdown 
+                items={items} 
+                selectedIds={selectedItemIds} 
+                onChange={onItemsChange} 
+                disabled={!selectedType && !selectedProduct} 
+                accentColor={accentColor}
+              />
+              
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <button 
+                  onClick={onLoadSelection} 
+                  disabled={loading || (!selectedProduct && selectedItemIds.size === 0)} 
+                  className={cn(
+                    "h-11 px-5 rounded-xl font-bold text-sm whitespace-nowrap",
+                    "bg-white text-neutral-900 shadow-lg",
+                    "flex items-center gap-2",
+                    "hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]",
+                    "disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none",
+                    "transition-all duration-300"
+                  )}
+                >
+                  <Plus className="w-4 h-4" />
+                  Ajouter {selectedItemIds.size > 0 && `(${selectedItemIds.size})`}
+                </button>
+                <button 
+                  onClick={() => setShowQuickAdd(!showQuickAdd)} 
+                  className={cn(
+                    "h-11 w-11 rounded-xl flex items-center justify-center",
+                    "bg-white/15 hover:bg-white/25 text-white border border-white/20",
+                    "transition-all duration-300"
+                  )}
+                  title="Recherche Rapide"
+                >
+                  <Search className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            
+            {showQuickAdd && (
+              <QuickAddSearch 
+                accentColor={accentColor} 
+                onClose={() => setShowQuickAdd(false)} 
+                onAddItems={onAddItems} 
+              />
+            )}
           </div>
-          {showQuickAdd && <QuickAddSearch accentColor={accentColor} onClose={() => setShowQuickAdd(false)} onAddItems={onAddItems} />}
         </div>
         
-        {/* Table Content */}
-        <div className="flex-1 overflow-auto p-3 md:p-5 bg-neutral-100 dark:bg-neutral-950">
+        {/* Table Content - PREMIUM iPad-Optimized */}
+        <div className="flex-1 overflow-auto bg-gradient-to-b from-neutral-100 to-neutral-200 dark:from-neutral-900 dark:to-neutral-950">
           {loading && data.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 gap-4">
-              <div className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: accentColor, borderTopColor: 'transparent' }} />
-              <p className="text-neutral-500 font-medium">Chargement des prix...</p>
+            <div className="flex flex-col items-center justify-center h-80 gap-5">
+              <div className="relative">
+                <div 
+                  className="w-16 h-16 border-4 border-t-transparent rounded-full animate-spin" 
+                  style={{ borderColor: `${accentColor}30`, borderTopColor: 'transparent' }} 
+                />
+                <div 
+                  className="absolute inset-2 w-12 h-12 border-4 border-b-transparent rounded-full animate-spin animate-reverse" 
+                  style={{ borderColor: accentColor, borderBottomColor: 'transparent', animationDirection: 'reverse' }} 
+                />
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-bold text-neutral-700 dark:text-neutral-300">Chargement des prix</p>
+                <p className="text-sm text-neutral-500 mt-1">Veuillez patienter...</p>
+              </div>
             </div>
           ) : error ? (
-            <div className="flex flex-col items-center justify-center h-64 gap-4">
-              <div className="text-6xl" style={{ color: `${accentColor}50` }}>!</div>
-              <div className="text-center"><p className="text-xl font-bold" style={{ color: accentColor }}>Erreur</p><p className="text-neutral-500 mt-1">{error}</p></div>
+            <div className="flex flex-col items-center justify-center h-80 gap-5">
+              <div 
+                className="w-20 h-20 rounded-3xl flex items-center justify-center"
+                style={{ backgroundColor: `${accentColor}15` }}
+              >
+                <AlertCircle className="w-10 h-10" style={{ color: accentColor }} />
+              </div>
+              <div className="text-center">
+                <p className="text-xl font-bold" style={{ color: accentColor }}>Erreur</p>
+                <p className="text-neutral-500 mt-2 max-w-md">{error}</p>
+                <button 
+                  onClick={onReset}
+                  className="mt-4 px-6 py-2 rounded-xl text-sm font-semibold border-2 transition-colors"
+                  style={{ borderColor: accentColor, color: accentColor }}
+                >
+                  <RefreshCw className="w-4 h-4 inline mr-2" />
+                  Réessayer
+                </button>
+              </div>
             </div>
           ) : Object.keys(groupedItems).length > 0 ? (
-            <div className="space-y-8">
+            <div className="p-4 md:p-6 space-y-8">
               {Object.entries(groupedItems).map(([className, classItems]) => {
                 const firstItem = classItems[0];
-                let priceColumns = firstItem.ranges[0]?.columns ? Object.keys(firstItem.ranges[0].columns).sort() : [selectedPriceList?.code || 'Prix'];
-                if (!showDetails && selectedPriceList?.code !== "01-EXP") priceColumns = priceColumns.filter(c => c.trim() !== "01-EXP");
+                let priceColumns = firstItem.ranges[0]?.columns 
+                  ? Object.keys(firstItem.ranges[0].columns).sort() 
+                  : [selectedPriceList?.code || 'Prix'];
+                if (!showDetails && selectedPriceList?.code !== "01-EXP") {
+                  priceColumns = priceColumns.filter(c => c.trim() !== "01-EXP");
+                }
                 const standardColumns = priceColumns.filter(c => c.trim() !== "08-PDS");
                 const hasPDS = priceColumns.some(c => c.trim() === "08-PDS");
 
                 return (
-                  <div key={className} className="bg-white dark:bg-neutral-900 rounded-xl overflow-hidden shadow-lg border border-neutral-200 dark:border-neutral-800">
-                    <div className="px-4 py-3" style={{ backgroundColor: accentColor }}>
-                      <h3 className="text-lg font-black text-white uppercase tracking-wider">{className}</h3>
-                      <p className="text-white/80 text-xs mt-0.5">{classItems.length} article(s) dans cette classe</p>
+                  <div 
+                    key={className} 
+                    className="bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden shadow-xl border border-neutral-200/50 dark:border-neutral-800"
+                  >
+                    {/* Class Header - Premium Design */}
+                    <div 
+                      className="relative px-6 py-5 overflow-hidden"
+                      style={{ 
+                        background: `linear-gradient(135deg, ${accentColor} 0%, ${accentMuted} 100%)` 
+                      }}
+                    >
+                      <div className="absolute inset-0 opacity-10">
+                        <div className="absolute -top-10 -right-10 w-40 h-40 bg-white rounded-full blur-2xl" />
+                      </div>
+                      <div className="relative flex items-center justify-between">
+                        <div>
+                          <h3 className="text-xl md:text-2xl font-black text-white uppercase tracking-wider">
+                            {className}
+                          </h3>
+                          <p className="text-white/70 text-sm mt-1 font-medium">
+                            {classItems.length} article(s) dans cette classe
+                          </p>
+                        </div>
+                        <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                          <Sparkles className="w-4 h-4 text-white" />
+                          <span className="text-white text-sm font-bold">{selectedPriceList?.code}</span>
+                        </div>
+                      </div>
                     </div>
+                    
+                    {/* Table - iPad Optimized with WIDER columns */}
                     <div className="overflow-x-auto">
-                      <table className="min-w-full w-full text-sm md:text-base border-collapse">
+                      <table className="min-w-full w-full text-base border-collapse">
                         <thead>
-                          <tr className="bg-neutral-200 dark:bg-neutral-800">
-                            <th className="text-left p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 sticky left-0 z-10 bg-neutral-200 dark:bg-neutral-800 min-w-[200px]">Article</th>
-                            <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-24 min-w-[90px]">CAISSE</th>
-                            <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-24 min-w-[90px]">Format</th>
-                            <th className="text-center p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 w-20 min-w-[80px]">Qty</th>
-                            <th className="text-right p-3 font-bold text-green-700 dark:text-green-400 border border-neutral-300 dark:border-neutral-700 bg-green-50 dark:bg-green-900/20 min-w-[90px]">% Marge</th>
+                          <tr className="bg-gradient-to-r from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
+                            <th className="text-left p-4 md:p-5 font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700 sticky left-0 z-10 bg-neutral-100 dark:bg-neutral-800 min-w-[280px] md:min-w-[320px]">
+                              <div className="flex items-center gap-2">
+                                <Package className="w-5 h-5 opacity-50" />
+                                Article
+                              </div>
+                            </th>
+                            <th className="text-center p-4 md:p-5 font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700 min-w-[120px] md:min-w-[140px]">
+                              CAISSE
+                            </th>
+                            <th className="text-center p-4 md:p-5 font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700 min-w-[120px] md:min-w-[140px]">
+                              Format
+                            </th>
+                            <th className="text-center p-4 md:p-5 font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700 min-w-[100px] md:min-w-[120px]">
+                              Qty
+                            </th>
+                            <th className="text-right p-4 md:p-5 font-black text-emerald-700 dark:text-emerald-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-emerald-50/50 dark:bg-emerald-900/10 min-w-[120px] md:min-w-[140px]">
+                              % Marge
+                            </th>
                             {standardColumns.map((colCode) => {
-                                const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
-                                return (
+                              const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
+                              return (
+                                <Fragment key={colCode}>
+                                  <th 
+                                    className={cn(
+                                      "text-right p-4 md:p-5 font-black border-b-2 border-neutral-300 dark:border-neutral-700 whitespace-nowrap min-w-[160px] md:min-w-[180px]",
+                                      isSelectedList 
+                                        ? "text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/10" 
+                                        : "text-neutral-700 dark:text-neutral-200"
+                                    )}
+                                  >
+                                    {colCode}
+                                  </th>
+                                  {showDetails && isSelectedList && (
                                     <>
-                                        <th key={colCode} className="text-right p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 whitespace-nowrap min-w-[120px]">{colCode}</th>
-                                        {showDetails && isSelectedList && (<><th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[110px]">($)/Caisse</th><th className="text-right p-3 font-bold text-blue-700 dark:text-blue-400 border border-neutral-300 dark:border-neutral-700 bg-blue-50 dark:bg-blue-900/20 min-w-[110px]">($)/L</th><th className="text-right p-3 font-bold text-purple-700 dark:text-purple-400 border border-neutral-300 dark:border-neutral-700 bg-purple-50 dark:bg-purple-900/20 min-w-[90px]">% Exp</th></>)}
+                                      <th className="text-right p-4 md:p-5 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/10 min-w-[140px] md:min-w-[160px]">
+                                        $/Caisse
+                                      </th>
+                                      <th className="text-right p-4 md:p-5 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/10 min-w-[140px] md:min-w-[160px]">
+                                        $/L
+                                      </th>
+                                      <th className="text-right p-4 md:p-5 font-black text-violet-700 dark:text-violet-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-violet-50/50 dark:bg-violet-900/10 min-w-[120px] md:min-w-[140px]">
+                                        % Exp
+                                      </th>
                                     </>
-                                );
+                                  )}
+                                </Fragment>
+                              );
                             })}
-                            {hasPDS && <th className="text-right p-3 font-bold text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-700 whitespace-nowrap min-w-[120px]">08-PDS</th>}
+                            {hasPDS && (
+                              <th className="text-right p-4 md:p-5 font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700 whitespace-nowrap min-w-[160px] md:min-w-[180px]">
+                                08-PDS
+                              </th>
+                            )}
                           </tr>
                         </thead>
                         <tbody>
                           {classItems.map((item, itemIndex) => (
-                            <片 key={item.itemId}>
+                            <Fragment key={item.itemId}>
                               {item.ranges.map((range, rIdx) => {
                                 const isFirstRowOfItem = rIdx === 0;
                                 const ppc = calcPricePerCaisse(range.unitPrice, item.caisse);
@@ -799,50 +1223,156 @@ function PriceModal({
                                 const pdsVal = range.columns?.["08-PDS"] ?? null;
                                 const percentExp = calcMargin(selectedPriceVal, expBaseVal);
                                 const percentMarge = calcMargin(pdsVal, selectedPriceVal);
-                                const rowBg = itemIndex % 2 === 0 ? "bg-white dark:bg-neutral-900" : "bg-neutral-50/50 dark:bg-neutral-800/30";
+                                
+                                const rowBg = itemIndex % 2 === 0 
+                                  ? "bg-white dark:bg-neutral-900" 
+                                  : "bg-neutral-50/70 dark:bg-neutral-800/40";
 
                                 return (
-                                  <tr key={range.id} className={cn("transition-colors group", rowBg)} style={{ '--hover-color': `${accentColor}15` } as React.CSSProperties}>
-                                    <style jsx>{`tr:hover { background-color: var(--hover-color) !important; }`}</style>
-                                    <td className={cn("p-3 border border-neutral-200 dark:border-neutral-700 align-top sticky left-0 z-10", rowBg, "group-hover:bg-[var(--hover-color)]")}>
-                                      {isFirstRowOfItem && (<div className="flex flex-col"><span className="font-mono font-black text-neutral-900 dark:text-white whitespace-nowrap">{item.itemCode}</span><span className="text-xs text-neutral-500 truncate max-w-[180px]" title={item.description}>{item.description}</span></div>)}
+                                  <tr 
+                                    key={range.id} 
+                                    className={cn(
+                                      "transition-all duration-200 group",
+                                      rowBg,
+                                      "hover:bg-amber-50/50 dark:hover:bg-amber-900/10"
+                                    )}
+                                  >
+                                    {/* Article Column - WIDER for iPad */}
+                                    <td className={cn(
+                                      "p-4 md:p-5 border-b border-neutral-100 dark:border-neutral-800 align-top sticky left-0 z-10",
+                                      rowBg,
+                                      "group-hover:bg-amber-50/50 dark:group-hover:bg-amber-900/10"
+                                    )}>
+                                      {isFirstRowOfItem && (
+                                        <div className="flex flex-col gap-1">
+                                          <span 
+                                            className="font-mono font-black text-lg md:text-xl tracking-tight"
+                                            style={{ color: accentColor }}
+                                          >
+                                            {item.itemCode}
+                                          </span>
+                                          <span 
+                                            className="text-sm text-neutral-500 truncate max-w-[260px] md:max-w-[300px]" 
+                                            title={item.description}
+                                          >
+                                            {item.description}
+                                          </span>
+                                        </div>
+                                      )}
                                     </td>
-                                    <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700 align-top">{isFirstRowOfItem && <span className="font-black text-neutral-900 dark:text-white">{item.caisse ? Math.round(item.caisse) : '-'}</span>}</td>
-                                    <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700 align-top">{isFirstRowOfItem && <span className="font-black text-neutral-900 dark:text-white">{item.format || '-'}</span>}</td>
-                                    <td className="p-3 text-center border border-neutral-200 dark:border-neutral-700"><span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span></td>
-                                    <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-green-50 dark:bg-green-900/10">
-                                      <span className={cn("font-mono font-bold whitespace-nowrap", percentMarge && percentMarge < 0 ? "text-red-600" : "text-green-700 dark:text-green-400")}>{percentMarge !== null ? `${percentMarge.toFixed(1)}%` : '-'}</span>
+                                    
+                                    {/* Caisse Column - WIDER */}
+                                    <td className="p-4 md:p-5 text-center border-b border-neutral-100 dark:border-neutral-800 align-top">
+                                      {isFirstRowOfItem && (
+                                        <span className="font-black text-lg text-neutral-900 dark:text-white">
+                                          {item.caisse ? Math.round(item.caisse) : '-'}
+                                        </span>
+                                      )}
                                     </td>
+                                    
+                                    {/* Format Column - WIDER */}
+                                    <td className="p-4 md:p-5 text-center border-b border-neutral-100 dark:border-neutral-800 align-top">
+                                      {isFirstRowOfItem && (
+                                        <span className="font-bold text-lg text-neutral-800 dark:text-neutral-200 px-3 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg inline-block">
+                                          {item.format || '-'}
+                                        </span>
+                                      )}
+                                    </td>
+                                    
+                                    {/* Qty Column - WIDER */}
+                                    <td className="p-4 md:p-5 text-center border-b border-neutral-100 dark:border-neutral-800">
+                                      <span className="font-mono font-bold text-lg text-neutral-900 dark:text-white">
+                                        {range.qtyMin}
+                                      </span>
+                                    </td>
+                                    
+                                    {/* % Marge Column - WIDER */}
+                                    <td className="p-4 md:p-5 text-right border-b border-neutral-100 dark:border-neutral-800 bg-emerald-50/30 dark:bg-emerald-900/5">
+                                      <span className={cn(
+                                        "font-mono font-black text-lg whitespace-nowrap",
+                                        percentMarge && percentMarge < 0 
+                                          ? "text-red-600 dark:text-red-400" 
+                                          : "text-emerald-600 dark:text-emerald-400"
+                                      )}>
+                                        {percentMarge !== null ? `${percentMarge.toFixed(1)}%` : '-'}
+                                      </span>
+                                    </td>
+                                    
+                                    {/* Price Columns - WIDER for iPad */}
                                     {standardColumns.map((colCode) => {
-                                        const priceVal = range.columns ? range.columns[colCode] : (colCode === selectedPriceList?.code ? range.unitPrice : null);
-                                        const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
-                                        return (
+                                      const priceVal = range.columns 
+                                        ? range.columns[colCode] 
+                                        : (colCode === selectedPriceList?.code ? range.unitPrice : null);
+                                      const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
+                                      
+                                      return (
+                                        <Fragment key={colCode}>
+                                          <td className={cn(
+                                            "p-4 md:p-5 text-right border-b border-neutral-100 dark:border-neutral-800",
+                                            isSelectedList && "bg-amber-50/30 dark:bg-amber-900/5"
+                                          )}>
+                                            <span className={cn(
+                                              "font-mono font-black text-lg whitespace-nowrap tabular-nums",
+                                              isSelectedList 
+                                                ? "text-amber-700 dark:text-amber-400" 
+                                                : "text-neutral-700 dark:text-neutral-300"
+                                            )}>
+                                              {priceVal !== null && priceVal !== undefined 
+                                                ? <AnimatedPrice value={priceVal} /> 
+                                                : '-'}
+                                            </span>
+                                          </td>
+                                          
+                                          {showDetails && isSelectedList && (
                                             <>
-                                                <td key={colCode} className={cn("p-3 text-right border border-neutral-200 dark:border-neutral-700", isSelectedList && "bg-amber-50 dark:bg-amber-900/10")}>
-                                                    <span className={cn("font-mono font-black whitespace-nowrap", isSelectedList ? "text-amber-700 dark:text-amber-400" : "text-neutral-900 dark:text-neutral-300")} style={{ color: isSelectedList && isFirstRowOfItem ? accentColor : undefined }}>{priceVal !== null && priceVal !== undefined ? <AnimatedPrice value={priceVal} /> : '-'}</span>
-                                                </td>
-                                                {showDetails && isSelectedList && (<>
-                                                    <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10"><span className="font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">{ppc ? ppc.toFixed(2) : '-'}</span></td>
-                                                    <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-blue-50/50 dark:bg-blue-900/10"><span className="font-mono text-blue-700 dark:text-blue-400 whitespace-nowrap">{ppl ? ppl.toFixed(2) : '-'}</span></td>
-                                                    <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700 bg-purple-50/50 dark:bg-purple-900/10"><span className={cn("font-mono font-bold whitespace-nowrap", percentExp && percentExp < 0 ? "text-red-600" : "text-purple-700 dark:text-purple-400")}>{percentExp !== null ? `${percentExp.toFixed(1)}%` : '-'}</span></td>
-                                                </>)}
+                                              <td className="p-4 md:p-5 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/5">
+                                                <span className="font-mono text-base text-sky-700 dark:text-sky-400 whitespace-nowrap tabular-nums">
+                                                  {ppc ? ppc.toFixed(2) : '-'}
+                                                </span>
+                                              </td>
+                                              <td className="p-4 md:p-5 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/5">
+                                                <span className="font-mono text-base text-sky-700 dark:text-sky-400 whitespace-nowrap tabular-nums">
+                                                  {ppl ? ppl.toFixed(2) : '-'}
+                                                </span>
+                                              </td>
+                                              <td className="p-4 md:p-5 text-right border-b border-neutral-100 dark:border-neutral-800 bg-violet-50/30 dark:bg-violet-900/5">
+                                                <span className={cn(
+                                                  "font-mono font-bold text-base whitespace-nowrap tabular-nums",
+                                                  percentExp && percentExp < 0 
+                                                    ? "text-red-600 dark:text-red-400" 
+                                                    : "text-violet-700 dark:text-violet-400"
+                                                )}>
+                                                  {percentExp !== null ? `${percentExp.toFixed(1)}%` : '-'}
+                                                </span>
+                                              </td>
                                             </>
-                                        );
+                                          )}
+                                        </Fragment>
+                                      );
                                     })}
+                                    
+                                    {/* PDS Column - WIDER */}
                                     {hasPDS && (() => {
-                                        const pdsVal = range.columns?.["08-PDS"] ?? null;
-                                        return <td className="p-3 text-right border border-neutral-200 dark:border-neutral-700"><span className="font-mono font-black text-neutral-900 dark:text-neutral-300 whitespace-nowrap">{pdsVal !== null ? <AnimatedPrice value={pdsVal} /> : '-'}</span></td>;
+                                      const pdsVal = range.columns?.["08-PDS"] ?? null;
+                                      return (
+                                        <td className="p-4 md:p-5 text-right border-b border-neutral-100 dark:border-neutral-800">
+                                          <span className="font-mono font-black text-lg text-neutral-700 dark:text-neutral-300 whitespace-nowrap tabular-nums">
+                                            {pdsVal !== null ? <AnimatedPrice value={pdsVal} /> : '-'}
+                                          </span>
+                                        </td>
+                                      );
                                     })()}
                                   </tr>
                                 );
                               })}
-                              {/* Spacer Row Between Articles */}
+                              
+                              {/* Spacer Row Between Articles - DARK for visual separation */}
                               {itemIndex < classItems.length - 1 && (
-                                <tr className="h-6 bg-neutral-900 dark:bg-black border-x border-neutral-800 dark:border-neutral-900">
-                                  <td colSpan={100}></td>
+                                <tr className="h-4 bg-neutral-900 dark:bg-black">
+                                  <td colSpan={100} className="border-none" />
                                 </tr>
                               )}
-                            </片>
+                            </Fragment>
                           ))}
                         </tbody>
                       </table>
@@ -852,13 +1382,55 @@ function PriceModal({
               })}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-64 gap-4">
-              <div className="text-6xl text-neutral-300">∅</div>
-              <div className="text-center"><p className="text-xl font-bold text-neutral-600 dark:text-neutral-400">Aucun prix trouvé</p><p className="text-neutral-500 mt-1">Sélectionnez des articles et cliquez sur Ajouter.</p></div>
+            <div className="flex flex-col items-center justify-center h-80 gap-5">
+              <div 
+                className="w-24 h-24 rounded-3xl flex items-center justify-center"
+                style={{ backgroundColor: `${accentColor}10` }}
+              >
+                <Inbox className="w-12 h-12" style={{ color: `${accentColor}50` }} />
+              </div>
+              <div className="text-center">
+                <p className="text-xl font-bold text-neutral-700 dark:text-neutral-300">
+                  Aucun prix trouvé
+                </p>
+                <p className="text-neutral-500 mt-2 max-w-sm">
+                  Sélectionnez des articles à partir des filtres ci-dessus et cliquez sur Ajouter.
+                </p>
+              </div>
             </div>
           )}
         </div>
-        {!loading && itemsWithPrices.length > 0 && <div className="flex-shrink-0 bg-neutral-200 dark:bg-neutral-800 px-4 py-3 text-center"><span className="text-neutral-600 dark:text-neutral-400 font-medium">{itemsWithPrices.length} article(s) {showDetails && " • Détails activés"}</span></div>}
+        
+        {/* Premium Footer */}
+        {!loading && itemsWithPrices.length > 0 && (
+          <div className="flex-shrink-0 bg-neutral-100 dark:bg-neutral-900 px-6 py-4 border-t border-neutral-200 dark:border-neutral-800">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div 
+                  className="px-4 py-2 rounded-xl font-bold text-sm"
+                  style={{ 
+                    backgroundColor: `${accentColor}15`, 
+                    color: accentColor 
+                  }}
+                >
+                  {itemsWithPrices.length} article(s)
+                </div>
+                {showDetails && (
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-semibold text-sm">
+                    <Eye className="w-4 h-4" />
+                    Détails activés
+                  </div>
+                )}
+              </div>
+              <div className="hidden md:flex items-center gap-2 text-sm text-neutral-500">
+                <span>Liste:</span>
+                <span className="font-bold text-neutral-700 dark:text-neutral-300">
+                  {selectedPriceList?.code} - {selectedPriceList?.name}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Email Modal */}
@@ -873,8 +1445,8 @@ function PriceModal({
   );
 }
 
-// --- Helper component ---
-function 片({ children }: { children: React.ReactNode }) {
+// --- Fragment helper ---
+function Fragment({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
@@ -1109,68 +1681,330 @@ export default function CataloguePage() {
   const canGenerate = selectedPriceList && selectedProduct;
 
   return (
-    <div className="min-h-screen bg-neutral-100 dark:bg-neutral-950">
+    <div className="min-h-screen bg-gradient-to-br from-neutral-100 via-neutral-50 to-neutral-100 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
       <div className="min-h-screen flex flex-col">
-        <main className="flex-1 p-4 md:p-6 flex flex-col justify-center items-center">
+        <main className="flex-1 p-4 md:p-8 flex flex-col justify-center items-center">
           <div className="w-full max-w-3xl">
-            <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-lg p-5 md:p-8">
-              {/* Branding & Search (unchanged) */}
-              <div className="flex items-center gap-4 mb-8">
-                <Image src="/sinto-logo.svg" alt="SINTO Logo" width={64} height={64} className="h-16 w-16 object-contain" />
-                <div>
-                  <h1 className="text-2xl font-black tracking-tight text-neutral-900 dark:text-white">Catalogue SINTO</h1>
-                  <p className="text-sm text-neutral-500">Générateur de liste de prix</p>
+            {/* Premium Card Container */}
+            <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/50 dark:border-neutral-800 shadow-2xl overflow-hidden">
+              {/* Header with Gradient */}
+              <div 
+                className="relative p-6 md:p-8 overflow-hidden"
+                style={{ 
+                  background: `linear-gradient(135deg, ${accentColor}08 0%, transparent 100%)` 
+                }}
+              >
+                <div className="absolute inset-0 opacity-5">
+                  <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full" style={{ backgroundColor: accentColor }} />
+                </div>
+                
+                <div className="relative flex items-center gap-5">
+                  <div className="relative">
+                    <div 
+                      className="absolute inset-0 rounded-2xl blur-xl opacity-30"
+                      style={{ backgroundColor: accentColor }}
+                    />
+                    <Image 
+                      src="/sinto-logo.svg" 
+                      alt="SINTO Logo" 
+                      width={72} 
+                      height={72} 
+                      className="relative h-[72px] w-[72px] object-contain" 
+                    />
+                  </div>
+                  <div>
+                    <h1 className="text-3xl font-black tracking-tight text-neutral-900 dark:text-white">
+                      Catalogue SINTO
+                    </h1>
+                    <p className="text-neutral-500 mt-1 font-medium">Générateur de liste de prix</p>
+                  </div>
                 </div>
               </div>
-              <div className="mb-8 relative">
-                <input type="search" placeholder="Recherche rapide par code article..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full h-14 px-5 rounded-xl text-base font-medium bg-neutral-100 dark:bg-neutral-800 border-2 border-transparent focus:ring-0 focus:outline-none transition-colors" style={{ '--focus-color': accentColor } as React.CSSProperties} />
-                <style jsx>{`input[type="search"]:focus { border-color: var(--focus-color) !important; }`}</style>
-                {searchQuery.length > 1 && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden max-h-72 overflow-y-auto z-50">
-                    {isSearching ? (<div className="p-6 flex justify-center"><div className="w-6 h-6 border-3 border-t-transparent rounded-full animate-spin" style={{ borderColor: accentColor, borderTopColor: 'transparent' }} /></div>) : searchResults.length > 0 ? (
-                      searchResults.map((item) => (
-                        <button key={item.itemId} onClick={() => handleSearchResultClick(item)} className="w-full p-4 text-left hover:bg-neutral-50 dark:hover:bg-neutral-800/50 border-b border-neutral-100 dark:border-neutral-800 last:border-0 transition-colors group">
-                          <div className="flex items-center gap-3"><span className="font-mono font-black text-sm" style={{ color: accentColor }}>{item.itemCode}</span><span className="truncate font-medium text-neutral-700 dark:text-neutral-300">{item.description}</span></div>
-                          <div className="text-xs text-neutral-400 mt-1">{item.categoryName} → {item.className}</div>
-                        </button>
-                      ))
-                    ) : (<div className="p-6 text-center text-neutral-500">Aucun résultat</div>)}
-                  </div>
-                )}
-              </div>
 
-              {/* Main Form Fields (unchanged) */}
-              <div className="space-y-5">
-                <div><label className="block text-xs font-bold text-neutral-500 mb-2 uppercase tracking-wide">1. Liste de Prix</label><select value={selectedPriceList?.priceId || ""} onChange={(e) => handlePriceListChange(e.target.value)} className="w-full h-14 px-4 text-base font-semibold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-0 focus:outline-none transition-colors" style={{ '--focus-color': accentColor } as React.CSSProperties}><option value="" disabled>Sélectionner...</option>{priceLists.map(pl => (<option key={pl.priceId} value={pl.priceId}>{pl.code} - {pl.name}</option>))}</select><style jsx>{`select:focus { border-color: var(--focus-color) !important; }`}</style></div>
-                <div><label className="block text-xs font-bold text-neutral-500 mb-2 uppercase tracking-wide">2. Catégorie</label><select value={selectedProduct?.prodId || ""} onChange={(e) => handleProductChange(e.target.value)} disabled={!selectedPriceList} className={cn("w-full h-14 px-4 text-base font-semibold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-0 focus:outline-none transition-all", !selectedPriceList && "opacity-50 cursor-not-allowed")} style={{ '--focus-color': accentColor } as React.CSSProperties}><option value="" disabled>Sélectionner...</option>{products.map(p => (<option key={p.prodId} value={p.prodId}>{p.name} ({p.itemCount})</option>))}</select></div>
-                <div><label className="block text-xs font-bold text-neutral-500 mb-2 uppercase tracking-wide">3. Classe <span className="text-neutral-400 font-normal normal-case">(Optionnel)</span></label><select value={selectedType?.itemTypeId || ""} onChange={(e) => handleTypeChange(e.target.value)} disabled={!selectedProduct || loadingTypes} className={cn("w-full h-14 px-4 text-base font-semibold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-0 focus:outline-none transition-all", (!selectedProduct || loadingTypes) && "opacity-50 cursor-not-allowed")} style={{ '--focus-color': accentColor } as React.CSSProperties}><option value="">{loadingTypes ? "Chargement..." : "Toutes les classes"}</option>{itemTypes.map(t => (<option key={t.itemTypeId} value={t.itemTypeId}>{t.description} ({t.itemCount})</option>))}</select></div>
-                <div><label className="block text-xs font-bold text-neutral-500 mb-2 uppercase tracking-wide">4. Article <span className="text-neutral-400 font-normal normal-case">(Optionnel)</span></label><select value={selectedItem?.itemId || ""} onChange={(e) => handleItemChange(e.target.value)} disabled={!selectedType || loadingItems} className={cn("w-full h-14 px-4 text-base font-semibold bg-neutral-50 dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-0 focus:outline-none transition-all", (!selectedType || loadingItems) && "opacity-50 cursor-not-allowed")} style={{ '--focus-color': accentColor } as React.CSSProperties}><option value="">{loadingItems ? "Chargement..." : "Tous les articles"}</option>{items.map(i => (<option key={i.itemId} value={i.itemId}>{i.itemCode} - {i.description}</option>))}</select></div>
-                <div className="pt-4"><button onClick={handleGenerate} disabled={!canGenerate} className={cn("w-full h-16 rounded-xl font-black text-lg uppercase tracking-wide transition-all shadow-lg", !canGenerate && "bg-neutral-200 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed shadow-none")} style={canGenerate ? { backgroundColor: accentColor, color: '#ffffff', boxShadow: `0 10px 15px -3px ${accentColor}40` } : {}}>GÉNÉRER LA LISTE</button></div>
+              {/* Content */}
+              <div className="p-6 md:p-8 pt-0 md:pt-0">
+                {/* Premium Search Bar */}
+                <div className="mb-8 relative">
+                  <div className="relative group">
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2 z-10">
+                      <Search className="w-5 h-5 text-neutral-400 group-focus-within:text-neutral-600 dark:group-focus-within:text-neutral-300 transition-colors" />
+                    </div>
+                    <input 
+                      type="search" 
+                      placeholder="Recherche rapide par code article..." 
+                      value={searchQuery} 
+                      onChange={(e) => setSearchQuery(e.target.value)} 
+                      className={cn(
+                        "w-full h-16 pl-14 pr-5 rounded-2xl text-base font-semibold",
+                        "bg-neutral-100 dark:bg-neutral-800",
+                        "border-2 border-transparent",
+                        "focus:ring-0 focus:outline-none transition-all duration-300",
+                        "placeholder:text-neutral-400"
+                      )}
+                      style={{ 
+                        borderColor: searchQuery ? accentColor : 'transparent'
+                      }}
+                    />
+                  </div>
+                  
+                  {/* Search Results Dropdown */}
+                  {searchQuery.length > 1 && (
+                    <div className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden max-h-80 overflow-y-auto z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                      {isSearching ? (
+                        <div className="p-8 flex flex-col items-center gap-3">
+                          <Loader2 className="w-8 h-8 animate-spin" style={{ color: accentColor }} />
+                          <span className="text-sm text-neutral-500 font-medium">Recherche en cours...</span>
+                        </div>
+                      ) : searchResults.length > 0 ? (
+                        <div className="p-2">
+                          {searchResults.map((item) => (
+                            <button 
+                              key={item.itemId} 
+                              onClick={() => handleSearchResultClick(item)} 
+                              className={cn(
+                                "w-full p-4 text-left rounded-xl transition-all duration-200",
+                                "hover:bg-neutral-50 dark:hover:bg-neutral-800/70",
+                                "group"
+                              )}
+                            >
+                              <div className="flex items-center gap-4">
+                                <div 
+                                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                                  style={{ backgroundColor: `${accentColor}15` }}
+                                >
+                                  <Package className="w-5 h-5" style={{ color: accentColor }} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-3">
+                                    <span 
+                                      className="font-mono font-black text-sm"
+                                      style={{ color: accentColor }}
+                                    >
+                                      {item.itemCode}
+                                    </span>
+                                    <span className="truncate font-semibold text-neutral-700 dark:text-neutral-300">
+                                      {item.description}
+                                    </span>
+                                  </div>
+                                  <div className="text-xs text-neutral-400 mt-1">
+                                    {item.categoryName} → {item.className}
+                                  </div>
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-8 flex flex-col items-center gap-3">
+                          <Inbox className="w-10 h-10 text-neutral-300" />
+                          <span className="text-sm text-neutral-500">Aucun résultat trouvé</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Premium Form Fields - WIDER for iPad */}
+                <div className="space-y-6">
+                  {/* Price List */}
+                  <div>
+                    <label className="flex items-center gap-2 text-xs font-black text-neutral-500 mb-3 uppercase tracking-wider">
+                      <span className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px]">1</span>
+                      Liste de Prix
+                    </label>
+                    <div className="relative">
+                      <select 
+                        value={selectedPriceList?.priceId || ""} 
+                        onChange={(e) => handlePriceListChange(e.target.value)} 
+                        className={cn(
+                          "w-full h-16 px-5 pr-12 text-lg font-bold appearance-none cursor-pointer",
+                          "bg-neutral-50 dark:bg-neutral-800",
+                          "border-2 border-neutral-200 dark:border-neutral-700 rounded-xl",
+                          "focus:ring-0 focus:outline-none transition-all duration-300"
+                        )}
+                        style={{ borderColor: selectedPriceList ? accentColor : undefined }}
+                      >
+                        <option value="" disabled>Sélectionner...</option>
+                        {priceLists.map(pl => (
+                          <option key={pl.priceId} value={pl.priceId}>{pl.code} - {pl.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />
+                    </div>
+                  </div>
+                  
+                  {/* Category */}
+                  <div>
+                    <label className="flex items-center gap-2 text-xs font-black text-neutral-500 mb-3 uppercase tracking-wider">
+                      <span className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px]">2</span>
+                      Catégorie
+                    </label>
+                    <div className="relative">
+                      <select 
+                        value={selectedProduct?.prodId || ""} 
+                        onChange={(e) => handleProductChange(e.target.value)} 
+                        disabled={!selectedPriceList}
+                        className={cn(
+                          "w-full h-16 px-5 pr-12 text-lg font-bold appearance-none cursor-pointer",
+                          "bg-neutral-50 dark:bg-neutral-800",
+                          "border-2 border-neutral-200 dark:border-neutral-700 rounded-xl",
+                          "focus:ring-0 focus:outline-none transition-all duration-300",
+                          "disabled:opacity-40 disabled:cursor-not-allowed"
+                        )}
+                      >
+                        <option value="" disabled>Sélectionner...</option>
+                        {products.map(p => (
+                          <option key={p.prodId} value={p.prodId}>{p.name} ({p.itemCount})</option>
+                        ))}
+                      </select>
+                      <Layers className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />
+                    </div>
+                  </div>
+                  
+                  {/* Class */}
+                  <div>
+                    <label className="flex items-center gap-2 text-xs font-black text-neutral-500 mb-3 uppercase tracking-wider">
+                      <span className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px]">3</span>
+                      Classe
+                      <span className="text-neutral-400 font-normal normal-case text-xs">(Optionnel)</span>
+                    </label>
+                    <div className="relative">
+                      <select 
+                        value={selectedType?.itemTypeId || ""} 
+                        onChange={(e) => handleTypeChange(e.target.value)} 
+                        disabled={!selectedProduct || loadingTypes}
+                        className={cn(
+                          "w-full h-16 px-5 pr-12 text-lg font-bold appearance-none cursor-pointer",
+                          "bg-neutral-50 dark:bg-neutral-800",
+                          "border-2 border-neutral-200 dark:border-neutral-700 rounded-xl",
+                          "focus:ring-0 focus:outline-none transition-all duration-300",
+                          "disabled:opacity-40 disabled:cursor-not-allowed"
+                        )}
+                      >
+                        <option value="">
+                          {loadingTypes ? "Chargement..." : "Toutes les classes"}
+                        </option>
+                        {itemTypes.map(t => (
+                          <option key={t.itemTypeId} value={t.itemTypeId}>{t.description} ({t.itemCount})</option>
+                        ))}
+                      </select>
+                      {loadingTypes ? (
+                        <Loader2 className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 animate-spin pointer-events-none" />
+                      ) : (
+                        <Package className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Article */}
+                  <div>
+                    <label className="flex items-center gap-2 text-xs font-black text-neutral-500 mb-3 uppercase tracking-wider">
+                      <span className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px]">4</span>
+                      Article
+                      <span className="text-neutral-400 font-normal normal-case text-xs">(Optionnel)</span>
+                    </label>
+                    <div className="relative">
+                      <select 
+                        value={selectedItem?.itemId || ""} 
+                        onChange={(e) => handleItemChange(e.target.value)} 
+                        disabled={!selectedType || loadingItems}
+                        className={cn(
+                          "w-full h-16 px-5 pr-12 text-lg font-bold appearance-none cursor-pointer",
+                          "bg-neutral-50 dark:bg-neutral-800",
+                          "border-2 border-neutral-200 dark:border-neutral-700 rounded-xl",
+                          "focus:ring-0 focus:outline-none transition-all duration-300",
+                          "disabled:opacity-40 disabled:cursor-not-allowed"
+                        )}
+                      >
+                        <option value="">
+                          {loadingItems ? "Chargement..." : "Tous les articles"}
+                        </option>
+                        {items.map(i => (
+                          <option key={i.itemId} value={i.itemId}>{i.itemCode} - {i.description}</option>
+                        ))}
+                      </select>
+                      {loadingItems ? (
+                        <Loader2 className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 animate-spin pointer-events-none" />
+                      ) : (
+                        <Tag className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Generate Button */}
+                  <div className="pt-4">
+                    <button 
+                      onClick={handleGenerate} 
+                      disabled={!canGenerate}
+                      className={cn(
+                        "w-full h-18 rounded-2xl font-black text-xl uppercase tracking-wider",
+                        "flex items-center justify-center gap-3",
+                        "transition-all duration-300",
+                        "disabled:bg-neutral-200 disabled:dark:bg-neutral-800 disabled:text-neutral-400 disabled:cursor-not-allowed disabled:shadow-none disabled:transform-none",
+                        canGenerate && "hover:scale-[1.02] hover:shadow-2xl active:scale-[0.98]"
+                      )}
+                      style={canGenerate ? { 
+                        backgroundColor: accentColor, 
+                        color: '#ffffff', 
+                        boxShadow: `0 20px 40px -10px ${accentColor}50`,
+                        height: '72px'
+                      } : { height: '72px' }}
+                    >
+                      <Sparkles className="w-6 h-6" />
+                      GÉNÉRER LA LISTE
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-            {selectedItem && (<div className="mt-4 p-4 rounded-xl border" style={{ backgroundColor: `${accentColor}10`, borderColor: `${accentColor}30` }}><div className="font-bold" style={{ color: accentColor }}>{selectedItem.itemCode}</div><div className="text-sm opacity-80" style={{ color: accentColor }}>{selectedItem.description}</div></div>)}
+            
+            {/* Selected Item Preview */}
+            {selectedItem && (
+              <div 
+                className="mt-5 p-5 rounded-2xl border-2 animate-in fade-in slide-in-from-bottom-2 duration-300"
+                style={{ 
+                  backgroundColor: `${accentColor}08`, 
+                  borderColor: `${accentColor}30` 
+                }}
+              >
+                <div className="flex items-center gap-4">
+                  <div 
+                    className="w-12 h-12 rounded-xl flex items-center justify-center"
+                    style={{ backgroundColor: `${accentColor}20` }}
+                  >
+                    <Check className="w-6 h-6" style={{ color: accentColor }} />
+                  </div>
+                  <div>
+                    <div className="font-black text-lg" style={{ color: accentColor }}>
+                      {selectedItem.itemCode}
+                    </div>
+                    <div className="text-sm opacity-70" style={{ color: accentColor }}>
+                      {selectedItem.description}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </main>
       </div>
 
+      {/* Price Modal */}
       <PriceModal
         isOpen={showPriceModal}
         onClose={() => setShowPriceModal(false)}
         data={priceData}
         
-        // Dropdown Data
         priceLists={priceLists}
         products={products}
         itemTypes={itemTypes}
         items={items}
 
-        // Selections
         selectedPriceList={selectedPriceList}
         selectedProduct={selectedProduct}
         selectedType={selectedType}
         selectedItemIds={selectedItemIds}
 
-        // Handlers
         onPriceListChange={handleModalPriceListChange}
         onProductChange={handleProductChange}
         onTypeChange={handleTypeChange}
