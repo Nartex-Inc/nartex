@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useCurrentAccent } from "@/components/accent-color-provider";
@@ -27,7 +27,6 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
-  Download,
   Inbox
 } from "lucide-react";
 
@@ -302,11 +301,11 @@ function QuickAddSearch({
                 className={cn(
                   "flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all duration-200",
                   "hover:bg-neutral-50 dark:hover:bg-neutral-800",
-                  selectedIds.has(item.itemId) && "bg-neutral-100 dark:bg-neutral-800 ring-2 ring-offset-2 dark:ring-offset-neutral-900"
+                  selectedIds.has(item.itemId) && "bg-neutral-100 dark:bg-neutral-800"
                 )}
-                style={{ 
-                  ringColor: selectedIds.has(item.itemId) ? accentColor : undefined 
-                }}
+                style={selectedIds.has(item.itemId) ? { 
+                  boxShadow: `0 0 0 2px white, 0 0 0 4px ${accentColor}` 
+                } : undefined}
               >
                 <div className={cn(
                   "w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-200 flex-shrink-0",
@@ -689,8 +688,8 @@ function PriceModal({
             alert("Vérification échouée.");
             setShowDetails(false);
         }
-    } catch (error) {
-        console.error("Auth error", error);
+    } catch (err) {
+        console.error("Auth error", err);
         alert("Authentification annulée ou impossible.");
         setShowDetails(false);
     } finally {
@@ -748,14 +747,14 @@ function PriceModal({
         const standardColumns = priceColumns.filter(c => c.trim() !== "08-PDS");
         const hasPDS = priceColumns.some(c => c.trim() === "08-PDS");
 
-        const tableBody: any[] = [];
+        const tableBody: (string | number)[][] = [];
         // Track spacer row indices for styling
         const spacerRowIndices: number[] = [];
         let rowIndex = 0;
         
         classItems.forEach((item, index) => {
             item.ranges.forEach((range, idx) => {
-                const row: string[] = [];
+                const row: (string | number)[] = [];
                 if (idx === 0) {
                     row.push(item.itemCode);
                     row.push(item.caisse ? Math.round(item.caisse).toString() : '-');
@@ -824,7 +823,7 @@ function PriceModal({
             head: [headRow],
             body: tableBody,
             styles: { fontSize: 8, cellPadding: 1.5 },
-            headStyles: { fillColor: accentColor, textColor: 255 },
+            headStyles: { fillColor: [200, 50, 50], textColor: 255 },
             columnStyles: { 
                 0: { fontStyle: 'bold' },
                 4: { textColor: [0, 150, 0] }
@@ -863,9 +862,10 @@ function PriceModal({
       alert("Courriel envoyé avec succès!");
       setShowEmailModal(false);
 
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error(e);
-        alert("Erreur: " + e.message);
+        const errorMessage = e instanceof Error ? e.message : "Erreur inconnue";
+        alert("Erreur: " + errorMessage);
     } finally {
         setIsSendingEmail(false);
     }
@@ -1076,7 +1076,7 @@ function PriceModal({
                   style={{ borderColor: `${accentColor}30`, borderTopColor: 'transparent' }} 
                 />
                 <div 
-                  className="absolute inset-2 w-12 h-12 border-4 border-b-transparent rounded-full animate-spin animate-reverse" 
+                  className="absolute inset-2 w-12 h-12 border-4 border-b-transparent rounded-full animate-spin" 
                   style={{ borderColor: accentColor, borderBottomColor: 'transparent', animationDirection: 'reverse' }} 
                 />
               </div>
@@ -1353,11 +1353,11 @@ function PriceModal({
                                     
                                     {/* PDS Column - WIDER */}
                                     {hasPDS && (() => {
-                                      const pdsVal = range.columns?.["08-PDS"] ?? null;
+                                      const pdsColVal = range.columns?.["08-PDS"] ?? null;
                                       return (
                                         <td className="p-4 md:p-5 text-right border-b border-neutral-100 dark:border-neutral-800">
                                           <span className="font-mono font-black text-lg text-neutral-700 dark:text-neutral-300 whitespace-nowrap tabular-nums">
-                                            {pdsVal !== null ? <AnimatedPrice value={pdsVal} /> : '-'}
+                                            {pdsColVal !== null ? <AnimatedPrice value={pdsColVal} /> : '-'}
                                           </span>
                                         </td>
                                       );
@@ -1445,11 +1445,6 @@ function PriceModal({
   );
 }
 
-// --- Fragment helper ---
-function Fragment({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
-}
-
 // --- Main Page Component ---
 export default function CataloguePage() {
   const { color: accentColor, muted: accentMuted } = useCurrentAccent();
@@ -1474,8 +1469,6 @@ export default function CataloguePage() {
   const [priceData, setPriceData] = useState<ItemPriceData[]>([]);
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [priceError, setPriceError] = useState<string | null>(null);
-  
-  const [modalProdId, setModalProdId] = useState<number | null>(null);
   
   const [loadingTypes, setLoadingTypes] = useState(false);
   const [loadingItems, setLoadingItems] = useState(false);
@@ -1623,7 +1616,7 @@ export default function CataloguePage() {
         if (typesRes.ok) {
           const types = await typesRes.json();
           setItemTypes(types);
-          const type = types.find((t: any) => t.itemTypeId === item.itemTypeId);
+          const type = types.find((t: ItemType) => t.itemTypeId === item.itemTypeId);
           if (type) {
             setSelectedType(type);
             setLoadingItems(true);
@@ -1639,7 +1632,6 @@ export default function CataloguePage() {
 
   const handleGenerate = async () => {
     if (!selectedPriceList || !selectedProduct) return;
-    setModalProdId(selectedProduct.prodId);
     setPriceData([]);
     setPriceError(null);
     setShowPriceModal(true);
@@ -1653,8 +1645,9 @@ export default function CataloguePage() {
         const res = await fetch(url);
         if (!res.ok) throw new Error("Erreur fetch");
         setPriceData(await res.json());
-    } catch(err: any) {
-        setPriceError(err.message);
+    } catch(err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "Erreur inconnue";
+        setPriceError(errorMessage);
     } finally {
         setLoadingPrices(false);
     }
@@ -1937,7 +1930,7 @@ export default function CataloguePage() {
                       onClick={handleGenerate} 
                       disabled={!canGenerate}
                       className={cn(
-                        "w-full h-18 rounded-2xl font-black text-xl uppercase tracking-wider",
+                        "w-full h-[72px] rounded-2xl font-black text-xl uppercase tracking-wider",
                         "flex items-center justify-center gap-3",
                         "transition-all duration-300",
                         "disabled:bg-neutral-200 disabled:dark:bg-neutral-800 disabled:text-neutral-400 disabled:cursor-not-allowed disabled:shadow-none disabled:transform-none",
@@ -1946,9 +1939,8 @@ export default function CataloguePage() {
                       style={canGenerate ? { 
                         backgroundColor: accentColor, 
                         color: '#ffffff', 
-                        boxShadow: `0 20px 40px -10px ${accentColor}50`,
-                        height: '72px'
-                      } : { height: '72px' }}
+                        boxShadow: `0 20px 40px -10px ${accentColor}50`
+                      } : {}}
                     >
                       <Sparkles className="w-6 h-6" />
                       GÉNÉRER LA LISTE
