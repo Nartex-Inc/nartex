@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import type { ElementType, ReactNode } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useCurrentAccent } from "@/components/accent-color-provider";
@@ -9,26 +10,26 @@ import { startRegistration } from "@simplewebauthn/browser";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
-  AlertCircle,
-  Check,
-  ChevronDown,
+  Search,
+  X,
+  RotateCcw,
+  Mail,
   Eye,
   EyeOff,
-  FileText,
-  Filter,
-  Inbox,
-  Layers,
-  Loader2,
-  Mail,
-  Package,
+  ChevronDown,
+  Check,
   Plus,
-  RefreshCw,
-  RotateCcw,
-  Search,
-  Send,
+  Filter,
   Sparkles,
+  Package,
+  Layers,
   Tag,
-  X,
+  FileText,
+  Send,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
+  Inbox,
 } from "lucide-react";
 
 // --- Interfaces ---
@@ -103,34 +104,8 @@ async function getDataUri(url: string): Promise<string> {
   });
 }
 
-function hexToRgbTuple(hex: string): [number, number, number] {
-  const cleaned = hex.trim().replace("#", "");
-  const full =
-    cleaned.length === 3
-      ? cleaned
-          .split("")
-          .map((c) => c + c)
-          .join("")
-      : cleaned;
-
-  if (full.length !== 6) return [0, 0, 0];
-
-  const r = Number.parseInt(full.slice(0, 2), 16);
-  const g = Number.parseInt(full.slice(2, 4), 16);
-  const b = Number.parseInt(full.slice(4, 6), 16);
-
-  if ([r, g, b].some((n) => Number.isNaN(n))) return [0, 0, 0];
-  return [r, g, b];
-}
-
 // --- Animated Number Component ---
-function AnimatedPrice({
-  value,
-  duration = 600,
-}: {
-  value: number;
-  duration?: number;
-}) {
+function AnimatedPrice({ value, duration = 600 }: { value: number; duration?: number }) {
   const [displayValue, setDisplayValue] = useState(0);
   const previousValue = useRef(0);
   const animationRef = useRef<number | null>(null);
@@ -235,18 +210,13 @@ function IconButton({
         "hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed",
         variant === "default" &&
           "bg-white/15 hover:bg-white/25 text-white border border-white/10",
-        variant === "primary" &&
-          "bg-white text-neutral-900 shadow-lg hover:shadow-xl",
+        variant === "primary" && "bg-white text-neutral-900 shadow-lg hover:shadow-xl",
         variant === "danger" &&
           "bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/20",
         className
       )}
     >
-      {loading ? (
-        <Loader2 className="w-5 h-5 animate-spin" />
-      ) : (
-        <Icon className="w-5 h-5" strokeWidth={2} />
-      )}
+      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Icon className="w-5 h-5" />}
     </button>
   );
 }
@@ -271,9 +241,7 @@ function QuickAddSearch({
       if (query.length > 1) {
         setSearching(true);
         try {
-          const res = await fetch(
-            `/api/catalogue/items?search=${encodeURIComponent(query)}`
-          );
+          const res = await fetch(`/api/catalogue/items?search=${encodeURIComponent(query)}`);
           if (res.ok) setResults(await res.json());
         } finally {
           setSearching(false);
@@ -298,8 +266,7 @@ function QuickAddSearch({
   };
 
   return (
-    <div className="absolute top-20 right-4 z-[360] w-[420px] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-700 flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
-      {/* Header */}
+    <div className="absolute top-20 right-4 z-[520] w-[520px] max-w-[92vw] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-700 flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
       <div className="p-4 border-b border-neutral-100 dark:border-neutral-800 bg-gradient-to-r from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900">
         <div className="flex items-center gap-3">
           <div
@@ -326,23 +293,16 @@ function QuickAddSearch({
         </div>
       </div>
 
-      {/* Results */}
       <div className="max-h-72 overflow-y-auto">
         {searching ? (
           <div className="p-8 flex flex-col items-center gap-3">
-            <Loader2
-              className="w-6 h-6 animate-spin"
-              style={{ color: accentColor }}
-            />
-            <span className="text-sm text-neutral-500">
-              Recherche en cours...
-            </span>
+            <Loader2 className="w-6 h-6 animate-spin" style={{ color: accentColor }} />
+            <span className="text-sm text-neutral-500">Recherche en cours...</span>
           </div>
         ) : results.length > 0 ? (
           <div className="p-2">
             {results.map((item) => {
               const isSelected = selectedIds.has(item.itemId);
-
               return (
                 <div
                   key={item.itemId}
@@ -368,18 +328,13 @@ function QuickAddSearch({
                     )}
                     style={{ backgroundColor: isSelected ? accentColor : undefined }}
                   >
-                    {isSelected && (
-                      <Check className="w-4 h-4 text-white" strokeWidth={3} />
-                    )}
+                    {isSelected && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
                   </div>
-
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-neutral-900 dark:text-white truncate">
                       {item.itemCode}
                     </div>
-                    <div className="text-sm text-neutral-500 truncate">
-                      {item.description}
-                    </div>
+                    <div className="text-sm text-neutral-500 truncate">{item.description}</div>
                   </div>
                 </div>
               );
@@ -397,7 +352,6 @@ function QuickAddSearch({
         )}
       </div>
 
-      {/* Footer */}
       <div className="p-4 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/80">
         <button
           onClick={handleAdd}
@@ -418,7 +372,7 @@ function QuickAddSearch({
   );
 }
 
-// --- Premium MultiSelect Dropdown for Articles ---
+// --- Premium MultiSelect Dropdown for Articles (PORTAL: always on top) ---
 function MultiSelectDropdown({
   items,
   selectedIds,
@@ -434,19 +388,14 @@ function MultiSelectDropdown({
   placeholder?: string;
   accentColor: string;
 }) {
+  const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({});
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  useEffect(() => setMounted(true), []);
 
   const filteredItems = items.filter(
     (i) =>
@@ -461,13 +410,77 @@ function MultiSelectDropdown({
     onChange(next);
   };
 
+  const computePanelPosition = () => {
+    const el = triggerRef.current;
+    if (!el) return;
+
+    const rect = el.getBoundingClientRect();
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+
+    const MIN_W = 560; // wider dropdown per request
+    const MAX_W = 860;
+    const GAP = 10;
+    const MARGIN = 10;
+
+    const width = Math.min(Math.max(rect.width, MIN_W), MAX_W);
+
+    // default under trigger
+    let left = rect.left;
+    let top = rect.bottom + GAP;
+
+    // clamp horizontally
+    left = Math.max(MARGIN, Math.min(left, viewportW - width - MARGIN));
+
+    // if near bottom, try open upwards (still fixed)
+    const desiredHeight = 420;
+    const wouldOverflowBottom = top + desiredHeight > viewportH - MARGIN;
+    if (wouldOverflowBottom) {
+      const upTop = rect.top - GAP - desiredHeight;
+      if (upTop >= MARGIN) top = upTop;
+    }
+
+    setPanelStyle({
+      position: "fixed",
+      left,
+      top,
+      width,
+      zIndex: 10000,
+    });
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    computePanelPosition();
+
+    const onScrollOrResize = () => computePanelPosition();
+    window.addEventListener("resize", onScrollOrResize);
+    window.addEventListener("scroll", onScrollOrResize, true);
+    return () => {
+      window.removeEventListener("resize", onScrollOrResize);
+      window.removeEventListener("scroll", onScrollOrResize, true);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const onDocDown = (e: MouseEvent) => {
+      const t = e.target as Node | null;
+      if (!t) return;
+      const inTrigger = !!triggerRef.current?.contains(t);
+      const inPanel = !!panelRef.current?.contains(t);
+      if (!inTrigger && !inPanel) setIsOpen(false);
+    };
+
+    document.addEventListener("mousedown", onDocDown, true);
+    return () => document.removeEventListener("mousedown", onDocDown, true);
+  }, [isOpen]);
+
   return (
-    <div
-      className={cn("relative flex-1 min-w-[220px]", isOpen && "z-[380]")}
-      ref={dropdownRef}
-    >
+    <div className={cn("relative flex-1 min-w-[320px]")} ref={triggerRef}>
       <div
-        onClick={() => !disabled && setIsOpen(!isOpen)}
+        onClick={() => !disabled && setIsOpen((v) => !v)}
         className={cn(
           "h-11 px-4 bg-white/15 text-white rounded-xl font-semibold text-sm",
           "border border-white/20 flex items-center justify-between gap-2",
@@ -482,72 +495,78 @@ function MultiSelectDropdown({
             {selectedIds.size > 0 ? `${selectedIds.size} article(s)` : placeholder}
           </span>
         </div>
-        <ChevronDown
-          className={cn(
-            "w-4 h-4 flex-shrink-0 transition-transform duration-300",
-            isOpen && "rotate-180"
-          )}
-        />
+        <ChevronDown className={cn("w-4 h-4 flex-shrink-0 transition-transform duration-300", isOpen && "rotate-180")} />
       </div>
 
-      {isOpen && (
-        <div className="absolute top-14 left-0 w-full min-w-[360px] z-[390] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="p-3 border-b border-neutral-100 dark:border-neutral-800">
-            <div className="flex items-center gap-2 bg-neutral-100 dark:bg-neutral-800 rounded-xl px-3">
-              <Filter className="w-4 h-4 text-neutral-400" />
-              <input
-                autoFocus
-                className="flex-1 py-2.5 bg-transparent text-sm outline-none text-neutral-900 dark:text-white placeholder:text-neutral-400"
-                placeholder="Filtrer les articles..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="max-h-72 overflow-y-auto p-2">
-            {filteredItems.length > 0 ? (
-              filteredItems.map((item) => (
-                <div
-                  key={item.itemId}
-                  onClick={() => toggleSelection(item.itemId)}
-                  className={cn(
-                    "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200",
-                    "hover:bg-neutral-50 dark:hover:bg-neutral-800",
-                    selectedIds.has(item.itemId) && "bg-neutral-100 dark:bg-neutral-800"
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all duration-200 flex-shrink-0",
-                      selectedIds.has(item.itemId)
-                        ? "border-transparent"
-                        : "border-neutral-300 dark:border-neutral-600"
-                    )}
-                    style={{
-                      backgroundColor: selectedIds.has(item.itemId) ? accentColor : undefined,
-                    }}
-                  >
-                    {selectedIds.has(item.itemId) && (
-                      <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-neutral-900 dark:text-white truncate text-sm">
-                      {item.itemCode}
-                    </div>
-                    <div className="text-xs text-neutral-500 truncate">{item.description}</div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="p-6 text-center">
-                <Inbox className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
-                <span className="text-sm text-neutral-400">Aucun article trouvé</span>
-              </div>
+      {mounted && isOpen &&
+        createPortal(
+          <div
+            ref={panelRef}
+            style={panelStyle}
+            className={cn(
+              "bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden",
+              "flex flex-col animate-in fade-in slide-in-from-top-2 duration-200"
             )}
-          </div>
-        </div>
-      )}
+          >
+            <div className="p-3 border-b border-neutral-100 dark:border-neutral-800">
+              <div className="flex items-center gap-2 bg-neutral-100 dark:bg-neutral-800 rounded-xl px-3">
+                <Filter className="w-4 h-4 text-neutral-400" />
+                <input
+                  autoFocus
+                  className="flex-1 py-2.5 bg-transparent text-sm outline-none text-neutral-900 dark:text-white placeholder:text-neutral-400"
+                  placeholder="Filtrer les articles..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="max-h-[420px] overflow-y-auto p-2">
+              {filteredItems.length > 0 ? (
+                filteredItems.map((item) => (
+                  <div
+                    key={item.itemId}
+                    onClick={() => toggleSelection(item.itemId)}
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200",
+                      "hover:bg-neutral-50 dark:hover:bg-neutral-800",
+                      selectedIds.has(item.itemId) && "bg-neutral-100 dark:bg-neutral-800"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all duration-200 flex-shrink-0",
+                        selectedIds.has(item.itemId)
+                          ? "border-transparent"
+                          : "border-neutral-300 dark:border-neutral-600"
+                      )}
+                      style={{
+                        backgroundColor: selectedIds.has(item.itemId) ? accentColor : undefined,
+                      }}
+                    >
+                      {selectedIds.has(item.itemId) && (
+                        <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-neutral-900 dark:text-white truncate text-sm">
+                        {item.itemCode}
+                      </div>
+                      <div className="text-xs text-neutral-500 truncate">{item.description}</div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="p-6 text-center">
+                  <Inbox className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
+                  <span className="text-sm text-neutral-400">Aucun article trouvé</span>
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
@@ -571,11 +590,10 @@ function EmailModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[12000] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
 
       <div className="relative w-full max-w-md bg-white dark:bg-neutral-900 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-        {/* Header */}
         <div className="p-6 pb-4">
           <div className="flex items-center gap-4 mb-4">
             <div
@@ -602,9 +620,7 @@ function EmailModal({
                 "outline-none transition-all duration-300",
                 "placeholder:text-neutral-400"
               )}
-              style={{
-                borderColor: email ? accentColor : undefined,
-              }}
+              style={{ borderColor: email ? accentColor : undefined }}
               placeholder="nom@exemple.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -612,7 +628,6 @@ function EmailModal({
           </div>
         </div>
 
-        {/* Actions */}
         <div className="p-6 pt-2 flex gap-3">
           <button
             onClick={onClose}
@@ -712,7 +727,6 @@ function PriceModal({
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
-  // Email State
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
@@ -720,7 +734,6 @@ function PriceModal({
 
   const itemsWithPrices = data.filter((item) => item.ranges && item.ranges.length > 0);
 
-  // --- GROUPING LOGIC ---
   const groupedItems = itemsWithPrices.reduce((acc, item) => {
     const groupKey = item.className || "Articles Ajoutés";
     if (!acc[groupKey]) acc[groupKey] = [];
@@ -728,18 +741,14 @@ function PriceModal({
     return acc;
   }, {} as Record<string, ItemPriceData[]>);
 
-  // Calculation Helpers
-  const calcPricePerCaisse = (price: number, caisse: number | null) =>
-    caisse ? price * caisse : null;
-  const calcPricePerLitre = (price: number, volume: number | null) =>
-    volume ? price / volume : null;
+  const calcPricePerCaisse = (price: number, caisse: number | null) => (caisse ? price * caisse : null);
+  const calcPricePerLitre = (price: number, volume: number | null) => (volume ? price / volume : null);
 
   const calcMargin = (sell: number | null, cost: number | null) => {
     if (!sell || !cost || sell === 0) return null;
     return ((sell - cost) / sell) * 100;
   };
 
-  // --- AUTH HANDLER (STEP-UP) ---
   const handleToggleDetails = async (newValue: boolean) => {
     if (!newValue) {
       setShowDetails(false);
@@ -777,22 +786,14 @@ function PriceModal({
     }
   };
 
-  // --- PDF GENERATION & EMAIL ---
   const handleEmailPDF = async (recipientEmail: string) => {
     setIsSendingEmail(true);
     try {
       const doc = new jsPDF();
 
-      const accentRgb = hexToRgbTuple(accentColor);
-
-      // Load Logo
       const logoData = await getDataUri("/sinto-logo.svg");
-      if (logoData) {
-        // fixed size to avoid jsPDF issues with 0 height
-        doc.addImage(logoData, "PNG", 15, 10, 40, 15);
-      }
+      if (logoData) doc.addImage(logoData, "PNG", 15, 10, 40, 0);
 
-      // Centered Title
       doc.setFontSize(22);
       doc.setFont("helvetica", "bold");
       const title = "Liste de Prix SINTO";
@@ -813,7 +814,6 @@ function PriceModal({
           finalY = 20;
         }
 
-        // Group Header (Banner)
         doc.setFillColor(220, 220, 220);
         doc.rect(14, finalY, 182, 8, "F");
         doc.setFontSize(11);
@@ -833,7 +833,7 @@ function PriceModal({
         const standardColumns = priceColumns.filter((c) => c.trim() !== "08-PDS");
         const hasPDS = priceColumns.some((c) => c.trim() === "08-PDS");
 
-        const tableBody: string[][] = [];
+        const tableBody: any[] = [];
         const spacerRowIndices: number[] = [];
         let rowIndex = 0;
 
@@ -856,11 +856,11 @@ function PriceModal({
             const selectedPriceVal = range.columns?.[selectedPriceCode] ?? range.unitPrice;
             const pdsVal = range.columns?.["08-PDS"] ?? null;
             const percentMarge = calcMargin(pdsVal, selectedPriceVal);
-            row.push(percentMarge !== null ? `${percentMarge.toFixed(1)}%` : "-");
+            row.push(percentMarge ? `${percentMarge.toFixed(1)}%` : "-");
 
             standardColumns.forEach((col) => {
               const val = range.columns?.[col] ?? null;
-              row.push(val !== null ? val.toFixed(2) : "-");
+              row.push(val ? val.toFixed(2) : "-");
 
               if (showDetails && col.trim() === selectedPriceList?.code?.trim()) {
                 const ppc = calcPricePerCaisse(val || 0, item.caisse);
@@ -868,15 +868,15 @@ function PriceModal({
                 const expVal = range.columns?.["01-EXP"] ?? null;
                 const pExp = calcMargin(val, expVal);
 
-                row.push(ppc !== null ? ppc.toFixed(2) : "-");
-                row.push(ppl !== null ? ppl.toFixed(2) : "-");
-                row.push(pExp !== null ? `${pExp.toFixed(1)}%` : "-");
+                row.push(ppc ? ppc.toFixed(2) : "-");
+                row.push(ppl ? ppl.toFixed(2) : "-");
+                row.push(pExp ? `${pExp.toFixed(1)}%` : "-");
               }
             });
 
             if (hasPDS) {
               const p = range.columns?.["08-PDS"] ?? null;
-              row.push(p !== null ? p.toFixed(2) : "-");
+              row.push(p ? p.toFixed(2) : "-");
             }
 
             tableBody.push(row);
@@ -884,15 +884,14 @@ function PriceModal({
           });
 
           if (index < classItems.length - 1) {
-            const columnsCount =
-              5 + standardColumns.length + (hasPDS ? 1 : 0) + (showDetails ? 3 : 0);
+            const columnsCount = 5 + standardColumns.length + (hasPDS ? 1 : 0) + (showDetails ? 3 : 0);
             tableBody.push(new Array(columnsCount).fill(""));
             spacerRowIndices.push(rowIndex);
             rowIndex++;
           }
         });
 
-        const headRow: string[] = ["Article", "Caisse", "Fmt", "Qty", "% Marge"];
+        const headRow = ["Article", "Caisse", "Fmt", "Qty", "% Marge"];
         standardColumns.forEach((c) => {
           headRow.push(c);
           if (showDetails && c.trim() === selectedPriceList?.code?.trim()) {
@@ -908,11 +907,8 @@ function PriceModal({
           head: [headRow],
           body: tableBody,
           styles: { fontSize: 8, cellPadding: 1.5 },
-          headStyles: { fillColor: accentRgb, textColor: 255 },
-          columnStyles: {
-            0: { fontStyle: "bold" },
-            4: { textColor: [0, 150, 0] },
-          },
+          headStyles: { fillColor: accentColor as any, textColor: 255 },
+          columnStyles: { 0: { fontStyle: "bold" }, 4: { textColor: [0, 150, 0] } },
           theme: "grid",
           didParseCell: function (data) {
             if (data.section === "body" && spacerRowIndices.includes(data.row.index)) {
@@ -927,7 +923,6 @@ function PriceModal({
       }
 
       const pdfBlob = doc.output("blob");
-
       const formData = new FormData();
       formData.append("file", pdfBlob, "ListePrix.pdf");
       formData.append("to", recipientEmail);
@@ -951,37 +946,27 @@ function PriceModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 md:p-4">
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-[9000] flex items-center justify-center p-2 md:p-4">
       <div
         className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/60 to-black/70 backdrop-blur-md"
         onClick={onClose}
       />
 
-      {/* Modal Container */}
       <div className="relative w-full max-w-[98vw] max-h-[94vh] bg-white dark:bg-neutral-950 rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
-        {/* Premium Header (SOLID accentColor; NO gradient / NO pale red) */}
-        <div
-          className="flex-shrink-0 relative overflow-visible"
-          style={{ backgroundColor: accentColor, backgroundImage: "none" }}
-        >
-          {/* Decorative Elements */}
+        <div className="flex-shrink-0 relative overflow-visible" style={{ backgroundColor: accentColor, backgroundImage: "none" }}>
           <div className="absolute inset-0 overflow-hidden opacity-10 pointer-events-none">
             <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2" />
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-white rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2" />
           </div>
 
           <div className="relative px-5 md:px-8 py-5">
-            {/* Top Row */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
                   <FileText className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight">
-                    Liste de Prix
-                  </h2>
+                  <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight">Liste de Prix</h2>
                   <p className="text-white/70 text-sm mt-0.5">
                     {itemsWithPrices.length} article(s) • {selectedPriceList?.code}
                   </p>
@@ -998,24 +983,14 @@ function PriceModal({
                   </div>
                 )}
 
-                <Toggle
-                  enabled={showDetails}
-                  onChange={handleToggleDetails}
-                  label="Détails"
-                  accentColor={accentColor}
-                />
+                <Toggle enabled={showDetails} onChange={handleToggleDetails} label="Détails" accentColor={accentColor} />
 
                 <div className="hidden md:flex items-center gap-2 ml-2">
-                  <IconButton
-                    onClick={() => setShowEmailModal(true)}
-                    icon={Mail}
-                    title="Envoyer par courriel"
-                  />
+                  <IconButton onClick={() => setShowEmailModal(true)} icon={Mail} title="Envoyer par courriel" />
                   <IconButton onClick={onReset} icon={RotateCcw} title="Réinitialiser" />
                   <IconButton onClick={onClose} icon={X} title="Fermer" />
                 </div>
 
-                {/* Mobile Actions */}
                 <div className="flex md:hidden items-center gap-2">
                   <IconButton onClick={() => setShowEmailModal(true)} icon={Mail} title="Envoyer" />
                   <IconButton onClick={onClose} icon={X} title="Fermer" />
@@ -1023,16 +998,15 @@ function PriceModal({
               </div>
             </div>
 
-            {/* Filter Row */}
-            <div className="flex flex-col lg:flex-row gap-3 p-4 bg-black/15 backdrop-blur-sm rounded-2xl border border-white/10 overflow-visible">
-              {/* Price List Select */}
-              <div className="relative min-w-[280px]">
+            {/* WIDE HEADER DROPDOWNS */}
+            <div className="flex flex-col xl:flex-row gap-3 p-4 bg-black/15 backdrop-blur-sm rounded-2xl border border-white/10 overflow-visible">
+              <div className="relative w-full xl:w-[420px]">
                 <select
                   value={selectedPriceList?.priceId || ""}
                   onChange={(e) => onPriceListChange(parseInt(e.target.value))}
                   disabled={loading}
                   className={cn(
-                    "w-full h-11 px-4 pr-10 rounded-xl font-bold text-sm appearance-none cursor-pointer",
+                    "w-full h-12 px-5 pr-10 rounded-xl font-black text-sm appearance-none cursor-pointer",
                     "bg-white text-neutral-900 border-2 border-white",
                     "focus:outline-none focus:ring-2 focus:ring-white/50",
                     "disabled:opacity-50 disabled:cursor-not-allowed",
@@ -1048,13 +1022,12 @@ function PriceModal({
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500 pointer-events-none" />
               </div>
 
-              {/* Category Select */}
-              <div className="relative flex-1 min-w-[180px]">
+              <div className="relative w-full xl:flex-1 min-w-[320px]">
                 <select
                   value={selectedProduct?.prodId || ""}
                   onChange={(e) => onProductChange(e.target.value)}
                   className={cn(
-                    "w-full h-11 px-4 pr-10 rounded-xl font-semibold text-sm appearance-none cursor-pointer",
+                    "w-full h-12 px-5 pr-10 rounded-xl font-semibold text-sm appearance-none cursor-pointer",
                     "bg-white/15 text-white border border-white/20",
                     "focus:outline-none focus:border-white/50 focus:bg-white/25",
                     "transition-all duration-300"
@@ -1072,14 +1045,13 @@ function PriceModal({
                 <Layers className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
               </div>
 
-              {/* Class Select */}
-              <div className="relative flex-1 min-w-[180px]">
+              <div className="relative w-full xl:flex-1 min-w-[320px]">
                 <select
                   value={selectedType?.itemTypeId || ""}
                   onChange={(e) => onTypeChange(e.target.value)}
                   disabled={!selectedProduct}
                   className={cn(
-                    "w-full h-11 px-4 pr-10 rounded-xl font-semibold text-sm appearance-none cursor-pointer",
+                    "w-full h-12 px-5 pr-10 rounded-xl font-semibold text-sm appearance-none cursor-pointer",
                     "bg-white/15 text-white border border-white/20",
                     "focus:outline-none focus:border-white/50 focus:bg-white/25",
                     "disabled:opacity-40 disabled:cursor-not-allowed",
@@ -1098,22 +1070,22 @@ function PriceModal({
                 <Package className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
               </div>
 
-              {/* Multi-select Articles */}
-              <MultiSelectDropdown
-                items={items}
-                selectedIds={selectedItemIds}
-                onChange={onItemsChange}
-                disabled={!selectedType && !selectedProduct}
-                accentColor={accentColor}
-              />
+              <div className="w-full xl:flex-[1.2] min-w-[340px]">
+                <MultiSelectDropdown
+                  items={items}
+                  selectedIds={selectedItemIds}
+                  onChange={onItemsChange}
+                  disabled={!selectedType && !selectedProduct}
+                  accentColor={accentColor}
+                />
+              </div>
 
-              {/* Action Buttons */}
-              <div className="flex gap-2">
+              <div className="flex gap-2 xl:flex-shrink-0">
                 <button
                   onClick={onLoadSelection}
                   disabled={loading || (!selectedProduct && selectedItemIds.size === 0)}
                   className={cn(
-                    "h-11 px-5 rounded-xl font-bold text-sm whitespace-nowrap",
+                    "h-12 px-6 rounded-xl font-black text-sm whitespace-nowrap",
                     "bg-white text-neutral-900 shadow-lg",
                     "flex items-center gap-2",
                     "hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]",
@@ -1127,7 +1099,7 @@ function PriceModal({
                 <button
                   onClick={() => setShowQuickAdd(!showQuickAdd)}
                   className={cn(
-                    "h-11 w-11 rounded-xl flex items-center justify-center",
+                    "h-12 w-12 rounded-xl flex items-center justify-center",
                     "bg-white/15 hover:bg-white/25 text-white border border-white/20",
                     "transition-all duration-300"
                   )}
@@ -1148,7 +1120,6 @@ function PriceModal({
           </div>
         </div>
 
-        {/* Table Content */}
         <div className="flex-1 overflow-auto bg-gradient-to-b from-neutral-100 to-neutral-200 dark:from-neutral-900 dark:to-neutral-950">
           {loading && data.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-80 gap-5">
@@ -1158,33 +1129,22 @@ function PriceModal({
                   style={{ borderColor: `${accentColor}30`, borderTopColor: "transparent" }}
                 />
                 <div
-                  className="absolute inset-2 w-12 h-12 border-4 border-b-transparent rounded-full animate-spin animate-reverse"
-                  style={{
-                    borderColor: accentColor,
-                    borderBottomColor: "transparent",
-                    animationDirection: "reverse",
-                  }}
+                  className="absolute inset-2 w-12 h-12 border-4 border-b-transparent rounded-full animate-spin"
+                  style={{ borderColor: accentColor, borderBottomColor: "transparent", animationDirection: "reverse" }}
                 />
               </div>
               <div className="text-center">
-                <p className="text-lg font-bold text-neutral-700 dark:text-neutral-300">
-                  Chargement des prix
-                </p>
+                <p className="text-lg font-bold text-neutral-700 dark:text-neutral-300">Chargement des prix</p>
                 <p className="text-sm text-neutral-500 mt-1">Veuillez patienter...</p>
               </div>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center h-80 gap-5">
-              <div
-                className="w-20 h-20 rounded-3xl flex items-center justify-center"
-                style={{ backgroundColor: `${accentColor}15` }}
-              >
+              <div className="w-20 h-20 rounded-3xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}15` }}>
                 <AlertCircle className="w-10 h-10" style={{ color: accentColor }} />
               </div>
               <div className="text-center">
-                <p className="text-xl font-bold" style={{ color: accentColor }}>
-                  Erreur
-                </p>
+                <p className="text-xl font-bold" style={{ color: accentColor }}>Erreur</p>
                 <p className="text-neutral-500 mt-2 max-w-md">{error}</p>
                 <button
                   onClick={onReset}
@@ -1214,7 +1174,6 @@ function PriceModal({
                     key={className}
                     className="bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden shadow-xl border border-neutral-200/50 dark:border-neutral-800"
                   >
-                    {/* Class Header */}
                     <div
                       className="relative px-6 py-5 overflow-visible"
                       style={{ backgroundColor: accentColor, backgroundImage: "none" }}
@@ -1233,14 +1192,11 @@ function PriceModal({
                         </div>
                         <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-white/20 rounded-xl backdrop-blur-sm">
                           <Sparkles className="w-4 h-4 text-white" />
-                          <span className="text-white text-sm font-bold">
-                            {selectedPriceList?.code}
-                          </span>
+                          <span className="text-white text-sm font-bold">{selectedPriceList?.code}</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Table */}
                     <div className="overflow-x-auto">
                       <table className="min-w-full w-full text-base border-collapse">
                         <thead>
@@ -1263,9 +1219,9 @@ function PriceModal({
                             <th className="text-right p-4 md:p-5 font-black text-emerald-700 dark:text-emerald-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-emerald-50/50 dark:bg-emerald-900/10 min-w-[120px] md:min-w-[140px]">
                               % Marge
                             </th>
+
                             {standardColumns.map((colCode) => {
-                              const isSelectedList =
-                                colCode.trim() === selectedPriceList?.code?.trim();
+                              const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
                               return (
                                 <Fragment key={colCode}>
                                   <th
@@ -1294,6 +1250,7 @@ function PriceModal({
                                 </Fragment>
                               );
                             })}
+
                             {hasPDS && (
                               <th className="text-right p-4 md:p-5 font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700 whitespace-nowrap min-w-[160px] md:min-w-[180px]">
                                 08-PDS
@@ -1301,6 +1258,7 @@ function PriceModal({
                             )}
                           </tr>
                         </thead>
+
                         <tbody>
                           {classItems.map((item, itemIndex) => (
                             <Fragment key={item.itemId}>
@@ -1308,11 +1266,12 @@ function PriceModal({
                                 const isFirstRowOfItem = rIdx === 0;
                                 const ppc = calcPricePerCaisse(range.unitPrice, item.caisse);
                                 const ppl = calcPricePerLitre(range.unitPrice, item.volume);
+
                                 const selectedPriceCode = selectedPriceList?.code || "";
-                                const selectedPriceVal =
-                                  range.columns?.[selectedPriceCode] ?? range.unitPrice;
+                                const selectedPriceVal = range.columns?.[selectedPriceCode] ?? range.unitPrice;
                                 const expBaseVal = range.columns?.["01-EXP"] ?? null;
                                 const pdsVal = range.columns?.["08-PDS"] ?? null;
+
                                 const percentExp = calcMargin(selectedPriceVal, expBaseVal);
                                 const percentMarge = calcMargin(pdsVal, selectedPriceVal);
 
@@ -1330,7 +1289,6 @@ function PriceModal({
                                       "hover:bg-amber-50/50 dark:hover:bg-amber-900/10"
                                     )}
                                   >
-                                    {/* Article Column */}
                                     <td
                                       className={cn(
                                         "p-4 md:p-5 border-b border-neutral-100 dark:border-neutral-800 align-top sticky left-0 z-10",
@@ -1356,7 +1314,6 @@ function PriceModal({
                                       )}
                                     </td>
 
-                                    {/* Caisse Column */}
                                     <td className="p-4 md:p-5 text-center border-b border-neutral-100 dark:border-neutral-800 align-top">
                                       {isFirstRowOfItem && (
                                         <span className="font-black text-lg text-neutral-900 dark:text-white">
@@ -1365,7 +1322,6 @@ function PriceModal({
                                       )}
                                     </td>
 
-                                    {/* Format Column */}
                                     <td className="p-4 md:p-5 text-center border-b border-neutral-100 dark:border-neutral-800 align-top">
                                       {isFirstRowOfItem && (
                                         <span className="font-bold text-lg text-neutral-800 dark:text-neutral-200 px-3 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg inline-block">
@@ -1374,19 +1330,17 @@ function PriceModal({
                                       )}
                                     </td>
 
-                                    {/* Qty Column */}
                                     <td className="p-4 md:p-5 text-center border-b border-neutral-100 dark:border-neutral-800">
                                       <span className="font-mono font-bold text-lg text-neutral-900 dark:text-white">
                                         {range.qtyMin}
                                       </span>
                                     </td>
 
-                                    {/* % Marge Column */}
                                     <td className="p-4 md:p-5 text-right border-b border-neutral-100 dark:border-neutral-800 bg-emerald-50/30 dark:bg-emerald-900/5">
                                       <span
                                         className={cn(
                                           "font-mono font-black text-lg whitespace-nowrap",
-                                          percentMarge !== null && percentMarge < 0
+                                          percentMarge && percentMarge < 0
                                             ? "text-red-600 dark:text-red-400"
                                             : "text-emerald-600 dark:text-emerald-400"
                                         )}
@@ -1395,16 +1349,13 @@ function PriceModal({
                                       </span>
                                     </td>
 
-                                    {/* Price Columns */}
                                     {standardColumns.map((colCode) => {
                                       const priceVal = range.columns
                                         ? range.columns[colCode]
                                         : colCode === selectedPriceList?.code
-                                          ? range.unitPrice
-                                          : null;
-
-                                      const isSelectedList =
-                                        colCode.trim() === selectedPriceList?.code?.trim();
+                                        ? range.unitPrice
+                                        : null;
+                                      const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
 
                                       return (
                                         <Fragment key={colCode}>
@@ -1434,19 +1385,19 @@ function PriceModal({
                                             <>
                                               <td className="p-4 md:p-5 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/5">
                                                 <span className="font-mono text-base text-sky-700 dark:text-sky-400 whitespace-nowrap tabular-nums">
-                                                  {ppc !== null ? ppc.toFixed(2) : "-"}
+                                                  {ppc ? ppc.toFixed(2) : "-"}
                                                 </span>
                                               </td>
                                               <td className="p-4 md:p-5 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/5">
                                                 <span className="font-mono text-base text-sky-700 dark:text-sky-400 whitespace-nowrap tabular-nums">
-                                                  {ppl !== null ? ppl.toFixed(2) : "-"}
+                                                  {ppl ? ppl.toFixed(2) : "-"}
                                                 </span>
                                               </td>
                                               <td className="p-4 md:p-5 text-right border-b border-neutral-100 dark:border-neutral-800 bg-violet-50/30 dark:bg-violet-900/5">
                                                 <span
                                                   className={cn(
                                                     "font-mono font-bold text-base whitespace-nowrap tabular-nums",
-                                                    percentExp !== null && percentExp < 0
+                                                    percentExp && percentExp < 0
                                                       ? "text-red-600 dark:text-red-400"
                                                       : "text-violet-700 dark:text-violet-400"
                                                   )}
@@ -1460,14 +1411,13 @@ function PriceModal({
                                       );
                                     })}
 
-                                    {/* PDS Column */}
                                     {hasPDS &&
                                       (() => {
-                                        const pds = range.columns?.["08-PDS"] ?? null;
+                                        const p = range.columns?.["08-PDS"] ?? null;
                                         return (
                                           <td className="p-4 md:p-5 text-right border-b border-neutral-100 dark:border-neutral-800">
                                             <span className="font-mono font-black text-lg text-neutral-700 dark:text-neutral-300 whitespace-nowrap tabular-nums">
-                                              {pds !== null ? <AnimatedPrice value={pds} /> : "-"}
+                                              {p !== null ? <AnimatedPrice value={p} /> : "-"}
                                             </span>
                                           </td>
                                         );
@@ -1476,7 +1426,6 @@ function PriceModal({
                                 );
                               })}
 
-                              {/* Spacer Row Between Articles */}
                               {itemIndex < classItems.length - 1 && (
                                 <tr className="h-4 bg-neutral-900 dark:bg-black">
                                   <td colSpan={100} className="border-none" />
@@ -1493,16 +1442,11 @@ function PriceModal({
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-80 gap-5">
-              <div
-                className="w-24 h-24 rounded-3xl flex items-center justify-center"
-                style={{ backgroundColor: `${accentColor}10` }}
-              >
+              <div className="w-24 h-24 rounded-3xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}10` }}>
                 <Inbox className="w-12 h-12" style={{ color: `${accentColor}50` }} />
               </div>
               <div className="text-center">
-                <p className="text-xl font-bold text-neutral-700 dark:text-neutral-300">
-                  Aucun prix trouvé
-                </p>
+                <p className="text-xl font-bold text-neutral-700 dark:text-neutral-300">Aucun prix trouvé</p>
                 <p className="text-neutral-500 mt-2 max-w-sm">
                   Sélectionnez des articles à partir des filtres ci-dessus et cliquez sur Ajouter.
                 </p>
@@ -1511,15 +1455,11 @@ function PriceModal({
           )}
         </div>
 
-        {/* Premium Footer */}
         {!loading && itemsWithPrices.length > 0 && (
           <div className="flex-shrink-0 bg-neutral-100 dark:bg-neutral-900 px-6 py-4 border-t border-neutral-200 dark:border-neutral-800">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div
-                  className="px-4 py-2 rounded-xl font-bold text-sm"
-                  style={{ backgroundColor: `${accentColor}15`, color: accentColor }}
-                >
+                <div className="px-4 py-2 rounded-xl font-bold text-sm" style={{ backgroundColor: `${accentColor}15`, color: accentColor }}>
                   {itemsWithPrices.length} article(s)
                 </div>
                 {showDetails && (
@@ -1540,7 +1480,6 @@ function PriceModal({
         )}
       </div>
 
-      {/* Email Modal */}
       <EmailModal
         isOpen={showEmailModal}
         onClose={() => setShowEmailModal(false)}
@@ -1550,11 +1489,6 @@ function PriceModal({
       />
     </div>
   );
-}
-
-// --- Fragment helper ---
-function Fragment({ children }: { children: ReactNode }) {
-  return <>{children}</>;
 }
 
 // --- Main Page Component ---
@@ -1594,7 +1528,6 @@ export default function CataloguePage() {
         ]);
 
         if (prodRes.ok) setProducts(await prodRes.json());
-
         if (plRes.ok) {
           const pls: PriceList[] = await plRes.json();
           setPriceLists(pls);
@@ -1613,9 +1546,7 @@ export default function CataloguePage() {
       if (searchQuery.length > 1) {
         setIsSearching(true);
         try {
-          const res = await fetch(
-            `/api/catalogue/items?search=${encodeURIComponent(searchQuery)}`
-          );
+          const res = await fetch(`/api/catalogue/items?search=${encodeURIComponent(searchQuery)}`);
           if (res.ok) setSearchResults(await res.json());
         } finally {
           setIsSearching(false);
@@ -1624,20 +1555,17 @@ export default function CataloguePage() {
         setSearchResults([]);
       }
     }, 350);
-
     return () => clearTimeout(timeout);
   }, [searchQuery]);
 
   const handleAddItems = async (itemIds: number[]) => {
     if (!selectedPriceList || itemIds.length === 0) return;
-
     setLoadingPrices(true);
     try {
       const idsString = itemIds.join(",");
       const url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}&itemIds=${idsString}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error("Erreur fetch items");
-
       const newItems: ItemPriceData[] = await res.json();
       setPriceData((prev) => {
         const existingIds = new Set(prev.map((i) => i.itemId));
@@ -1667,8 +1595,8 @@ export default function CataloguePage() {
 
       const res = await fetch(url);
       if (!res.ok) throw new Error("Erreur fetch");
-
       const newItems: ItemPriceData[] = await res.json();
+
       setPriceData((prev) => {
         const existingIds = new Set(prev.map((i) => i.itemId));
         const filteredNew = newItems.filter((i) => !existingIds.has(i.itemId));
@@ -1689,14 +1617,12 @@ export default function CataloguePage() {
   const handleProductChange = async (prodId: string) => {
     const prod = products.find((p) => p.prodId === parseInt(prodId));
     if (!prod) return;
-
     setSelectedProduct(prod);
     setSelectedType(null);
     setSelectedItem(null);
     setSelectedItemIds(new Set());
     setItems([]);
     setItemTypes([]);
-
     setLoadingTypes(true);
     try {
       const res = await fetch(`/api/catalogue/itemtypes?prodId=${prod.prodId}`);
@@ -1714,15 +1640,12 @@ export default function CataloguePage() {
       setItems([]);
       return;
     }
-
     const type = itemTypes.find((t) => t.itemTypeId === parseInt(typeId));
     if (!type) return;
-
     setSelectedType(type);
     setSelectedItem(null);
     setSelectedItemIds(new Set());
     setItems([]);
-
     setLoadingItems(true);
     try {
       const res = await fetch(`/api/catalogue/items?itemTypeId=${type.itemTypeId}`);
@@ -1745,37 +1668,35 @@ export default function CataloguePage() {
     setSearchQuery("");
     setSearchResults([]);
     setSelectedItem(item);
-
     const prod = products.find((p) => p.prodId === item.prodId);
-    if (!prod) return;
-
-    setSelectedProduct(prod);
-    setLoadingTypes(true);
-    try {
-      const typesRes = await fetch(`/api/catalogue/itemtypes?prodId=${item.prodId}`);
-      if (typesRes.ok) {
-        const types = await typesRes.json();
-        setItemTypes(types);
-        const type = types.find((t: any) => t.itemTypeId === item.itemTypeId);
-        if (type) {
-          setSelectedType(type);
-          setLoadingItems(true);
-          try {
-            const itemsRes = await fetch(`/api/catalogue/items?itemTypeId=${type.itemTypeId}`);
-            if (itemsRes.ok) setItems(await itemsRes.json());
-          } finally {
-            setLoadingItems(false);
+    if (prod) {
+      setSelectedProduct(prod);
+      setLoadingTypes(true);
+      try {
+        const typesRes = await fetch(`/api/catalogue/itemtypes?prodId=${item.prodId}`);
+        if (typesRes.ok) {
+          const types = await typesRes.json();
+          setItemTypes(types);
+          const type = types.find((t: any) => t.itemTypeId === item.itemTypeId);
+          if (type) {
+            setSelectedType(type);
+            setLoadingItems(true);
+            try {
+              const itemsRes = await fetch(`/api/catalogue/items?itemTypeId=${type.itemTypeId}`);
+              if (itemsRes.ok) setItems(await itemsRes.json());
+            } finally {
+              setLoadingItems(false);
+            }
           }
         }
+      } finally {
+        setLoadingTypes(false);
       }
-    } finally {
-      setLoadingTypes(false);
     }
   };
 
   const handleGenerate = async () => {
     if (!selectedPriceList || !selectedProduct) return;
-
     setPriceData([]);
     setPriceError(null);
     setShowPriceModal(true);
@@ -1798,52 +1719,41 @@ export default function CataloguePage() {
 
   const handleModalPriceListChange = async (priceId: number) => {
     const pl = priceLists.find((p) => p.priceId === priceId);
-    if (!pl) return;
-
-    setSelectedPriceList(pl);
-
-    if (priceData.length === 0) return;
-
-    setLoadingPrices(true);
-    const allIds = Array.from(new Set(priceData.map((i) => i.itemId))).join(",");
-    try {
-      const url = `/api/catalogue/prices?priceId=${priceId}&itemIds=${allIds}`;
-      const res = await fetch(url);
-      if (res.ok) setPriceData(await res.json());
-    } finally {
-      setLoadingPrices(false);
+    if (pl) {
+      setSelectedPriceList(pl);
+      if (priceData.length > 0) {
+        setLoadingPrices(true);
+        const allIds = Array.from(new Set(priceData.map((i) => i.itemId))).join(",");
+        try {
+          const url = `/api/catalogue/prices?priceId=${priceId}&itemIds=${allIds}`;
+          const res = await fetch(url);
+          if (res.ok) setPriceData(await res.json());
+        } finally {
+          setLoadingPrices(false);
+        }
+      }
     }
   };
 
-  const canGenerate = Boolean(selectedPriceList && selectedProduct);
+  const canGenerate = !!(selectedPriceList && selectedProduct);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-100 via-neutral-50 to-neutral-100 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
       <div className="min-h-screen flex flex-col">
         <main className="flex-1 p-4 md:p-8 flex flex-col justify-center items-center">
           <div className="w-full max-w-3xl">
-            {/* Premium Card Container */}
             <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/50 dark:border-neutral-800 shadow-2xl overflow-hidden">
-              {/* Header */}
               <div
                 className="relative p-6 md:p-8 overflow-hidden"
-                style={{
-                  background: `linear-gradient(135deg, ${accentColor}08 0%, transparent 100%)`,
-                }}
+                style={{ background: `linear-gradient(135deg, ${accentColor}08 0%, transparent 100%)` }}
               >
                 <div className="absolute inset-0 opacity-5">
-                  <div
-                    className="absolute -top-20 -right-20 w-60 h-60 rounded-full"
-                    style={{ backgroundColor: accentColor }}
-                  />
+                  <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full" style={{ backgroundColor: accentColor }} />
                 </div>
 
                 <div className="relative flex items-center gap-5">
                   <div className="relative">
-                    <div
-                      className="absolute inset-0 rounded-2xl blur-xl opacity-30"
-                      style={{ backgroundColor: accentColor }}
-                    />
+                    <div className="absolute inset-0 rounded-2xl blur-xl opacity-30" style={{ backgroundColor: accentColor }} />
                     <Image
                       src="/sinto-logo.svg"
                       alt="SINTO Logo"
@@ -1856,16 +1766,12 @@ export default function CataloguePage() {
                     <h1 className="text-3xl font-black tracking-tight text-neutral-900 dark:text-white">
                       Catalogue SINTO
                     </h1>
-                    <p className="text-neutral-500 mt-1 font-medium">
-                      Générateur de liste de prix
-                    </p>
+                    <p className="text-neutral-500 mt-1 font-medium">Générateur de liste de prix</p>
                   </div>
                 </div>
               </div>
 
-              {/* Content */}
               <div className="p-6 md:p-8 pt-0 md:pt-0">
-                {/* Premium Search Bar */}
                 <div className="mb-8 relative">
                   <div className="relative group">
                     <div className="absolute left-5 top-1/2 -translate-y-1/2 z-10">
@@ -1883,24 +1789,16 @@ export default function CataloguePage() {
                         "focus:ring-0 focus:outline-none transition-all duration-300",
                         "placeholder:text-neutral-400"
                       )}
-                      style={{
-                        borderColor: searchQuery ? accentColor : "transparent",
-                      }}
+                      style={{ borderColor: searchQuery ? accentColor : "transparent" }}
                     />
                   </div>
 
-                  {/* Search Results Dropdown */}
                   {searchQuery.length > 1 && (
                     <div className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden max-h-80 overflow-y-auto z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                       {isSearching ? (
                         <div className="p-8 flex flex-col items-center gap-3">
-                          <Loader2
-                            className="w-8 h-8 animate-spin"
-                            style={{ color: accentColor }}
-                          />
-                          <span className="text-sm text-neutral-500 font-medium">
-                            Recherche en cours...
-                          </span>
+                          <Loader2 className="w-8 h-8 animate-spin" style={{ color: accentColor }} />
+                          <span className="text-sm text-neutral-500 font-medium">Recherche en cours...</span>
                         </div>
                       ) : searchResults.length > 0 ? (
                         <div className="p-2">
@@ -1915,18 +1813,12 @@ export default function CataloguePage() {
                               )}
                             >
                               <div className="flex items-center gap-4">
-                                <div
-                                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                                  style={{ backgroundColor: `${accentColor}15` }}
-                                >
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}15` }}>
                                   <Package className="w-5 h-5" style={{ color: accentColor }} />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-3">
-                                    <span
-                                      className="font-mono font-black text-sm"
-                                      style={{ color: accentColor }}
-                                    >
+                                    <span className="font-mono font-black text-sm" style={{ color: accentColor }}>
                                       {item.itemCode}
                                     </span>
                                     <span className="truncate font-semibold text-neutral-700 dark:text-neutral-300">
@@ -1951,14 +1843,10 @@ export default function CataloguePage() {
                   )}
                 </div>
 
-                {/* Premium Form Fields */}
                 <div className="space-y-6">
-                  {/* Price List */}
                   <div>
                     <label className="flex items-center gap-2 text-xs font-black text-neutral-500 mb-3 uppercase tracking-wider">
-                      <span className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px]">
-                        1
-                      </span>
+                      <span className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px]">1</span>
                       Liste de Prix
                     </label>
                     <div className="relative">
@@ -1986,12 +1874,9 @@ export default function CataloguePage() {
                     </div>
                   </div>
 
-                  {/* Category */}
                   <div>
                     <label className="flex items-center gap-2 text-xs font-black text-neutral-500 mb-3 uppercase tracking-wider">
-                      <span className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px]">
-                        2
-                      </span>
+                      <span className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px]">2</span>
                       Catégorie
                     </label>
                     <div className="relative">
@@ -2020,16 +1905,11 @@ export default function CataloguePage() {
                     </div>
                   </div>
 
-                  {/* Class */}
                   <div>
                     <label className="flex items-center gap-2 text-xs font-black text-neutral-500 mb-3 uppercase tracking-wider">
-                      <span className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px]">
-                        3
-                      </span>
+                      <span className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px]">3</span>
                       Classe
-                      <span className="text-neutral-400 font-normal normal-case text-xs">
-                        (Optionnel)
-                      </span>
+                      <span className="text-neutral-400 font-normal normal-case text-xs">(Optionnel)</span>
                     </label>
                     <div className="relative">
                       <select
@@ -2044,9 +1924,7 @@ export default function CataloguePage() {
                           "disabled:opacity-40 disabled:cursor-not-allowed"
                         )}
                       >
-                        <option value="">
-                          {loadingTypes ? "Chargement..." : "Toutes les classes"}
-                        </option>
+                        <option value="">{loadingTypes ? "Chargement..." : "Toutes les classes"}</option>
                         {itemTypes.map((t) => (
                           <option key={t.itemTypeId} value={t.itemTypeId}>
                             {t.description} ({t.itemCount})
@@ -2061,16 +1939,11 @@ export default function CataloguePage() {
                     </div>
                   </div>
 
-                  {/* Article */}
                   <div>
                     <label className="flex items-center gap-2 text-xs font-black text-neutral-500 mb-3 uppercase tracking-wider">
-                      <span className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px]">
-                        4
-                      </span>
+                      <span className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px]">4</span>
                       Article
-                      <span className="text-neutral-400 font-normal normal-case text-xs">
-                        (Optionnel)
-                      </span>
+                      <span className="text-neutral-400 font-normal normal-case text-xs">(Optionnel)</span>
                     </label>
                     <div className="relative">
                       <select
@@ -2085,9 +1958,7 @@ export default function CataloguePage() {
                           "disabled:opacity-40 disabled:cursor-not-allowed"
                         )}
                       >
-                        <option value="">
-                          {loadingItems ? "Chargement..." : "Tous les articles"}
-                        </option>
+                        <option value="">{loadingItems ? "Chargement..." : "Tous les articles"}</option>
                         {items.map((i) => (
                           <option key={i.itemId} value={i.itemId}>
                             {i.itemCode} - {i.description}
@@ -2102,7 +1973,6 @@ export default function CataloguePage() {
                     </div>
                   </div>
 
-                  {/* Generate Button */}
                   <div className="pt-4">
                     <button
                       onClick={handleGenerate}
@@ -2133,20 +2003,13 @@ export default function CataloguePage() {
               </div>
             </div>
 
-            {/* Selected Item Preview */}
             {selectedItem && (
               <div
                 className="mt-5 p-5 rounded-2xl border-2 animate-in fade-in slide-in-from-bottom-2 duration-300"
-                style={{
-                  backgroundColor: `${accentColor}08`,
-                  borderColor: `${accentColor}30`,
-                }}
+                style={{ backgroundColor: `${accentColor}08`, borderColor: `${accentColor}30` }}
               >
                 <div className="flex items-center gap-4">
-                  <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center"
-                    style={{ backgroundColor: `${accentColor}20` }}
-                  >
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}20` }}>
                     <Check className="w-6 h-6" style={{ color: accentColor }} />
                   </div>
                   <div>
@@ -2164,7 +2027,6 @@ export default function CataloguePage() {
         </main>
       </div>
 
-      {/* Price Modal */}
       <PriceModal
         isOpen={showPriceModal}
         onClose={() => setShowPriceModal(false)}
