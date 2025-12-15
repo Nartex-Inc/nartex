@@ -107,7 +107,6 @@ function Portal({ children }: { children: ReactNode }) {
   return createPortal(children, document.body);
 }
 
-// Convert image URL to Data URI for PDF
 async function getDataUri(url: string): Promise<string> {
   return new Promise((resolve) => {
     const image = new window.Image();
@@ -124,6 +123,10 @@ async function getDataUri(url: string): Promise<string> {
   });
 }
 
+function Fragment({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
+
 /* =========================
    Animated number
 ========================= */
@@ -134,25 +137,19 @@ function AnimatedPrice({ value, duration = 600 }: { value: number; duration?: nu
 
   useEffect(() => {
     if (animationRef.current) cancelAnimationFrame(animationRef.current);
-
     const startValue = previousValue.current;
     const endValue = value;
     const startTime = performance.now();
-
     const animate = (currentTime: number) => {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
       const easeOut = 1 - Math.pow(1 - progress, 3);
       const current = startValue + (endValue - startValue) * easeOut;
-
       setDisplayValue(current);
-
       if (progress < 1) animationRef.current = requestAnimationFrame(animate);
       else previousValue.current = endValue;
     };
-
     animationRef.current = requestAnimationFrame(animate);
-
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
@@ -162,7 +159,7 @@ function AnimatedPrice({ value, duration = 600 }: { value: number; duration?: nu
 }
 
 /* =========================
-   Toggle
+   Toggle - Compact for iPad
 ========================= */
 function Toggle({
   enabled,
@@ -176,25 +173,25 @@ function Toggle({
   accentColor: string;
 }) {
   return (
-    <label className="flex items-center gap-3 cursor-pointer select-none group">
-      <span className="text-white/90 text-sm font-semibold hidden md:inline-block tracking-wide">
+    <label className="flex items-center gap-2 cursor-pointer select-none group">
+      <span className="text-white/90 text-xs font-semibold hidden sm:inline-block tracking-wide">
         {label}
       </span>
       <div
         onClick={() => onChange(!enabled)}
         className={cn(
-          "relative w-14 h-7 rounded-full transition-all duration-300 shadow-inner",
+          "relative w-11 h-6 rounded-full transition-all duration-300 shadow-inner",
           enabled ? "bg-white shadow-lg" : "bg-white/20 hover:bg-white/30"
         )}
       >
         <div
           className={cn(
-            "absolute top-1 w-5 h-5 rounded-full transition-all duration-300 shadow-md flex items-center justify-center",
-            enabled ? "left-8 scale-110" : "left-1 bg-white/90"
+            "absolute top-1 w-4 h-4 rounded-full transition-all duration-300 shadow-md flex items-center justify-center",
+            enabled ? "left-6 scale-110" : "left-1 bg-white/90"
           )}
           style={{ backgroundColor: enabled ? accentColor : undefined }}
         >
-          {enabled ? <Eye className="w-3 h-3 text-white" /> : <EyeOff className="w-3 h-3 text-neutral-500" />}
+          {enabled ? <Eye className="w-2.5 h-2.5 text-white" /> : <EyeOff className="w-2.5 h-2.5 text-neutral-500" />}
         </div>
       </div>
     </label>
@@ -202,7 +199,7 @@ function Toggle({
 }
 
 /* =========================
-   Icon button
+   Icon button - Smaller for iPad
 ========================= */
 function IconButton({
   onClick,
@@ -225,7 +222,7 @@ function IconButton({
       disabled={loading}
       title={title}
       className={cn(
-        "h-11 w-11 rounded-xl flex items-center justify-center transition-all duration-300 backdrop-blur-sm",
+        "h-9 w-9 rounded-lg flex items-center justify-center transition-all duration-300 backdrop-blur-sm",
         "hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed",
         variant === "default" && "bg-white/15 hover:bg-white/25 text-white border border-white/10",
         variant === "primary" && "bg-white text-neutral-900 shadow-lg hover:shadow-xl",
@@ -233,13 +230,13 @@ function IconButton({
         className
       )}
     >
-      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Icon className="w-5 h-5" strokeWidth={2} />}
+      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Icon className="w-4 h-4" strokeWidth={2} />}
     </button>
   );
 }
 
 /* =========================
-   Quick add popup (unchanged positioning, high z)
+   Quick add popup
 ========================= */
 function QuickAddSearch({
   onAddItems,
@@ -283,7 +280,7 @@ function QuickAddSearch({
   };
 
   return (
-    <div className="absolute top-20 right-4 z-[9999] w-[520px] max-w-[92vw] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-700 flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
+    <div className="absolute top-full left-0 right-0 mt-3 z-[9999] max-w-full bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-700 flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
       <div className="p-4 border-b border-neutral-100 dark:border-neutral-800 bg-gradient-to-r from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}15` }}>
@@ -373,7 +370,7 @@ function QuickAddSearch({
 }
 
 /* =========================
-   MultiSelect (FIXED: portal + topmost + wide)
+   MultiSelect - iPad optimized
 ========================= */
 function MultiSelectDropdown({
   items,
@@ -410,27 +407,21 @@ function MultiSelectDropdown({
 
   useEffect(() => {
     if (!isOpen) return;
-
     const update = () => {
       const el = triggerRef.current;
       if (!el) return;
-
       const r = el.getBoundingClientRect();
       const margin = 12;
-      const desiredWidth = Math.max(r.width, 520); // WIDE as requested
+      const desiredWidth = Math.max(r.width, 400);
       const maxWidth = Math.max(320, window.innerWidth - margin * 2);
       const width = Math.min(desiredWidth, maxWidth);
-
       const left = Math.min(r.left, window.innerWidth - width - margin);
       const top = r.bottom + 10;
-
       setPanelStyle({ top, left: Math.max(margin, left), width });
     };
-
     update();
     window.addEventListener("resize", update, { passive: true } as any);
     window.addEventListener("scroll", update, { passive: true } as any);
-
     return () => {
       window.removeEventListener("resize", update as any);
       window.removeEventListener("scroll", update as any);
@@ -452,11 +443,11 @@ function MultiSelectDropdown({
 
   return (
     <>
-      <div className={cn("relative flex-1 min-w-[320px] md:min-w-[360px]")} ref={triggerRef}>
+      <div className="relative w-full" ref={triggerRef}>
         <div
           onClick={() => !disabled && setIsOpen((v) => !v)}
           className={cn(
-            "h-11 px-4 bg-white/15 text-white rounded-xl font-semibold text-sm",
+            "h-9 px-3 bg-white/15 text-white rounded-lg font-semibold text-xs",
             "border border-white/20 flex items-center justify-between gap-2",
             "cursor-pointer transition-all duration-300 backdrop-blur-sm",
             disabled && "opacity-40 cursor-not-allowed",
@@ -464,10 +455,10 @@ function MultiSelectDropdown({
           )}
         >
           <div className="flex items-center gap-2 min-w-0">
-            <Tag className="w-4 h-4 flex-shrink-0 opacity-70" />
+            <Tag className="w-3 h-3 flex-shrink-0 opacity-70" />
             <span className="truncate">{selectedIds.size > 0 ? `${selectedIds.size} article(s)` : placeholder}</span>
           </div>
-          <ChevronDown className={cn("w-4 h-4 flex-shrink-0 transition-transform duration-300", isOpen && "rotate-180")} />
+          <ChevronDown className={cn("w-3 h-3 flex-shrink-0 transition-transform duration-300", isOpen && "rotate-180")} />
         </div>
       </div>
 
@@ -565,7 +556,6 @@ function EmailModal({
               <p className="text-sm text-neutral-500">La liste de prix sera jointe en PDF</p>
             </div>
           </div>
-
           <input
             type="email"
             autoFocus
@@ -580,7 +570,6 @@ function EmailModal({
             onChange={(e) => setEmail(e.target.value)}
           />
         </div>
-
         <div className="p-6 pt-2 flex gap-3">
           <button
             onClick={onClose}
@@ -623,32 +612,27 @@ function EmailModal({
 }
 
 /* =========================
-   Price modal (FIXED: dropdown overlay + wide header controls + iPad no horiz scroll)
+   Price modal - iPad 1024px FIXED
 ========================= */
 interface PriceModalProps {
   isOpen: boolean;
   onClose: () => void;
   data: ItemPriceData[];
-
   priceLists: PriceList[];
   products: Product[];
   itemTypes: ItemType[];
   items: Item[];
-
   selectedPriceList: PriceList | null;
   selectedProduct: Product | null;
   selectedType: ItemType | null;
   selectedItemIds: Set<number>;
-
   onPriceListChange: (priceId: number) => void;
   onProductChange: (prodId: string) => void;
   onTypeChange: (typeId: string) => void;
   onItemsChange: (ids: Set<number>) => void;
-
   onAddItems: (itemIds: number[]) => void;
   onReset: () => void;
   onLoadSelection: () => void;
-
   loading: boolean;
   error: string | null;
   accentColor: string;
@@ -680,11 +664,9 @@ function PriceModal({
   const [showDetails, setShowDetails] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
-
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
-  // iPad/tablet compact mode (no horizontal scroll; no extra detail columns)
   const isTabletCompact = useMediaQuery("(max-width: 1024px)");
 
   if (!isOpen) return null;
@@ -700,7 +682,6 @@ function PriceModal({
 
   const calcPricePerCaisse = (price: number, caisse: number | null) => (caisse ? price * caisse : null);
   const calcPricePerLitre = (price: number, volume: number | null) => (volume ? price / volume : null);
-
   const calcMargin = (sell: number | null, cost: number | null) => {
     if (!sell || !cost || sell === 0) return null;
     return ((sell - cost) / sell) * 100;
@@ -716,17 +697,13 @@ function PriceModal({
       const resp = await fetch("/api/auth/challenge");
       if (!resp.ok) throw new Error("Challenge fetch failed");
       const options = await resp.json();
-
       const authResp = await startRegistration(options);
-
       const verifyResp = await fetch("/api/auth/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(authResp),
       });
-
       const verification = await verifyResp.json();
-
       if (verification.verified) setShowDetails(true);
       else {
         alert("Vérification échouée.");
@@ -745,17 +722,14 @@ function PriceModal({
     setIsSendingEmail(true);
     try {
       const doc = new jsPDF();
-
       const logoData = await getDataUri("/sinto-logo.svg");
       if (logoData) doc.addImage(logoData, "PNG", 15, 10, 40, 0);
-
       doc.setFontSize(22);
       doc.setFont("helvetica", "bold");
       const title = "Liste de Prix SINTO";
       const titleWidth = doc.getTextWidth(title);
       const pageWidth = doc.internal.pageSize.getWidth();
       doc.text(title, (pageWidth - titleWidth) / 2, 25);
-
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.text(`Liste: ${selectedPriceList?.code} - ${selectedPriceList?.name}`, 15, 45);
@@ -768,7 +742,6 @@ function PriceModal({
           doc.addPage();
           finalY = 20;
         }
-
         doc.setFillColor(220, 220, 220);
         doc.rect(14, finalY, 182, 8, "F");
         doc.setFontSize(11);
@@ -781,7 +754,6 @@ function PriceModal({
         let priceColumns = firstItem.ranges[0]?.columns
           ? Object.keys(firstItem.ranges[0].columns).sort()
           : [selectedPriceList?.code || "Prix"];
-
         if (!showDetails && selectedPriceList?.code !== "01-EXP") {
           priceColumns = priceColumns.filter((c) => c.trim() !== "01-EXP");
         }
@@ -804,40 +776,32 @@ function PriceModal({
               row.push("");
               row.push("");
             }
-
             row.push(range.qtyMin.toString());
-
             const selectedPriceCode = selectedPriceList?.code || "";
             const selectedPriceVal = range.columns?.[selectedPriceCode] ?? range.unitPrice;
             const pdsVal = range.columns?.["08-PDS"] ?? null;
             const percentMarge = calcMargin(pdsVal, selectedPriceVal);
             row.push(percentMarge ? `${percentMarge.toFixed(1)}%` : "-");
-
             standardColumns.forEach((col) => {
               const val = range.columns?.[col] ?? null;
               row.push(val ? val.toFixed(2) : "-");
-
               if (showDetails && col.trim() === selectedPriceList?.code?.trim()) {
                 const ppc = calcPricePerCaisse(val || 0, item.caisse);
                 const ppl = calcPricePerLitre(val || 0, item.volume);
                 const expVal = range.columns?.["01-EXP"] ?? null;
                 const pExp = calcMargin(val, expVal);
-
                 row.push(ppc ? ppc.toFixed(2) : "-");
                 row.push(ppl ? ppl.toFixed(2) : "-");
                 row.push(pExp ? `${pExp.toFixed(1)}%` : "-");
               }
             });
-
             if (hasPDS) {
               const p = range.columns?.["08-PDS"] ?? null;
               row.push(p ? p.toFixed(2) : "-");
             }
-
             tableBody.push(row);
             rowIndex++;
           });
-
           if (index < classItems.length - 1) {
             const columnsCount = 5 + standardColumns.length + (hasPDS ? 1 : 0) + (showDetails ? 3 : 0);
             tableBody.push(new Array(columnsCount).fill(""));
@@ -862,7 +826,6 @@ function PriceModal({
           head: [headRow],
           body: tableBody,
           styles: { fontSize: 8, cellPadding: 1.5 },
-          // keep your existing behavior; jsPDF autotable accepts array RGB; string hex may vary by version
           headStyles: { fillColor: [120, 0, 0], textColor: 255 },
           columnStyles: { 0: { fontStyle: "bold" }, 4: { textColor: [0, 150, 0] } },
           theme: "grid",
@@ -874,21 +837,17 @@ function PriceModal({
             }
           },
         });
-
         finalY = (doc as any).lastAutoTable.finalY + 10;
       }
 
       const pdfBlob = doc.output("blob");
-
       const formData = new FormData();
       formData.append("file", pdfBlob, "ListePrix.pdf");
       formData.append("to", recipientEmail);
       formData.append("subject", `Liste de prix SINTO : ${selectedPriceList?.name}`);
       formData.append("message", "Liste de Prix SINTO\n\nBonjour,\n\nVeuillez trouver ci-joint la liste de prix que vous avez demandée.");
-
       const res = await fetch("/api/catalogue/email", { method: "POST", body: formData });
       if (!res.ok) throw new Error("Erreur envoi");
-
       alert("Courriel envoyé avec succès!");
       setShowEmailModal(false);
     } catch (e: any) {
@@ -900,160 +859,134 @@ function PriceModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[99990] flex items-center justify-center p-2 md:p-4">
+    <div className="fixed inset-0 z-[99990] flex items-center justify-center p-2">
       <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/60 to-black/70 backdrop-blur-md" onClick={onClose} />
 
-      <div className="relative w-full max-w-[98vw] max-h-[94vh] bg-white dark:bg-neutral-950 rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
-        <div className="flex-shrink-0 relative" style={{ backgroundColor: accentColor, backgroundImage: "none" }}>
+      <div className="relative w-full max-w-[98vw] max-h-[94vh] bg-white dark:bg-neutral-950 rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+        {/* HEADER - iPad 1024px optimized with stacked rows */}
+        <div className="flex-shrink-0 relative" style={{ backgroundColor: accentColor }}>
           <div className="absolute inset-0 overflow-hidden opacity-10 pointer-events-none">
             <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2" />
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-white rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2" />
           </div>
 
-          <div className="relative px-5 md:px-8 py-5">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
-                  <FileText className="w-6 h-6 text-white" />
+          <div className="relative px-3 py-3">
+            {/* Row 1: Title + buttons - fits in 1024px */}
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg flex-shrink-0">
+                  <FileText className="w-4 h-4 text-white" />
                 </div>
-                <div>
-                  <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight">Liste de Prix</h2>
-                  <p className="text-white/70 text-sm mt-0.5">{itemsWithPrices.length} article(s) • {selectedPriceList?.code}</p>
+                <div className="min-w-0">
+                  <h2 className="text-lg font-black text-white tracking-tight truncate">Liste de Prix</h2>
+                  <p className="text-white/70 text-[10px] truncate">{itemsWithPrices.length} article(s) • {selectedPriceList?.code}</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 {isAuthenticating && (
-                  <div className="flex items-center gap-2 px-4 py-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                    <Loader2 className="w-4 h-4 text-white animate-spin" />
-                    <span className="text-white text-xs font-bold uppercase tracking-wider">Vérification FaceID...</span>
+                  <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-white/20 rounded-lg">
+                    <Loader2 className="w-3 h-3 text-white animate-spin" />
+                    <span className="text-white text-[10px] font-bold">FaceID...</span>
                   </div>
                 )}
-
                 <Toggle enabled={showDetails} onChange={handleToggleDetails} label="Détails" accentColor={accentColor} />
-
-                <div className="hidden md:flex items-center gap-2 ml-2">
-                  <IconButton onClick={() => setShowEmailModal(true)} icon={Mail} title="Envoyer par courriel" />
-                  <IconButton onClick={onReset} icon={RotateCcw} title="Réinitialiser" />
-                  <IconButton onClick={onClose} icon={X} title="Fermer" />
-                </div>
-
-                <div className="flex md:hidden items-center gap-2">
-                  <IconButton onClick={() => setShowEmailModal(true)} icon={Mail} title="Envoyer" />
-                  <IconButton onClick={onClose} icon={X} title="Fermer" />
-                </div>
+                <IconButton onClick={() => setShowEmailModal(true)} icon={Mail} title="Courriel" />
+                <IconButton onClick={onReset} icon={RotateCcw} title="Reset" className="hidden sm:flex" />
+                <IconButton onClick={onClose} icon={X} title="Fermer" />
               </div>
             </div>
 
-            {/* WIDE header controls */}
-            <div className="flex flex-col lg:flex-row gap-3 p-4 bg-black/15 backdrop-blur-sm rounded-2xl border border-white/10 overflow-visible">
-              <div className="relative min-w-[340px] md:min-w-[420px]">
+            {/* Filter controls - stacked rows for iPad */}
+            <div className="relative p-2.5 bg-black/15 backdrop-blur-sm rounded-xl border border-white/10 space-y-2">
+              {/* Row 1: Price list */}
+              <div className="relative w-full">
                 <select
                   value={selectedPriceList?.priceId || ""}
                   onChange={(e) => onPriceListChange(parseInt(e.target.value))}
                   disabled={loading}
-                  className={cn(
-                    "w-full h-11 px-4 pr-10 rounded-xl font-bold text-sm appearance-none cursor-pointer",
-                    "bg-white text-neutral-900 border-2 border-white",
-                    "focus:outline-none focus:ring-2 focus:ring-white/50",
-                    "disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
-                  )}
+                  className="w-full h-9 px-3 pr-8 rounded-lg font-bold text-xs appearance-none cursor-pointer bg-white text-neutral-900 border-2 border-white focus:outline-none disabled:opacity-50 transition-all"
                 >
                   {priceLists.map((pl) => (
-                    <option key={pl.priceId} value={pl.priceId}>
-                      {pl.code} - {pl.name}
-                    </option>
+                    <option key={pl.priceId} value={pl.priceId}>{pl.code} - {pl.name}</option>
                   ))}
                 </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500 pointer-events-none" />
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500 pointer-events-none" />
               </div>
 
-              <div className="relative flex-1 min-w-[260px] md:min-w-[320px]">
-                <select
-                  value={selectedProduct?.prodId || ""}
-                  onChange={(e) => onProductChange(e.target.value)}
-                  className={cn(
-                    "w-full h-11 px-4 pr-10 rounded-xl font-semibold text-sm appearance-none cursor-pointer",
-                    "bg-white/15 text-white border border-white/20",
-                    "focus:outline-none focus:border-white/50 focus:bg-white/25 transition-all duration-300"
-                  )}
-                >
-                  <option value="" className="text-neutral-900">Catégorie...</option>
-                  {products.map((p) => (
-                    <option key={p.prodId} value={p.prodId} className="text-neutral-900">{p.name}</option>
-                  ))}
-                </select>
-                <Layers className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
-              </div>
-
-              <div className="relative flex-1 min-w-[260px] md:min-w-[320px]">
-                <select
-                  value={selectedType?.itemTypeId || ""}
-                  onChange={(e) => onTypeChange(e.target.value)}
-                  disabled={!selectedProduct}
-                  className={cn(
-                    "w-full h-11 px-4 pr-10 rounded-xl font-semibold text-sm appearance-none cursor-pointer",
-                    "bg-white/15 text-white border border-white/20",
-                    "focus:outline-none focus:border-white/50 focus:bg-white/25",
-                    "disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300"
-                  )}
-                >
-                  <option value="" className="text-neutral-900">Classe...</option>
-                  {itemTypes.map((t) => (
-                    <option key={t.itemTypeId} value={t.itemTypeId} className="text-neutral-900">{t.description}</option>
-                  ))}
-                </select>
-                <Package className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
-              </div>
-
-              <MultiSelectDropdown
-                items={items}
-                selectedIds={selectedItemIds}
-                onChange={onItemsChange}
-                disabled={!selectedType && !selectedProduct}
-                accentColor={accentColor}
-              />
-
+              {/* Row 2: Category + Class */}
               <div className="flex gap-2">
+                <div className="relative flex-1 min-w-0">
+                  <select
+                    value={selectedProduct?.prodId || ""}
+                    onChange={(e) => onProductChange(e.target.value)}
+                    className="w-full h-9 px-3 pr-7 rounded-lg font-semibold text-xs appearance-none cursor-pointer bg-white/15 text-white border border-white/20 focus:outline-none focus:border-white/50 transition-all"
+                  >
+                    <option value="" className="text-neutral-900">Catégorie...</option>
+                    {products.map((p) => (
+                      <option key={p.prodId} value={p.prodId} className="text-neutral-900">{p.name}</option>
+                    ))}
+                  </select>
+                  <Layers className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-white/50 pointer-events-none" />
+                </div>
+                <div className="relative flex-1 min-w-0">
+                  <select
+                    value={selectedType?.itemTypeId || ""}
+                    onChange={(e) => onTypeChange(e.target.value)}
+                    disabled={!selectedProduct}
+                    className="w-full h-9 px-3 pr-7 rounded-lg font-semibold text-xs appearance-none cursor-pointer bg-white/15 text-white border border-white/20 focus:outline-none focus:border-white/50 disabled:opacity-40 transition-all"
+                  >
+                    <option value="" className="text-neutral-900">Classe...</option>
+                    {itemTypes.map((t) => (
+                      <option key={t.itemTypeId} value={t.itemTypeId} className="text-neutral-900">{t.description}</option>
+                    ))}
+                  </select>
+                  <Package className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-white/50 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Row 3: Articles + buttons */}
+              <div className="flex gap-2">
+                <div className="flex-1 min-w-0">
+                  <MultiSelectDropdown
+                    items={items}
+                    selectedIds={selectedItemIds}
+                    onChange={onItemsChange}
+                    disabled={!selectedType && !selectedProduct}
+                    accentColor={accentColor}
+                  />
+                </div>
                 <button
                   onClick={onLoadSelection}
                   disabled={loading || (!selectedProduct && selectedItemIds.size === 0)}
-                  className={cn(
-                    "h-11 px-5 rounded-xl font-bold text-sm whitespace-nowrap",
-                    "bg-white text-neutral-900 shadow-lg flex items-center gap-2",
-                    "hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]",
-                    "disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none transition-all duration-300"
-                  )}
+                  className="h-9 px-3 rounded-lg font-bold text-xs whitespace-nowrap flex-shrink-0 bg-white text-neutral-900 shadow-lg flex items-center justify-center gap-1 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                 >
-                  <Plus className="w-4 h-4" />
-                  Ajouter {selectedItemIds.size > 0 && `(${selectedItemIds.size})`}
+                  <Plus className="w-3.5 h-3.5" />
+                  <span className="hidden xs:inline">Ajouter</span>
+                  {selectedItemIds.size > 0 && <span>({selectedItemIds.size})</span>}
                 </button>
-
                 <button
                   onClick={() => setShowQuickAdd(!showQuickAdd)}
-                  className={cn(
-                    "h-11 w-11 rounded-xl flex items-center justify-center",
-                    "bg-white/15 hover:bg-white/25 text-white border border-white/20 transition-all duration-300"
-                  )}
-                  title="Recherche Rapide"
+                  className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-white/15 hover:bg-white/25 text-white border border-white/20 transition-all"
+                  title="Recherche"
                 >
-                  <Search className="w-5 h-5" />
+                  <Search className="w-4 h-4" />
                 </button>
               </div>
-            </div>
 
-            {showQuickAdd && (
-              <QuickAddSearch accentColor={accentColor} onClose={() => setShowQuickAdd(false)} onAddItems={onAddItems} />
-            )}
+              {showQuickAdd && (
+                <QuickAddSearch accentColor={accentColor} onClose={() => setShowQuickAdd(false)} onAddItems={onAddItems} />
+              )}
+            </div>
           </div>
         </div>
 
+        {/* CONTENT */}
         <div className="flex-1 overflow-auto bg-gradient-to-b from-neutral-100 to-neutral-200 dark:from-neutral-900 dark:to-neutral-950">
           {loading && data.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-80 gap-5">
               <div className="relative">
                 <div className="w-16 h-16 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${accentColor}30`, borderTopColor: "transparent" }} />
-                <div className="absolute inset-2 w-12 h-12 border-4 border-b-transparent rounded-full animate-spin animate-reverse" style={{ borderColor: accentColor, borderBottomColor: "transparent", animationDirection: "reverse" }} />
+                <div className="absolute inset-2 w-12 h-12 border-4 border-b-transparent rounded-full animate-spin" style={{ borderColor: accentColor, borderBottomColor: "transparent", animationDirection: "reverse" }} />
               </div>
               <div className="text-center">
                 <p className="text-lg font-bold text-neutral-700 dark:text-neutral-300">Chargement des prix</p>
@@ -1068,47 +1001,40 @@ function PriceModal({
               <div className="text-center">
                 <p className="text-xl font-bold" style={{ color: accentColor }}>Erreur</p>
                 <p className="text-neutral-500 mt-2 max-w-md">{error}</p>
-                <button
-                  onClick={onReset}
-                  className="mt-4 px-6 py-2 rounded-xl text-sm font-semibold border-2 transition-colors"
-                  style={{ borderColor: accentColor, color: accentColor }}
-                >
-                  <RefreshCw className="w-4 h-4 inline mr-2" />
-                  Réessayer
+                <button onClick={onReset} className="mt-4 px-6 py-2 rounded-xl text-sm font-semibold border-2 transition-colors" style={{ borderColor: accentColor, color: accentColor }}>
+                  <RefreshCw className="w-4 h-4 inline mr-2" />Réessayer
                 </button>
               </div>
             </div>
           ) : Object.keys(groupedItems).length > 0 ? (
-            <div className="p-4 md:p-6 space-y-8">
+            <div className="p-4 space-y-8">
               {Object.entries(groupedItems).map(([className, classItems]) => {
                 const firstItem = classItems[0];
                 let priceColumns = firstItem.ranges[0]?.columns ? Object.keys(firstItem.ranges[0].columns).sort() : [selectedPriceList?.code || "Prix"];
                 if (!showDetails && selectedPriceList?.code !== "01-EXP") priceColumns = priceColumns.filter((c) => c.trim() !== "01-EXP");
                 const standardColumns = priceColumns.filter((c) => c.trim() !== "08-PDS");
                 const hasPDS = priceColumns.some((c) => c.trim() === "08-PDS");
-
                 const totalCols = 5 + standardColumns.length + (hasPDS ? 1 : 0);
 
                 return (
                   <div key={className} className="bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden shadow-xl border border-neutral-200/50 dark:border-neutral-800">
-                    <div className="relative px-6 py-5 overflow-visible" style={{ backgroundColor: accentColor, backgroundImage: "none" }}>
+                    <div className="relative px-4 py-4" style={{ backgroundColor: accentColor }}>
                       <div className="absolute inset-0 overflow-hidden opacity-10 pointer-events-none">
                         <div className="absolute -top-10 -right-10 w-40 h-40 bg-white rounded-full blur-2xl" />
                       </div>
                       <div className="relative flex items-center justify-between">
                         <div>
-                          <h3 className="text-xl md:text-2xl font-black text-white uppercase tracking-wider">{className}</h3>
-                          <p className="text-white/70 text-sm mt-1 font-medium">{classItems.length} article(s) dans cette classe</p>
+                          <h3 className="text-lg font-black text-white uppercase tracking-wider">{className}</h3>
+                          <p className="text-white/70 text-xs mt-1 font-medium">{classItems.length} article(s)</p>
                         </div>
-                        <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                          <Sparkles className="w-4 h-4 text-white" />
-                          <span className="text-white text-sm font-bold">{selectedPriceList?.code}</span>
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
+                          <Sparkles className="w-3 h-3 text-white" />
+                          <span className="text-white text-xs font-bold">{selectedPriceList?.code}</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* iPad: no horizontal scroll; fit within width */}
-                    <div className={cn("overflow-x-hidden", "xl:overflow-x-auto")}>
+                    <div className="overflow-x-auto">
                       <table className={cn("w-full table-fixed border-collapse", isTabletCompact ? "text-[11px]" : "text-base")}>
                         <colgroup>
                           {(() => {
@@ -1125,237 +1051,95 @@ function PriceModal({
                             );
                           })()}
                         </colgroup>
-
                         <thead>
                           <tr className="bg-gradient-to-r from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
-                            <th
-                              className={cn(
-                                "text-left font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800",
-                                isTabletCompact ? "p-2" : "p-4 md:p-5",
-                                "xl:sticky xl:left-0 xl:z-10"
-                              )}
-                            >
-                              <div className="flex items-center gap-2">
-                                <Package className={cn(isTabletCompact ? "w-4 h-4" : "w-5 h-5", "opacity-50")} />
-                                Article
-                              </div>
+                            <th className={cn("text-left font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800", isTabletCompact ? "p-2" : "p-4")}>
+                              <div className="flex items-center gap-2"><Package className={cn(isTabletCompact ? "w-4 h-4" : "w-5 h-5", "opacity-50")} />Article</div>
                             </th>
-
-                            <th className={cn("text-center font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700", isTabletCompact ? "p-2" : "p-4 md:p-5")}>
-                              CAISSE
-                            </th>
-                            <th className={cn("text-center font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700", isTabletCompact ? "p-2" : "p-4 md:p-5")}>
-                              Format
-                            </th>
-                            <th className={cn("text-center font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700", isTabletCompact ? "p-2" : "p-4 md:p-5")}>
-                              Qty
-                            </th>
-                            <th className={cn("text-right font-black text-emerald-700 dark:text-emerald-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-emerald-50/50 dark:bg-emerald-900/10", isTabletCompact ? "p-2" : "p-4 md:p-5")}>
-                              % Marge
-                            </th>
-
+                            <th className={cn("text-center font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700", isTabletCompact ? "p-2" : "p-4")}>CAISSE</th>
+                            <th className={cn("text-center font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700", isTabletCompact ? "p-2" : "p-4")}>Format</th>
+                            <th className={cn("text-center font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700", isTabletCompact ? "p-2" : "p-4")}>Qty</th>
+                            <th className={cn("text-right font-black text-emerald-700 dark:text-emerald-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-emerald-50/50 dark:bg-emerald-900/10", isTabletCompact ? "p-2" : "p-4")}>% Marge</th>
                             {standardColumns.map((colCode) => {
                               const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
                               return (
                                 <Fragment key={colCode}>
-                                  <th
-                                    className={cn(
-                                      "text-right font-black border-b-2 border-neutral-300 dark:border-neutral-700 whitespace-nowrap",
-                                      isTabletCompact ? "p-2" : "p-4 md:p-5",
-                                      isSelectedList
-                                        ? "text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/10"
-                                        : "text-neutral-700 dark:text-neutral-200"
-                                    )}
-                                  >
-                                    {colCode}
-                                  </th>
-
-                                  {/* Desktop only: extra detail columns; iPad keeps stable column count */}
+                                  <th className={cn("text-right font-black border-b-2 border-neutral-300 dark:border-neutral-700 whitespace-nowrap", isTabletCompact ? "p-2" : "p-4", isSelectedList ? "text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/10" : "text-neutral-700 dark:text-neutral-200")}>{colCode}</th>
                                   {showDetails && isSelectedList && !isTabletCompact && (
                                     <>
-                                      <th className="text-right p-4 md:p-5 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/10 whitespace-nowrap">
-                                        $/Caisse
-                                      </th>
-                                      <th className="text-right p-4 md:p-5 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/10 whitespace-nowrap">
-                                        $/L
-                                      </th>
-                                      <th className="text-right p-4 md:p-5 font-black text-violet-700 dark:text-violet-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-violet-50/50 dark:bg-violet-900/10 whitespace-nowrap">
-                                        % Exp
-                                      </th>
+                                      <th className="text-right p-4 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/10 whitespace-nowrap">$/Caisse</th>
+                                      <th className="text-right p-4 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/10 whitespace-nowrap">$/L</th>
+                                      <th className="text-right p-4 font-black text-violet-700 dark:text-violet-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-violet-50/50 dark:bg-violet-900/10 whitespace-nowrap">% Exp</th>
                                     </>
                                   )}
                                 </Fragment>
                               );
                             })}
-
-                            {hasPDS && (
-                              <th className={cn("text-right font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700 whitespace-nowrap", isTabletCompact ? "p-2" : "p-4 md:p-5")}>
-                                08-PDS
-                              </th>
-                            )}
+                            {hasPDS && <th className={cn("text-right font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700 whitespace-nowrap", isTabletCompact ? "p-2" : "p-4")}>08-PDS</th>}
                           </tr>
                         </thead>
-
                         <tbody>
                           {classItems.map((item, itemIndex) => (
                             <Fragment key={item.itemId}>
                               {item.ranges.map((range, rIdx) => {
                                 const isFirstRowOfItem = rIdx === 0;
-
                                 const selectedPriceCode = selectedPriceList?.code || "";
                                 const selectedPriceVal = range.columns?.[selectedPriceCode] ?? range.unitPrice;
                                 const expBaseVal = range.columns?.["01-EXP"] ?? null;
                                 const pdsVal = range.columns?.["08-PDS"] ?? null;
-
                                 const percentExp = calcMargin(selectedPriceVal, expBaseVal);
                                 const percentMarge = calcMargin(pdsVal, selectedPriceVal);
-
                                 const rowBg = itemIndex % 2 === 0 ? "bg-white dark:bg-neutral-900" : "bg-neutral-50/70 dark:bg-neutral-800/40";
 
                                 return (
                                   <tr key={range.id} className={cn("transition-all duration-200 group", rowBg, "hover:bg-amber-50/50 dark:hover:bg-amber-900/10")}>
-                                    <td
-                                      className={cn(
-                                        "border-b border-neutral-100 dark:border-neutral-800 align-top",
-                                        isTabletCompact ? "p-2" : "p-4 md:p-5",
-                                        rowBg,
-                                        "group-hover:bg-amber-50/50 dark:group-hover:bg-amber-900/10",
-                                        "xl:sticky xl:left-0 xl:z-10"
-                                      )}
-                                    >
+                                    <td className={cn("border-b border-neutral-100 dark:border-neutral-800 align-top", isTabletCompact ? "p-2" : "p-4", rowBg, "group-hover:bg-amber-50/50 dark:group-hover:bg-amber-900/10")}>
                                       {isFirstRowOfItem && (
                                         <div className="flex flex-col gap-1">
-                                          <span className={cn("font-mono font-black tracking-tight", isTabletCompact ? "text-[13px]" : "text-lg md:text-xl")} style={{ color: accentColor }}>
-                                            {item.itemCode}
-                                          </span>
-                                          <span className={cn("text-neutral-500 truncate", isTabletCompact ? "text-[10px]" : "text-sm")} title={item.description}>
-                                            {item.description}
-                                          </span>
+                                          <span className={cn("font-mono font-black tracking-tight", isTabletCompact ? "text-[13px]" : "text-lg")} style={{ color: accentColor }}>{item.itemCode}</span>
+                                          <span className={cn("text-neutral-500 truncate", isTabletCompact ? "text-[10px]" : "text-sm")} title={item.description}>{item.description}</span>
                                         </div>
                                       )}
                                     </td>
-
-                                    <td className={cn("text-center border-b border-neutral-100 dark:border-neutral-800 align-top", isTabletCompact ? "p-2" : "p-4 md:p-5")}>
-                                      {isFirstRowOfItem && <span className={cn("font-black text-neutral-900 dark:text-white", isTabletCompact ? "text-[12px]" : "text-lg")}>{item.caisse ? Math.round(item.caisse) : "-"}</span>}
-                                    </td>
-
-                                    <td className={cn("text-center border-b border-neutral-100 dark:border-neutral-800 align-top", isTabletCompact ? "p-2" : "p-4 md:p-5")}>
-                                      {isFirstRowOfItem && (
-                                        <span className={cn("font-bold text-neutral-800 dark:text-neutral-200 px-3 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg inline-block", isTabletCompact ? "text-[11px]" : "text-lg")}>
-                                          {item.format || "-"}
-                                        </span>
-                                      )}
-                                    </td>
-
-                                    <td className={cn("text-center border-b border-neutral-100 dark:border-neutral-800", isTabletCompact ? "p-2" : "p-4 md:p-5")}>
-                                      <span className={cn("font-mono font-bold text-neutral-900 dark:text-white", isTabletCompact ? "text-[12px]" : "text-lg")}>{range.qtyMin}</span>
-                                    </td>
-
-                                    <td className={cn("text-right border-b border-neutral-100 dark:border-neutral-800 bg-emerald-50/30 dark:bg-emerald-900/5", isTabletCompact ? "p-2" : "p-4 md:p-5")}>
-                                      <span
-                                        className={cn(
-                                          "font-mono font-black whitespace-nowrap",
-                                          isTabletCompact ? "text-[12px]" : "text-lg",
-                                          percentMarge && percentMarge < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
-                                        )}
-                                      >
-                                        {percentMarge !== null ? `${percentMarge.toFixed(1)}%` : "-"}
-                                      </span>
-                                    </td>
-
+                                    <td className={cn("text-center border-b border-neutral-100 dark:border-neutral-800 align-top", isTabletCompact ? "p-2" : "p-4")}>{isFirstRowOfItem && <span className={cn("font-black text-neutral-900 dark:text-white", isTabletCompact ? "text-[12px]" : "text-lg")}>{item.caisse ? Math.round(item.caisse) : "-"}</span>}</td>
+                                    <td className={cn("text-center border-b border-neutral-100 dark:border-neutral-800 align-top", isTabletCompact ? "p-2" : "p-4")}>{isFirstRowOfItem && <span className={cn("font-bold text-neutral-800 dark:text-neutral-200 px-2 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded-lg inline-block", isTabletCompact ? "text-[11px]" : "text-base")}>{item.format || "-"}</span>}</td>
+                                    <td className={cn("text-center border-b border-neutral-100 dark:border-neutral-800", isTabletCompact ? "p-2" : "p-4")}><span className={cn("font-mono font-bold text-neutral-900 dark:text-white", isTabletCompact ? "text-[12px]" : "text-lg")}>{range.qtyMin}</span></td>
+                                    <td className={cn("text-right border-b border-neutral-100 dark:border-neutral-800 bg-emerald-50/30 dark:bg-emerald-900/5", isTabletCompact ? "p-2" : "p-4")}><span className={cn("font-mono font-black whitespace-nowrap", isTabletCompact ? "text-[12px]" : "text-lg", percentMarge && percentMarge < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400")}>{percentMarge !== null ? `${percentMarge.toFixed(1)}%` : "-"}</span></td>
                                     {standardColumns.map((colCode) => {
                                       const priceVal = range.columns ? range.columns[colCode] : colCode === selectedPriceList?.code ? range.unitPrice : null;
                                       const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
-
                                       const ppc = calcPricePerCaisse(selectedPriceVal ?? 0, item.caisse);
                                       const ppl = calcPricePerLitre(selectedPriceVal ?? 0, item.volume);
-
                                       return (
                                         <Fragment key={colCode}>
-                                          <td
-                                            className={cn(
-                                              "text-right border-b border-neutral-100 dark:border-neutral-800",
-                                              isTabletCompact ? "p-2" : "p-4 md:p-5",
-                                              isSelectedList && "bg-amber-50/30 dark:bg-amber-900/5"
-                                            )}
-                                          >
-                                            <span
-                                              className={cn(
-                                                "font-mono font-black whitespace-nowrap tabular-nums",
-                                                isTabletCompact ? "text-[12px]" : "text-lg",
-                                                isSelectedList ? "text-amber-700 dark:text-amber-400" : "text-neutral-700 dark:text-neutral-300"
-                                              )}
-                                            >
-                                              {priceVal !== null && priceVal !== undefined ? <AnimatedPrice value={priceVal} /> : "-"}
-                                            </span>
-
-                                            {/* iPad/tablet: render details inside the selected cell (no extra columns) */}
+                                          <td className={cn("text-right border-b border-neutral-100 dark:border-neutral-800", isTabletCompact ? "p-2" : "p-4", isSelectedList && "bg-amber-50/30 dark:bg-amber-900/5")}>
+                                            <span className={cn("font-mono font-black whitespace-nowrap tabular-nums", isTabletCompact ? "text-[12px]" : "text-lg", isSelectedList ? "text-amber-700 dark:text-amber-400" : "text-neutral-700 dark:text-neutral-300")}>{priceVal !== null && priceVal !== undefined ? <AnimatedPrice value={priceVal} /> : "-"}</span>
                                             {showDetails && isSelectedList && isTabletCompact && (
                                               <div className="mt-1 space-y-0.5 text-[10px] leading-tight text-neutral-600 dark:text-neutral-400">
-                                                <div className="flex justify-end gap-2">
-                                                  <span className="opacity-70">$/Caisse</span>
-                                                  <span className="font-mono tabular-nums">{ppc ? ppc.toFixed(2) : "-"}</span>
-                                                </div>
-                                                <div className="flex justify-end gap-2">
-                                                  <span className="opacity-70">$/L</span>
-                                                  <span className="font-mono tabular-nums">{ppl ? ppl.toFixed(2) : "-"}</span>
-                                                </div>
-                                                <div className="flex justify-end gap-2">
-                                                  <span className="opacity-70">% Exp</span>
-                                                  <span className="font-mono tabular-nums">{percentExp !== null ? `${percentExp.toFixed(1)}%` : "-"}</span>
-                                                </div>
+                                                <div className="flex justify-end gap-2"><span className="opacity-70">$/Cs</span><span className="font-mono tabular-nums">{ppc ? ppc.toFixed(2) : "-"}</span></div>
+                                                <div className="flex justify-end gap-2"><span className="opacity-70">$/L</span><span className="font-mono tabular-nums">{ppl ? ppl.toFixed(2) : "-"}</span></div>
+                                                <div className="flex justify-end gap-2"><span className="opacity-70">%Exp</span><span className="font-mono tabular-nums">{percentExp !== null ? `${percentExp.toFixed(1)}%` : "-"}</span></div>
                                               </div>
                                             )}
                                           </td>
-
-                                          {/* Desktop only: extra detail columns */}
                                           {showDetails && isSelectedList && !isTabletCompact && (
                                             <>
-                                              <td className="p-4 md:p-5 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/5">
-                                                <span className="font-mono text-base text-sky-700 dark:text-sky-400 whitespace-nowrap tabular-nums">
-                                                  {ppc ? ppc.toFixed(2) : "-"}
-                                                </span>
-                                              </td>
-                                              <td className="p-4 md:p-5 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/5">
-                                                <span className="font-mono text-base text-sky-700 dark:text-sky-400 whitespace-nowrap tabular-nums">
-                                                  {ppl ? ppl.toFixed(2) : "-"}
-                                                </span>
-                                              </td>
-                                              <td className="p-4 md:p-5 text-right border-b border-neutral-100 dark:border-neutral-800 bg-violet-50/30 dark:bg-violet-900/5">
-                                                <span
-                                                  className={cn(
-                                                    "font-mono font-bold text-base whitespace-nowrap tabular-nums",
-                                                    percentExp && percentExp < 0 ? "text-red-600 dark:text-red-400" : "text-violet-700 dark:text-violet-400"
-                                                  )}
-                                                >
-                                                  {percentExp !== null ? `${percentExp.toFixed(1)}%` : "-"}
-                                                </span>
-                                              </td>
+                                              <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/5"><span className="font-mono text-base text-sky-700 dark:text-sky-400 tabular-nums">{ppc ? ppc.toFixed(2) : "-"}</span></td>
+                                              <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/5"><span className="font-mono text-base text-sky-700 dark:text-sky-400 tabular-nums">{ppl ? ppl.toFixed(2) : "-"}</span></td>
+                                              <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-violet-50/30 dark:bg-violet-900/5"><span className={cn("font-mono font-bold text-base tabular-nums", percentExp && percentExp < 0 ? "text-red-600 dark:text-red-400" : "text-violet-700 dark:text-violet-400")}>{percentExp !== null ? `${percentExp.toFixed(1)}%` : "-"}</span></td>
                                             </>
                                           )}
                                         </Fragment>
                                       );
                                     })}
-
                                     {hasPDS && (() => {
                                       const p = range.columns?.["08-PDS"] ?? null;
-                                      return (
-                                        <td className={cn("text-right border-b border-neutral-100 dark:border-neutral-800", isTabletCompact ? "p-2" : "p-4 md:p-5")}>
-                                          <span className={cn("font-mono font-black text-neutral-700 dark:text-neutral-300 whitespace-nowrap tabular-nums", isTabletCompact ? "text-[12px]" : "text-lg")}>
-                                            {p !== null ? <AnimatedPrice value={p} /> : "-"}
-                                          </span>
-                                        </td>
-                                      );
+                                      return <td className={cn("text-right border-b border-neutral-100 dark:border-neutral-800", isTabletCompact ? "p-2" : "p-4")}><span className={cn("font-mono font-black text-neutral-700 dark:text-neutral-300 tabular-nums", isTabletCompact ? "text-[12px]" : "text-lg")}>{p !== null ? <AnimatedPrice value={p} /> : "-"}</span></td>;
                                     })()}
                                   </tr>
                                 );
                               })}
-
-                              {itemIndex < classItems.length - 1 && (
-                                <tr className="h-4 bg-neutral-900 dark:bg-black">
-                                  <td colSpan={100} className="border-none" />
-                                </tr>
-                              )}
+                              {itemIndex < classItems.length - 1 && <tr className="h-3 bg-neutral-900 dark:bg-black"><td colSpan={100} className="border-none" /></tr>}
                             </Fragment>
                           ))}
                         </tbody>
@@ -1372,29 +1156,23 @@ function PriceModal({
               </div>
               <div className="text-center">
                 <p className="text-xl font-bold text-neutral-700 dark:text-neutral-300">Aucun prix trouvé</p>
-                <p className="text-neutral-500 mt-2 max-w-sm">Sélectionnez des articles à partir des filtres ci-dessus et cliquez sur Ajouter.</p>
+                <p className="text-neutral-500 mt-2 max-w-sm">Sélectionnez des articles et cliquez sur Ajouter.</p>
               </div>
             </div>
           )}
         </div>
 
+        {/* FOOTER */}
         {!loading && itemsWithPrices.length > 0 && (
-          <div className="flex-shrink-0 bg-neutral-100 dark:bg-neutral-900 px-6 py-4 border-t border-neutral-200 dark:border-neutral-800">
+          <div className="flex-shrink-0 bg-neutral-100 dark:bg-neutral-900 px-4 py-3 border-t border-neutral-200 dark:border-neutral-800">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="px-4 py-2 rounded-xl font-bold text-sm" style={{ backgroundColor: `${accentColor}15`, color: accentColor }}>
-                  {itemsWithPrices.length} article(s)
-                </div>
-                {showDetails && (
-                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-semibold text-sm">
-                    <Eye className="w-4 h-4" />
-                    Détails activés
-                  </div>
-                )}
+              <div className="flex items-center gap-3">
+                <div className="px-3 py-1.5 rounded-lg font-bold text-xs" style={{ backgroundColor: `${accentColor}15`, color: accentColor }}>{itemsWithPrices.length} article(s)</div>
+                {showDetails && <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-semibold text-xs"><Eye className="w-3 h-3" />Détails</div>}
               </div>
-              <div className="hidden md:flex items-center gap-2 text-sm text-neutral-500">
+              <div className="hidden sm:flex items-center gap-2 text-xs text-neutral-500">
                 <span>Liste:</span>
-                <span className="font-bold text-neutral-700 dark:text-neutral-300">{selectedPriceList?.code} - {selectedPriceList?.name}</span>
+                <span className="font-bold text-neutral-700 dark:text-neutral-300">{selectedPriceList?.code}</span>
               </div>
             </div>
           </div>
@@ -1407,14 +1185,7 @@ function PriceModal({
 }
 
 /* =========================
-   Fragment helper
-========================= */
-function Fragment({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
-}
-
-/* =========================
-   Main page
+   Main page - WIDER container for iPad dropdowns
 ========================= */
 export default function CataloguePage() {
   const { color: accentColor } = useCurrentAccent();
@@ -1446,11 +1217,7 @@ export default function CataloguePage() {
   useEffect(() => {
     (async () => {
       try {
-        const [prodRes, plRes] = await Promise.all([
-          fetch("/api/catalogue/products"),
-          fetch("/api/catalogue/pricelists"),
-        ]);
-
+        const [prodRes, plRes] = await Promise.all([fetch("/api/catalogue/products"), fetch("/api/catalogue/pricelists")]);
         if (prodRes.ok) setProducts(await prodRes.json());
         if (plRes.ok) {
           const pls: PriceList[] = await plRes.json();
@@ -1502,22 +1269,18 @@ export default function CataloguePage() {
 
   const handleLoadSelection = async () => {
     if (!selectedPriceList) return;
-
     if (selectedItemIds.size > 0) {
       await handleAddItems(Array.from(selectedItemIds));
       return;
     }
-
     setLoadingPrices(true);
     try {
       let url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}`;
       if (selectedProduct) url += `&prodId=${selectedProduct.prodId}`;
       if (selectedType) url += `&typeId=${selectedType.itemTypeId}`;
-
       const res = await fetch(url);
       if (!res.ok) throw new Error("Erreur fetch");
       const newItems: ItemPriceData[] = await res.json();
-
       setPriceData((prev) => {
         const existingIds = new Set(prev.map((i) => i.itemId));
         const filteredNew = newItems.filter((i) => !existingIds.has(i.itemId));
@@ -1538,14 +1301,12 @@ export default function CataloguePage() {
   const handleProductChange = async (prodId: string) => {
     const prod = products.find((p) => p.prodId === parseInt(prodId));
     if (!prod) return;
-
     setSelectedProduct(prod);
     setSelectedType(null);
     setSelectedItem(null);
     setSelectedItemIds(new Set());
     setItems([]);
     setItemTypes([]);
-
     setLoadingTypes(true);
     try {
       const res = await fetch(`/api/catalogue/itemtypes?prodId=${prod.prodId}`);
@@ -1563,15 +1324,12 @@ export default function CataloguePage() {
       setItems([]);
       return;
     }
-
     const type = itemTypes.find((t) => t.itemTypeId === parseInt(typeId));
     if (!type) return;
-
     setSelectedType(type);
     setSelectedItem(null);
     setSelectedItemIds(new Set());
     setItems([]);
-
     setLoadingItems(true);
     try {
       const res = await fetch(`/api/catalogue/items?itemTypeId=${type.itemTypeId}`);
@@ -1594,10 +1352,8 @@ export default function CataloguePage() {
     setSearchQuery("");
     setSearchResults([]);
     setSelectedItem(item);
-
     const prod = products.find((p) => p.prodId === item.prodId);
     if (!prod) return;
-
     setSelectedProduct(prod);
     setLoadingTypes(true);
     try {
@@ -1624,17 +1380,14 @@ export default function CataloguePage() {
 
   const handleGenerate = async () => {
     if (!selectedPriceList || !selectedProduct) return;
-
     setPriceData([]);
     setPriceError(null);
     setShowPriceModal(true);
-
     setLoadingPrices(true);
     try {
       let url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}&prodId=${selectedProduct.prodId}`;
       if (selectedType) url += `&typeId=${selectedType.itemTypeId}`;
       if (selectedItem) url += `&itemId=${selectedItem.itemId}`;
-
       const res = await fetch(url);
       if (!res.ok) throw new Error("Erreur fetch");
       setPriceData(await res.json());
@@ -1648,9 +1401,7 @@ export default function CataloguePage() {
   const handleModalPriceListChange = async (priceId: number) => {
     const pl = priceLists.find((p) => p.priceId === priceId);
     if (!pl) return;
-
     setSelectedPriceList(pl);
-
     if (priceData.length > 0) {
       setLoadingPrices(true);
       const allIds = Array.from(new Set(priceData.map((i) => i.itemId))).join(",");
@@ -1670,24 +1421,21 @@ export default function CataloguePage() {
     <div className="min-h-screen bg-gradient-to-br from-neutral-100 via-neutral-50 to-neutral-100 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
       <div className="min-h-screen flex flex-col">
         <main className="flex-1 p-4 md:p-8 flex flex-col justify-center items-center">
-          <div className="w-full max-w-3xl">
+          {/* WIDER container: max-w-5xl (1024px) for iPad visibility - ensures dropdown text is fully visible */}
+          <div className="w-full max-w-5xl">
             <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/50 dark:border-neutral-800 shadow-2xl overflow-hidden">
-              <div
-                className="relative p-6 md:p-8 overflow-hidden"
-                style={{ background: `linear-gradient(135deg, ${accentColor}08 0%, transparent 100%)` }}
-              >
+              <div className="relative p-6 md:p-8 overflow-hidden" style={{ background: `linear-gradient(135deg, ${accentColor}08 0%, transparent 100%)` }}>
                 <div className="absolute inset-0 opacity-5">
                   <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full" style={{ backgroundColor: accentColor }} />
                 </div>
-
                 <div className="relative flex items-center gap-5">
                   <div className="relative">
                     <div className="absolute inset-0 rounded-2xl blur-xl opacity-30" style={{ backgroundColor: accentColor }} />
                     <Image src="/sinto-logo.svg" alt="SINTO Logo" width={72} height={72} className="relative h-[72px] w-[72px] object-contain" />
                   </div>
                   <div>
-                    <h1 className="text-3xl font-black tracking-tight text-neutral-900 dark:text-white">Catalogue SINTO</h1>
-                    <p className="text-neutral-500 mt-1 font-medium">Générateur de liste de prix</p>
+                    <h1 className="text-2xl md:text-3xl font-black tracking-tight text-neutral-900 dark:text-white">Catalogue SINTO</h1>
+                    <p className="text-neutral-500 mt-1 font-medium text-sm md:text-base">Générateur de liste de prix</p>
                   </div>
                 </div>
               </div>
@@ -1703,13 +1451,7 @@ export default function CataloguePage() {
                       placeholder="Recherche rapide par code article..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className={cn(
-                        "w-full h-16 pl-14 pr-5 rounded-2xl text-base font-semibold",
-                        "bg-neutral-100 dark:bg-neutral-800",
-                        "border-2 border-transparent",
-                        "focus:ring-0 focus:outline-none transition-all duration-300",
-                        "placeholder:text-neutral-400"
-                      )}
+                      className={cn("w-full h-14 md:h-16 pl-14 pr-5 rounded-2xl text-base font-semibold", "bg-neutral-100 dark:bg-neutral-800", "border-2 border-transparent", "focus:ring-0 focus:outline-none transition-all duration-300", "placeholder:text-neutral-400")}
                       style={{ borderColor: searchQuery ? accentColor : "transparent" }}
                     />
                   </div>
@@ -1724,11 +1466,7 @@ export default function CataloguePage() {
                       ) : searchResults.length > 0 ? (
                         <div className="p-2">
                           {searchResults.map((item) => (
-                            <button
-                              key={item.itemId}
-                              onClick={() => handleSearchResultClick(item)}
-                              className={cn("w-full p-4 text-left rounded-xl transition-all duration-200", "hover:bg-neutral-50 dark:hover:bg-neutral-800/70", "group")}
-                            >
+                            <button key={item.itemId} onClick={() => handleSearchResultClick(item)} className={cn("w-full p-4 text-left rounded-xl transition-all duration-200", "hover:bg-neutral-50 dark:hover:bg-neutral-800/70", "group")}>
                               <div className="flex items-center gap-4">
                                 <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}15` }}>
                                   <Package className="w-5 h-5" style={{ color: accentColor }} />
@@ -1754,9 +1492,9 @@ export default function CataloguePage() {
                   )}
                 </div>
 
-                <div className="space-y-6">
+                <div className="space-y-5 md:space-y-6">
                   <div>
-                    <label className="flex items-center gap-2 text-xs font-black text-neutral-500 mb-3 uppercase tracking-wider">
+                    <label className="flex items-center gap-2 text-xs font-black text-neutral-500 mb-2 md:mb-3 uppercase tracking-wider">
                       <span className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px]">1</span>
                       Liste de Prix
                     </label>
@@ -1764,25 +1502,18 @@ export default function CataloguePage() {
                       <select
                         value={selectedPriceList?.priceId || ""}
                         onChange={(e) => handlePriceListChange(e.target.value)}
-                        className={cn(
-                          "w-full h-16 px-5 pr-12 text-lg font-bold appearance-none cursor-pointer",
-                          "bg-neutral-50 dark:bg-neutral-800",
-                          "border-2 border-neutral-200 dark:border-neutral-700 rounded-xl",
-                          "focus:ring-0 focus:outline-none transition-all duration-300"
-                        )}
+                        className={cn("w-full h-14 md:h-16 px-4 md:px-5 pr-12 text-base md:text-lg font-bold appearance-none cursor-pointer", "bg-neutral-50 dark:bg-neutral-800", "border-2 border-neutral-200 dark:border-neutral-700 rounded-xl", "focus:ring-0 focus:outline-none transition-all duration-300")}
                         style={{ borderColor: selectedPriceList ? accentColor : undefined }}
                       >
                         <option value="" disabled>Sélectionner...</option>
-                        {priceLists.map((pl) => (
-                          <option key={pl.priceId} value={pl.priceId}>{pl.code} - {pl.name}</option>
-                        ))}
+                        {priceLists.map((pl) => <option key={pl.priceId} value={pl.priceId}>{pl.code} - {pl.name}</option>)}
                       </select>
-                      <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />
+                      <ChevronDown className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />
                     </div>
                   </div>
 
                   <div>
-                    <label className="flex items-center gap-2 text-xs font-black text-neutral-500 mb-3 uppercase tracking-wider">
+                    <label className="flex items-center gap-2 text-xs font-black text-neutral-500 mb-2 md:mb-3 uppercase tracking-wider">
                       <span className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px]">2</span>
                       Catégorie
                     </label>
@@ -1791,25 +1522,17 @@ export default function CataloguePage() {
                         value={selectedProduct?.prodId || ""}
                         onChange={(e) => handleProductChange(e.target.value)}
                         disabled={!selectedPriceList}
-                        className={cn(
-                          "w-full h-16 px-5 pr-12 text-lg font-bold appearance-none cursor-pointer",
-                          "bg-neutral-50 dark:bg-neutral-800",
-                          "border-2 border-neutral-200 dark:border-neutral-700 rounded-xl",
-                          "focus:ring-0 focus:outline-none transition-all duration-300",
-                          "disabled:opacity-40 disabled:cursor-not-allowed"
-                        )}
+                        className={cn("w-full h-14 md:h-16 px-4 md:px-5 pr-12 text-base md:text-lg font-bold appearance-none cursor-pointer", "bg-neutral-50 dark:bg-neutral-800", "border-2 border-neutral-200 dark:border-neutral-700 rounded-xl", "focus:ring-0 focus:outline-none transition-all duration-300", "disabled:opacity-40 disabled:cursor-not-allowed")}
                       >
                         <option value="" disabled>Sélectionner...</option>
-                        {products.map((p) => (
-                          <option key={p.prodId} value={p.prodId}>{p.name} ({p.itemCount})</option>
-                        ))}
+                        {products.map((p) => <option key={p.prodId} value={p.prodId}>{p.name} ({p.itemCount})</option>)}
                       </select>
-                      <Layers className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />
+                      <Layers className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />
                     </div>
                   </div>
 
                   <div>
-                    <label className="flex items-center gap-2 text-xs font-black text-neutral-500 mb-3 uppercase tracking-wider">
+                    <label className="flex items-center gap-2 text-xs font-black text-neutral-500 mb-2 md:mb-3 uppercase tracking-wider">
                       <span className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px]">3</span>
                       Classe <span className="text-neutral-400 font-normal normal-case text-xs">(Optionnel)</span>
                     </label>
@@ -1818,29 +1541,17 @@ export default function CataloguePage() {
                         value={selectedType?.itemTypeId || ""}
                         onChange={(e) => handleTypeChange(e.target.value)}
                         disabled={!selectedProduct || loadingTypes}
-                        className={cn(
-                          "w-full h-16 px-5 pr-12 text-lg font-bold appearance-none cursor-pointer",
-                          "bg-neutral-50 dark:bg-neutral-800",
-                          "border-2 border-neutral-200 dark:border-neutral-700 rounded-xl",
-                          "focus:ring-0 focus:outline-none transition-all duration-300",
-                          "disabled:opacity-40 disabled:cursor-not-allowed"
-                        )}
+                        className={cn("w-full h-14 md:h-16 px-4 md:px-5 pr-12 text-base md:text-lg font-bold appearance-none cursor-pointer", "bg-neutral-50 dark:bg-neutral-800", "border-2 border-neutral-200 dark:border-neutral-700 rounded-xl", "focus:ring-0 focus:outline-none transition-all duration-300", "disabled:opacity-40 disabled:cursor-not-allowed")}
                       >
                         <option value="">{loadingTypes ? "Chargement..." : "Toutes les classes"}</option>
-                        {itemTypes.map((t) => (
-                          <option key={t.itemTypeId} value={t.itemTypeId}>{t.description} ({t.itemCount})</option>
-                        ))}
+                        {itemTypes.map((t) => <option key={t.itemTypeId} value={t.itemTypeId}>{t.description} ({t.itemCount})</option>)}
                       </select>
-                      {loadingTypes ? (
-                        <Loader2 className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 animate-spin pointer-events-none" />
-                      ) : (
-                        <Package className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />
-                      )}
+                      {loadingTypes ? <Loader2 className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 animate-spin pointer-events-none" /> : <Package className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />}
                     </div>
                   </div>
 
                   <div>
-                    <label className="flex items-center gap-2 text-xs font-black text-neutral-500 mb-3 uppercase tracking-wider">
+                    <label className="flex items-center gap-2 text-xs font-black text-neutral-500 mb-2 md:mb-3 uppercase tracking-wider">
                       <span className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px]">4</span>
                       Article <span className="text-neutral-400 font-normal normal-case text-xs">(Optionnel)</span>
                     </label>
@@ -1849,24 +1560,12 @@ export default function CataloguePage() {
                         value={selectedItem?.itemId || ""}
                         onChange={(e) => handleItemChange(e.target.value)}
                         disabled={!selectedType || loadingItems}
-                        className={cn(
-                          "w-full h-16 px-5 pr-12 text-lg font-bold appearance-none cursor-pointer",
-                          "bg-neutral-50 dark:bg-neutral-800",
-                          "border-2 border-neutral-200 dark:border-neutral-700 rounded-xl",
-                          "focus:ring-0 focus:outline-none transition-all duration-300",
-                          "disabled:opacity-40 disabled:cursor-not-allowed"
-                        )}
+                        className={cn("w-full h-14 md:h-16 px-4 md:px-5 pr-12 text-base md:text-lg font-bold appearance-none cursor-pointer", "bg-neutral-50 dark:bg-neutral-800", "border-2 border-neutral-200 dark:border-neutral-700 rounded-xl", "focus:ring-0 focus:outline-none transition-all duration-300", "disabled:opacity-40 disabled:cursor-not-allowed")}
                       >
                         <option value="">{loadingItems ? "Chargement..." : "Tous les articles"}</option>
-                        {items.map((i) => (
-                          <option key={i.itemId} value={i.itemId}>{i.itemCode} - {i.description}</option>
-                        ))}
+                        {items.map((i) => <option key={i.itemId} value={i.itemId}>{i.itemCode} - {i.description}</option>)}
                       </select>
-                      {loadingItems ? (
-                        <Loader2 className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 animate-spin pointer-events-none" />
-                      ) : (
-                        <Tag className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />
-                      )}
+                      {loadingItems ? <Loader2 className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 animate-spin pointer-events-none" /> : <Tag className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />}
                     </div>
                   </div>
 
@@ -1874,19 +1573,10 @@ export default function CataloguePage() {
                     <button
                       onClick={handleGenerate}
                       disabled={!canGenerate}
-                      className={cn(
-                        "w-full rounded-2xl font-black text-xl uppercase tracking-wider",
-                        "flex items-center justify-center gap-3 transition-all duration-300",
-                        "disabled:bg-neutral-200 disabled:dark:bg-neutral-800 disabled:text-neutral-400 disabled:cursor-not-allowed disabled:shadow-none disabled:transform-none",
-                        canGenerate && "hover:scale-[1.02] hover:shadow-2xl active:scale-[0.98]"
-                      )}
-                      style={
-                        canGenerate
-                          ? { backgroundColor: accentColor, color: "#ffffff", boxShadow: `0 20px 40px -10px ${accentColor}50`, height: "72px" }
-                          : { height: "72px" }
-                      }
+                      className={cn("w-full rounded-2xl font-black text-lg md:text-xl uppercase tracking-wider", "flex items-center justify-center gap-3 transition-all duration-300", "disabled:bg-neutral-200 disabled:dark:bg-neutral-800 disabled:text-neutral-400 disabled:cursor-not-allowed disabled:shadow-none disabled:transform-none", canGenerate && "hover:scale-[1.02] hover:shadow-2xl active:scale-[0.98]")}
+                      style={canGenerate ? { backgroundColor: accentColor, color: "#ffffff", boxShadow: `0 20px 40px -10px ${accentColor}50`, height: "64px" } : { height: "64px" }}
                     >
-                      <Sparkles className="w-6 h-6" />
+                      <Sparkles className="w-5 h-5 md:w-6 md:h-6" />
                       GÉNÉRER LA LISTE
                     </button>
                   </div>
