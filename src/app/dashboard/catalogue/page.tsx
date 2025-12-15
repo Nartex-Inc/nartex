@@ -123,10 +123,6 @@ async function getDataUri(url: string): Promise<string> {
   });
 }
 
-function Fragment({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
-}
-
 /* =========================
    Animated number
 ========================= */
@@ -1182,6 +1178,10 @@ function PriceModal({
       <EmailModal isOpen={showEmailModal} onClose={() => setShowEmailModal(false)} onSend={handleEmailPDF} sending={isSendingEmail} accentColor={accentColor} />
     </div>
   );
+}
+
+function Fragment({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
 }
 
 /* =========================
