@@ -1257,7 +1257,7 @@ function PriceModal({
                           {standardColumns.map((colCode) => {
                             const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
                             return (
-                              <React.Fragment key={colCode}>
+                              <Fragment key={colCode}>
                                 {/* Price Column */}
                                 <col
                                   style={{
@@ -1304,7 +1304,7 @@ function PriceModal({
                             {standardColumns.map((colCode) => {
                               const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
                               return (
-                                <React.Fragment key={colCode}>
+                                <Fragment key={colCode}>
                                   <th
                                     className={cn(
                                       thBase,
@@ -1473,7 +1473,7 @@ function PriceModal({
                                         : null;
                                       const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
                                       return (
-                                        <React.Fragment key={colCode}>
+                                        <Fragment key={colCode}>
                                           <td
                                             className={cn(
                                               tdBase,
