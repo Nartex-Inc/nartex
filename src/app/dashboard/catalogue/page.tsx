@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import type { ElementType } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
@@ -1247,6 +1247,7 @@ function PriceModal({
 
                     <div className="overflow-x-hidden">
                       <table className="w-full table-fixed border-collapse">
+                        {/* --- 1. COLGROUP FIX --- */}
                         <colgroup>
                           <col style={{ width: "clamp(180px, 20vw, 320px)" }} />
                           <col style={{ width: "clamp(70px, 6vw, 110px)" }} />
@@ -1256,20 +1257,31 @@ function PriceModal({
                           {standardColumns.map((colCode) => {
                             const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
                             return (
-                              <col
-                                key={colCode}
-                                style={{ width: isSelectedList && showDetails ? "clamp(90px, 7vw, 140px)" : "clamp(85px, 7vw, 130px)" }}
-                              />
+                              <React.Fragment key={colCode}>
+                                {/* Price Column */}
+                                <col
+                                  style={{
+                                    width: isSelectedList && showDetails ? "clamp(90px, 7vw, 140px)" : "clamp(85px, 7vw, 130px)",
+                                  }}
+                                />
+                                {/* Details Columns (Injected Next to Selected) */}
+                                {isSelectedList && showDetails && (
+                                  <>
+                                    <col style={{ width: "clamp(90px, 7vw, 140px)" }} />
+                                    <col style={{ width: "clamp(80px, 6.5vw, 130px)" }} />
+                                    <col style={{ width: "clamp(80px, 6.5vw, 130px)" }} />
+                                  </>
+                                )}
+                              </React.Fragment>
                             );
                           })}
-                          {showDetails && <col style={{ width: "clamp(90px, 7vw, 140px)" }} />}
-                          {showDetails && <col style={{ width: "clamp(80px, 6.5vw, 130px)" }} />}
-                          {showDetails && <col style={{ width: "clamp(80px, 6.5vw, 130px)" }} />}
                           {hasPDS && <col style={{ width: "clamp(85px, 7vw, 130px)" }} />}
                         </colgroup>
-
+                      
+                        {/* --- 2. HEADER FIX --- */}
                         <thead>
                           <tr className="bg-gradient-to-r from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
+                            {/* Fixed Headers */}
                             <th className={cn(thBase, "text-left sticky left-0 z-10 bg-neutral-100 dark:bg-neutral-800")}>
                               <div className="flex items-center gap-2">
                                 <Package className="w-5 h-5 opacity-50" />
@@ -1279,67 +1291,98 @@ function PriceModal({
                             <th className={cn(thBase, "text-center")}>CAISSE</th>
                             <th className={cn(thBase, "text-center")}>Format</th>
                             <th className={cn(thBase, "text-center")}>Qty</th>
-                            <th className={cn(thBase, "text-right text-emerald-700 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-900/10")}>
+                            <th
+                              className={cn(
+                                thBase,
+                                "text-right text-emerald-700 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-900/10"
+                              )}
+                            >
                               % Marge
                             </th>
-
+                      
+                            {/* Dynamic Headers Loop */}
                             {standardColumns.map((colCode) => {
                               const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
                               return (
-                                <th
-                                  key={colCode}
-                                  className={cn(
-                                    thBase,
-                                    "text-right",
-                                    isSelectedList
-                                      ? "text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/10"
-                                      : ""
+                                <React.Fragment key={colCode}>
+                                  <th
+                                    className={cn(
+                                      thBase,
+                                      "text-right",
+                                      isSelectedList ? "text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/10" : ""
+                                    )}
+                                  >
+                                    {colCode}
+                                  </th>
+                      
+                                  {/* Details Headers (Injected Next to Selected) */}
+                                  {isSelectedList && showDetails && (
+                                    <>
+                                      <th
+                                        className={cn(
+                                          thBase,
+                                          "text-right text-sky-700 dark:text-sky-400 bg-sky-50/50 dark:bg-sky-900/10"
+                                        )}
+                                      >
+                                        $/Caisse
+                                      </th>
+                                      <th
+                                        className={cn(
+                                          thBase,
+                                          "text-right text-sky-700 dark:text-sky-400 bg-sky-50/50 dark:bg-sky-900/10"
+                                        )}
+                                      >
+                                        $/L
+                                      </th>
+                                      <th
+                                        className={cn(
+                                          thBase,
+                                          "text-right text-violet-700 dark:text-violet-400 bg-violet-50/50 dark:bg-violet-900/10"
+                                        )}
+                                      >
+                                        % Exp
+                                      </th>
+                                    </>
                                   )}
-                                >
-                                  {colCode}
-                                </th>
+                                </React.Fragment>
                               );
                             })}
-
-                            {/* Details columns appear ONLY once, right after selected list */}
-                            {showDetails && (
-                              <>
-                                <th className={cn(thBase, "text-right text-sky-700 dark:text-sky-400 bg-sky-50/50 dark:bg-sky-900/10")}>$/Caisse</th>
-                                <th className={cn(thBase, "text-right text-sky-700 dark:text-sky-400 bg-sky-50/50 dark:bg-sky-900/10")}>$/L</th>
-                                <th className={cn(thBase, "text-right text-violet-700 dark:text-violet-400 bg-violet-50/50 dark:bg-violet-900/10")}>% Exp</th>
-                              </>
-                            )}
-
+                      
                             {hasPDS && <th className={cn(thBase, "text-right")}>08-PDS</th>}
                           </tr>
                         </thead>
-
+                      
+                        {/* --- 3. BODY FIX --- */}
                         <tbody>
                           {classItems.map((item, itemIndex) => (
                             <tbody key={item.itemId}>
                               {item.ranges.map((range, rIdx) => {
                                 const isFirstRowOfItem = rIdx === 0;
-
+                      
                                 const selectedPriceCode = selectedPriceList?.code || "";
                                 const selectedPriceVal = range.columns?.[selectedPriceCode] ?? range.unitPrice;
                                 const expBaseVal = range.columns?.["01-EXP"] ?? null;
                                 const pdsVal = range.columns?.["08-PDS"] ?? null;
-
+                      
                                 const percentExp = calcMargin(selectedPriceVal, expBaseVal);
                                 const percentMarge = calcMargin(pdsVal, selectedPriceVal);
-
+                      
                                 const ppc = showDetails ? calcPricePerCaisse(selectedPriceVal ?? 0, item.caisse) : null;
                                 const ppl = showDetails ? calcPricePerLitre(selectedPriceVal ?? 0, item.volume) : null;
-
+                      
                                 const rowBg =
                                   itemIndex % 2 === 0
                                     ? "bg-white dark:bg-neutral-900"
                                     : "bg-neutral-50/70 dark:bg-neutral-800/40";
-
+                      
                                 return (
                                   <tr
                                     key={range.id}
-                                    className={cn("transition-all duration-200 group", rowBg, "hover:bg-amber-50/50 dark:hover:bg-amber-900/10")}
+                                    className={cn(
+                                      "transition-all duration-200 group",
+                                      rowBg,
+                                      "hover:bg-amber-50/50 dark:hover:bg-amber-900/10"
+                                    )}
                                   >
                                     <td
                                       className={cn(
@@ -1351,95 +1394,151 @@ function PriceModal({
                                     >
                                       {isFirstRowOfItem && (
                                         <div className="flex flex-col gap-1 min-w-0">
-                                          <span className={cn("font-mono font-black tracking-tight truncate", compact ? "text-base" : "text-lg")} style={{ color: accentColor }}>
+                                          <span
+                                            className={cn(
+                                              "font-mono font-black tracking-tight truncate",
+                                              compact ? "text-base" : "text-lg"
+                                            )}
+                                            style={{ color: accentColor }}
+                                          >
                                             {item.itemCode}
                                           </span>
-                                          <span className="text-xs md:text-sm text-neutral-500 truncate" title={item.description}>
+                                          <span
+                                            className="text-xs md:text-sm text-neutral-500 truncate"
+                                            title={item.description}
+                                          >
                                             {item.description}
                                           </span>
                                         </div>
                                       )}
                                     </td>
-
-                                    <td className={cn(tdBase, "text-center align-top")}>
-                                      {isFirstRowOfItem && <span className={cn("font-black text-neutral-900 dark:text-white", compact ? "text-base" : "text-lg")}>{item.caisse ? Math.round(item.caisse) : "-"}</span>}
-                                    </td>
-
+                      
                                     <td className={cn(tdBase, "text-center align-top")}>
                                       {isFirstRowOfItem && (
-                                        <span className={cn("font-bold text-neutral-800 dark:text-neutral-200 px-3 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg inline-block", compact ? "text-sm" : "text-base")}>
+                                        <span
+                                          className={cn(
+                                            "font-black text-neutral-900 dark:text-white",
+                                            compact ? "text-base" : "text-lg"
+                                          )}
+                                        >
+                                          {item.caisse ? Math.round(item.caisse) : "-"}
+                                        </span>
+                                      )}
+                                    </td>
+                      
+                                    <td className={cn(tdBase, "text-center align-top")}>
+                                      {isFirstRowOfItem && (
+                                        <span
+                                          className={cn(
+                                            "font-bold text-neutral-800 dark:text-neutral-200 px-3 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg inline-block",
+                                            compact ? "text-sm" : "text-base"
+                                          )}
+                                        >
                                           {item.format || "-"}
                                         </span>
                                       )}
                                     </td>
-
+                      
                                     <td className={cn(tdBase, "text-center")}>
-                                      <span className={cn("font-mono font-bold text-neutral-900 dark:text-white", compact ? "text-base" : "text-lg")}>
+                                      <span
+                                        className={cn(
+                                          "font-mono font-bold text-neutral-900 dark:text-white",
+                                          compact ? "text-base" : "text-lg"
+                                        )}
+                                      >
                                         {range.qtyMin}
                                       </span>
                                     </td>
-
+                      
                                     <td className={cn(tdBase, "text-right bg-emerald-50/30 dark:bg-emerald-900/5")}>
                                       <span
                                         className={cn(
                                           "font-mono font-black whitespace-nowrap",
                                           compact ? "text-base" : "text-lg",
-                                          percentMarge && percentMarge < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
+                                          percentMarge && percentMarge < 0
+                                            ? "text-red-600 dark:text-red-400"
+                                            : "text-emerald-600 dark:text-emerald-400"
                                         )}
                                       >
                                         {percentMarge !== null ? `${percentMarge.toFixed(1)}%` : "-"}
                                       </span>
                                     </td>
-
+                      
+                                    {/* Dynamic Cells Loop */}
                                     {standardColumns.map((colCode) => {
-                                      const priceVal = range.columns ? range.columns[colCode] : colCode === selectedPriceList?.code ? range.unitPrice : null;
+                                      const priceVal = range.columns
+                                        ? range.columns[colCode]
+                                        : colCode === selectedPriceList?.code
+                                        ? range.unitPrice
+                                        : null;
                                       const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
                                       return (
-                                        <td
-                                          key={colCode}
-                                          className={cn(tdBase, "text-right", isSelectedList && "bg-amber-50/30 dark:bg-amber-900/5")}
-                                        >
-                                          <span
+                                        <React.Fragment key={colCode}>
+                                          <td
                                             className={cn(
-                                              "font-mono font-black whitespace-nowrap tabular-nums",
-                                              compact ? "text-base" : "text-lg",
-                                              isSelectedList ? "text-amber-700 dark:text-amber-400" : "text-neutral-700 dark:text-neutral-300"
+                                              tdBase,
+                                              "text-right",
+                                              isSelectedList && "bg-amber-50/30 dark:bg-amber-900/5"
                                             )}
                                           >
-                                            {priceVal !== null && priceVal !== undefined ? <AnimatedPrice value={priceVal} /> : "-"}
-                                          </span>
-                                        </td>
+                                            <span
+                                              className={cn(
+                                                "font-mono font-black whitespace-nowrap tabular-nums",
+                                                compact ? "text-base" : "text-lg",
+                                                isSelectedList
+                                                  ? "text-amber-700 dark:text-amber-400"
+                                                  : "text-neutral-700 dark:text-neutral-300"
+                                              )}
+                                            >
+                                              {priceVal !== null && priceVal !== undefined ? (
+                                                <AnimatedPrice value={priceVal} />
+                                              ) : (
+                                                "-"
+                                              )}
+                                            </span>
+                                          </td>
+                      
+                                          {/* Details Cells (Injected Next to Selected) */}
+                                          {isSelectedList && showDetails && (
+                                            <>
+                                              <td className={cn(tdBase, "text-right bg-sky-50/30 dark:bg-sky-900/5")}>
+                                                <span className="font-mono text-sm md:text-base text-sky-700 dark:text-sky-400 whitespace-nowrap tabular-nums">
+                                                  {ppc ? ppc.toFixed(2) : "-"}
+                                                </span>
+                                              </td>
+                                              <td className={cn(tdBase, "text-right bg-sky-50/30 dark:bg-sky-900/5")}>
+                                                <span className="font-mono text-sm md:text-base text-sky-700 dark:text-sky-400 whitespace-nowrap tabular-nums">
+                                                  {ppl ? ppl.toFixed(2) : "-"}
+                                                </span>
+                                              </td>
+                                              <td
+                                                className={cn(tdBase, "text-right bg-violet-50/30 dark:bg-violet-900/5")}
+                                              >
+                                                <span
+                                                  className={cn(
+                                                    "font-mono font-bold text-sm md:text-base whitespace-nowrap tabular-nums",
+                                                    percentExp && percentExp < 0
+                                                      ? "text-red-600 dark:text-red-400"
+                                                      : "text-violet-700 dark:text-violet-400"
+                                                  )}
+                                                >
+                                                  {percentExp !== null ? `${percentExp.toFixed(1)}%` : "-"}
+                                                </span>
+                                              </td>
+                                            </>
+                                          )}
+                                        </React.Fragment>
                                       );
                                     })}
-
-                                    {showDetails && (
-                                      <>
-                                        <td className={cn(tdBase, "text-right bg-sky-50/30 dark:bg-sky-900/5")}>
-                                          <span className="font-mono text-sm md:text-base text-sky-700 dark:text-sky-400 whitespace-nowrap tabular-nums">
-                                            {ppc ? ppc.toFixed(2) : "-"}
-                                          </span>
-                                        </td>
-                                        <td className={cn(tdBase, "text-right bg-sky-50/30 dark:bg-sky-900/5")}>
-                                          <span className="font-mono text-sm md:text-base text-sky-700 dark:text-sky-400 whitespace-nowrap tabular-nums">
-                                            {ppl ? ppl.toFixed(2) : "-"}
-                                          </span>
-                                        </td>
-                                        <td className={cn(tdBase, "text-right bg-violet-50/30 dark:bg-violet-900/5")}>
-                                          <span
-                                            className={cn(
-                                              "font-mono font-bold text-sm md:text-base whitespace-nowrap tabular-nums",
-                                              percentExp && percentExp < 0 ? "text-red-600 dark:text-red-400" : "text-violet-700 dark:text-violet-400"
-                                            )}
-                                          >
-                                            {percentExp !== null ? `${percentExp.toFixed(1)}%` : "-"}
-                                          </span>
-                                        </td>
-                                      </>
-                                    )}
-
+                      
                                     {hasPDS && (
                                       <td className={cn(tdBase, "text-right")}>
-                                        <span className={cn("font-mono font-black text-neutral-700 dark:text-neutral-300 whitespace-nowrap tabular-nums", compact ? "text-base" : "text-lg")}>
+                                        <span
+                                          className={cn(
+                                            "font-mono font-black text-neutral-700 dark:text-neutral-300 whitespace-nowrap tabular-nums",
+                                            compact ? "text-base" : "text-lg"
+                                          )}
+                                        >
                                           {pdsVal !== null ? <AnimatedPrice value={pdsVal} /> : "-"}
                                         </span>
                                       </td>
@@ -1447,7 +1546,7 @@ function PriceModal({
                                   </tr>
                                 );
                               })}
-
+                      
                               {/* Spacer Row Between Articles */}
                               {itemIndex < classItems.length - 1 && (
                                 <tr className="h-3 bg-neutral-900 dark:bg-black">
