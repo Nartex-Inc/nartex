@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, Fragment } from "react";
-import type { ElementType } from "react";
+import { useState, useEffect, useRef } from "react";
+import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -32,19 +32,19 @@ import {
   Inbox,
 } from "lucide-react";
 
-// --- Interfaces ---
+/* =========================
+   Types
+========================= */
 interface Product {
   prodId: number;
   name: string;
   itemCount: number;
 }
-
 interface ItemType {
   itemTypeId: number;
   description: string;
   itemCount: number;
 }
-
 interface Item {
   itemId: number;
   itemCode: string;
@@ -54,14 +54,12 @@ interface Item {
   className?: string;
   categoryName?: string;
 }
-
 interface PriceList {
   priceId: number;
   name: string;
   code: string;
   currency: string;
 }
-
 interface PriceRange {
   id: number;
   qtyMin: number;
@@ -72,7 +70,6 @@ interface PriceRange {
   costingDiscountAmt?: number;
   columns?: Record<string, number | null>;
 }
-
 interface ItemPriceData {
   itemId: number;
   itemCode: string;
@@ -87,19 +84,30 @@ interface ItemPriceData {
   ranges: PriceRange[];
 }
 
-type LucideIcon = ElementType<{ className?: string; strokeWidth?: number }>;
-
-// --- Helpers ---
-function hexToRgb(hex: string): [number, number, number] | null {
-  const h = hex.replace("#", "").trim();
-  if (![3, 6].includes(h.length)) return null;
-  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
-  const n = parseInt(full, 16);
-  if (Number.isNaN(n)) return null;
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+/* =========================
+   Utilities
+========================= */
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const m = window.matchMedia(query);
+    const onChange = () => setMatches(m.matches);
+    onChange();
+    m.addEventListener?.("change", onChange);
+    return () => m.removeEventListener?.("change", onChange);
+  }, [query]);
+  return matches;
 }
 
-// --- Helper: Convert Image URL to Data URI (for PDF) ---
+function Portal({ children }: { children: ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  return createPortal(children, document.body);
+}
+
+// Convert image URL to Data URI for PDF
 async function getDataUri(url: string): Promise<string> {
   return new Promise((resolve) => {
     const image = new window.Image();
@@ -116,7 +124,9 @@ async function getDataUri(url: string): Promise<string> {
   });
 }
 
-// --- Animated Number Component ---
+/* =========================
+   Animated number
+========================= */
 function AnimatedPrice({ value, duration = 600 }: { value: number; duration?: number }) {
   const [displayValue, setDisplayValue] = useState(0);
   const previousValue = useRef(0);
@@ -137,11 +147,8 @@ function AnimatedPrice({ value, duration = 600 }: { value: number; duration?: nu
 
       setDisplayValue(current);
 
-      if (progress < 1) {
-        animationRef.current = requestAnimationFrame(animate);
-      } else {
-        previousValue.current = endValue;
-      }
+      if (progress < 1) animationRef.current = requestAnimationFrame(animate);
+      else previousValue.current = endValue;
     };
 
     animationRef.current = requestAnimationFrame(animate);
@@ -154,7 +161,9 @@ function AnimatedPrice({ value, duration = 600 }: { value: number; duration?: nu
   return <span>{displayValue.toFixed(2)}</span>;
 }
 
-// --- Premium Toggle Component ---
+/* =========================
+   Toggle
+========================= */
 function Toggle({
   enabled,
   onChange,
@@ -192,7 +201,9 @@ function Toggle({
   );
 }
 
-// --- Premium Icon Button Component ---
+/* =========================
+   Icon button
+========================= */
 function IconButton({
   onClick,
   icon: Icon,
@@ -202,7 +213,7 @@ function IconButton({
   className = "",
 }: {
   onClick: () => void;
-  icon: LucideIcon;
+  icon: React.ElementType;
   title: string;
   variant?: "default" | "primary" | "danger";
   loading?: boolean;
@@ -227,102 +238,9 @@ function IconButton({
   );
 }
 
-/**
- * --- Anchored Portal (fixes: dropdown hidden behind header + clipped by modal overflow-hidden) ---
- * Renders floating content into document.body with a very high z-index.
- */
-function AnchoredPortal({
-  open,
-  anchorRef,
-  onClose,
-  children,
-  widthPx,
-  offset = 10,
-  zIndex = 9999,
-}: {
-  open: boolean;
-  anchorRef: React.RefObject<HTMLElement | null>;
-  onClose: () => void;
-  children: React.ReactNode;
-  widthPx: number;
-  offset?: number;
-  zIndex?: number;
-}) {
-  const panelRef = useRef<HTMLDivElement>(null);
-  const [mounted, setMounted] = useState(false);
-  const [rect, setRect] = useState<DOMRect | null>(null);
-
-  useEffect(() => setMounted(true), []);
-
-  useEffect(() => {
-    if (!open) return;
-
-    const update = () => {
-      const el = anchorRef.current;
-      if (!el) return;
-      setRect(el.getBoundingClientRect());
-    };
-
-    update();
-
-    const onScroll = () => update();
-    const onResize = () => update();
-
-    window.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", onResize);
-
-    return () => {
-      window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [open, anchorRef]);
-
-  useEffect(() => {
-    if (!open) return;
-
-    const handleDown = (e: MouseEvent) => {
-      const a = anchorRef.current;
-      const p = panelRef.current;
-      const t = e.target as Node | null;
-      if (!t) return;
-
-      if (a?.contains(t)) return;
-      if (p?.contains(t)) return;
-
-      onClose();
-    };
-
-    document.addEventListener("mousedown", handleDown, true);
-    return () => document.removeEventListener("mousedown", handleDown, true);
-  }, [open, onClose, anchorRef]);
-
-  if (!mounted || !open || !rect) return null;
-
-  const left = Math.min(
-    rect.left,
-    Math.max(8, window.innerWidth - Math.max(widthPx, 320) - 8)
-  );
-  const top = rect.bottom + offset;
-  const width = Math.max(widthPx, 320);
-
-  return createPortal(
-    <div
-      ref={panelRef}
-      style={{
-        position: "fixed",
-        top,
-        left,
-        width,
-        zIndex,
-      }}
-    >
-      {children}
-    </div>,
-    document.body
-  );
-}
-
-// --- Quick Add Search Component (Popup) ---
+/* =========================
+   Quick add popup (unchanged positioning, high z)
+========================= */
 function QuickAddSearch({
   onAddItems,
   onClose,
@@ -347,9 +265,7 @@ function QuickAddSearch({
         } finally {
           setSearching(false);
         }
-      } else {
-        setResults([]);
-      }
+      } else setResults([]);
     }, 300);
     return () => clearTimeout(timeout);
   }, [query]);
@@ -367,14 +283,10 @@ function QuickAddSearch({
   };
 
   return (
-    <div className="w-[420px] max-w-[92vw] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-700 flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-      {/* Header */}
+    <div className="absolute top-20 right-4 z-[9999] w-[520px] max-w-[92vw] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-700 flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
       <div className="p-4 border-b border-neutral-100 dark:border-neutral-800 bg-gradient-to-r from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900">
         <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ backgroundColor: `${accentColor}15` }}
-          >
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}15` }}>
             <Search className="w-5 h-5" style={{ color: accentColor }} />
           </div>
           <div className="flex-1">
@@ -386,16 +298,12 @@ function QuickAddSearch({
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
-          >
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors">
             <X className="w-4 h-4 text-neutral-500" />
           </button>
         </div>
       </div>
 
-      {/* Results */}
       <div className="max-h-72 overflow-y-auto">
         {searching ? (
           <div className="p-8 flex flex-col items-center gap-3">
@@ -406,7 +314,6 @@ function QuickAddSearch({
           <div className="p-2">
             {results.map((item) => {
               const isSelected = selectedIds.has(item.itemId);
-
               return (
                 <div
                   key={item.itemId}
@@ -427,7 +334,6 @@ function QuickAddSearch({
                   >
                     {isSelected && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
                   </div>
-
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-neutral-900 dark:text-white truncate">{item.itemCode}</div>
                     <div className="text-sm text-neutral-500 truncate">{item.description}</div>
@@ -446,7 +352,6 @@ function QuickAddSearch({
         )}
       </div>
 
-      {/* Footer */}
       <div className="p-4 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/80">
         <button
           onClick={handleAdd}
@@ -467,7 +372,9 @@ function QuickAddSearch({
   );
 }
 
-// --- Premium MultiSelect Dropdown for Articles (PORTAL to ensure it always overlays) ---
+/* =========================
+   MultiSelect (FIXED: portal + topmost + wide)
+========================= */
 function MultiSelectDropdown({
   items,
   selectedIds,
@@ -486,14 +393,55 @@ function MultiSelectDropdown({
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const triggerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [panelStyle, setPanelStyle] = useState<{ top: number; left: number; width: number } | null>(null);
 
-  const filteredItems = useMemo(() => {
-    const s = search.toLowerCase().trim();
-    if (!s) return items;
-    return items.filter(
-      (i) => i.itemCode.toLowerCase().includes(s) || i.description.toLowerCase().includes(s)
-    );
-  }, [items, search]);
+  useEffect(() => {
+    function onDocDown(e: MouseEvent) {
+      const t = e.target as Node;
+      if (!isOpen) return;
+      if (triggerRef.current?.contains(t)) return;
+      if (panelRef.current?.contains(t)) return;
+      setIsOpen(false);
+    }
+    document.addEventListener("mousedown", onDocDown);
+    return () => document.removeEventListener("mousedown", onDocDown);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const update = () => {
+      const el = triggerRef.current;
+      if (!el) return;
+
+      const r = el.getBoundingClientRect();
+      const margin = 12;
+      const desiredWidth = Math.max(r.width, 520); // WIDE as requested
+      const maxWidth = Math.max(320, window.innerWidth - margin * 2);
+      const width = Math.min(desiredWidth, maxWidth);
+
+      const left = Math.min(r.left, window.innerWidth - width - margin);
+      const top = r.bottom + 10;
+
+      setPanelStyle({ top, left: Math.max(margin, left), width });
+    };
+
+    update();
+    window.addEventListener("resize", update, { passive: true } as any);
+    window.addEventListener("scroll", update, { passive: true } as any);
+
+    return () => {
+      window.removeEventListener("resize", update as any);
+      window.removeEventListener("scroll", update as any);
+    };
+  }, [isOpen]);
+
+  const filteredItems = items.filter(
+    (i) =>
+      i.itemCode.toLowerCase().includes(search.toLowerCase()) ||
+      i.description.toLowerCase().includes(search.toLowerCase())
+  );
 
   const toggleSelection = (id: number) => {
     const next = new Set(selectedIds);
@@ -503,92 +451,90 @@ function MultiSelectDropdown({
   };
 
   return (
-    <div className="relative w-full">
-      <div
-        ref={triggerRef}
-        onClick={() => !disabled && setIsOpen((v) => !v)}
-        className={cn(
-          "h-11 px-4 bg-white/15 text-white rounded-xl font-semibold text-sm",
-          "border border-white/20 flex items-center justify-between gap-2",
-          "cursor-pointer transition-all duration-300 backdrop-blur-sm",
-          disabled && "opacity-40 cursor-not-allowed",
-          isOpen && "border-white/50 bg-white/25 shadow-lg"
-        )}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <Tag className="w-4 h-4 flex-shrink-0 opacity-70" />
-          <span className="truncate">
-            {selectedIds.size > 0 ? `${selectedIds.size} article(s)` : placeholder}
-          </span>
+    <>
+      <div className={cn("relative flex-1 min-w-[320px] md:min-w-[360px]")} ref={triggerRef}>
+        <div
+          onClick={() => !disabled && setIsOpen((v) => !v)}
+          className={cn(
+            "h-11 px-4 bg-white/15 text-white rounded-xl font-semibold text-sm",
+            "border border-white/20 flex items-center justify-between gap-2",
+            "cursor-pointer transition-all duration-300 backdrop-blur-sm",
+            disabled && "opacity-40 cursor-not-allowed",
+            isOpen && "border-white/50 bg-white/25 shadow-lg"
+          )}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <Tag className="w-4 h-4 flex-shrink-0 opacity-70" />
+            <span className="truncate">{selectedIds.size > 0 ? `${selectedIds.size} article(s)` : placeholder}</span>
+          </div>
+          <ChevronDown className={cn("w-4 h-4 flex-shrink-0 transition-transform duration-300", isOpen && "rotate-180")} />
         </div>
-        <ChevronDown className={cn("w-4 h-4 flex-shrink-0 transition-transform duration-300", isOpen && "rotate-180")} />
       </div>
 
-      <AnchoredPortal
-        open={isOpen}
-        anchorRef={triggerRef as any}
-        onClose={() => setIsOpen(false)}
-        widthPx={Math.max(triggerRef.current?.getBoundingClientRect().width ?? 360, 360)}
-        offset={10}
-        zIndex={9999}
-      >
-        <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-2 duration-150">
-          <div className="p-3 border-b border-neutral-100 dark:border-neutral-800">
-            <div className="flex items-center gap-2 bg-neutral-100 dark:bg-neutral-800 rounded-xl px-3">
-              <Filter className="w-4 h-4 text-neutral-400" />
-              <input
-                autoFocus
-                className="flex-1 py-2.5 bg-transparent text-sm outline-none text-neutral-900 dark:text-white placeholder:text-neutral-400"
-                placeholder="Filtrer les articles..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+      {isOpen && panelStyle && (
+        <Portal>
+          <div
+            ref={panelRef}
+            className="fixed z-[999999] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-2 duration-200"
+            style={{ top: panelStyle.top, left: panelStyle.left, width: panelStyle.width }}
+          >
+            <div className="p-3 border-b border-neutral-100 dark:border-neutral-800">
+              <div className="flex items-center gap-2 bg-neutral-100 dark:bg-neutral-800 rounded-xl px-3">
+                <Filter className="w-4 h-4 text-neutral-400" />
+                <input
+                  autoFocus
+                  className="flex-1 py-2.5 bg-transparent text-sm outline-none text-neutral-900 dark:text-white placeholder:text-neutral-400"
+                  placeholder="Filtrer les articles..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="max-h-80 overflow-y-auto p-2">
+              {filteredItems.length > 0 ? (
+                filteredItems.map((item) => (
+                  <div
+                    key={item.itemId}
+                    onClick={() => toggleSelection(item.itemId)}
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200",
+                      "hover:bg-neutral-50 dark:hover:bg-neutral-800",
+                      selectedIds.has(item.itemId) && "bg-neutral-100 dark:bg-neutral-800"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all duration-200 flex-shrink-0",
+                        selectedIds.has(item.itemId) ? "border-transparent" : "border-neutral-300 dark:border-neutral-600"
+                      )}
+                      style={{ backgroundColor: selectedIds.has(item.itemId) ? accentColor : undefined }}
+                    >
+                      {selectedIds.has(item.itemId) && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-neutral-900 dark:text-white truncate text-sm">{item.itemCode}</div>
+                      <div className="text-xs text-neutral-500 truncate">{item.description}</div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="p-6 text-center">
+                  <Inbox className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
+                  <span className="text-sm text-neutral-400">Aucun article trouvé</span>
+                </div>
+              )}
             </div>
           </div>
-
-          <div className="max-h-72 overflow-y-auto p-2">
-            {filteredItems.length > 0 ? (
-              filteredItems.map((item) => (
-                <div
-                  key={item.itemId}
-                  onClick={() => toggleSelection(item.itemId)}
-                  className={cn(
-                    "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200",
-                    "hover:bg-neutral-50 dark:hover:bg-neutral-800",
-                    selectedIds.has(item.itemId) && "bg-neutral-100 dark:bg-neutral-800"
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all duration-200 flex-shrink-0",
-                      selectedIds.has(item.itemId) ? "border-transparent" : "border-neutral-300 dark:border-neutral-600"
-                    )}
-                    style={{ backgroundColor: selectedIds.has(item.itemId) ? accentColor : undefined }}
-                  >
-                    {selectedIds.has(item.itemId) && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-neutral-900 dark:text-white truncate text-sm">
-                      {item.itemCode}
-                    </div>
-                    <div className="text-xs text-neutral-500 truncate">{item.description}</div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="p-6 text-center">
-                <Inbox className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
-                <span className="text-sm text-neutral-400">Aucun article trouvé</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </AnchoredPortal>
-    </div>
+        </Portal>
+      )}
+    </>
   );
 }
 
-// --- Premium Email Modal Component ---
+/* =========================
+   Email modal
+========================= */
 function EmailModal({
   isOpen,
   onClose,
@@ -603,14 +549,12 @@ function EmailModal({
   accentColor: string;
 }) {
   const [email, setEmail] = useState("");
-
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
-
-      <div className="relative w-full max-w-md bg-white dark:bg-neutral-900 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-md bg-white dark:bg-neutral-900 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
         <div className="p-6 pb-4">
           <div className="flex items-center gap-4 mb-4">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}15` }}>
@@ -678,7 +622,9 @@ function EmailModal({
   );
 }
 
-// --- Premium Price Modal Component ---
+/* =========================
+   Price modal (FIXED: dropdown overlay + wide header controls + iPad no horiz scroll)
+========================= */
 interface PriceModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -735,25 +681,23 @@ function PriceModal({
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
-  // Email State
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
-  // Anchor for QuickAdd portal (fix clipping + ensure on top)
-  const quickAddBtnRef = useRef<HTMLButtonElement>(null);
+  // iPad/tablet compact mode (no horizontal scroll; no extra detail columns)
+  const isTabletCompact = useMediaQuery("(max-width: 1024px)");
 
   if (!isOpen) return null;
 
   const itemsWithPrices = data.filter((item) => item.ranges && item.ranges.length > 0);
 
   const groupedItems = itemsWithPrices.reduce((acc, item) => {
-    const groupKey = item.className || "Articles Ajoutés";
-    if (!acc[groupKey]) acc[groupKey] = [];
-    acc[groupKey].push(item);
+    const key = item.className || "Articles Ajoutés";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(item);
     return acc;
   }, {} as Record<string, ItemPriceData[]>);
 
-  // Calculation Helpers
   const calcPricePerCaisse = (price: number, caisse: number | null) => (caisse ? price * caisse : null);
   const calcPricePerLitre = (price: number, volume: number | null) => (volume ? price / volume : null);
 
@@ -762,13 +706,11 @@ function PriceModal({
     return ((sell - cost) / sell) * 100;
   };
 
-  // --- AUTH HANDLER (STEP-UP) ---
   const handleToggleDetails = async (newValue: boolean) => {
     if (!newValue) {
       setShowDetails(false);
       return;
     }
-
     setIsAuthenticating(true);
     try {
       const resp = await fetch("/api/auth/challenge");
@@ -799,12 +741,10 @@ function PriceModal({
     }
   };
 
-  // --- PDF GENERATION & EMAIL ---
   const handleEmailPDF = async (recipientEmail: string) => {
     setIsSendingEmail(true);
     try {
       const doc = new jsPDF();
-      const accentRgb = hexToRgb(accentColor) ?? [150, 0, 0];
 
       const logoData = await getDataUri("/sinto-logo.svg");
       if (logoData) doc.addImage(logoData, "PNG", 15, 10, 40, 0);
@@ -922,17 +862,15 @@ function PriceModal({
           head: [headRow],
           body: tableBody,
           styles: { fontSize: 8, cellPadding: 1.5 },
-          headStyles: { fillColor: accentRgb, textColor: 255 },
-          columnStyles: {
-            0: { fontStyle: "bold" },
-            4: { textColor: [0, 150, 0] },
-          },
+          // keep your existing behavior; jsPDF autotable accepts array RGB; string hex may vary by version
+          headStyles: { fillColor: [120, 0, 0], textColor: 255 },
+          columnStyles: { 0: { fontStyle: "bold" }, 4: { textColor: [0, 150, 0] } },
           theme: "grid",
-          didParseCell: function (data) {
-            if (data.section === "body" && spacerRowIndices.includes(data.row.index)) {
-              data.cell.styles.fillColor = [0, 0, 0];
-              data.cell.styles.textColor = [0, 0, 0];
-              data.cell.styles.minCellHeight = 4;
+          didParseCell: function (d) {
+            if (d.section === "body" && spacerRowIndices.includes(d.row.index)) {
+              d.cell.styles.fillColor = [0, 0, 0];
+              d.cell.styles.textColor = [0, 0, 0];
+              d.cell.styles.minCellHeight = 4;
             }
           },
         });
@@ -962,73 +900,54 @@ function PriceModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 md:p-4">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/60 to-black/70 backdrop-blur-md"
-        onClick={onClose}
-      />
+    <div className="fixed inset-0 z-[99990] flex items-center justify-center p-2 md:p-4">
+      <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/60 to-black/70 backdrop-blur-md" onClick={onClose} />
 
-      {/* Modal Container */}
-      <div className="relative w-full max-w-[98vw] max-h-[94vh] bg-white dark:bg-neutral-950 rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
-        {/* Header */}
-        <div className="flex-shrink-0 relative overflow-visible" style={{ backgroundColor: accentColor, backgroundImage: "none" }}>
-          {/* Decorative */}
+      <div className="relative w-full max-w-[98vw] max-h-[94vh] bg-white dark:bg-neutral-950 rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+        <div className="flex-shrink-0 relative" style={{ backgroundColor: accentColor, backgroundImage: "none" }}>
           <div className="absolute inset-0 overflow-hidden opacity-10 pointer-events-none">
             <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2" />
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-white rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2" />
           </div>
 
-          <div className="relative px-4 md:px-6 lg:px-8 py-5">
-            {/* Top Row */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
-              <div className="flex items-center gap-4 min-w-0">
-                <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg flex-shrink-0">
+          <div className="relative px-5 md:px-8 py-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
                   <FileText className="w-6 h-6 text-white" />
                 </div>
-                <div className="min-w-0">
-                  <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight truncate">
-                    Liste de Prix
-                  </h2>
-                  <p className="text-white/70 text-sm mt-0.5 truncate">
-                    {itemsWithPrices.length} article(s) • {selectedPriceList?.code}
-                  </p>
+                <div>
+                  <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight">Liste de Prix</h2>
+                  <p className="text-white/70 text-sm mt-0.5">{itemsWithPrices.length} article(s) • {selectedPriceList?.code}</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 md:gap-3 flex-wrap justify-end">
+              <div className="flex items-center gap-3">
                 {isAuthenticating && (
-                  <div className="flex items-center gap-2 px-3 py-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <div className="flex items-center gap-2 px-4 py-2 bg-white/20 rounded-xl backdrop-blur-sm">
                     <Loader2 className="w-4 h-4 text-white animate-spin" />
-                    <span className="text-white text-xs font-bold uppercase tracking-wider">
-                      Vérification FaceID...
-                    </span>
+                    <span className="text-white text-xs font-bold uppercase tracking-wider">Vérification FaceID...</span>
                   </div>
                 )}
 
                 <Toggle enabled={showDetails} onChange={handleToggleDetails} label="Détails" accentColor={accentColor} />
 
-                {/* Always keep action icons visible */}
-                <div className="flex items-center gap-2">
+                <div className="hidden md:flex items-center gap-2 ml-2">
                   <IconButton onClick={() => setShowEmailModal(true)} icon={Mail} title="Envoyer par courriel" />
                   <IconButton onClick={onReset} icon={RotateCcw} title="Réinitialiser" />
+                  <IconButton onClick={onClose} icon={X} title="Fermer" />
+                </div>
+
+                <div className="flex md:hidden items-center gap-2">
+                  <IconButton onClick={() => setShowEmailModal(true)} icon={Mail} title="Envoyer" />
                   <IconButton onClick={onClose} icon={X} title="Fermer" />
                 </div>
               </div>
             </div>
 
-            {/* Filter Row (FIX: fit within iPad width + keep Ajouter/Search visible) */}
-            <div
-              className={cn(
-                "p-4 bg-black/15 backdrop-blur-sm rounded-2xl border border-white/10 overflow-visible",
-                // Portrait tablet / smaller: 2 columns wrap; Landscape iPad Pro+: single-row minmax columns
-                "grid grid-cols-1 md:grid-cols-2",
-                "lg:grid-cols-[minmax(280px,1.45fr)_minmax(220px,1.1fr)_minmax(220px,1.1fr)_minmax(260px,1.2fr)_auto]",
-                "gap-3"
-              )}
-            >
-              {/* Price List Select (wide) */}
-              <div className="relative w-full">
+            {/* WIDE header controls */}
+            <div className="flex flex-col lg:flex-row gap-3 p-4 bg-black/15 backdrop-blur-sm rounded-2xl border border-white/10 overflow-visible">
+              <div className="relative min-w-[340px] md:min-w-[420px]">
                 <select
                   value={selectedPriceList?.priceId || ""}
                   onChange={(e) => onPriceListChange(parseInt(e.target.value))}
@@ -1049,8 +968,7 @@ function PriceModal({
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500 pointer-events-none" />
               </div>
 
-              {/* Category Select (wide) */}
-              <div className="relative w-full">
+              <div className="relative flex-1 min-w-[260px] md:min-w-[320px]">
                 <select
                   value={selectedProduct?.prodId || ""}
                   onChange={(e) => onProductChange(e.target.value)}
@@ -1060,20 +978,15 @@ function PriceModal({
                     "focus:outline-none focus:border-white/50 focus:bg-white/25 transition-all duration-300"
                   )}
                 >
-                  <option value="" className="text-neutral-900">
-                    Catégorie...
-                  </option>
+                  <option value="" className="text-neutral-900">Catégorie...</option>
                   {products.map((p) => (
-                    <option key={p.prodId} value={p.prodId} className="text-neutral-900">
-                      {p.name}
-                    </option>
+                    <option key={p.prodId} value={p.prodId} className="text-neutral-900">{p.name}</option>
                   ))}
                 </select>
                 <Layers className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
               </div>
 
-              {/* Class Select (wide) */}
-              <div className="relative w-full">
+              <div className="relative flex-1 min-w-[260px] md:min-w-[320px]">
                 <select
                   value={selectedType?.itemTypeId || ""}
                   onChange={(e) => onTypeChange(e.target.value)}
@@ -1085,31 +998,23 @@ function PriceModal({
                     "disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300"
                   )}
                 >
-                  <option value="" className="text-neutral-900">
-                    Classe...
-                  </option>
+                  <option value="" className="text-neutral-900">Classe...</option>
                   {itemTypes.map((t) => (
-                    <option key={t.itemTypeId} value={t.itemTypeId} className="text-neutral-900">
-                      {t.description}
-                    </option>
+                    <option key={t.itemTypeId} value={t.itemTypeId} className="text-neutral-900">{t.description}</option>
                   ))}
                 </select>
                 <Package className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
               </div>
 
-              {/* Articles Multi-select (PORTAL overlay) */}
-              <div className="w-full">
-                <MultiSelectDropdown
-                  items={items}
-                  selectedIds={selectedItemIds}
-                  onChange={onItemsChange}
-                  disabled={!selectedType && !selectedProduct}
-                  accentColor={accentColor}
-                />
-              </div>
+              <MultiSelectDropdown
+                items={items}
+                selectedIds={selectedItemIds}
+                onChange={onItemsChange}
+                disabled={!selectedType && !selectedProduct}
+                accentColor={accentColor}
+              />
 
-              {/* Buttons: ensure visible on iPad (spans full width on md, stays right on lg) */}
-              <div className="flex gap-2 md:col-span-2 lg:col-span-1 lg:justify-end">
+              <div className="flex gap-2">
                 <button
                   onClick={onLoadSelection}
                   disabled={loading || (!selectedProduct && selectedItemIds.size === 0)}
@@ -1125,8 +1030,7 @@ function PriceModal({
                 </button>
 
                 <button
-                  ref={quickAddBtnRef}
-                  onClick={() => setShowQuickAdd((v) => !v)}
+                  onClick={() => setShowQuickAdd(!showQuickAdd)}
                   className={cn(
                     "h-11 w-11 rounded-xl flex items-center justify-center",
                     "bg-white/15 hover:bg-white/25 text-white border border-white/20 transition-all duration-300"
@@ -1136,36 +1040,20 @@ function PriceModal({
                   <Search className="w-5 h-5" />
                 </button>
               </div>
-
-              {/* QuickAdd (PORTAL, always on top, not clipped) */}
-              <AnchoredPortal
-                open={showQuickAdd}
-                anchorRef={quickAddBtnRef as any}
-                onClose={() => setShowQuickAdd(false)}
-                widthPx={420}
-                offset={12}
-                zIndex={9999}
-              >
-                <QuickAddSearch
-                  accentColor={accentColor}
-                  onClose={() => setShowQuickAdd(false)}
-                  onAddItems={onAddItems}
-                />
-              </AnchoredPortal>
             </div>
+
+            {showQuickAdd && (
+              <QuickAddSearch accentColor={accentColor} onClose={() => setShowQuickAdd(false)} onAddItems={onAddItems} />
+            )}
           </div>
         </div>
 
-        {/* Table Content */}
         <div className="flex-1 overflow-auto bg-gradient-to-b from-neutral-100 to-neutral-200 dark:from-neutral-900 dark:to-neutral-950">
           {loading && data.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-80 gap-5">
               <div className="relative">
                 <div className="w-16 h-16 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${accentColor}30`, borderTopColor: "transparent" }} />
-                <div
-                  className="absolute inset-2 w-12 h-12 border-4 border-b-transparent rounded-full animate-spin"
-                  style={{ borderColor: accentColor, borderBottomColor: "transparent", animationDirection: "reverse" }}
-                />
+                <div className="absolute inset-2 w-12 h-12 border-4 border-b-transparent rounded-full animate-spin animate-reverse" style={{ borderColor: accentColor, borderBottomColor: "transparent", animationDirection: "reverse" }} />
               </div>
               <div className="text-center">
                 <p className="text-lg font-bold text-neutral-700 dark:text-neutral-300">Chargement des prix</p>
@@ -1194,49 +1082,23 @@ function PriceModal({
             <div className="p-4 md:p-6 space-y-8">
               {Object.entries(groupedItems).map(([className, classItems]) => {
                 const firstItem = classItems[0];
-                let priceColumns = firstItem.ranges[0]?.columns
-                  ? Object.keys(firstItem.ranges[0].columns).sort()
-                  : [selectedPriceList?.code || "Prix"];
-
-                if (!showDetails && selectedPriceList?.code !== "01-EXP") {
-                  priceColumns = priceColumns.filter((c) => c.trim() !== "01-EXP");
-                }
+                let priceColumns = firstItem.ranges[0]?.columns ? Object.keys(firstItem.ranges[0].columns).sort() : [selectedPriceList?.code || "Prix"];
+                if (!showDetails && selectedPriceList?.code !== "01-EXP") priceColumns = priceColumns.filter((c) => c.trim() !== "01-EXP");
                 const standardColumns = priceColumns.filter((c) => c.trim() !== "08-PDS");
                 const hasPDS = priceColumns.some((c) => c.trim() === "08-PDS");
 
-                // FIX: iPad fit -> table-fixed + clamp widths + reduced padding
-                const totalCols =
-                  5 + standardColumns.length + (hasPDS ? 1 : 0) + (showDetails ? 3 : 0);
-                const compact = totalCols >= 11; // aggressive when many price columns
-
-                const thBase = cn(
-                  "border-b-2 border-neutral-300 dark:border-neutral-700 whitespace-nowrap",
-                  compact ? "px-3 py-3 text-sm" : "px-4 py-4 text-base",
-                  "font-black text-neutral-700 dark:text-neutral-200"
-                );
-                const tdBase = cn(
-                  "border-b border-neutral-100 dark:border-neutral-800",
-                  compact ? "px-3 py-3 text-sm" : "px-4 py-4 text-base"
-                );
+                const totalCols = 5 + standardColumns.length + (hasPDS ? 1 : 0);
 
                 return (
-                  <div
-                    key={className}
-                    className="bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden shadow-xl border border-neutral-200/50 dark:border-neutral-800"
-                  >
-                    {/* Class Header */}
+                  <div key={className} className="bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden shadow-xl border border-neutral-200/50 dark:border-neutral-800">
                     <div className="relative px-6 py-5 overflow-visible" style={{ backgroundColor: accentColor, backgroundImage: "none" }}>
                       <div className="absolute inset-0 overflow-hidden opacity-10 pointer-events-none">
                         <div className="absolute -top-10 -right-10 w-40 h-40 bg-white rounded-full blur-2xl" />
                       </div>
                       <div className="relative flex items-center justify-between">
                         <div>
-                          <h3 className="text-xl md:text-2xl font-black text-white uppercase tracking-wider">
-                            {className}
-                          </h3>
-                          <p className="text-white/70 text-sm mt-1 font-medium">
-                            {classItems.length} article(s) dans cette classe
-                          </p>
+                          <h3 className="text-xl md:text-2xl font-black text-white uppercase tracking-wider">{className}</h3>
+                          <p className="text-white/70 text-sm mt-1 font-medium">{classItems.length} article(s) dans cette classe</p>
                         </div>
                         <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-white/20 rounded-xl backdrop-blur-sm">
                           <Sparkles className="w-4 h-4 text-white" />
@@ -1245,101 +1107,79 @@ function PriceModal({
                       </div>
                     </div>
 
-                    <div className="overflow-x-hidden">
-                      <table className="w-full table-fixed border-collapse">
-                        {/* --- 1. COLGROUP FIX --- */}
+                    {/* iPad: no horizontal scroll; fit within width */}
+                    <div className={cn("overflow-x-hidden", "xl:overflow-x-auto")}>
+                      <table className={cn("w-full table-fixed border-collapse", isTabletCompact ? "text-[11px]" : "text-base")}>
                         <colgroup>
-                          <col style={{ width: "clamp(180px, 20vw, 320px)" }} />
-                          <col style={{ width: "clamp(70px, 6vw, 110px)" }} />
-                          <col style={{ width: "clamp(80px, 7vw, 120px)" }} />
-                          <col style={{ width: "clamp(70px, 6vw, 110px)" }} />
-                          <col style={{ width: "clamp(85px, 7vw, 130px)" }} />
-                          {standardColumns.map((colCode) => {
-                            const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
+                          {(() => {
+                            const articlePct = isTabletCompact ? 26 : 22;
+                            const restPct = 100 - articlePct;
+                            const eachPct = restPct / (totalCols - 1);
                             return (
-                              <Fragment key={colCode}>
-                                {/* Price Column */}
-                                <col
-                                  style={{
-                                    width: isSelectedList && showDetails ? "clamp(90px, 7vw, 140px)" : "clamp(85px, 7vw, 130px)",
-                                  }}
-                                />
-                                {/* Details Columns (Injected Next to Selected) */}
-                                {isSelectedList && showDetails && (
-                                  <>
-                                    <col style={{ width: "clamp(90px, 7vw, 140px)" }} />
-                                    <col style={{ width: "clamp(80px, 6.5vw, 130px)" }} />
-                                    <col style={{ width: "clamp(80px, 6.5vw, 130px)" }} />
-                                  </>
-                                )}
-                              </Fragment>
+                              <>
+                                <col style={{ width: `${articlePct}%` }} />
+                                {Array.from({ length: totalCols - 1 }).map((_, i) => (
+                                  <col key={i} style={{ width: `${eachPct}%` }} />
+                                ))}
+                              </>
                             );
-                          })}
-                          {hasPDS && <col style={{ width: "clamp(85px, 7vw, 130px)" }} />}
+                          })()}
                         </colgroup>
-                       
-                        {/* --- 2. HEADER FIX --- */}
+
                         <thead>
                           <tr className="bg-gradient-to-r from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
-                            {/* Fixed Headers */}
-                            <th className={cn(thBase, "text-left sticky left-0 z-10 bg-neutral-100 dark:bg-neutral-800")}>
+                            <th
+                              className={cn(
+                                "text-left font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800",
+                                isTabletCompact ? "p-2" : "p-4 md:p-5",
+                                "xl:sticky xl:left-0 xl:z-10"
+                              )}
+                            >
                               <div className="flex items-center gap-2">
-                                <Package className="w-5 h-5 opacity-50" />
+                                <Package className={cn(isTabletCompact ? "w-4 h-4" : "w-5 h-5", "opacity-50")} />
                                 Article
                               </div>
                             </th>
-                            <th className={cn(thBase, "text-center")}>CAISSE</th>
-                            <th className={cn(thBase, "text-center")}>Format</th>
-                            <th className={cn(thBase, "text-center")}>Qty</th>
-                            <th
-                              className={cn(
-                                thBase,
-                                "text-right text-emerald-700 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-900/10"
-                              )}
-                            >
+
+                            <th className={cn("text-center font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700", isTabletCompact ? "p-2" : "p-4 md:p-5")}>
+                              CAISSE
+                            </th>
+                            <th className={cn("text-center font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700", isTabletCompact ? "p-2" : "p-4 md:p-5")}>
+                              Format
+                            </th>
+                            <th className={cn("text-center font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700", isTabletCompact ? "p-2" : "p-4 md:p-5")}>
+                              Qty
+                            </th>
+                            <th className={cn("text-right font-black text-emerald-700 dark:text-emerald-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-emerald-50/50 dark:bg-emerald-900/10", isTabletCompact ? "p-2" : "p-4 md:p-5")}>
                               % Marge
                             </th>
-                       
-                            {/* Dynamic Headers Loop */}
+
                             {standardColumns.map((colCode) => {
                               const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
                               return (
                                 <Fragment key={colCode}>
                                   <th
                                     className={cn(
-                                      thBase,
-                                      "text-right",
-                                      isSelectedList ? "text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/10" : ""
+                                      "text-right font-black border-b-2 border-neutral-300 dark:border-neutral-700 whitespace-nowrap",
+                                      isTabletCompact ? "p-2" : "p-4 md:p-5",
+                                      isSelectedList
+                                        ? "text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/10"
+                                        : "text-neutral-700 dark:text-neutral-200"
                                     )}
                                   >
                                     {colCode}
                                   </th>
-                       
-                                  {/* Details Headers (Injected Next to Selected) */}
-                                  {isSelectedList && showDetails && (
+
+                                  {/* Desktop only: extra detail columns; iPad keeps stable column count */}
+                                  {showDetails && isSelectedList && !isTabletCompact && (
                                     <>
-                                      <th
-                                        className={cn(
-                                          thBase,
-                                          "text-right text-sky-700 dark:text-sky-400 bg-sky-50/50 dark:bg-sky-900/10"
-                                        )}
-                                      >
+                                      <th className="text-right p-4 md:p-5 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/10 whitespace-nowrap">
                                         $/Caisse
                                       </th>
-                                      <th
-                                        className={cn(
-                                          thBase,
-                                          "text-right text-sky-700 dark:text-sky-400 bg-sky-50/50 dark:bg-sky-900/10"
-                                        )}
-                                      >
+                                      <th className="text-right p-4 md:p-5 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/10 whitespace-nowrap">
                                         $/L
                                       </th>
-                                      <th
-                                        className={cn(
-                                          thBase,
-                                          "text-right text-violet-700 dark:text-violet-400 bg-violet-50/50 dark:bg-violet-900/10"
-                                        )}
-                                      >
+                                      <th className="text-right p-4 md:p-5 font-black text-violet-700 dark:text-violet-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-violet-50/50 dark:bg-violet-900/10 whitespace-nowrap">
                                         % Exp
                                       </th>
                                     </>
@@ -1347,213 +1187,178 @@ function PriceModal({
                                 </Fragment>
                               );
                             })}
-                       
-                            {hasPDS && <th className={cn(thBase, "text-right")}>08-PDS</th>}
+
+                            {hasPDS && (
+                              <th className={cn("text-right font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700 whitespace-nowrap", isTabletCompact ? "p-2" : "p-4 md:p-5")}>
+                                08-PDS
+                              </th>
+                            )}
                           </tr>
                         </thead>
-                       
-                        {/* --- 3. BODY FIX (Corrected: removed extra tbody) --- */}
-                        {classItems.map((item, itemIndex) => (
-                          <tbody key={item.itemId}>
-                            {item.ranges.map((range, rIdx) => {
-                              const isFirstRowOfItem = rIdx === 0;
-                       
-                              const selectedPriceCode = selectedPriceList?.code || "";
-                              const selectedPriceVal = range.columns?.[selectedPriceCode] ?? range.unitPrice;
-                              const expBaseVal = range.columns?.["01-EXP"] ?? null;
-                              const pdsVal = range.columns?.["08-PDS"] ?? null;
-                       
-                              const percentExp = calcMargin(selectedPriceVal, expBaseVal);
-                              const percentMarge = calcMargin(pdsVal, selectedPriceVal);
-                       
-                              const ppc = showDetails ? calcPricePerCaisse(selectedPriceVal ?? 0, item.caisse) : null;
-                              const ppl = showDetails ? calcPricePerLitre(selectedPriceVal ?? 0, item.volume) : null;
-                       
-                              const rowBg =
-                                itemIndex % 2 === 0
-                                  ? "bg-white dark:bg-neutral-900"
-                                  : "bg-neutral-50/70 dark:bg-neutral-800/40";
-                       
-                              return (
-                                <tr
-                                  key={range.id}
-                                  className={cn(
-                                    "transition-all duration-200 group",
-                                    rowBg,
-                                    "hover:bg-amber-50/50 dark:hover:bg-amber-900/10"
-                                  )}
-                                >
-                                  <td
-                                    className={cn(
-                                      tdBase,
-                                      "align-top sticky left-0 z-10",
-                                      rowBg,
-                                      "group-hover:bg-amber-50/50 dark:group-hover:bg-amber-900/10"
-                                    )}
-                                  >
-                                    {isFirstRowOfItem && (
-                                      <div className="flex flex-col gap-1 min-w-0">
-                                        <span
-                                          className={cn(
-                                            "font-mono font-black tracking-tight truncate",
-                                            compact ? "text-base" : "text-lg"
-                                          )}
-                                          style={{ color: accentColor }}
-                                        >
-                                          {item.itemCode}
-                                        </span>
-                                        <span
-                                          className="text-xs md:text-sm text-neutral-500 truncate"
-                                          title={item.description}
-                                        >
-                                          {item.description}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </td>
-                       
-                                  <td className={cn(tdBase, "text-center align-top")}>
-                                    {isFirstRowOfItem && (
-                                      <span
-                                        className={cn(
-                                          "font-black text-neutral-900 dark:text-white",
-                                          compact ? "text-base" : "text-lg"
-                                        )}
-                                      >
-                                        {item.caisse ? Math.round(item.caisse) : "-"}
-                                      </span>
-                                    )}
-                                  </td>
-                       
-                                  <td className={cn(tdBase, "text-center align-top")}>
-                                    {isFirstRowOfItem && (
-                                      <span
-                                        className={cn(
-                                          "font-bold text-neutral-800 dark:text-neutral-200 px-3 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg inline-block",
-                                          compact ? "text-sm" : "text-base"
-                                        )}
-                                      >
-                                        {item.format || "-"}
-                                      </span>
-                                    )}
-                                  </td>
-                       
-                                  <td className={cn(tdBase, "text-center")}>
-                                    <span
+
+                        <tbody>
+                          {classItems.map((item, itemIndex) => (
+                            <Fragment key={item.itemId}>
+                              {item.ranges.map((range, rIdx) => {
+                                const isFirstRowOfItem = rIdx === 0;
+
+                                const selectedPriceCode = selectedPriceList?.code || "";
+                                const selectedPriceVal = range.columns?.[selectedPriceCode] ?? range.unitPrice;
+                                const expBaseVal = range.columns?.["01-EXP"] ?? null;
+                                const pdsVal = range.columns?.["08-PDS"] ?? null;
+
+                                const percentExp = calcMargin(selectedPriceVal, expBaseVal);
+                                const percentMarge = calcMargin(pdsVal, selectedPriceVal);
+
+                                const rowBg = itemIndex % 2 === 0 ? "bg-white dark:bg-neutral-900" : "bg-neutral-50/70 dark:bg-neutral-800/40";
+
+                                return (
+                                  <tr key={range.id} className={cn("transition-all duration-200 group", rowBg, "hover:bg-amber-50/50 dark:hover:bg-amber-900/10")}>
+                                    <td
                                       className={cn(
-                                        "font-mono font-bold text-neutral-900 dark:text-white",
-                                        compact ? "text-base" : "text-lg"
+                                        "border-b border-neutral-100 dark:border-neutral-800 align-top",
+                                        isTabletCompact ? "p-2" : "p-4 md:p-5",
+                                        rowBg,
+                                        "group-hover:bg-amber-50/50 dark:group-hover:bg-amber-900/10",
+                                        "xl:sticky xl:left-0 xl:z-10"
                                       )}
                                     >
-                                      {range.qtyMin}
-                                    </span>
-                                  </td>
-                       
-                                  <td className={cn(tdBase, "text-right bg-emerald-50/30 dark:bg-emerald-900/5")}>
-                                    <span
-                                      className={cn(
-                                        "font-mono font-black whitespace-nowrap",
-                                        compact ? "text-base" : "text-lg",
-                                        percentMarge && percentMarge < 0
-                                          ? "text-red-600 dark:text-red-400"
-                                          : "text-emerald-600 dark:text-emerald-400"
-                                      )}
-                                    >
-                                      {percentMarge !== null ? `${percentMarge.toFixed(1)}%` : "-"}
-                                    </span>
-                                  </td>
-                       
-                                  {/* Dynamic Cells Loop */}
-                                  {standardColumns.map((colCode) => {
-                                    const priceVal = range.columns
-                                      ? range.columns[colCode]
-                                      : colCode === selectedPriceList?.code
-                                      ? range.unitPrice
-                                      : null;
-                                    const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
-                                    return (
-                                      <Fragment key={colCode}>
-                                        <td
-                                          className={cn(
-                                            tdBase,
-                                            "text-right",
-                                            isSelectedList && "bg-amber-50/30 dark:bg-amber-900/5"
-                                          )}
-                                        >
-                                          <span
-                                            className={cn(
-                                              "font-mono font-black whitespace-nowrap tabular-nums",
-                                              compact ? "text-base" : "text-lg",
-                                              isSelectedList
-                                                ? "text-amber-700 dark:text-amber-400"
-                                                : "text-neutral-700 dark:text-neutral-300"
-                                            )}
-                                          >
-                                            {priceVal !== null && priceVal !== undefined ? (
-                                              <AnimatedPrice value={priceVal} />
-                                            ) : (
-                                              "-"
-                                            )}
+                                      {isFirstRowOfItem && (
+                                        <div className="flex flex-col gap-1">
+                                          <span className={cn("font-mono font-black tracking-tight", isTabletCompact ? "text-[13px]" : "text-lg md:text-xl")} style={{ color: accentColor }}>
+                                            {item.itemCode}
                                           </span>
-                                        </td>
-                       
-                                        {/* Details Cells (Injected Next to Selected) */}
-                                        {isSelectedList && showDetails && (
-                                          <>
-                                            <td className={cn(tdBase, "text-right bg-sky-50/30 dark:bg-sky-900/5")}>
-                                              <span className="font-mono text-sm md:text-base text-sky-700 dark:text-sky-400 whitespace-nowrap tabular-nums">
-                                                {ppc ? ppc.toFixed(2) : "-"}
-                                              </span>
-                                            </td>
-                                            <td className={cn(tdBase, "text-right bg-sky-50/30 dark:bg-sky-900/5")}>
-                                              <span className="font-mono text-sm md:text-base text-sky-700 dark:text-sky-400 whitespace-nowrap tabular-nums">
-                                                {ppl ? ppl.toFixed(2) : "-"}
-                                              </span>
-                                            </td>
-                                            <td
-                                              className={cn(tdBase, "text-right bg-violet-50/30 dark:bg-violet-900/5")}
-                                            >
-                                              <span
-                                                className={cn(
-                                                  "font-mono font-bold text-sm md:text-base whitespace-nowrap tabular-nums",
-                                                  percentExp && percentExp < 0
-                                                    ? "text-red-600 dark:text-red-400"
-                                                    : "text-violet-700 dark:text-violet-400"
-                                                )}
-                                              >
-                                                {percentExp !== null ? `${percentExp.toFixed(1)}%` : "-"}
-                                              </span>
-                                            </td>
-                                          </>
-                                        )}
-                                      </Fragment>
-                                    );
-                                  })}
-                       
-                                  {hasPDS && (
-                                    <td className={cn(tdBase, "text-right")}>
+                                          <span className={cn("text-neutral-500 truncate", isTabletCompact ? "text-[10px]" : "text-sm")} title={item.description}>
+                                            {item.description}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </td>
+
+                                    <td className={cn("text-center border-b border-neutral-100 dark:border-neutral-800 align-top", isTabletCompact ? "p-2" : "p-4 md:p-5")}>
+                                      {isFirstRowOfItem && <span className={cn("font-black text-neutral-900 dark:text-white", isTabletCompact ? "text-[12px]" : "text-lg")}>{item.caisse ? Math.round(item.caisse) : "-"}</span>}
+                                    </td>
+
+                                    <td className={cn("text-center border-b border-neutral-100 dark:border-neutral-800 align-top", isTabletCompact ? "p-2" : "p-4 md:p-5")}>
+                                      {isFirstRowOfItem && (
+                                        <span className={cn("font-bold text-neutral-800 dark:text-neutral-200 px-3 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg inline-block", isTabletCompact ? "text-[11px]" : "text-lg")}>
+                                          {item.format || "-"}
+                                        </span>
+                                      )}
+                                    </td>
+
+                                    <td className={cn("text-center border-b border-neutral-100 dark:border-neutral-800", isTabletCompact ? "p-2" : "p-4 md:p-5")}>
+                                      <span className={cn("font-mono font-bold text-neutral-900 dark:text-white", isTabletCompact ? "text-[12px]" : "text-lg")}>{range.qtyMin}</span>
+                                    </td>
+
+                                    <td className={cn("text-right border-b border-neutral-100 dark:border-neutral-800 bg-emerald-50/30 dark:bg-emerald-900/5", isTabletCompact ? "p-2" : "p-4 md:p-5")}>
                                       <span
                                         className={cn(
-                                          "font-mono font-black text-neutral-700 dark:text-neutral-300 whitespace-nowrap tabular-nums",
-                                          compact ? "text-base" : "text-lg"
+                                          "font-mono font-black whitespace-nowrap",
+                                          isTabletCompact ? "text-[12px]" : "text-lg",
+                                          percentMarge && percentMarge < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"
                                         )}
                                       >
-                                        {pdsVal !== null ? <AnimatedPrice value={pdsVal} /> : "-"}
+                                        {percentMarge !== null ? `${percentMarge.toFixed(1)}%` : "-"}
                                       </span>
                                     </td>
-                                  )}
+
+                                    {standardColumns.map((colCode) => {
+                                      const priceVal = range.columns ? range.columns[colCode] : colCode === selectedPriceList?.code ? range.unitPrice : null;
+                                      const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
+
+                                      const ppc = calcPricePerCaisse(selectedPriceVal ?? 0, item.caisse);
+                                      const ppl = calcPricePerLitre(selectedPriceVal ?? 0, item.volume);
+
+                                      return (
+                                        <Fragment key={colCode}>
+                                          <td
+                                            className={cn(
+                                              "text-right border-b border-neutral-100 dark:border-neutral-800",
+                                              isTabletCompact ? "p-2" : "p-4 md:p-5",
+                                              isSelectedList && "bg-amber-50/30 dark:bg-amber-900/5"
+                                            )}
+                                          >
+                                            <span
+                                              className={cn(
+                                                "font-mono font-black whitespace-nowrap tabular-nums",
+                                                isTabletCompact ? "text-[12px]" : "text-lg",
+                                                isSelectedList ? "text-amber-700 dark:text-amber-400" : "text-neutral-700 dark:text-neutral-300"
+                                              )}
+                                            >
+                                              {priceVal !== null && priceVal !== undefined ? <AnimatedPrice value={priceVal} /> : "-"}
+                                            </span>
+
+                                            {/* iPad/tablet: render details inside the selected cell (no extra columns) */}
+                                            {showDetails && isSelectedList && isTabletCompact && (
+                                              <div className="mt-1 space-y-0.5 text-[10px] leading-tight text-neutral-600 dark:text-neutral-400">
+                                                <div className="flex justify-end gap-2">
+                                                  <span className="opacity-70">$/Caisse</span>
+                                                  <span className="font-mono tabular-nums">{ppc ? ppc.toFixed(2) : "-"}</span>
+                                                </div>
+                                                <div className="flex justify-end gap-2">
+                                                  <span className="opacity-70">$/L</span>
+                                                  <span className="font-mono tabular-nums">{ppl ? ppl.toFixed(2) : "-"}</span>
+                                                </div>
+                                                <div className="flex justify-end gap-2">
+                                                  <span className="opacity-70">% Exp</span>
+                                                  <span className="font-mono tabular-nums">{percentExp !== null ? `${percentExp.toFixed(1)}%` : "-"}</span>
+                                                </div>
+                                              </div>
+                                            )}
+                                          </td>
+
+                                          {/* Desktop only: extra detail columns */}
+                                          {showDetails && isSelectedList && !isTabletCompact && (
+                                            <>
+                                              <td className="p-4 md:p-5 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/5">
+                                                <span className="font-mono text-base text-sky-700 dark:text-sky-400 whitespace-nowrap tabular-nums">
+                                                  {ppc ? ppc.toFixed(2) : "-"}
+                                                </span>
+                                              </td>
+                                              <td className="p-4 md:p-5 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/5">
+                                                <span className="font-mono text-base text-sky-700 dark:text-sky-400 whitespace-nowrap tabular-nums">
+                                                  {ppl ? ppl.toFixed(2) : "-"}
+                                                </span>
+                                              </td>
+                                              <td className="p-4 md:p-5 text-right border-b border-neutral-100 dark:border-neutral-800 bg-violet-50/30 dark:bg-violet-900/5">
+                                                <span
+                                                  className={cn(
+                                                    "font-mono font-bold text-base whitespace-nowrap tabular-nums",
+                                                    percentExp && percentExp < 0 ? "text-red-600 dark:text-red-400" : "text-violet-700 dark:text-violet-400"
+                                                  )}
+                                                >
+                                                  {percentExp !== null ? `${percentExp.toFixed(1)}%` : "-"}
+                                                </span>
+                                              </td>
+                                            </>
+                                          )}
+                                        </Fragment>
+                                      );
+                                    })}
+
+                                    {hasPDS && (() => {
+                                      const p = range.columns?.["08-PDS"] ?? null;
+                                      return (
+                                        <td className={cn("text-right border-b border-neutral-100 dark:border-neutral-800", isTabletCompact ? "p-2" : "p-4 md:p-5")}>
+                                          <span className={cn("font-mono font-black text-neutral-700 dark:text-neutral-300 whitespace-nowrap tabular-nums", isTabletCompact ? "text-[12px]" : "text-lg")}>
+                                            {p !== null ? <AnimatedPrice value={p} /> : "-"}
+                                          </span>
+                                        </td>
+                                      );
+                                    })()}
+                                  </tr>
+                                );
+                              })}
+
+                              {itemIndex < classItems.length - 1 && (
+                                <tr className="h-4 bg-neutral-900 dark:bg-black">
+                                  <td colSpan={100} className="border-none" />
                                 </tr>
-                              );
-                            })}
-                       
-                            {/* Spacer Row Between Articles */}
-                            {itemIndex < classItems.length - 1 && (
-                              <tr className="h-3 bg-neutral-900 dark:bg-black">
-                                <td colSpan={100} className="border-none" />
-                              </tr>
-                            )}
-                          </tbody>
-                        ))}
+                              )}
+                            </Fragment>
+                          ))}
+                        </tbody>
                       </table>
                     </div>
                   </div>
@@ -1573,11 +1378,10 @@ function PriceModal({
           )}
         </div>
 
-        {/* Footer */}
         {!loading && itemsWithPrices.length > 0 && (
           <div className="flex-shrink-0 bg-neutral-100 dark:bg-neutral-900 px-6 py-4 border-t border-neutral-200 dark:border-neutral-800">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
                 <div className="px-4 py-2 rounded-xl font-bold text-sm" style={{ backgroundColor: `${accentColor}15`, color: accentColor }}>
                   {itemsWithPrices.length} article(s)
                 </div>
@@ -1590,28 +1394,28 @@ function PriceModal({
               </div>
               <div className="hidden md:flex items-center gap-2 text-sm text-neutral-500">
                 <span>Liste:</span>
-                <span className="font-bold text-neutral-700 dark:text-neutral-300">
-                  {selectedPriceList?.code} - {selectedPriceList?.name}
-                </span>
+                <span className="font-bold text-neutral-700 dark:text-neutral-300">{selectedPriceList?.code} - {selectedPriceList?.name}</span>
               </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Email Modal */}
-      <EmailModal
-        isOpen={showEmailModal}
-        onClose={() => setShowEmailModal(false)}
-        onSend={handleEmailPDF}
-        sending={isSendingEmail}
-        accentColor={accentColor}
-      />
+      <EmailModal isOpen={showEmailModal} onClose={() => setShowEmailModal(false)} onSend={handleEmailPDF} sending={isSendingEmail} accentColor={accentColor} />
     </div>
   );
 }
 
-// --- Main Page Component ---
+/* =========================
+   Fragment helper
+========================= */
+function Fragment({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
+
+/* =========================
+   Main page
+========================= */
 export default function CataloguePage() {
   const { color: accentColor } = useCurrentAccent();
 
@@ -1640,7 +1444,7 @@ export default function CataloguePage() {
   const [loadingItems, setLoadingItems] = useState(false);
 
   useEffect(() => {
-    async function init() {
+    (async () => {
       try {
         const [prodRes, plRes] = await Promise.all([
           fetch("/api/catalogue/products"),
@@ -1657,8 +1461,7 @@ export default function CataloguePage() {
       } catch (err) {
         console.error("Init failed", err);
       }
-    }
-    init();
+    })();
   }, []);
 
   useEffect(() => {
@@ -1671,9 +1474,7 @@ export default function CataloguePage() {
         } finally {
           setIsSearching(false);
         }
-      } else {
-        setResults([]);
-      }
+      } else setSearchResults([]);
     }, 350);
     return () => clearTimeout(timeout);
   }, [searchQuery]);
@@ -1737,12 +1538,14 @@ export default function CataloguePage() {
   const handleProductChange = async (prodId: string) => {
     const prod = products.find((p) => p.prodId === parseInt(prodId));
     if (!prod) return;
+
     setSelectedProduct(prod);
     setSelectedType(null);
     setSelectedItem(null);
     setSelectedItemIds(new Set());
     setItems([]);
     setItemTypes([]);
+
     setLoadingTypes(true);
     try {
       const res = await fetch(`/api/catalogue/itemtypes?prodId=${prod.prodId}`);
@@ -1760,12 +1563,15 @@ export default function CataloguePage() {
       setItems([]);
       return;
     }
+
     const type = itemTypes.find((t) => t.itemTypeId === parseInt(typeId));
     if (!type) return;
+
     setSelectedType(type);
     setSelectedItem(null);
     setSelectedItemIds(new Set());
     setItems([]);
+
     setLoadingItems(true);
     try {
       const res = await fetch(`/api/catalogue/items?itemTypeId=${type.itemTypeId}`);
