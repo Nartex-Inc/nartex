@@ -17,6 +17,7 @@ import {
   Eye,
   EyeOff,
   ChevronDown,
+  ChevronUp,
   Check,
   Plus,
   Filter,
@@ -30,6 +31,7 @@ import {
   AlertCircle,
   RefreshCw,
   Inbox,
+  Settings2,
 } from "lucide-react";
 
 /* =========================
@@ -123,6 +125,21 @@ async function getDataUri(url: string): Promise<string> {
   });
 }
 
+/**
+ * Abbreviate column names:
+ * - Remove leading "0" from numbers (01-EXP -> 1-EXP)
+ * - Replace "04-GROSEXP" with "4-GREXP"
+ * - Replace "08-PDS" with "8-PDS"
+ */
+function abbreviateColumnName(name: string): string {
+  let result = name.trim();
+  // Special case: 04-GROSEXP -> 4-GREXP
+  if (result === "04-GROSEXP") return "4-GREXP";
+  // Remove leading zero from number prefix (01-XXX -> 1-XXX)
+  result = result.replace(/^0(\d+-)/, "$1");
+  return result;
+}
+
 /* =========================
    Animated number
 ========================= */
@@ -155,7 +172,7 @@ function AnimatedPrice({ value, duration = 600 }: { value: number; duration?: nu
 }
 
 /* =========================
-   Toggle - Compact for iPad
+   Toggle - Compact
 ========================= */
 function Toggle({
   enabled,
@@ -176,18 +193,18 @@ function Toggle({
       <div
         onClick={() => onChange(!enabled)}
         className={cn(
-          "relative w-11 h-6 rounded-full transition-all duration-300 shadow-inner",
+          "relative w-12 h-7 rounded-full transition-all duration-300 shadow-inner",
           enabled ? "bg-white shadow-lg" : "bg-white/20 hover:bg-white/30"
         )}
       >
         <div
           className={cn(
-            "absolute top-1 w-4 h-4 rounded-full transition-all duration-300 shadow-md flex items-center justify-center",
+            "absolute top-1 w-5 h-5 rounded-full transition-all duration-300 shadow-md flex items-center justify-center",
             enabled ? "left-6 scale-110" : "left-1 bg-white/90"
           )}
           style={{ backgroundColor: enabled ? accentColor : undefined }}
         >
-          {enabled ? <Eye className="w-2.5 h-2.5 text-white" /> : <EyeOff className="w-2.5 h-2.5 text-neutral-500" />}
+          {enabled ? <Eye className="w-3 h-3 text-white" /> : <EyeOff className="w-3 h-3 text-neutral-500" />}
         </div>
       </div>
     </label>
@@ -195,9 +212,9 @@ function Toggle({
 }
 
 /* =========================
-   Icon button - Smaller for iPad
+   Header Icon Button - BIGGER for fat fingers
 ========================= */
-function IconButton({
+function HeaderIconButton({
   onClick,
   icon: Icon,
   title,
@@ -218,15 +235,15 @@ function IconButton({
       disabled={loading}
       title={title}
       className={cn(
-        "h-9 w-9 rounded-lg flex items-center justify-center transition-all duration-300 backdrop-blur-sm",
+        "h-11 w-11 rounded-xl flex items-center justify-center transition-all duration-300 backdrop-blur-sm",
         "hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed",
-        variant === "default" && "bg-white/15 hover:bg-white/25 text-white border border-white/10",
+        variant === "default" && "bg-white/20 hover:bg-white/30 text-white border border-white/20",
         variant === "primary" && "bg-white text-neutral-900 shadow-lg hover:shadow-xl",
         variant === "danger" && "bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/20",
         className
       )}
     >
-      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Icon className="w-4 h-4" strokeWidth={2} />}
+      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Icon className="w-5 h-5" strokeWidth={2} />}
     </button>
   );
 }
@@ -366,7 +383,7 @@ function QuickAddSearch({
 }
 
 /* =========================
-   MultiSelect - iPad optimized
+   MultiSelect
 ========================= */
 function MultiSelectDropdown({
   items,
@@ -443,7 +460,7 @@ function MultiSelectDropdown({
         <div
           onClick={() => !disabled && setIsOpen((v) => !v)}
           className={cn(
-            "h-9 px-3 bg-white/15 text-white rounded-lg font-semibold text-xs",
+            "h-11 px-4 bg-white/15 text-white rounded-xl font-semibold text-sm",
             "border border-white/20 flex items-center justify-between gap-2",
             "cursor-pointer transition-all duration-300 backdrop-blur-sm",
             disabled && "opacity-40 cursor-not-allowed",
@@ -451,10 +468,10 @@ function MultiSelectDropdown({
           )}
         >
           <div className="flex items-center gap-2 min-w-0">
-            <Tag className="w-3 h-3 flex-shrink-0 opacity-70" />
+            <Tag className="w-4 h-4 flex-shrink-0 opacity-70" />
             <span className="truncate">{selectedIds.size > 0 ? `${selectedIds.size} article(s)` : placeholder}</span>
           </div>
-          <ChevronDown className={cn("w-3 h-3 flex-shrink-0 transition-transform duration-300", isOpen && "rotate-180")} />
+          <ChevronDown className={cn("w-4 h-4 flex-shrink-0 transition-transform duration-300", isOpen && "rotate-180")} />
         </div>
       </div>
 
@@ -608,7 +625,7 @@ function EmailModal({
 }
 
 /* =========================
-   Price modal - iPad 1024px FIXED
+   Price modal - REDESIGNED
 ========================= */
 interface PriceModalProps {
   isOpen: boolean;
@@ -662,6 +679,7 @@ function PriceModal({
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
 
   const isTabletCompact = useMediaQuery("(max-width: 1024px)");
 
@@ -728,7 +746,7 @@ function PriceModal({
       doc.text(title, (pageWidth - titleWidth) / 2, 25);
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text(`Liste: ${selectedPriceList?.code} - ${selectedPriceList?.name}`, 15, 45);
+      doc.text(`Liste: ${abbreviateColumnName(selectedPriceList?.code || "")} - ${selectedPriceList?.name}`, 15, 45);
       doc.text(`Date: ${new Date().toLocaleDateString()}`, 15, 50);
 
       let finalY = 55;
@@ -773,11 +791,7 @@ function PriceModal({
               row.push("");
             }
             row.push(range.qtyMin.toString());
-            const selectedPriceCode = selectedPriceList?.code || "";
-            const selectedPriceVal = range.columns?.[selectedPriceCode] ?? range.unitPrice;
-            const pdsVal = range.columns?.["08-PDS"] ?? null;
-            const percentMarge = calcMargin(pdsVal, selectedPriceVal);
-            row.push(percentMarge ? `${percentMarge.toFixed(1)}%` : "-");
+            // REMOVED: % Marge column
             standardColumns.forEach((col) => {
               const val = range.columns?.[col] ?? null;
               row.push(val ? val.toFixed(2) : "-");
@@ -799,23 +813,25 @@ function PriceModal({
             rowIndex++;
           });
           if (index < classItems.length - 1) {
-            const columnsCount = 5 + standardColumns.length + (hasPDS ? 1 : 0) + (showDetails ? 3 : 0);
+            // UPDATED column count: removed % Marge
+            const columnsCount = 4 + standardColumns.length + (hasPDS ? 1 : 0) + (showDetails ? 3 : 0);
             tableBody.push(new Array(columnsCount).fill(""));
             spacerRowIndices.push(rowIndex);
             rowIndex++;
           }
         });
 
-        const headRow = ["Article", "Caisse", "Fmt", "Qty", "% Marge"];
+        // UPDATED: Removed % Marge, abbreviated column names
+        const headRow = ["Article", "Cs", "Fmt", "Qty"];
         standardColumns.forEach((c) => {
-          headRow.push(c);
+          headRow.push(abbreviateColumnName(c));
           if (showDetails && c.trim() === selectedPriceList?.code?.trim()) {
-            headRow.push("$/Caisse");
+            headRow.push("$/Cs");
             headRow.push("$/L");
-            headRow.push("% Exp");
+            headRow.push("%Exp");
           }
         });
-        if (hasPDS) headRow.push("08-PDS");
+        if (hasPDS) headRow.push(abbreviateColumnName("08-PDS"));
 
         autoTable(doc, {
           startY: finalY,
@@ -823,7 +839,7 @@ function PriceModal({
           body: tableBody,
           styles: { fontSize: 8, cellPadding: 1.5 },
           headStyles: { fillColor: [120, 0, 0], textColor: 255 },
-          columnStyles: { 0: { fontStyle: "bold" }, 4: { textColor: [0, 150, 0] } },
+          columnStyles: { 0: { fontStyle: "bold" } },
           theme: "grid",
           didParseCell: function (d) {
             if (d.section === "body" && spacerRowIndices.includes(d.row.index)) {
@@ -859,90 +875,101 @@ function PriceModal({
       <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/60 to-black/70 backdrop-blur-md" onClick={onClose} />
 
       <div className="relative w-full max-w-[98vw] max-h-[94vh] bg-white dark:bg-neutral-950 rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
-        {/* HEADER - iPad 1024px optimized with stacked rows */}
+        {/* HEADER - REDESIGNED with bigger, well-spaced buttons */}
         <div className="flex-shrink-0 relative" style={{ backgroundColor: accentColor }}>
           <div className="absolute inset-0 overflow-hidden opacity-10 pointer-events-none">
             <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2" />
           </div>
 
-          <div className="relative px-3 py-3">
-            {/* Row 1: Title + buttons - fits in 1024px */}
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg flex-shrink-0">
-                  <FileText className="w-4 h-4 text-white" />
+          <div className="relative px-4 py-4">
+            {/* Single row: Title on left, ALL buttons on right - BIGGER and SPACED */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg flex-shrink-0">
+                  <FileText className="w-5 h-5 text-white" />
                 </div>
                 <div className="min-w-0">
-                  <h2 className="text-lg font-black text-white tracking-tight truncate">Liste de Prix</h2>
-                  <p className="text-white/70 text-[10px] truncate">{itemsWithPrices.length} article(s) • {selectedPriceList?.code}</p>
+                  <h2 className="text-xl font-black text-white tracking-tight truncate">Liste de Prix</h2>
+                  <p className="text-white/70 text-xs truncate">{itemsWithPrices.length} article(s) • {abbreviateColumnName(selectedPriceList?.code || "")}</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5 flex-shrink-0">
+              {/* ALL buttons in one row - BIGGER (h-11 w-11) with gap-3 spacing */}
+              <div className="flex items-center gap-3 flex-shrink-0">
                 {isAuthenticating && (
-                  <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-white/20 rounded-lg">
-                    <Loader2 className="w-3 h-3 text-white animate-spin" />
-                    <span className="text-white text-[10px] font-bold">FaceID...</span>
+                  <div className="flex items-center gap-2 px-3 py-2 bg-white/20 rounded-xl">
+                    <Loader2 className="w-4 h-4 text-white animate-spin" />
+                    <span className="text-white text-xs font-bold hidden sm:inline">FaceID...</span>
                   </div>
                 )}
+                
                 <Toggle enabled={showDetails} onChange={handleToggleDetails} label="Détails" accentColor={accentColor} />
-                <IconButton onClick={() => setShowEmailModal(true)} icon={Mail} title="Courriel" />
-                <IconButton onClick={onReset} icon={RotateCcw} title="Reset" className="hidden sm:flex" />
-                <IconButton onClick={onClose} icon={X} title="Fermer" />
+                
+                <HeaderIconButton onClick={() => setShowEmailModal(true)} icon={Mail} title="Envoyer par courriel" />
+                <HeaderIconButton onClick={onReset} icon={RotateCcw} title="Réinitialiser" />
+                <HeaderIconButton 
+                  onClick={() => setFiltersExpanded(!filtersExpanded)} 
+                  icon={filtersExpanded ? ChevronUp : Settings2} 
+                  title="Options de filtrage"
+                  className={filtersExpanded ? "bg-white/40" : ""}
+                />
+                <HeaderIconButton onClick={onLoadSelection} icon={Plus} title="Ajouter la sélection" />
+                <HeaderIconButton onClick={() => setShowQuickAdd(!showQuickAdd)} icon={Search} title="Recherche rapide" />
+                <HeaderIconButton onClick={onClose} icon={X} title="Fermer" />
               </div>
             </div>
 
-            {/* Filter controls - stacked rows for iPad */}
-            <div className="relative p-2.5 bg-black/15 backdrop-blur-sm rounded-xl border border-white/10 space-y-2">
-              {/* Row 1: Price list */}
-              <div className="relative w-full">
-                <select
-                  value={selectedPriceList?.priceId || ""}
-                  onChange={(e) => onPriceListChange(parseInt(e.target.value))}
-                  disabled={loading}
-                  className="w-full h-9 px-3 pr-8 rounded-lg font-bold text-xs appearance-none cursor-pointer bg-white text-neutral-900 border-2 border-white focus:outline-none disabled:opacity-50 transition-all"
-                >
-                  {priceLists.map((pl) => (
-                    <option key={pl.priceId} value={pl.priceId}>{pl.code} - {pl.name}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500 pointer-events-none" />
-              </div>
-
-              {/* Row 2: Category + Class */}
-              <div className="flex gap-2">
-                <div className="relative flex-1 min-w-0">
+            {/* EXPLODABLE filters section - hidden by default */}
+            {filtersExpanded && (
+              <div className="relative mt-4 p-3 bg-black/15 backdrop-blur-sm rounded-xl border border-white/10 space-y-3 animate-in slide-in-from-top-2 duration-200">
+                {/* Row 1: Price list */}
+                <div className="relative w-full">
                   <select
-                    value={selectedProduct?.prodId || ""}
-                    onChange={(e) => onProductChange(e.target.value)}
-                    className="w-full h-9 px-3 pr-7 rounded-lg font-semibold text-xs appearance-none cursor-pointer bg-white/15 text-white border border-white/20 focus:outline-none focus:border-white/50 transition-all"
+                    value={selectedPriceList?.priceId || ""}
+                    onChange={(e) => onPriceListChange(parseInt(e.target.value))}
+                    disabled={loading}
+                    className="w-full h-11 px-4 pr-10 rounded-xl font-bold text-sm appearance-none cursor-pointer bg-white text-neutral-900 border-2 border-white focus:outline-none disabled:opacity-50 transition-all"
                   >
-                    <option value="" className="text-neutral-900">Catégorie...</option>
-                    {products.map((p) => (
-                      <option key={p.prodId} value={p.prodId} className="text-neutral-900">{p.name}</option>
+                    {priceLists.map((pl) => (
+                      <option key={pl.priceId} value={pl.priceId}>{abbreviateColumnName(pl.code)} - {pl.name}</option>
                     ))}
                   </select>
-                  <Layers className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-white/50 pointer-events-none" />
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500 pointer-events-none" />
                 </div>
-                <div className="relative flex-1 min-w-0">
-                  <select
-                    value={selectedType?.itemTypeId || ""}
-                    onChange={(e) => onTypeChange(e.target.value)}
-                    disabled={!selectedProduct}
-                    className="w-full h-9 px-3 pr-7 rounded-lg font-semibold text-xs appearance-none cursor-pointer bg-white/15 text-white border border-white/20 focus:outline-none focus:border-white/50 disabled:opacity-40 transition-all"
-                  >
-                    <option value="" className="text-neutral-900">Classe...</option>
-                    {itemTypes.map((t) => (
-                      <option key={t.itemTypeId} value={t.itemTypeId} className="text-neutral-900">{t.description}</option>
-                    ))}
-                  </select>
-                  <Package className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-white/50 pointer-events-none" />
-                </div>
-              </div>
 
-              {/* Row 3: Articles + buttons */}
-              <div className="flex gap-2">
-                <div className="flex-1 min-w-0">
+                {/* Row 2: Category + Class */}
+                <div className="flex gap-3">
+                  <div className="relative flex-1 min-w-0">
+                    <select
+                      value={selectedProduct?.prodId || ""}
+                      onChange={(e) => onProductChange(e.target.value)}
+                      className="w-full h-11 px-4 pr-10 rounded-xl font-semibold text-sm appearance-none cursor-pointer bg-white/15 text-white border border-white/20 focus:outline-none focus:border-white/50 transition-all"
+                    >
+                      <option value="" className="text-neutral-900">Catégorie...</option>
+                      {products.map((p) => (
+                        <option key={p.prodId} value={p.prodId} className="text-neutral-900">{p.name}</option>
+                      ))}
+                    </select>
+                    <Layers className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
+                  </div>
+                  <div className="relative flex-1 min-w-0">
+                    <select
+                      value={selectedType?.itemTypeId || ""}
+                      onChange={(e) => onTypeChange(e.target.value)}
+                      disabled={!selectedProduct}
+                      className="w-full h-11 px-4 pr-10 rounded-xl font-semibold text-sm appearance-none cursor-pointer bg-white/15 text-white border border-white/20 focus:outline-none focus:border-white/50 disabled:opacity-40 transition-all"
+                    >
+                      <option value="" className="text-neutral-900">Classe...</option>
+                      {itemTypes.map((t) => (
+                        <option key={t.itemTypeId} value={t.itemTypeId} className="text-neutral-900">{t.description}</option>
+                      ))}
+                    </select>
+                    <Package className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* Row 3: Articles multiselect */}
+                <div className="w-full">
                   <MultiSelectDropdown
                     items={items}
                     selectedIds={selectedItemIds}
@@ -951,28 +978,12 @@ function PriceModal({
                     accentColor={accentColor}
                   />
                 </div>
-                <button
-                  onClick={onLoadSelection}
-                  disabled={loading || (!selectedProduct && selectedItemIds.size === 0)}
-                  className="h-9 px-3 rounded-lg font-bold text-xs whitespace-nowrap flex-shrink-0 bg-white text-neutral-900 shadow-lg flex items-center justify-center gap-1 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span className="hidden xs:inline">Ajouter</span>
-                  {selectedItemIds.size > 0 && <span>({selectedItemIds.size})</span>}
-                </button>
-                <button
-                  onClick={() => setShowQuickAdd(!showQuickAdd)}
-                  className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-white/15 hover:bg-white/25 text-white border border-white/20 transition-all"
-                  title="Recherche"
-                >
-                  <Search className="w-4 h-4" />
-                </button>
               </div>
+            )}
 
-              {showQuickAdd && (
-                <QuickAddSearch accentColor={accentColor} onClose={() => setShowQuickAdd(false)} onAddItems={onAddItems} />
-              )}
-            </div>
+            {showQuickAdd && (
+              <QuickAddSearch accentColor={accentColor} onClose={() => setShowQuickAdd(false)} onAddItems={onAddItems} />
+            )}
           </div>
         </div>
 
@@ -1010,7 +1021,8 @@ function PriceModal({
                 if (!showDetails && selectedPriceList?.code !== "01-EXP") priceColumns = priceColumns.filter((c) => c.trim() !== "01-EXP");
                 const standardColumns = priceColumns.filter((c) => c.trim() !== "08-PDS");
                 const hasPDS = priceColumns.some((c) => c.trim() === "08-PDS");
-                const totalCols = 5 + standardColumns.length + (hasPDS ? 1 : 0);
+                // UPDATED: Removed % Marge from column count
+                const totalCols = 4 + standardColumns.length + (hasPDS ? 1 : 0);
 
                 return (
                   <div key={className} className="bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden shadow-xl border border-neutral-200/50 dark:border-neutral-800">
@@ -1025,7 +1037,7 @@ function PriceModal({
                         </div>
                         <div className="flex items-center gap-2 px-3 py-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
                           <Sparkles className="w-3 h-3 text-white" />
-                          <span className="text-white text-xs font-bold">{selectedPriceList?.code}</span>
+                          <span className="text-white text-xs font-bold">{abbreviateColumnName(selectedPriceList?.code || "")}</span>
                         </div>
                       </div>
                     </div>
@@ -1034,7 +1046,7 @@ function PriceModal({
                       <table className={cn("w-full table-fixed border-collapse", isTabletCompact ? "text-[11px]" : "text-base")}>
                         <colgroup>
                           {(() => {
-                            const articlePct = isTabletCompact ? 26 : 22;
+                            const articlePct = isTabletCompact ? 28 : 24;
                             const restPct = 100 - articlePct;
                             const eachPct = restPct / (totalCols - 1);
                             return (
@@ -1052,26 +1064,27 @@ function PriceModal({
                             <th className={cn("text-left font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800", isTabletCompact ? "p-2" : "p-4")}>
                               <div className="flex items-center gap-2"><Package className={cn(isTabletCompact ? "w-4 h-4" : "w-5 h-5", "opacity-50")} />Article</div>
                             </th>
-                            <th className={cn("text-center font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700", isTabletCompact ? "p-2" : "p-4")}>CAISSE</th>
-                            <th className={cn("text-center font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700", isTabletCompact ? "p-2" : "p-4")}>Format</th>
+                            <th className={cn("text-center font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700", isTabletCompact ? "p-2" : "p-4")}>Cs</th>
+                            <th className={cn("text-center font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700", isTabletCompact ? "p-2" : "p-4")}>Fmt</th>
                             <th className={cn("text-center font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700", isTabletCompact ? "p-2" : "p-4")}>Qty</th>
-                            <th className={cn("text-right font-black text-emerald-700 dark:text-emerald-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-emerald-50/50 dark:bg-emerald-900/10", isTabletCompact ? "p-2" : "p-4")}>% Marge</th>
+                            {/* REMOVED: % Marge column */}
                             {standardColumns.map((colCode) => {
                               const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
+                              const displayName = abbreviateColumnName(colCode);
                               return (
                                 <Fragment key={colCode}>
-                                  <th className={cn("text-right font-black border-b-2 border-neutral-300 dark:border-neutral-700 whitespace-nowrap", isTabletCompact ? "p-2" : "p-4", isSelectedList ? "text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/10" : "text-neutral-700 dark:text-neutral-200")}>{colCode}</th>
+                                  <th className={cn("text-right font-black border-b-2 border-neutral-300 dark:border-neutral-700 whitespace-nowrap", isTabletCompact ? "p-2" : "p-4", isSelectedList ? "text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/10" : "text-neutral-700 dark:text-neutral-200")}>{displayName}</th>
                                   {showDetails && isSelectedList && !isTabletCompact && (
                                     <>
-                                      <th className="text-right p-4 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/10 whitespace-nowrap">$/Caisse</th>
+                                      <th className="text-right p-4 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/10 whitespace-nowrap">$/Cs</th>
                                       <th className="text-right p-4 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/10 whitespace-nowrap">$/L</th>
-                                      <th className="text-right p-4 font-black text-violet-700 dark:text-violet-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-violet-50/50 dark:bg-violet-900/10 whitespace-nowrap">% Exp</th>
+                                      <th className="text-right p-4 font-black text-violet-700 dark:text-violet-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-violet-50/50 dark:bg-violet-900/10 whitespace-nowrap">%Exp</th>
                                     </>
                                   )}
                                 </Fragment>
                               );
                             })}
-                            {hasPDS && <th className={cn("text-right font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700 whitespace-nowrap", isTabletCompact ? "p-2" : "p-4")}>08-PDS</th>}
+                            {hasPDS && <th className={cn("text-right font-black text-neutral-700 dark:text-neutral-200 border-b-2 border-neutral-300 dark:border-neutral-700 whitespace-nowrap", isTabletCompact ? "p-2" : "p-4")}>{abbreviateColumnName("08-PDS")}</th>}
                           </tr>
                         </thead>
                         <tbody>
@@ -1082,9 +1095,7 @@ function PriceModal({
                                 const selectedPriceCode = selectedPriceList?.code || "";
                                 const selectedPriceVal = range.columns?.[selectedPriceCode] ?? range.unitPrice;
                                 const expBaseVal = range.columns?.["01-EXP"] ?? null;
-                                const pdsVal = range.columns?.["08-PDS"] ?? null;
                                 const percentExp = calcMargin(selectedPriceVal, expBaseVal);
-                                const percentMarge = calcMargin(pdsVal, selectedPriceVal);
                                 const rowBg = itemIndex % 2 === 0 ? "bg-white dark:bg-neutral-900" : "bg-neutral-50/70 dark:bg-neutral-800/40";
 
                                 return (
@@ -1100,7 +1111,7 @@ function PriceModal({
                                     <td className={cn("text-center border-b border-neutral-100 dark:border-neutral-800 align-top", isTabletCompact ? "p-2" : "p-4")}>{isFirstRowOfItem && <span className={cn("font-black text-neutral-900 dark:text-white", isTabletCompact ? "text-[12px]" : "text-lg")}>{item.caisse ? Math.round(item.caisse) : "-"}</span>}</td>
                                     <td className={cn("text-center border-b border-neutral-100 dark:border-neutral-800 align-top", isTabletCompact ? "p-2" : "p-4")}>{isFirstRowOfItem && <span className={cn("font-bold text-neutral-800 dark:text-neutral-200 px-2 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded-lg inline-block", isTabletCompact ? "text-[11px]" : "text-base")}>{item.format || "-"}</span>}</td>
                                     <td className={cn("text-center border-b border-neutral-100 dark:border-neutral-800", isTabletCompact ? "p-2" : "p-4")}><span className={cn("font-mono font-bold text-neutral-900 dark:text-white", isTabletCompact ? "text-[12px]" : "text-lg")}>{range.qtyMin}</span></td>
-                                    <td className={cn("text-right border-b border-neutral-100 dark:border-neutral-800 bg-emerald-50/30 dark:bg-emerald-900/5", isTabletCompact ? "p-2" : "p-4")}><span className={cn("font-mono font-black whitespace-nowrap", isTabletCompact ? "text-[12px]" : "text-lg", percentMarge && percentMarge < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400")}>{percentMarge !== null ? `${percentMarge.toFixed(1)}%` : "-"}</span></td>
+                                    {/* REMOVED: % Marge cell */}
                                     {standardColumns.map((colCode) => {
                                       const priceVal = range.columns ? range.columns[colCode] : colCode === selectedPriceList?.code ? range.unitPrice : null;
                                       const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
@@ -1152,7 +1163,7 @@ function PriceModal({
               </div>
               <div className="text-center">
                 <p className="text-xl font-bold text-neutral-700 dark:text-neutral-300">Aucun prix trouvé</p>
-                <p className="text-neutral-500 mt-2 max-w-sm">Sélectionnez des articles et cliquez sur Ajouter.</p>
+                <p className="text-neutral-500 mt-2 max-w-sm">Cliquez sur le bouton + pour ajouter des articles ou sur la loupe pour rechercher.</p>
               </div>
             </div>
           )}
@@ -1168,7 +1179,7 @@ function PriceModal({
               </div>
               <div className="hidden sm:flex items-center gap-2 text-xs text-neutral-500">
                 <span>Liste:</span>
-                <span className="font-bold text-neutral-700 dark:text-neutral-300">{selectedPriceList?.code}</span>
+                <span className="font-bold text-neutral-700 dark:text-neutral-300">{abbreviateColumnName(selectedPriceList?.code || "")}</span>
               </div>
             </div>
           </div>
@@ -1185,7 +1196,7 @@ function Fragment({ children }: { children: React.ReactNode }) {
 }
 
 /* =========================
-   Main page - WIDER container for iPad dropdowns
+   Main page - COMPACT for iPad Mini (no scroll needed)
 ========================= */
 export default function CataloguePage() {
   const { color: accentColor } = useCurrentAccent();
@@ -1418,103 +1429,128 @@ export default function CataloguePage() {
   const canGenerate = Boolean(selectedPriceList && selectedProduct);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-100 via-neutral-50 to-neutral-100 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
-      <div className="min-h-screen flex flex-col">
-        <main className="flex-1 p-4 md:p-8 flex flex-col justify-center items-center">
-          {/* WIDER container: max-w-5xl (1024px) for iPad visibility - ensures dropdown text is fully visible */}
-          <div className="w-full max-w-5xl">
-            <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/50 dark:border-neutral-800 shadow-2xl overflow-hidden">
-              <div className="relative p-6 md:p-8 overflow-hidden" style={{ background: `linear-gradient(135deg, ${accentColor}08 0%, transparent 100%)` }}>
+    <div className="h-screen overflow-hidden bg-gradient-to-br from-neutral-100 via-neutral-50 to-neutral-100 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
+      <div className="h-full flex flex-col">
+        {/* COMPACT layout for iPad Mini - everything fits without scroll */}
+        <main className="flex-1 p-3 flex flex-col">
+          <div className="w-full max-w-5xl mx-auto flex-1 flex flex-col">
+            <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/50 dark:border-neutral-800 shadow-2xl overflow-hidden flex flex-col flex-1">
+              
+              {/* HEADER with logo + GÉNÉRER button */}
+              <div className="flex-shrink-0 relative p-4 overflow-hidden" style={{ background: `linear-gradient(135deg, ${accentColor}08 0%, transparent 100%)` }}>
                 <div className="absolute inset-0 opacity-5">
                   <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full" style={{ backgroundColor: accentColor }} />
                 </div>
-                <div className="relative flex items-center gap-5">
-                  <div className="relative">
-                    <div className="absolute inset-0 rounded-2xl blur-xl opacity-30" style={{ backgroundColor: accentColor }} />
-                    <Image src="/sinto-logo.svg" alt="SINTO Logo" width={72} height={72} className="relative h-[72px] w-[72px] object-contain" />
+                <div className="relative flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <div className="absolute inset-0 rounded-xl blur-xl opacity-30" style={{ backgroundColor: accentColor }} />
+                      <Image src="/sinto-logo.svg" alt="SINTO Logo" width={56} height={56} className="relative h-14 w-14 object-contain" />
+                    </div>
+                    <div>
+                      <h1 className="text-xl font-black tracking-tight text-neutral-900 dark:text-white">Catalogue SINTO</h1>
+                      <p className="text-neutral-500 text-xs font-medium">Générateur de liste de prix</p>
+                    </div>
                   </div>
-                  <div>
-                    <h1 className="text-2xl md:text-3xl font-black tracking-tight text-neutral-900 dark:text-white">Catalogue SINTO</h1>
-                    <p className="text-neutral-500 mt-1 font-medium text-sm md:text-base">Générateur de liste de prix</p>
-                  </div>
+                  
+                  {/* GÉNÉRER button in header */}
+                  <button
+                    onClick={handleGenerate}
+                    disabled={!canGenerate}
+                    className={cn(
+                      "h-12 px-6 rounded-xl font-black text-sm uppercase tracking-wider",
+                      "flex items-center justify-center gap-2 transition-all duration-300",
+                      "disabled:bg-neutral-200 disabled:dark:bg-neutral-800 disabled:text-neutral-400 disabled:cursor-not-allowed disabled:shadow-none",
+                      canGenerate && "hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]"
+                    )}
+                    style={canGenerate ? { backgroundColor: accentColor, color: "#ffffff", boxShadow: `0 10px 30px -5px ${accentColor}50` } : {}}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    GÉNÉRER
+                  </button>
                 </div>
               </div>
 
-              <div className="p-6 md:p-8 pt-0 md:pt-0">
-                <div className="mb-8 relative">
+              {/* FORM - Compact layout */}
+              <div className="flex-1 p-4 pt-2 flex flex-col">
+                {/* Search bar */}
+                <div className="mb-3 relative">
                   <div className="relative group">
-                    <div className="absolute left-5 top-1/2 -translate-y-1/2 z-10">
-                      <Search className="w-5 h-5 text-neutral-400 group-focus-within:text-neutral-600 dark:group-focus-within:text-neutral-300 transition-colors" />
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
+                      <Search className="w-4 h-4 text-neutral-400 group-focus-within:text-neutral-600 transition-colors" />
                     </div>
                     <input
                       type="search"
                       placeholder="Recherche rapide par code article..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className={cn("w-full h-14 md:h-16 pl-14 pr-5 rounded-2xl text-base font-semibold", "bg-neutral-100 dark:bg-neutral-800", "border-2 border-transparent", "focus:ring-0 focus:outline-none transition-all duration-300", "placeholder:text-neutral-400")}
+                      className={cn("w-full h-11 pl-11 pr-4 rounded-xl text-sm font-semibold", "bg-neutral-100 dark:bg-neutral-800", "border-2 border-transparent", "focus:ring-0 focus:outline-none transition-all", "placeholder:text-neutral-400")}
                       style={{ borderColor: searchQuery ? accentColor : "transparent" }}
                     />
                   </div>
 
                   {searchQuery.length > 1 && (
-                    <div className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden max-h-80 overflow-y-auto z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden max-h-60 overflow-y-auto z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
                       {isSearching ? (
-                        <div className="p-8 flex flex-col items-center gap-3">
-                          <Loader2 className="w-8 h-8 animate-spin" style={{ color: accentColor }} />
-                          <span className="text-sm text-neutral-500 font-medium">Recherche en cours...</span>
+                        <div className="p-6 flex flex-col items-center gap-2">
+                          <Loader2 className="w-6 h-6 animate-spin" style={{ color: accentColor }} />
+                          <span className="text-xs text-neutral-500">Recherche...</span>
                         </div>
                       ) : searchResults.length > 0 ? (
-                        <div className="p-2">
-                          {searchResults.map((item) => (
-                            <button key={item.itemId} onClick={() => handleSearchResultClick(item)} className={cn("w-full p-4 text-left rounded-xl transition-all duration-200", "hover:bg-neutral-50 dark:hover:bg-neutral-800/70", "group")}>
-                              <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}15` }}>
-                                  <Package className="w-5 h-5" style={{ color: accentColor }} />
+                        <div className="p-1">
+                          {searchResults.slice(0, 5).map((item) => (
+                            <button key={item.itemId} onClick={() => handleSearchResultClick(item)} className="w-full p-3 text-left rounded-lg transition-all hover:bg-neutral-50 dark:hover:bg-neutral-800">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}15` }}>
+                                  <Package className="w-4 h-4" style={{ color: accentColor }} />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-3">
-                                    <span className="font-mono font-black text-sm" style={{ color: accentColor }}>{item.itemCode}</span>
-                                    <span className="truncate font-semibold text-neutral-700 dark:text-neutral-300">{item.description}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono font-bold text-xs" style={{ color: accentColor }}>{item.itemCode}</span>
+                                    <span className="truncate text-sm text-neutral-700 dark:text-neutral-300">{item.description}</span>
                                   </div>
-                                  <div className="text-xs text-neutral-400 mt-1">{item.categoryName} → {item.className}</div>
+                                  <div className="text-[10px] text-neutral-400 mt-0.5">{item.categoryName} → {item.className}</div>
                                 </div>
                               </div>
                             </button>
                           ))}
                         </div>
                       ) : (
-                        <div className="p-8 flex flex-col items-center gap-3">
-                          <Inbox className="w-10 h-10 text-neutral-300" />
-                          <span className="text-sm text-neutral-500">Aucun résultat trouvé</span>
+                        <div className="p-6 flex flex-col items-center gap-2">
+                          <Inbox className="w-8 h-8 text-neutral-300" />
+                          <span className="text-xs text-neutral-500">Aucun résultat</span>
                         </div>
                       )}
                     </div>
                   )}
                 </div>
 
-                <div className="space-y-5 md:space-y-6">
+                {/* Dropdowns in 2x2 grid */}
+                <div className="grid grid-cols-2 gap-3 flex-1">
+                  {/* 1. Liste de Prix */}
                   <div>
-                    <label className="flex items-center gap-2 text-xs font-black text-neutral-500 mb-2 md:mb-3 uppercase tracking-wider">
-                      <span className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px]">1</span>
+                    <label className="flex items-center gap-1.5 text-[10px] font-black text-neutral-500 mb-1.5 uppercase tracking-wider">
+                      <span className="w-5 h-5 rounded-md bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[9px]">1</span>
                       Liste de Prix
                     </label>
                     <div className="relative">
                       <select
                         value={selectedPriceList?.priceId || ""}
                         onChange={(e) => handlePriceListChange(e.target.value)}
-                        className={cn("w-full h-14 md:h-16 px-4 md:px-5 pr-12 text-base md:text-lg font-bold appearance-none cursor-pointer", "bg-neutral-50 dark:bg-neutral-800", "border-2 border-neutral-200 dark:border-neutral-700 rounded-xl", "focus:ring-0 focus:outline-none transition-all duration-300")}
+                        className={cn("w-full h-12 px-3 pr-10 text-sm font-bold appearance-none cursor-pointer", "bg-neutral-50 dark:bg-neutral-800", "border-2 border-neutral-200 dark:border-neutral-700 rounded-xl", "focus:ring-0 focus:outline-none transition-all")}
                         style={{ borderColor: selectedPriceList ? accentColor : undefined }}
                       >
                         <option value="" disabled>Sélectionner...</option>
-                        {priceLists.map((pl) => <option key={pl.priceId} value={pl.priceId}>{pl.code} - {pl.name}</option>)}
+                        {priceLists.map((pl) => <option key={pl.priceId} value={pl.priceId}>{abbreviateColumnName(pl.code)} - {pl.name}</option>)}
                       </select>
-                      <ChevronDown className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
                     </div>
                   </div>
 
+                  {/* 2. Catégorie */}
                   <div>
-                    <label className="flex items-center gap-2 text-xs font-black text-neutral-500 mb-2 md:mb-3 uppercase tracking-wider">
-                      <span className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px]">2</span>
+                    <label className="flex items-center gap-1.5 text-[10px] font-black text-neutral-500 mb-1.5 uppercase tracking-wider">
+                      <span className="w-5 h-5 rounded-md bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[9px]">2</span>
                       Catégorie
                     </label>
                     <div className="relative">
@@ -1522,81 +1558,72 @@ export default function CataloguePage() {
                         value={selectedProduct?.prodId || ""}
                         onChange={(e) => handleProductChange(e.target.value)}
                         disabled={!selectedPriceList}
-                        className={cn("w-full h-14 md:h-16 px-4 md:px-5 pr-12 text-base md:text-lg font-bold appearance-none cursor-pointer", "bg-neutral-50 dark:bg-neutral-800", "border-2 border-neutral-200 dark:border-neutral-700 rounded-xl", "focus:ring-0 focus:outline-none transition-all duration-300", "disabled:opacity-40 disabled:cursor-not-allowed")}
+                        className={cn("w-full h-12 px-3 pr-10 text-sm font-bold appearance-none cursor-pointer", "bg-neutral-50 dark:bg-neutral-800", "border-2 border-neutral-200 dark:border-neutral-700 rounded-xl", "focus:ring-0 focus:outline-none transition-all", "disabled:opacity-40 disabled:cursor-not-allowed")}
                       >
                         <option value="" disabled>Sélectionner...</option>
                         {products.map((p) => <option key={p.prodId} value={p.prodId}>{p.name} ({p.itemCount})</option>)}
                       </select>
-                      <Layers className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />
+                      <Layers className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
                     </div>
                   </div>
 
+                  {/* 3. Classe */}
                   <div>
-                    <label className="flex items-center gap-2 text-xs font-black text-neutral-500 mb-2 md:mb-3 uppercase tracking-wider">
-                      <span className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px]">3</span>
-                      Classe <span className="text-neutral-400 font-normal normal-case text-xs">(Optionnel)</span>
+                    <label className="flex items-center gap-1.5 text-[10px] font-black text-neutral-500 mb-1.5 uppercase tracking-wider">
+                      <span className="w-5 h-5 rounded-md bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[9px]">3</span>
+                      Classe <span className="text-neutral-400 font-normal normal-case">(Opt.)</span>
                     </label>
                     <div className="relative">
                       <select
                         value={selectedType?.itemTypeId || ""}
                         onChange={(e) => handleTypeChange(e.target.value)}
                         disabled={!selectedProduct || loadingTypes}
-                        className={cn("w-full h-14 md:h-16 px-4 md:px-5 pr-12 text-base md:text-lg font-bold appearance-none cursor-pointer", "bg-neutral-50 dark:bg-neutral-800", "border-2 border-neutral-200 dark:border-neutral-700 rounded-xl", "focus:ring-0 focus:outline-none transition-all duration-300", "disabled:opacity-40 disabled:cursor-not-allowed")}
+                        className={cn("w-full h-12 px-3 pr-10 text-sm font-bold appearance-none cursor-pointer", "bg-neutral-50 dark:bg-neutral-800", "border-2 border-neutral-200 dark:border-neutral-700 rounded-xl", "focus:ring-0 focus:outline-none transition-all", "disabled:opacity-40 disabled:cursor-not-allowed")}
                       >
                         <option value="">{loadingTypes ? "Chargement..." : "Toutes les classes"}</option>
                         {itemTypes.map((t) => <option key={t.itemTypeId} value={t.itemTypeId}>{t.description} ({t.itemCount})</option>)}
                       </select>
-                      {loadingTypes ? <Loader2 className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 animate-spin pointer-events-none" /> : <Package className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />}
+                      {loadingTypes ? <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 animate-spin pointer-events-none" /> : <Package className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />}
                     </div>
                   </div>
 
+                  {/* 4. Article */}
                   <div>
-                    <label className="flex items-center gap-2 text-xs font-black text-neutral-500 mb-2 md:mb-3 uppercase tracking-wider">
-                      <span className="w-6 h-6 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[10px]">4</span>
-                      Article <span className="text-neutral-400 font-normal normal-case text-xs">(Optionnel)</span>
+                    <label className="flex items-center gap-1.5 text-[10px] font-black text-neutral-500 mb-1.5 uppercase tracking-wider">
+                      <span className="w-5 h-5 rounded-md bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[9px]">4</span>
+                      Article <span className="text-neutral-400 font-normal normal-case">(Opt.)</span>
                     </label>
                     <div className="relative">
                       <select
                         value={selectedItem?.itemId || ""}
                         onChange={(e) => handleItemChange(e.target.value)}
                         disabled={!selectedType || loadingItems}
-                        className={cn("w-full h-14 md:h-16 px-4 md:px-5 pr-12 text-base md:text-lg font-bold appearance-none cursor-pointer", "bg-neutral-50 dark:bg-neutral-800", "border-2 border-neutral-200 dark:border-neutral-700 rounded-xl", "focus:ring-0 focus:outline-none transition-all duration-300", "disabled:opacity-40 disabled:cursor-not-allowed")}
+                        className={cn("w-full h-12 px-3 pr-10 text-sm font-bold appearance-none cursor-pointer", "bg-neutral-50 dark:bg-neutral-800", "border-2 border-neutral-200 dark:border-neutral-700 rounded-xl", "focus:ring-0 focus:outline-none transition-all", "disabled:opacity-40 disabled:cursor-not-allowed")}
                       >
                         <option value="">{loadingItems ? "Chargement..." : "Tous les articles"}</option>
                         {items.map((i) => <option key={i.itemId} value={i.itemId}>{i.itemCode} - {i.description}</option>)}
                       </select>
-                      {loadingItems ? <Loader2 className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 animate-spin pointer-events-none" /> : <Tag className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />}
+                      {loadingItems ? <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 animate-spin pointer-events-none" /> : <Tag className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />}
                     </div>
                   </div>
-
-                  <div className="pt-4">
-                    <button
-                      onClick={handleGenerate}
-                      disabled={!canGenerate}
-                      className={cn("w-full rounded-2xl font-black text-lg md:text-xl uppercase tracking-wider", "flex items-center justify-center gap-3 transition-all duration-300", "disabled:bg-neutral-200 disabled:dark:bg-neutral-800 disabled:text-neutral-400 disabled:cursor-not-allowed disabled:shadow-none disabled:transform-none", canGenerate && "hover:scale-[1.02] hover:shadow-2xl active:scale-[0.98]")}
-                      style={canGenerate ? { backgroundColor: accentColor, color: "#ffffff", boxShadow: `0 20px 40px -10px ${accentColor}50`, height: "64px" } : { height: "64px" }}
-                    >
-                      <Sparkles className="w-5 h-5 md:w-6 md:h-6" />
-                      GÉNÉRER LA LISTE
-                    </button>
-                  </div>
                 </div>
+
+                {/* Selected item indicator */}
+                {selectedItem && (
+                  <div className="mt-3 p-3 rounded-xl border-2 animate-in fade-in slide-in-from-bottom-2 duration-300" style={{ backgroundColor: `${accentColor}08`, borderColor: `${accentColor}30` }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${accentColor}20` }}>
+                        <Check className="w-5 h-5" style={{ color: accentColor }} />
+                      </div>
+                      <div>
+                        <div className="font-black text-base" style={{ color: accentColor }}>{selectedItem.itemCode}</div>
+                        <div className="text-xs opacity-70" style={{ color: accentColor }}>{selectedItem.description}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-
-            {selectedItem && (
-              <div className="mt-5 p-5 rounded-2xl border-2 animate-in fade-in slide-in-from-bottom-2 duration-300" style={{ backgroundColor: `${accentColor}08`, borderColor: `${accentColor}30` }}>
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}20` }}>
-                    <Check className="w-6 h-6" style={{ color: accentColor }} />
-                  </div>
-                  <div>
-                    <div className="font-black text-lg" style={{ color: accentColor }}>{selectedItem.itemCode}</div>
-                    <div className="text-sm opacity-70" style={{ color: accentColor }}>{selectedItem.description}</div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </main>
       </div>
