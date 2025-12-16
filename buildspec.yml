@@ -42,8 +42,8 @@ phases:
       - npm ci
       
       # 👇 UPDATED DEPENDENCY INSTALLATION 👇
-      # Installs Auth (SimpleWebAuthn), PDF (jsPDF), and Email (Nodemailer) libs
-      - npm install @simplewebauthn/browser @simplewebauthn/server jspdf jspdf-autotable nodemailer
+      # Installs Auth (SimpleWebAuthn), PDF (jsPDF), Email (Nodemailer), and Google APIs
+      - npm install @simplewebauthn/browser @simplewebauthn/server jspdf jspdf-autotable nodemailer googleapis
       - npm install --save-dev @types/nodemailer
 
       - node -e "console.log('prisma:',require('./node_modules/prisma/package.json').version,'| @prisma/client:',require('./node_modules/@prisma/client/package.json').version)"
