@@ -1021,8 +1021,8 @@ function PriceModal({
                 if (!showDetails && selectedPriceList?.code !== "01-EXP") priceColumns = priceColumns.filter((c) => c.trim() !== "01-EXP");
                 const standardColumns = priceColumns.filter((c) => c.trim() !== "08-PDS");
                 const hasPDS = priceColumns.some((c) => c.trim() === "08-PDS");
-                // UPDATED: Removed % Marge from column count
-                const totalCols = 4 + standardColumns.length + (hasPDS ? 1 : 0);
+                // UPDATED: Include detail columns in count when showDetails is true
+                const totalCols = 4 + standardColumns.length + (hasPDS ? 1 : 0) + (showDetails && !isTabletCompact ? 3 : 0) + (showDetails && isTabletCompact ? 1 : 0);
 
                 return (
                   <div key={className} className="bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden shadow-xl border border-neutral-200/50 dark:border-neutral-800">
@@ -1074,12 +1074,16 @@ function PriceModal({
                               return (
                                 <Fragment key={colCode}>
                                   <th className={cn("text-right font-black border-b-2 border-neutral-300 dark:border-neutral-700 whitespace-nowrap", isTabletCompact ? "p-2" : "p-4", isSelectedList ? "text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/10" : "text-neutral-700 dark:text-neutral-200")}>{displayName}</th>
+                                  {/* DETAIL COLUMNS - Appear RIGHT AFTER the selected price list column */}
                                   {showDetails && isSelectedList && !isTabletCompact && (
                                     <>
                                       <th className="text-right p-4 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/10 whitespace-nowrap">$/Cs</th>
                                       <th className="text-right p-4 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/10 whitespace-nowrap">$/L</th>
                                       <th className="text-right p-4 font-black text-violet-700 dark:text-violet-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-violet-50/50 dark:bg-violet-900/10 whitespace-nowrap">%Exp</th>
                                     </>
+                                  )}
+                                  {showDetails && isSelectedList && isTabletCompact && (
+                                    <th className="text-right p-2 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-300 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/10 whitespace-nowrap">Détails</th>
                                   )}
                                 </Fragment>
                               );
@@ -1092,10 +1096,6 @@ function PriceModal({
                             <Fragment key={item.itemId}>
                               {item.ranges.map((range, rIdx) => {
                                 const isFirstRowOfItem = rIdx === 0;
-                                const selectedPriceCode = selectedPriceList?.code || "";
-                                const selectedPriceVal = range.columns?.[selectedPriceCode] ?? range.unitPrice;
-                                const expBaseVal = range.columns?.["01-EXP"] ?? null;
-                                const percentExp = calcMargin(selectedPriceVal, expBaseVal);
                                 const rowBg = itemIndex % 2 === 0 ? "bg-white dark:bg-neutral-900" : "bg-neutral-50/70 dark:bg-neutral-800/40";
 
                                 return (
@@ -1115,27 +1115,42 @@ function PriceModal({
                                     {standardColumns.map((colCode) => {
                                       const priceVal = range.columns ? range.columns[colCode] : colCode === selectedPriceList?.code ? range.unitPrice : null;
                                       const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
-                                      const ppc = calcPricePerCaisse(selectedPriceVal ?? 0, item.caisse);
-                                      const ppl = calcPricePerLitre(selectedPriceVal ?? 0, item.volume);
                                       return (
                                         <Fragment key={colCode}>
                                           <td className={cn("text-right border-b border-neutral-100 dark:border-neutral-800", isTabletCompact ? "p-2" : "p-4", isSelectedList && "bg-amber-50/30 dark:bg-amber-900/5")}>
                                             <span className={cn("font-mono font-black whitespace-nowrap tabular-nums", isTabletCompact ? "text-[12px]" : "text-lg", isSelectedList ? "text-amber-700 dark:text-amber-400" : "text-neutral-700 dark:text-neutral-300")}>{priceVal !== null && priceVal !== undefined ? <AnimatedPrice value={priceVal} /> : "-"}</span>
-                                            {showDetails && isSelectedList && isTabletCompact && (
-                                              <div className="mt-1 space-y-0.5 text-[10px] leading-tight text-neutral-600 dark:text-neutral-400">
-                                                <div className="flex justify-end gap-2"><span className="opacity-70">$/Cs</span><span className="font-mono tabular-nums">{ppc ? ppc.toFixed(2) : "-"}</span></div>
-                                                <div className="flex justify-end gap-2"><span className="opacity-70">$/L</span><span className="font-mono tabular-nums">{ppl ? ppl.toFixed(2) : "-"}</span></div>
-                                                <div className="flex justify-end gap-2"><span className="opacity-70">%Exp</span><span className="font-mono tabular-nums">{percentExp !== null ? `${percentExp.toFixed(1)}%` : "-"}</span></div>
-                                              </div>
-                                            )}
                                           </td>
-                                          {showDetails && isSelectedList && !isTabletCompact && (
-                                            <>
-                                              <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/5"><span className="font-mono text-base text-sky-700 dark:text-sky-400 tabular-nums">{ppc ? ppc.toFixed(2) : "-"}</span></td>
-                                              <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/5"><span className="font-mono text-base text-sky-700 dark:text-sky-400 tabular-nums">{ppl ? ppl.toFixed(2) : "-"}</span></td>
-                                              <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-violet-50/30 dark:bg-violet-900/5"><span className={cn("font-mono font-bold text-base tabular-nums", percentExp && percentExp < 0 ? "text-red-600 dark:text-red-400" : "text-violet-700 dark:text-violet-400")}>{percentExp !== null ? `${percentExp.toFixed(1)}%` : "-"}</span></td>
-                                            </>
-                                          )}
+                                          {/* DETAIL COLUMNS - Appear RIGHT AFTER the selected price list column */}
+                                          {showDetails && isSelectedList && !isTabletCompact && (() => {
+                                            const selectedPriceVal = priceVal ?? 0;
+                                            const ppc = calcPricePerCaisse(selectedPriceVal, item.caisse);
+                                            const ppl = calcPricePerLitre(selectedPriceVal, item.volume);
+                                            const expBaseVal = range.columns?.["01-EXP"] ?? null;
+                                            const percentExp = calcMargin(selectedPriceVal, expBaseVal);
+                                            return (
+                                              <>
+                                                <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/5"><span className="font-mono text-base text-sky-700 dark:text-sky-400 tabular-nums">{ppc ? ppc.toFixed(2) : "-"}</span></td>
+                                                <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/5"><span className="font-mono text-base text-sky-700 dark:text-sky-400 tabular-nums">{ppl ? ppl.toFixed(2) : "-"}</span></td>
+                                                <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-violet-50/30 dark:bg-violet-900/5"><span className={cn("font-mono font-bold text-base tabular-nums", percentExp && percentExp < 0 ? "text-red-600 dark:text-red-400" : "text-violet-700 dark:text-violet-400")}>{percentExp !== null ? `${percentExp.toFixed(1)}%` : "-"}</span></td>
+                                              </>
+                                            );
+                                          })()}
+                                          {showDetails && isSelectedList && isTabletCompact && (() => {
+                                            const selectedPriceVal = priceVal ?? 0;
+                                            const ppc = calcPricePerCaisse(selectedPriceVal, item.caisse);
+                                            const ppl = calcPricePerLitre(selectedPriceVal, item.volume);
+                                            const expBaseVal = range.columns?.["01-EXP"] ?? null;
+                                            const percentExp = calcMargin(selectedPriceVal, expBaseVal);
+                                            return (
+                                              <td className="p-2 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/5">
+                                                <div className="space-y-0.5 text-[10px] leading-tight">
+                                                  <div className="flex justify-end gap-2 text-sky-700 dark:text-sky-400"><span className="opacity-70">$/Cs</span><span className="font-mono tabular-nums">{ppc ? ppc.toFixed(2) : "-"}</span></div>
+                                                  <div className="flex justify-end gap-2 text-sky-700 dark:text-sky-400"><span className="opacity-70">$/L</span><span className="font-mono tabular-nums">{ppl ? ppl.toFixed(2) : "-"}</span></div>
+                                                  <div className="flex justify-end gap-2 text-violet-700 dark:text-violet-400"><span className="opacity-70">%Exp</span><span className="font-mono tabular-nums">{percentExp !== null ? `${percentExp.toFixed(1)}%` : "-"}</span></div>
+                                                </div>
+                                              </td>
+                                            );
+                                          })()}
                                         </Fragment>
                                       );
                                     })}
