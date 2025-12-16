@@ -34,6 +34,7 @@ import {
   File as FileIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AttachmentsSection, AttachmentData } from "@/components/returns/AttachmentsSection";
 
 /* =============================================================================
    Types & constants
@@ -1097,11 +1098,11 @@ function DetailModal({
 }) {
   const { data: session } = useSession();
   const [draft, setDraft] = React.useState<ReturnRow>(row);
-  const [isUploading, setIsUploading] = React.useState(false);
   
+  // ❌ REMOVED: const [isUploading, setIsUploading] = React.useState(false);
+
   React.useEffect(() => setDraft(row), [row]);
 
-  const hasFiles = (draft.attachments?.length ?? 0) > 0;
   const creatorName = draft.createdBy?.name ?? session?.user?.name ?? REPORTER_LABEL[draft.reporter];
 
   // Helper for color logic display
@@ -1109,45 +1110,8 @@ function DetailModal({
   const isVerified = draft.verified;
   const isFinalized = draft.finalized;
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    setIsUploading(true);
-    const files = Array.from(e.target.files);
-    
-    try {
-      const newAttachments: Attachment[] = [];
-      for (const file of files) {
-        const uploaded = await uploadAttachment(draft.id, file);
-        newAttachments.push(uploaded);
-      }
-      
-      // Update local state and parent state
-      const updatedAttachments = [...(draft.attachments || []), ...newAttachments];
-      const patch = { attachments: updatedAttachments };
-      setDraft(prev => ({ ...prev, ...patch }));
-      onPatched(patch);
-      
-    } catch (err) {
-      alert("Erreur lors de l'upload: " + (err instanceof Error ? err.message : String(err)));
-    } finally {
-      setIsUploading(false);
-      // Reset input
-      e.target.value = "";
-    }
-  };
-
-  const handleDeleteAttachment = async (fileId: string) => {
-    if (!confirm("Supprimer cette pièce jointe ?")) return;
-    try {
-      await deleteAttachment(draft.id, fileId);
-      const updatedAttachments = (draft.attachments || []).filter(a => a.id !== fileId);
-      const patch = { attachments: updatedAttachments };
-      setDraft(prev => ({ ...prev, ...patch }));
-      onPatched(patch);
-    } catch (err) {
-      alert("Erreur lors de la suppression: " + (err instanceof Error ? err.message : String(err)));
-    }
-  };
+  // ❌ REMOVED: handleFileUpload function (handled by AttachmentsSection now)
+  // ❌ REMOVED: handleDeleteAttachment function (handled by AttachmentsSection now)
 
   React.useEffect(() => {
     const prev = document.body.style.overflow;
@@ -1186,7 +1150,7 @@ function DetailModal({
           {/* Body */}
           <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-6 py-6 space-y-6">
             
-            {/* LOGIC TOGGLES (Visual Test) */}
+            {/* LOGIC TOGGLES */}
             <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] space-y-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-[hsl(var(--text-muted))]">Options de traitement</h4>
               <div className="flex flex-wrap items-center gap-6">
@@ -1240,8 +1204,8 @@ function DetailModal({
                 )}
                 {isPhysical && isVerified && !isFinalized && (
                   <span className="text-emerald-600 flex items-center gap-2">
-                     <Check className="h-4 w-4"/>
-                     Marchandise vérifiée (Ligne verte)
+                      <Check className="h-4 w-4"/>
+                      Marchandise vérifiée (Ligne verte)
                   </span>
                 )}
                 {isFinalized && (
@@ -1288,68 +1252,25 @@ function DetailModal({
               />
             </div>
 
-            {/* Attachments */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Folder className="h-5 w-5 text-[hsl(var(--text-tertiary))]" />
-                  <h4 className="font-semibold text-[hsl(var(--text-primary))]">Fichiers joints</h4>
-                  <span className="text-xs text-[hsl(var(--text-muted))]">({draft.attachments?.length ?? 0})</span>
-                </div>
-                
-                <div className="relative">
-                  <input 
-                    type="file" 
-                    id="attachment-upload" 
-                    multiple 
-                    className="hidden" 
-                    onChange={handleFileUpload}
-                    disabled={isUploading}
-                  />
-                  <label 
-                    htmlFor="attachment-upload"
-                    className={cn(
-                      "cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
-                      "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]",
-                      "hover:bg-[hsl(var(--bg-muted))]",
-                      isUploading && "opacity-50 cursor-wait"
-                    )}
-                  >
-                    {isUploading ? <Loader2 className="h-4 w-4 animate-spin"/> : <UploadCloud className="h-4 w-4" />}
-                    Ajouter un fichier
-                  </label>
-                </div>
-              </div>
-              
-              {hasFiles ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {draft.attachments!.map((a) => (
-                    <div key={a.id} className="relative group rounded-xl border border-[hsl(var(--border-subtle))] overflow-hidden bg-[hsl(var(--bg-muted))]">
-                      <div className="px-3 py-2 text-sm border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-surface))] flex justify-between items-center">
-                        <span className="truncate max-w-[200px]" title={a.name}>{a.name}</span>
-                        <button 
-                          onClick={() => handleDeleteAttachment(a.id)}
-                          className="p-1 rounded-md text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))]"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                      {/* Simple file preview placeholder for mock upload, iframe for real drive */}
-                      <div className="h-24 flex items-center justify-center text-[hsl(var(--text-tertiary))]">
-                         <div className="text-center">
-                           <FileIcon className="h-8 w-8 mx-auto mb-1 opacity-50" />
-                           <span className="text-xs">Aperçu non disponible</span>
-                         </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-[hsl(var(--text-muted))] border border-dashed border-[hsl(var(--border-default))] rounded-xl p-6 text-center">
-                  Aucune pièce jointe.
-                </div>
-              )}
-            </div>
+            {/* 👇 UPDATED ATTACHMENTS SECTION 👇 */}
+            <AttachmentsSection
+              returnCode={draft.id}
+              attachments={draft.attachments?.map(a => ({
+                id: a.id,
+                name: a.name,
+                url: a.url,
+                downloadUrl: a.downloadUrl,
+              })) || []}
+              onAttachmentsChange={(newAttachments) => {
+                // Cast generic AttachmentData[] back to your local Attachment[] type if needed
+                // Assuming they are compatible based on usage
+                const typedAttachments = newAttachments as Attachment[]; 
+                setDraft(prev => ({ ...prev, attachments: typedAttachments }));
+                onPatched({ attachments: typedAttachments });
+              }}
+              readOnly={draft.finalized}
+            />
+            {/* 👆 END UPDATED SECTION 👆 */}
 
             {/* Products */}
             <div className="space-y-3">
