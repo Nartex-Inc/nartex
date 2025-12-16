@@ -2,7 +2,7 @@
 // TypeScript types for the returns management system
 // Field names match prisma/schema.prisma
 
-import type { Return, ReturnProduct, Upload, Reporter, Cause } from "@prisma/client";
+import type { Return, ReturnProduct, ReturnAttachment, Reporter, Cause } from "@prisma/client";
 
 /* =============================================================================
    Re-export Prisma types for convenience
@@ -13,6 +13,7 @@ export type { Return, ReturnProduct, Upload, Reporter, Cause };
 /* =============================================================================
    Return Status (derived from flags)
 ============================================================================= */
+export type Upload = ReturnAttachment;
 
 export type ReturnStatus = "draft" | "awaiting_physical" | "received_or_no_physical";
 
