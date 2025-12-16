@@ -8,7 +8,7 @@ import type { Return, ReturnProduct, ReturnAttachment, Reporter, Cause } from "@
    Re-export Prisma types for convenience
 ============================================================================= */
 
-export type { Return, ReturnProduct, Upload, Reporter, Cause };
+export type { Return, ReturnProduct, ReturnAttachment, Reporter, Cause };
 
 /* =============================================================================
    Return Status (derived from flags)
