@@ -34,7 +34,7 @@ import {
   File as FileIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { AttachmentsSection, AttachmentData } from "@/components/returns/AttachmentsSection";
+import { AttachmentsSection } from "@/components/returns/AttachmentsSection";
 
 /* =============================================================================
    Types & constants
@@ -248,6 +248,8 @@ async function uploadAttachment(returnId: string, file: File): Promise<Attachmen
   return json.attachment;
 }
 
+// Note: deleteAttachment is not used in DetailModal anymore (handled by component), 
+// but might be useful to keep for API parity or other components.
 async function deleteAttachment(returnId: string, fileId: string): Promise<void> {
   const res = await fetch(`/api/returns/${encodeURIComponent(returnId)}/attachments?fileId=${encodeURIComponent(fileId)}`, {
     method: "DELETE"
@@ -1098,8 +1100,6 @@ function DetailModal({
 }) {
   const { data: session } = useSession();
   const [draft, setDraft] = React.useState<ReturnRow>(row);
-  
-  // ❌ REMOVED: const [isUploading, setIsUploading] = React.useState(false);
 
   React.useEffect(() => setDraft(row), [row]);
 
@@ -1109,9 +1109,6 @@ function DetailModal({
   const isPhysical = draft.physicalReturn;
   const isVerified = draft.verified;
   const isFinalized = draft.finalized;
-
-  // ❌ REMOVED: handleFileUpload function (handled by AttachmentsSection now)
-  // ❌ REMOVED: handleDeleteAttachment function (handled by AttachmentsSection now)
 
   React.useEffect(() => {
     const prev = document.body.style.overflow;
@@ -1252,7 +1249,7 @@ function DetailModal({
               />
             </div>
 
-            {/* 👇 UPDATED ATTACHMENTS SECTION 👇 */}
+            {/* Attachments Section */}
             <AttachmentsSection
               returnCode={draft.id}
               attachments={draft.attachments?.map(a => ({
@@ -1262,15 +1259,12 @@ function DetailModal({
                 downloadUrl: a.downloadUrl,
               })) || []}
               onAttachmentsChange={(newAttachments) => {
-                // Cast generic AttachmentData[] back to your local Attachment[] type if needed
-                // Assuming they are compatible based on usage
                 const typedAttachments = newAttachments as Attachment[]; 
                 setDraft(prev => ({ ...prev, attachments: typedAttachments }));
                 onPatched({ attachments: typedAttachments });
               }}
               readOnly={draft.finalized}
             />
-            {/* 👆 END UPDATED SECTION 👆 */}
 
             {/* Products */}
             <div className="space-y-3">
@@ -1466,11 +1460,11 @@ function NewReturnModal({
             {/* Options block */}
             <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))]">
                <Switch 
-                  label="Retour physique de la marchandise"
-                  checked={physicalReturn}
-                  onCheckedChange={setPhysicalReturn}
-                />
-                {physicalReturn && <p className="mt-2 text-xs text-[hsl(var(--text-muted))]">Ce retour apparaîtra en évidence (ligne noire) jusqu'à sa réception.</p>}
+                 label="Retour physique de la marchandise"
+                 checked={physicalReturn}
+                 onCheckedChange={setPhysicalReturn}
+               />
+               {physicalReturn && <p className="mt-2 text-xs text-[hsl(var(--text-muted))]">Ce retour apparaîtra en évidence (ligne noire) jusqu'à sa réception.</p>}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
