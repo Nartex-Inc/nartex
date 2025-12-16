@@ -311,16 +311,28 @@ model ReturnProduct {
 }
 
 model ReturnAttachment {
-  id          Int      @id @default(autoincrement())
-  returnId    Int
-  fileName    String   @db.VarChar(500)
-  filePath    String   @db.VarChar(500) // Google Drive file ID
-  uploadedAt  DateTime @default(now())
+  id        Int      @id @default(autoincrement())
+  returnId  Int
+  fileId    String   // Google Drive file ID
+  fileName  String   // Original file name
+  mimeType  String?  // File MIME type (application/pdf, image/jpeg, etc.)
+  fileSize  Int?     // File size in bytes
+  createdAt DateTime @default(now())
 
+  // Relation to Return
   return Return @relation(fields: [returnId], references: [id], onDelete: Cascade)
 
+  // Indexes for faster lookups
   @@index([returnId])
+  @@index([fileId])
 }
+
+// Make sure your Return model has the attachments relation:
+// model Return {
+//   ...existing fields...
+//   attachments ReturnAttachment[]
+// }
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // 4) PREXTRA REPLICAS (READ ONLY)
