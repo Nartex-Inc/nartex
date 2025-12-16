@@ -31,18 +31,16 @@ phases:
     runtime-versions:
       nodejs: 20
     commands:
-      # --- MEMORY FIX (CRITICAL) ---
+      # Fix memory on the Host (CodeBuild itself)
       - export NODE_OPTIONS="--max-old-space-size=4096"
       - export NEXT_TELEMETRY_DISABLED=1
 
       - echo "📦 INSTALL – clean cache and prep lockfile"
       - npm cache clean --force
       - npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-      - echo "📦 INSTALL – install from clean lockfile"
       - npm ci
       
-      # 👇 UPDATED DEPENDENCY INSTALLATION 👇
-      # Installs Auth (SimpleWebAuthn), PDF (jsPDF), Email (Nodemailer), and Google APIs
+      # Install dependencies (Auth, PDF, Email, Google)
       - npm install @simplewebauthn/browser @simplewebauthn/server jspdf jspdf-autotable nodemailer googleapis
       - npm install --save-dev @types/nodemailer
 
@@ -60,9 +58,7 @@ phases:
           BASE_COMMIT=$(git rev-list --max-parents=0 HEAD)
         fi
         CHANGED_FILES=$(git diff --name-only "$BASE_COMMIT"...HEAD || git show --pretty="" --name-only)
-        echo "Changed files:"
-        echo "$CHANGED_FILES"
-
+        
         BUILD_TYPE=full
         NON_FRONTEND_CHANGES=$(echo "$CHANGED_FILES" | grep -vE "\.(tsx|ts|css|json|md)$|/app/|/components/|/lib/|/public/|tailwind\.config\.ts|next\.config\.ts|package-lock\.json" || true)
         if [ -z "$NON_FRONTEND_CHANGES" ] && [ -n "$CHANGED_FILES" ]; then
@@ -74,10 +70,8 @@ phases:
 
         PRISMA_CHANGES=$(echo "$CHANGED_FILES" | grep -E "^prisma/schema\.prisma|^prisma/migrations/" || true)
         if [ -n "$PRISMA_CHANGES" ] || [ "$BUILD_TYPE" = "full" ]; then
-          echo "🛡️ Prisma changes or full build: will run migrate deploy."
           NEEDS_MIGRATE=true
         else
-          echo "⏩ No Prisma changes: skipping migrate deploy."
           NEEDS_MIGRATE=false
         fi
 
@@ -85,12 +79,25 @@ phases:
         echo NEEDS_MIGRATE=$NEEDS_MIGRATE >> /tmp/cb_env
         '
 
-      - echo "📜 PRE_BUILD – preparing workspace"
+      # --- 🔧 DOCKERFILE HOT-PATCHING (Fixes OOM & Prisma Error) ---
+      - echo "🔧 PRE_BUILD – patching Dockerfile for memory limits and prisma generation"
+      - |
+        # 1. Inject NODE_OPTIONS right after FROM to fix OOM inside Docker
+        sed -i '/^FROM /a ENV NODE_OPTIONS="--max-old-space-size=4096"' Dockerfile
+        
+        # 2. Force prisma generate to run before npm run build inside Docker
+        #    This fixes "Attempted import error: 'prisma' is not exported"
+        sed -i '/npm run build/i RUN npx prisma generate' Dockerfile
+        
+        # 3. Print the patched Dockerfile (first 20 lines and build section) for verification
+        echo "⬇️ Patched Dockerfile Preview:"
+        head -n 20 Dockerfile
+        grep -C 2 "npm run build" Dockerfile || true
+
+      - echo "📜 PRE_BUILD – preparing workspace (UI stubs)"
       - |
         cat > ci-prebuild.sh << 'SH'
         set -e
-        # NOTE: Do NOT delete src/lib/auth.ts - it contains authOptions needed by all API routes
-        
         # shadcn config
         node <<'NODE'
         const fs = require('fs');
@@ -170,7 +177,7 @@ phases:
         else
           echo "⏩ BUILD – skipping migrate deploy"
         fi
-      - echo "⚙️ BUILD – generate prisma client"
+      - echo "⚙️ BUILD – generate prisma client (Host)"
       - npx prisma generate --schema=prisma/schema.prisma
 
       - echo "🏗 BUILD – resolve commit hash"
@@ -180,6 +187,7 @@ phases:
       - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
 
       - echo "🐳 BUILD – docker image (build & tag)"
+      # Note: We added memory limits via Dockerfile patching in pre_build
       - |
         docker build --pull --progress=plain \
           --build-arg GIT_COMMIT_HASH="$COMMIT_HASH" \
