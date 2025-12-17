@@ -312,7 +312,10 @@ model ReturnProduct {
 model ReturnAttachment {
   id        Int      @id @default(autoincrement())
   returnId  Int
-  fileId    String   // Google Drive file ID
+  
+  // 👇 FIXED: Added map to match the actual database column "filePath"
+  fileId    String   @map("filePath") 
+  
   fileName  String   // Original file name
   mimeType  String?  // File MIME type (application/pdf, image/jpeg, etc.)
   fileSize  Int?     // File size in bytes
