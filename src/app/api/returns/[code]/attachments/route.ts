@@ -1,9 +1,4 @@
 // src/app/api/returns/[code]/attachments/route.ts
-// Attachments API for returns - Upload to Google Drive, store reference in DB
-//
-// GET  - List attachments for a return
-// POST - Upload file(s) to Google Drive and link to return
-// DELETE - Remove attachment (from DB and optionally from Drive)
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -28,13 +23,18 @@ function parseCode(code: string): number | null {
   return isNaN(num) ? null : num;
 }
 
+// Define the context type for Route Handlers (params is a Promise)
+type RouteContext = {
+  params: Promise<{ code: string }>;
+};
+
 /* =============================================================================
    GET - List attachments for a return
 ============================================================================= */
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { code: string } }
+  { params }: RouteContext
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -45,7 +45,10 @@ export async function GET(
       );
     }
 
-    const codeRetour = parseCode(params.code);
+    // Await params before using properties
+    const { code } = await params;
+    const codeRetour = parseCode(code);
+
     if (!codeRetour) {
       return NextResponse.json(
         { ok: false, error: "Code de retour invalide" },
@@ -100,7 +103,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { code: string } }
+  { params }: RouteContext
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -111,7 +114,10 @@ export async function POST(
       );
     }
 
-    const codeRetour = parseCode(params.code);
+    // Await params before using properties
+    const { code } = await params;
+    const codeRetour = parseCode(code);
+
     if (!codeRetour) {
       return NextResponse.json(
         { ok: false, error: "Code de retour invalide" },
@@ -293,7 +299,7 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { code: string } }
+  { params }: RouteContext
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -304,7 +310,10 @@ export async function DELETE(
       );
     }
 
-    const codeRetour = parseCode(params.code);
+    // Await params before using properties
+    const { code } = await params;
+    const codeRetour = parseCode(code);
+
     if (!codeRetour) {
       return NextResponse.json(
         { ok: false, error: "Code de retour invalide" },
