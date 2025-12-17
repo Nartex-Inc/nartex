@@ -3,7 +3,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-// 👇 CHANGED: Removed curly braces to use default import
 import prisma from "@/lib/prisma"; 
 import {
   uploadFileToDrive,
@@ -58,8 +57,9 @@ export async function GET(
     }
 
     // Check if return exists
+    // FIX 1: Look up by 'id' explicitly
     const ret = await prisma.return.findUnique({
-      where: { id: codeRetour }, // ✅ Look up by ID
+      where: { id: codeRetour },
     });
 
     if (!ret) {
@@ -70,6 +70,7 @@ export async function GET(
     }
 
     // Get attachments
+    // FIX 2: Use 'createdAt' for ordering (Prisma field name), not 'uploadedAt' (DB column name)
     const attachments = await prisma.returnAttachment.findMany({
       where: { returnId: ret.id },
       orderBy: { createdAt: "desc" },
@@ -127,8 +128,9 @@ export async function POST(
     }
 
     // Check if return exists
+    // FIX 1: Look up by 'id' explicitly
     const ret = await prisma.return.findUnique({
-      where: { id: codeRetour }, // ✅
+      where: { id: codeRetour },
     });
 
     if (!ret) {
@@ -334,8 +336,9 @@ export async function DELETE(
     }
 
     // Check if return exists
+    // FIX 1: Look up by 'id' explicitly
     const ret = await prisma.return.findUnique({
-      where: { id: codeRetour }, // ✅
+      where: { id: codeRetour },
     });
 
     if (!ret) {
@@ -362,7 +365,7 @@ export async function DELETE(
 
     // Delete from Google Drive (optional - controlled by query param)
     const deleteFromDrive = searchParams.get("deleteFromDrive") !== "false";
-    
+     
     if (deleteFromDrive) {
       try {
         await deleteFileFromDrive(fileId);
