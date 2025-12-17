@@ -59,7 +59,7 @@ export async function GET(
 
     // Check if return exists
     const ret = await prisma.return.findUnique({
-      where: { codeRetour },
+      where: { id: codeRetour }, // ✅ Look up by ID
     });
 
     if (!ret) {
@@ -128,7 +128,7 @@ export async function POST(
 
     // Check if return exists
     const ret = await prisma.return.findUnique({
-      where: { codeRetour },
+      where: { id: codeRetour }, // ✅
     });
 
     if (!ret) {
@@ -335,7 +335,7 @@ export async function DELETE(
 
     // Check if return exists
     const ret = await prisma.return.findUnique({
-      where: { codeRetour },
+      where: { id: codeRetour }, // ✅
     });
 
     if (!ret) {
