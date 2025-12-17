@@ -3,7 +3,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+// 👇 CHANGED: Removed curly braces to use default import
+import prisma from "@/lib/prisma"; 
 import {
   uploadFileToDrive,
   deleteFileFromDrive,
@@ -23,7 +24,7 @@ function parseCode(code: string): number | null {
   return isNaN(num) ? null : num;
 }
 
-// Define the context type for Route Handlers (params is a Promise)
+// Define the context type for Route Handlers (params is a Promise in Next.js 15)
 type RouteContext = {
   params: Promise<{ code: string }>;
 };
