@@ -32,7 +32,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       where: { id: returnId },
       include: {
         products: { orderBy: { id: "asc" } },
-        attachments: { orderBy: { uploadedAt: "desc" } },
+        // 👇 FIXED: Changed 'uploadedAt' to 'createdAt' to match Prisma Schema
+        attachments: { orderBy: { createdAt: "desc" } },
       },
     });
 
