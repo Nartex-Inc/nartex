@@ -32,7 +32,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       where: { id: returnId },
       include: {
         products: { orderBy: { id: "asc" } },
-        // 👇 FIXED: Changed 'uploadedAt' to 'createdAt' to match Prisma Schema
         attachments: { orderBy: { createdAt: "desc" } },
       },
     });
@@ -109,11 +108,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         poidsUnitaire: p.weightProduit ? Number(p.weightProduit) : null,
         poidsTotal: p.poids ? Number(p.poids) : null,
       })),
+      // 👇 FIXED: Changed 'filePath' to 'fileId' to match Prisma Schema
       attachments: ret.attachments.map((a) => ({
-        id: a.filePath,
+        id: a.fileId, 
         name: a.fileName,
-        url: `https://drive.google.com/file/d/${a.filePath}/preview`,
-        downloadUrl: `https://drive.google.com/uc?export=download&id=${a.filePath}`,
+        url: `https://drive.google.com/file/d/${a.fileId}/preview`,
+        downloadUrl: `https://drive.google.com/uc?export=download&id=${a.fileId}`,
       })),
     };
 
