@@ -106,7 +106,8 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         products: { orderBy: { id: "asc" } },
-        attachments: { orderBy: { uploadedAt: "desc" } },
+        // 👇 FIXED: Changed 'uploadedAt' to 'createdAt'
+        attachments: { orderBy: { createdAt: "desc" } },
       },
       orderBy: { reportedAt: "desc" },
       take,
@@ -144,11 +145,12 @@ export async function GET(request: NextRequest) {
         qteDetruite: p.qteDetruite,
         tauxRestock: p.tauxRestock ? Number(p.tauxRestock) : null,
       })),
+      // 👇 FIXED: Changed 'filePath' to 'fileId' to avoid the next error
       attachments: ret.attachments.map((a) => ({
-        id: a.filePath,
+        id: a.fileId,
         name: a.fileName,
-        url: `https://drive.google.com/file/d/${a.filePath}/preview`,
-        downloadUrl: `https://drive.google.com/uc?export=download&id=${a.filePath}`,
+        url: `https://drive.google.com/file/d/${a.fileId}/preview`,
+        downloadUrl: `https://drive.google.com/uc?export=download&id=${a.fileId}`,
       })),
     }));
 
