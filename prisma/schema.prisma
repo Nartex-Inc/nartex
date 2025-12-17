@@ -207,72 +207,71 @@ model SharePointNode {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// 3) RETURNS DOMAIN - NEW STRUCTURE (matches imported tables)
-// Tables: "Return", "ReturnProduct", "ReturnAttachment"
+// 3) RETURNS DOMAIN - MATCHING SQL TABLES
 ////////////////////////////////////////////////////////////////////////////////
 
 model Return {
-  id                   Int       @id @default(autoincrement())
+  id                  Int      @id @default(autoincrement())
   
   // Basic info
-  reportedAt           DateTime
-  reporter             Reporter  @default(expert)
-  cause                Cause     @default(production)
-  expert               String?
+  reportedAt          DateTime
+  reporter            Reporter @default(expert)
+  cause               Cause    @default(production)
+  expert              String?
   
   // Financials
-  amount               Decimal?  @db.Decimal(10, 2)
-  transportAmount      Decimal?  @db.Decimal(10, 2)
-  restockingAmount     Decimal?  @db.Decimal(10, 2)
+  amount              Decimal? @db.Decimal(10, 2)
+  transportAmount     Decimal? @db.Decimal(10, 2)
+  restockingAmount    Decimal? @db.Decimal(10, 2)
   
   // Client & Order Info
-  client               String?
-  noClient             String?   @db.VarChar(50)
-  noCommande           String?   @db.VarChar(50)
-  noTracking           String?   @db.VarChar(100)
-  dateCommande         String?   @db.VarChar(100)
-  description          String?   @db.Text
-  transporteur         String?
+  client              String?
+  noClient            String?  @db.VarChar(50)
+  noCommande          String?  @db.VarChar(50)
+  noTracking          String?  @db.VarChar(100)
+  dateCommande        String?  @db.VarChar(100)
+  description         String?  @db.Text
+  transporteur        String?
   
   // Flags
-  returnPhysical       Boolean   @default(false)
-  isDraft              Boolean   @default(false)
-  isFinal              Boolean   @default(false)
-  isVerified           Boolean   @default(false)
-  isStandby            Boolean   @default(false)
-  isPickup             Boolean   @default(false)
-  isCommande           Boolean   @default(false)
-  isReclamation        Boolean   @default(false)
+  returnPhysical      Boolean  @default(false)
+  isDraft             Boolean  @default(false)
+  isFinal             Boolean  @default(false)
+  isVerified          Boolean  @default(false)
+  isStandby           Boolean  @default(false)
+  isPickup            Boolean  @default(false)
+  isCommande          Boolean  @default(false)
+  isReclamation       Boolean  @default(false)
 
   // Documents / References
-  noBill               String?   @db.VarChar(50)
-  noBonCommande        String?   @db.VarChar(50)
-  noReclamation        String?   @db.VarChar(50)
+  noBill              String?  @db.VarChar(50)
+  noBonCommande       String?  @db.VarChar(50)
+  noReclamation       String?  @db.VarChar(50)
   
   // Workflow / People
-  initiatedBy          String?
-  initializedAt        DateTime?
-  verifiedBy           String?
-  verifiedAt           DateTime?
-  finalizedBy          String?
-  finalizedAt          DateTime?
+  initiatedBy         String?
+  initializedAt       DateTime?
+  verifiedBy          String?
+  verifiedAt          DateTime?
+  finalizedBy         String?
+  finalizedAt         DateTime?
   
   // Logistics
-  warehouseOrigin      String?
+  warehouseOrigin     String?
   warehouseDestination String?
-  villeShipto          String?
-  totalWeight          Decimal?  @db.Decimal(10, 2)
+  villeShipto         String?
+  totalWeight         Decimal? @db.Decimal(10, 2)
 
   // Credits
-  noCredit             String?   @db.VarChar(50)
-  noCredit2            String?   @db.VarChar(50)
-  noCredit3            String?   @db.VarChar(50)
-  creditedTo           String?   @db.VarChar(50)
-  creditedTo2          String?   @db.VarChar(50)
-  creditedTo3          String?   @db.VarChar(50)
+  noCredit            String?  @db.VarChar(50)
+  noCredit2           String?  @db.VarChar(50)
+  noCredit3           String?  @db.VarChar(50)
+  creditedTo          String?  @db.VarChar(50)
+  creditedTo2         String?  @db.VarChar(50)
+  creditedTo3         String?  @db.VarChar(50)
 
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @default(now()) @updatedAt
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @default(now()) @updatedAt
 
   products    ReturnProduct[]
   attachments ReturnAttachment[]
@@ -285,24 +284,24 @@ model Return {
 }
 
 model ReturnProduct {
-  id                Int       @id @default(autoincrement())
+  id                Int      @id @default(autoincrement())
   returnId          Int
   
-  codeProduit       String    @db.VarChar(50)
-  quantite          Int       @default(0)
-  descrProduit      String?   @db.VarChar(500)
-  descriptionRetour String?   @db.Text
+  codeProduit       String   @db.VarChar(50)
+  quantite          Int      @default(0)
+  descrProduit      String?  @db.VarChar(500)
+  descriptionRetour String?  @db.Text
   
   // Processing info
   quantiteRecue     Int?
   qteInventaire     Int?
   qteDetruite       Int?
-  tauxRestock       Decimal?  @db.Decimal(5, 4)
-  poids             Decimal?  @db.Decimal(10, 2)
-  weightProduit     Decimal?  @db.Decimal(10, 2)
+  tauxRestock       Decimal? @db.Decimal(5, 4)
+  poids             Decimal? @db.Decimal(10, 2)
+  weightProduit     Decimal? @db.Decimal(10, 2)
   
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @default(now()) @updatedAt
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @default(now()) @updatedAt
 
   return Return @relation(fields: [returnId], references: [id], onDelete: Cascade)
 
@@ -317,6 +316,8 @@ model ReturnAttachment {
   fileName  String   // Original file name
   mimeType  String?  // File MIME type (application/pdf, image/jpeg, etc.)
   fileSize  Int?     // File size in bytes
+  
+  // This maps the TypeScript field "createdAt" to the DB column "uploadedAt"
   createdAt DateTime @default(now()) @map("uploadedAt")
 
   // Relation to Return
@@ -326,12 +327,6 @@ model ReturnAttachment {
   @@index([returnId])
   @@index([fileId])
 }
-
-// Make sure your Return model has the attachments relation:
-// model Return {
-//   ...existing fields...
-//   attachments ReturnAttachment[]
-// }
 
 
 ////////////////////////////////////////////////////////////////////////////////
