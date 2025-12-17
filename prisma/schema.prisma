@@ -317,7 +317,7 @@ model ReturnAttachment {
   fileName  String   // Original file name
   mimeType  String?  // File MIME type (application/pdf, image/jpeg, etc.)
   fileSize  Int?     // File size in bytes
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("uploadedAt")
 
   // Relation to Return
   return Return @relation(fields: [returnId], references: [id], onDelete: Cascade)
