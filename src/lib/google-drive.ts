@@ -16,15 +16,22 @@ import { Readable } from "stream";
 const SCOPES = ["https://www.googleapis.com/auth/drive"];
 
 /**
- * Clean the private key to ensure it has real newlines.
- * Handles cases where \n comes in as literal characters.
+ * Helper to ensure the private key is formatted correctly for OpenSSL.
+ * It fixes issues where newlines are read as literal "\n" characters.
  */
 function getCleanPrivateKey() {
   const key = process.env.GOOGLE_PRIVATE_KEY;
   if (!key) return undefined;
-  
-  // Replace literal string "\n" with actual newline character
-  return key.replace(/\\n/g, "\n");
+
+  // 1. Replace literal "\n" sequence with actual newline character
+  let cleanKey = key.replace(/\\n/g, "\n");
+
+  // 2. Remove surrounding quotes if they exist (common .env artifact)
+  if (cleanKey.startsWith('"') && cleanKey.endsWith('"')) {
+    cleanKey = cleanKey.slice(1, -1);
+  }
+
+  return cleanKey;
 }
 
 function getAuth() {
@@ -32,9 +39,18 @@ function getAuth() {
   const privateKey = getCleanPrivateKey();
 
   if (!clientEmail || !privateKey) {
+    console.error("❌ Google Drive Auth Error: Missing credentials.");
     throw new Error(
       "Missing Google Drive credentials. Set GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY."
     );
+  }
+
+  // [DEBUG] Verify key format in logs (safe: only prints header)
+  // If you don't see "-----BEGIN PRIVATE KEY-----" in logs, the key is still wrong.
+  if (!privateKey.includes("-----BEGIN PRIVATE KEY-----")) {
+    console.error("❌ Fatal: GOOGLE_PRIVATE_KEY is missing the correct header.");
+  } else {
+    // console.log("✅ Google Drive Auth: Private Key loaded successfully.");
   }
 
   return new google.auth.GoogleAuth({
@@ -137,8 +153,9 @@ export async function uploadFileToDrive(
       downloadLink: `https://drive.google.com/uc?export=download&id=${fileId}`,
     };
   } catch (error: any) {
-    console.error("Google Drive Upload Error:", error);
-    throw new Error(`Google Drive Upload Failed: ${error.message}`);
+    // Log detailed auth errors if they happen here
+    console.error("Google Drive Upload Error Details:", JSON.stringify(error.response?.data || error.message, null, 2));
+    throw error;
   }
 }
 
