@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma"; 
+import { Buffer } from "buffer"; // Explicit import for safety
 import {
   uploadFileToDrive,
   deleteFileFromDrive,
@@ -23,7 +24,7 @@ function parseCode(code: string): number | null {
   return isNaN(num) ? null : num;
 }
 
-// Define the context type for Route Handlers (params is a Promise in Next.js 15)
+// Define the context type for Route Handlers
 type RouteContext = {
   params: Promise<{ code: string }>;
 };
@@ -39,38 +40,25 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json(
-        { ok: false, error: "Non authentifié" },
-        { status: 401 }
-      );
+      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
-    // Await params before using properties
     const { code } = await params;
     const codeRetour = parseCode(code);
 
     if (!codeRetour) {
-      return NextResponse.json(
-        { ok: false, error: "Code de retour invalide" },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: "Code de retour invalide" }, { status: 400 });
     }
 
     // Check if return exists
-    // FIX 1: Look up by 'id' explicitly
-    const ret = await prisma.return.findUnique({
-      where: { id: codeRetour },
-    });
+    const ret = await prisma.return.findUnique({ where: { id: codeRetour } });
 
     if (!ret) {
-      return NextResponse.json(
-        { ok: false, error: "Retour introuvable" },
-        { status: 404 }
-      );
+      return NextResponse.json({ ok: false, error: "Retour introuvable" }, { status: 404 });
     }
 
     // Get attachments
-    // FIX 2: Use 'createdAt' for ordering (Prisma field name), not 'uploadedAt' (DB column name)
+    // Note: We use 'createdAt' because the Schema maps it to the DB column 'uploadedAt'
     const attachments = await prisma.returnAttachment.findMany({
       where: { returnId: ret.id },
       orderBy: { createdAt: "desc" },
@@ -78,7 +66,7 @@ export async function GET(
 
     // Transform to response format with preview URLs
     const data = attachments.map((a) => ({
-      id: a.fileId, // Use fileId as the unique identifier
+      id: a.fileId, // Maps to 'filePath' column via Schema
       dbId: a.id,
       name: a.fileName,
       mimeType: a.mimeType,
@@ -90,10 +78,10 @@ export async function GET(
     }));
 
     return NextResponse.json({ ok: true, attachments: data });
-  } catch (error) {
-    console.error("GET /api/returns/[code]/attachments error:", error);
+  } catch (error: any) {
+    console.error("GET Attachment Error:", error);
     return NextResponse.json(
-      { ok: false, error: "Erreur lors du chargement des pièces jointes" },
+      { ok: false, error: error.message || "Erreur de chargement" },
       { status: 500 }
     );
   }
@@ -110,97 +98,80 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json(
-        { ok: false, error: "Non authentifié" },
-        { status: 401 }
-      );
+      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
-    // Await params before using properties
     const { code } = await params;
     const codeRetour = parseCode(code);
 
     if (!codeRetour) {
-      return NextResponse.json(
-        { ok: false, error: "Code de retour invalide" },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: "Code invalide" }, { status: 400 });
     }
 
-    // Check if return exists
-    // FIX 1: Look up by 'id' explicitly
-    const ret = await prisma.return.findUnique({
-      where: { id: codeRetour },
-    });
-
+    const ret = await prisma.return.findUnique({ where: { id: codeRetour } });
     if (!ret) {
-      return NextResponse.json(
-        { ok: false, error: "Retour introuvable" },
-        { status: 404 }
-      );
+      return NextResponse.json({ ok: false, error: "Retour introuvable" }, { status: 404 });
     }
 
-    // Check content type
     const contentType = request.headers.get("content-type") || "";
 
-    // Handle multipart form data (file upload)
+    // Handle Multipart Form Data (Real File Upload)
     if (contentType.includes("multipart/form-data")) {
       const formData = await request.formData();
       const files = formData.getAll("files") as File[];
 
       if (files.length === 0) {
-        return NextResponse.json(
-          { ok: false, error: "Aucun fichier fourni" },
-          { status: 400 }
-        );
+        return NextResponse.json({ ok: false, error: "Aucun fichier fourni" }, { status: 400 });
       }
 
       const uploadedAttachments = [];
 
       for (const file of files) {
-        // Validate file type
-        const allowedTypes = [
-          "application/pdf",
-          "image/jpeg",
-          "image/jpg",
-          "image/png",
-          "image/gif",
-          "image/webp",
-        ];
-
-        if (!allowedTypes.includes(file.type)) {
-          console.warn(`Skipping file with unsupported type: ${file.type}`);
-          continue;
+        // Basic validation (Max 25MB)
+        if (file.size > 25 * 1024 * 1024) {
+          console.warn(`File too large: ${file.name}`);
+          continue; 
         }
 
-        // Validate file size (max 25MB)
-        const maxSize = 25 * 1024 * 1024;
-        if (file.size > maxSize) {
-          console.warn(`Skipping file exceeding size limit: ${file.name}`);
-          continue;
-        }
-
-        // Read file buffer
+        // Convert file to Buffer for Google Drive
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
-        // Upload to Google Drive
-        const driveResult = await uploadFileToDrive(
-          buffer,
-          file.name,
-          file.type
-        );
+        console.log(`Uploading ${file.name} to Google Drive...`);
 
-        // Store reference in database
-        const attachment = await prisma.returnAttachment.create({
-          data: {
-            returnId: ret.id,
-            fileId: driveResult.fileId,
-            fileName: driveResult.fileName,
-            mimeType: driveResult.mimeType,
-            fileSize: file.size,
-          },
-        });
+        // 1. Upload to Google Drive
+        let driveResult;
+        try {
+          driveResult = await uploadFileToDrive(buffer, file.name, file.type);
+        } catch (driveErr: any) {
+          console.error("Google Drive Upload Failed:", driveErr);
+          throw new Error(`Google Drive Error: ${driveErr.message}`);
+        }
+
+        if (!driveResult || !driveResult.fileId) {
+          throw new Error("Upload Google Drive réussi mais aucun ID retourné.");
+        }
+
+        console.log(`Drive Upload Success. ID: ${driveResult.fileId}. Saving to DB...`);
+
+        // 2. Save reference to Database
+        let attachment;
+        try {
+          attachment = await prisma.returnAttachment.create({
+            data: {
+              returnId: ret.id,
+              fileId: driveResult.fileId, // Maps to 'filePath' column
+              fileName: driveResult.fileName,
+              mimeType: driveResult.mimeType,
+              fileSize: file.size,
+            },
+          });
+        } catch (dbErr: any) {
+          console.error("Database Save Failed:", dbErr);
+          // Attempt cleanup of orphaned file on Drive
+          await deleteFileFromDrive(driveResult.fileId).catch(console.error);
+          throw new Error(`Database Error: ${dbErr.message}`);
+        }
 
         uploadedAttachments.push({
           id: attachment.fileId,
@@ -217,8 +188,8 @@ export async function POST(
 
       if (uploadedAttachments.length === 0) {
         return NextResponse.json(
-          { ok: false, error: "Aucun fichier valide n'a été uploadé" },
-          { status: 400 }
+          { ok: false, error: "Aucun fichier n'a pu être sauvegardé." },
+          { status: 500 }
         );
       }
 
@@ -229,68 +200,17 @@ export async function POST(
       });
     }
 
-    // Handle JSON body (for existing Google Drive file IDs - legacy support)
-    if (contentType.includes("application/json")) {
-      const body = await request.json();
-      const { fileId, fileName, mimeType, fileSize } = body;
+    // Fallback if not multipart (Legacy or Error)
+    return NextResponse.json({ ok: false, error: "Content-Type non supporté (Multipart requis)" }, { status: 415 });
 
-      if (!fileId) {
-        return NextResponse.json(
-          { ok: false, error: "fileId requis" },
-          { status: 400 }
-        );
-      }
-
-      // Check if attachment already exists
-      const existing = await prisma.returnAttachment.findFirst({
-        where: {
-          returnId: ret.id,
-          fileId: fileId,
-        },
-      });
-
-      if (existing) {
-        return NextResponse.json(
-          { ok: false, error: "Ce fichier est déjà attaché à ce retour" },
-          { status: 409 }
-        );
-      }
-
-      // Create attachment record
-      const attachment = await prisma.returnAttachment.create({
-        data: {
-          returnId: ret.id,
-          fileId: fileId,
-          fileName: fileName || "Unknown",
-          mimeType: mimeType || "application/octet-stream",
-          fileSize: fileSize || null,
-        },
-      });
-
-      return NextResponse.json({
-        ok: true,
-        attachment: {
-          id: attachment.fileId,
-          dbId: attachment.id,
-          name: attachment.fileName,
-          mimeType: attachment.mimeType,
-          fileSize: attachment.fileSize,
-          url: getViewUrl(attachment.fileId),
-          previewUrl: getPreviewUrl(attachment.fileId),
-          downloadUrl: getDownloadUrl(attachment.fileId),
-          createdAt: attachment.createdAt.toISOString(),
-        },
-      });
-    }
-
+  } catch (error: any) {
+    console.error("POST Attachment Error Details:", error);
+    // Return specific error message to frontend for debugging
     return NextResponse.json(
-      { ok: false, error: "Content-Type non supporté" },
-      { status: 415 }
-    );
-  } catch (error) {
-    console.error("POST /api/returns/[code]/attachments error:", error);
-    return NextResponse.json(
-      { ok: false, error: "Erreur lors de l'upload" },
+      { 
+        ok: false, 
+        error: error instanceof Error ? error.message : "Erreur inconnue serveur" 
+      },
       { status: 500 }
     );
   }
@@ -307,88 +227,61 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json(
-        { ok: false, error: "Non authentifié" },
-        { status: 401 }
-      );
+      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
-    // Await params before using properties
     const { code } = await params;
     const codeRetour = parseCode(code);
 
     if (!codeRetour) {
-      return NextResponse.json(
-        { ok: false, error: "Code de retour invalide" },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: "Code invalide" }, { status: 400 });
     }
 
-    // Get fileId from query params
     const { searchParams } = new URL(request.url);
     const fileId = searchParams.get("fileId");
 
     if (!fileId) {
-      return NextResponse.json(
-        { ok: false, error: "fileId requis" },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: "fileId requis" }, { status: 400 });
     }
 
-    // Check if return exists
-    // FIX 1: Look up by 'id' explicitly
-    const ret = await prisma.return.findUnique({
-      where: { id: codeRetour },
-    });
-
+    const ret = await prisma.return.findUnique({ where: { id: codeRetour } });
     if (!ret) {
-      return NextResponse.json(
-        { ok: false, error: "Retour introuvable" },
-        { status: 404 }
-      );
+      return NextResponse.json({ ok: false, error: "Retour introuvable" }, { status: 404 });
     }
 
-    // Find the attachment
+    // Find attachment using the mapped field
     const attachment = await prisma.returnAttachment.findFirst({
       where: {
         returnId: ret.id,
-        fileId: fileId,
+        fileId: fileId, 
       },
     });
 
     if (!attachment) {
-      return NextResponse.json(
-        { ok: false, error: "Pièce jointe introuvable" },
-        { status: 404 }
-      );
+      return NextResponse.json({ ok: false, error: "Pièce jointe introuvable" }, { status: 404 });
     }
 
-    // Delete from Google Drive (optional - controlled by query param)
     const deleteFromDrive = searchParams.get("deleteFromDrive") !== "false";
      
     if (deleteFromDrive) {
       try {
         await deleteFileFromDrive(fileId);
       } catch (driveError) {
-        console.error("Error deleting from Google Drive:", driveError);
-        // Continue to delete DB record even if Drive deletion fails
+        console.error("Drive Delete Error (ignoring):", driveError);
       }
     }
 
-    // Delete from database
-    await prisma.returnAttachment.delete({
-      where: { id: attachment.id },
-    });
+    await prisma.returnAttachment.delete({ where: { id: attachment.id } });
 
     return NextResponse.json({
       ok: true,
       message: "Pièce jointe supprimée",
       deletedFileId: fileId,
     });
-  } catch (error) {
-    console.error("DELETE /api/returns/[code]/attachments error:", error);
+  } catch (error: any) {
+    console.error("DELETE Error:", error);
     return NextResponse.json(
-      { ok: false, error: "Erreur lors de la suppression" },
+      { ok: false, error: error.message || "Erreur de suppression" },
       { status: 500 }
     );
   }
