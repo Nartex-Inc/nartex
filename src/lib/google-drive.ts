@@ -10,14 +10,26 @@ import { google } from "googleapis";
 import { Readable } from "stream";
 
 /* =============================================================================
-   Configuration
+   Configuration & Auth
 ============================================================================= */
 
 const SCOPES = ["https://www.googleapis.com/auth/drive"];
 
+/**
+ * Clean the private key to ensure it has real newlines.
+ * Handles cases where \n comes in as literal characters.
+ */
+function getCleanPrivateKey() {
+  const key = process.env.GOOGLE_PRIVATE_KEY;
+  if (!key) return undefined;
+  
+  // Replace literal string "\n" with actual newline character
+  return key.replace(/\\n/g, "\n");
+}
+
 function getAuth() {
   const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-  const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const privateKey = getCleanPrivateKey();
 
   if (!clientEmail || !privateKey) {
     throw new Error(
@@ -98,30 +110,36 @@ export async function uploadFileToDrive(
     parents: [folderId],
   };
 
-  // Upload the file
-  const response = await drive.files.create({
-    requestBody: fileMetadata,
-    media: {
-      mimeType: mimeType,
-      body: stream,
-    },
-    fields: "id, name, mimeType, webViewLink",
-    supportsAllDrives: true, // Required for Shared Drives
-  });
+  try {
+    // Upload the file
+    const response = await drive.files.create({
+      requestBody: fileMetadata,
+      media: {
+        mimeType: mimeType,
+        body: stream,
+      },
+      fields: "id, name, mimeType, webViewLink, webContentLink",
+      supportsAllDrives: true, // Required for Shared Drives
+    });
 
-  const fileId = response.data.id;
-  if (!fileId) {
-    throw new Error("Failed to upload file to Google Drive - no file ID returned");
+    const fileId = response.data.id;
+    if (!fileId) {
+      throw new Error("Failed to upload file to Google Drive - no file ID returned");
+    }
+
+    return {
+      fileId,
+      fileName: response.data.name || fileName,
+      mimeType: response.data.mimeType || mimeType,
+      webViewLink: response.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`,
+      // Construct a preview link manually as it's often more reliable for embedding
+      previewLink: `https://drive.google.com/file/d/${fileId}/preview?rm=minimal&ui=integrated&dscale=1&embedded=true`,
+      downloadLink: `https://drive.google.com/uc?export=download&id=${fileId}`,
+    };
+  } catch (error: any) {
+    console.error("Google Drive Upload Error:", error);
+    throw new Error(`Google Drive Upload Failed: ${error.message}`);
   }
-
-  return {
-    fileId,
-    fileName: response.data.name || fileName,
-    mimeType: response.data.mimeType || mimeType,
-    webViewLink: response.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`,
-    previewLink: `https://drive.google.com/file/d/${fileId}/preview?rm=minimal&ui=integrated&dscale=1&embedded=true`,
-    downloadLink: `https://drive.google.com/uc?export=download&id=${fileId}`,
-  };
 }
 
 /* =============================================================================
