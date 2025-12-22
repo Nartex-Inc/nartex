@@ -1,79 +1,87 @@
 // src/lib/google-drive.ts
-// Google Drive API integration for file uploads using Service Account
-//
-// Required environment variables:
-// - GOOGLE_CLIENT_EMAIL: Service account email
-// - GOOGLE_PRIVATE_KEY: Service account private key (with \n escaped)
-// - GOOGLE_DRIVE_FOLDER_ID: Shared Drive folder ID for uploads
-
 import { google } from "googleapis";
 import { Readable } from "stream";
+import crypto from "crypto";
 
 /* =============================================================================
-   Configuration & Auth
+   Configuration & Key Cleaning Logic
+============================================================================= */
+
+function getCleanPrivateKey() {
+  let key = process.env.GOOGLE_PRIVATE_KEY;
+  
+  if (!key) {
+    console.error("❌ GOOGLE_PRIVATE_KEY is missing from environment variables.");
+    return undefined;
+  }
+
+  // 1. Handle JSON format (if user pasted the whole service-account.json content)
+  if (key.trim().startsWith('{')) {
+    try {
+      const json = JSON.parse(key);
+      key = json.private_key;
+    } catch (e) {
+      // Not valid JSON, continue treating as string
+    }
+  }
+
+  if (typeof key !== 'string') return undefined;
+
+  // 2. Remove surrounding quotes (common .env artifact)
+  if (key.startsWith('"') && key.endsWith('"')) {
+    key = key.slice(1, -1);
+  }
+
+  // 3. Fix escaped newlines (The most common cause of 1E08010C)
+  // Replaces literal "\n" characters with actual line breaks
+  if (key.includes("\\n")) {
+    key = key.replace(/\\n/g, "\n");
+  }
+
+  return key;
+}
+
+const privateKey = getCleanPrivateKey();
+const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+
+/* =============================================================================
+   Startup Validation (Fail Fast)
+============================================================================= */
+// This block runs immediately when the server starts or this file is imported.
+// It checks if the key is valid BEFORE you try to upload a file.
+
+if (privateKey) {
+  try {
+    // Attempt to parse the key using Node's crypto library
+    crypto.createPrivateKey(privateKey);
+    // If we get here, the key is Valid!
+    // console.log("✅ Google Drive: Private Key format is valid.");
+  } catch (error: any) {
+    console.error("\n❌ FATAL ERROR: Google Private Key is Malformed");
+    console.error("---------------------------------------------------");
+    console.error("Error Code:", error.message);
+    console.error("Key received starts with:", `"${privateKey.substring(0, 30)}..."`);
+    console.error("Key received ends with:", `"...${privateKey.substring(privateKey.length - 30)}"` || "Empty");
+    console.error("Does it have real newlines?", privateKey.includes("\n") ? "YES" : "NO (This is the problem!)");
+    console.error("---------------------------------------------------\n");
+  }
+}
+
+/* =============================================================================
+   Auth Setup
 ============================================================================= */
 
 const SCOPES = ["https://www.googleapis.com/auth/drive"];
 
-/**
- * Helper to ensure the private key is formatted correctly for OpenSSL.
- * It fixes issues where newlines are read as literal "\n" characters.
- */
-function getCleanPrivateKey() {
-  const key = process.env.GOOGLE_PRIVATE_KEY;
-  if (!key) return undefined;
+const auth = new google.auth.GoogleAuth({
+  credentials: {
+    client_email: clientEmail,
+    private_key: privateKey,
+  },
+  scopes: SCOPES,
+});
 
-  // 1. Replace literal "\n" sequence with actual newline character
-  let cleanKey = key.replace(/\\n/g, "\n");
-
-  // 2. Remove surrounding quotes if they exist (common .env artifact)
-  if (cleanKey.startsWith('"') && cleanKey.endsWith('"')) {
-    cleanKey = cleanKey.slice(1, -1);
-  }
-
-  return cleanKey;
-}
-
-function getAuth() {
-  const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-  const privateKey = getCleanPrivateKey();
-
-  if (!clientEmail || !privateKey) {
-    console.error("❌ Google Drive Auth Error: Missing credentials.");
-    throw new Error(
-      "Missing Google Drive credentials. Set GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY."
-    );
-  }
-
-  // [DEBUG] Verify key format in logs (safe: only prints header)
-  // If you don't see "-----BEGIN PRIVATE KEY-----" in logs, the key is still wrong.
-  if (!privateKey.includes("-----BEGIN PRIVATE KEY-----")) {
-    console.error("❌ Fatal: GOOGLE_PRIVATE_KEY is missing the correct header.");
-  } else {
-    // console.log("✅ Google Drive Auth: Private Key loaded successfully.");
-  }
-
-  return new google.auth.GoogleAuth({
-    credentials: {
-      client_email: clientEmail,
-      private_key: privateKey,
-    },
-    scopes: SCOPES,
-  });
-}
-
-function getDriveService() {
-  const auth = getAuth();
-  return google.drive({ version: "v3", auth });
-}
-
-function getFolderId(): string {
-  const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
-  if (!folderId) {
-    throw new Error("Missing GOOGLE_DRIVE_FOLDER_ID environment variable.");
-  }
-  return folderId;
-}
+const drive = google.drive({ version: "v3", auth });
 
 /* =============================================================================
    Types
@@ -100,47 +108,39 @@ export interface DriveFileInfo {
    Upload File to Google Drive
 ============================================================================= */
 
-/**
- * Upload a file to Google Drive shared folder
- * @param fileBuffer - The file content as a Buffer
- * @param fileName - Original file name
- * @param mimeType - MIME type of the file
- * @returns Upload result with file ID and links
- */
 export async function uploadFileToDrive(
   fileBuffer: Buffer,
   fileName: string,
   mimeType: string
 ): Promise<DriveUploadResult> {
-  const drive = getDriveService();
-  const folderId = getFolderId();
+  const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
+
+  if (!folderId) {
+    throw new Error("Missing GOOGLE_DRIVE_FOLDER_ID environment variable.");
+  }
 
   // Create a readable stream from the buffer
   const stream = new Readable();
   stream.push(fileBuffer);
   stream.push(null);
 
-  // File metadata
-  const fileMetadata = {
-    name: fileName,
-    parents: [folderId],
-  };
-
   try {
-    // Upload the file
     const response = await drive.files.create({
-      requestBody: fileMetadata,
+      requestBody: {
+        name: fileName,
+        parents: [folderId],
+      },
       media: {
         mimeType: mimeType,
         body: stream,
       },
       fields: "id, name, mimeType, webViewLink, webContentLink",
-      supportsAllDrives: true, // Required for Shared Drives
+      supportsAllDrives: true,
     });
 
     const fileId = response.data.id;
     if (!fileId) {
-      throw new Error("Failed to upload file to Google Drive - no file ID returned");
+      throw new Error("Google Drive upload succeeded but no ID was returned.");
     }
 
     return {
@@ -148,14 +148,18 @@ export async function uploadFileToDrive(
       fileName: response.data.name || fileName,
       mimeType: response.data.mimeType || mimeType,
       webViewLink: response.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`,
-      // Construct a preview link manually as it's often more reliable for embedding
       previewLink: `https://drive.google.com/file/d/${fileId}/preview?rm=minimal&ui=integrated&dscale=1&embedded=true`,
       downloadLink: `https://drive.google.com/uc?export=download&id=${fileId}`,
     };
   } catch (error: any) {
-    // Log detailed auth errors if they happen here
-    console.error("Google Drive Upload Error Details:", JSON.stringify(error.response?.data || error.message, null, 2));
-    throw error;
+    // Enhance error message for debugging
+    console.error("Google Drive Upload Error Details:", error);
+    
+    if (error.message && error.message.includes("DECODER routines::unsupported")) {
+      throw new Error("Configuration Error: The GOOGLE_PRIVATE_KEY is invalid. Check server logs for details.");
+    }
+    
+    throw new Error(`Google Drive API Error: ${error.message}`);
   }
 }
 
@@ -163,39 +167,27 @@ export async function uploadFileToDrive(
    Delete File from Google Drive
 ============================================================================= */
 
-/**
- * Delete a file from Google Drive
- * @param fileId - The Google Drive file ID
- */
 export async function deleteFileFromDrive(fileId: string): Promise<void> {
-  const drive = getDriveService();
-
   try {
     await drive.files.delete({
       fileId,
       supportsAllDrives: true,
     });
   } catch (error: any) {
-    // If file not found, consider it already deleted
     if (error?.code === 404) {
       console.warn(`File ${fileId} not found in Google Drive (already deleted?)`);
       return;
     }
-    throw error;
+    console.error("Delete from Drive Error:", error);
+    // Don't throw here to allow DB deletion to proceed
   }
 }
 
 /* =============================================================================
-   Get File Info from Google Drive
+   Helpers
 ============================================================================= */
 
-/**
- * Get file information from Google Drive
- * @param fileId - The Google Drive file ID
- */
 export async function getFileInfo(fileId: string): Promise<DriveFileInfo | null> {
-  const drive = getDriveService();
-
   try {
     const response = await drive.files.get({
       fileId,
@@ -211,24 +203,14 @@ export async function getFileInfo(fileId: string): Promise<DriveFileInfo | null>
       size: response.data.size || undefined,
     };
   } catch (error: any) {
-    if (error?.code === 404) {
-      return null;
-    }
+    if (error?.code === 404) return null;
     throw error;
   }
 }
 
-/* =============================================================================
-   List Files in Folder
-============================================================================= */
-
-/**
- * List files in the configured Google Drive folder
- * @param maxResults - Maximum number of files to return
- */
 export async function listFilesInFolder(maxResults = 100): Promise<DriveFileInfo[]> {
-  const drive = getDriveService();
-  const folderId = getFolderId();
+  const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
+  if (!folderId) return [];
 
   const response = await drive.files.list({
     q: `'${folderId}' in parents and trashed = false`,
@@ -247,28 +229,14 @@ export async function listFilesInFolder(maxResults = 100): Promise<DriveFileInfo
   }));
 }
 
-/* =============================================================================
-   Generate Preview/Embed URLs
-============================================================================= */
-
-/**
- * Generate Google Drive preview iframe URL
- * This URL can be used in an iframe to display the file
- */
 export function getPreviewUrl(fileId: string): string {
   return `https://drive.google.com/file/d/${fileId}/preview?rm=minimal&ui=integrated&dscale=1&embedded=true`;
 }
 
-/**
- * Generate Google Drive download URL
- */
 export function getDownloadUrl(fileId: string): string {
   return `https://drive.google.com/uc?export=download&id=${fileId}`;
 }
 
-/**
- * Generate Google Drive view URL
- */
 export function getViewUrl(fileId: string): string {
   return `https://drive.google.com/file/d/${fileId}/view`;
 }
