@@ -18,13 +18,11 @@ import {
 ============================================================================= */
 
 function parseCode(code: string): number | null {
-  // Handle "R123" or "123" format
   const cleaned = code.replace(/^R/i, "");
   const num = parseInt(cleaned, 10);
   return isNaN(num) ? null : num;
 }
 
-// Define the context type for Route Handlers
 type RouteContext = {
   params: Promise<{ code: string }>;
 };
@@ -50,23 +48,19 @@ export async function GET(
       return NextResponse.json({ ok: false, error: "Code de retour invalide" }, { status: 400 });
     }
 
-    // Check if return exists
     const ret = await prisma.return.findUnique({ where: { id: codeRetour } });
 
     if (!ret) {
       return NextResponse.json({ ok: false, error: "Retour introuvable" }, { status: 404 });
     }
 
-    // Get attachments
-    // Note: We use 'createdAt' because the Schema maps it to the DB column 'uploadedAt'
     const attachments = await prisma.returnAttachment.findMany({
       where: { returnId: ret.id },
       orderBy: { createdAt: "desc" },
     });
 
-    // Transform to response format with preview URLs
     const data = attachments.map((a) => ({
-      id: a.fileId, // Maps to 'filePath' column via Schema
+      id: a.fileId,
       dbId: a.id,
       name: a.fileName,
       mimeType: a.mimeType,
@@ -115,7 +109,9 @@ export async function POST(
 
     const contentType = request.headers.get("content-type") || "";
 
-    // Handle Multipart Form Data (Real File Upload)
+    // =========================================================
+    // SCENARIO 1: Multipart Form Data (Actual File Upload)
+    // =========================================================
     if (contentType.includes("multipart/form-data")) {
       const formData = await request.formData();
       const files = formData.getAll("files") as File[];
@@ -127,19 +123,16 @@ export async function POST(
       const uploadedAttachments = [];
 
       for (const file of files) {
-        // Basic validation (Max 25MB)
         if (file.size > 25 * 1024 * 1024) {
           console.warn(`File too large: ${file.name}`);
           continue; 
         }
 
-        // Convert file to Buffer for Google Drive
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
         console.log(`Uploading ${file.name} to Google Drive...`);
 
-        // 1. Upload to Google Drive
         let driveResult;
         try {
           driveResult = await uploadFileToDrive(buffer, file.name, file.type);
@@ -154,7 +147,6 @@ export async function POST(
 
         console.log(`Drive Upload Success. ID: ${driveResult.fileId}. Saving to DB...`);
 
-        // 2. Save reference to Database
         let attachment;
         try {
           attachment = await prisma.returnAttachment.create({
@@ -168,7 +160,6 @@ export async function POST(
           });
         } catch (dbErr: any) {
           console.error("Database Save Failed:", dbErr);
-          // Attempt cleanup of orphaned file on Drive
           await deleteFileFromDrive(driveResult.fileId).catch(console.error);
           throw new Error(`Database Error: ${dbErr.message}`);
         }
@@ -200,12 +191,63 @@ export async function POST(
       });
     }
 
-    // Fallback if not multipart (Legacy or Error)
-    return NextResponse.json({ ok: false, error: "Content-Type non supporté (Multipart requis)" }, { status: 415 });
+    // =========================================================
+    // SCENARIO 2: JSON Body (Legacy / Direct Link by ID)
+    // =========================================================
+    if (contentType.includes("application/json")) {
+      const body = await request.json();
+      const { fileId, fileName, mimeType, fileSize } = body;
+
+      if (!fileId) {
+        return NextResponse.json({ ok: false, error: "fileId requis" }, { status: 400 });
+      }
+
+      // Check if attachment already exists
+      const existing = await prisma.returnAttachment.findFirst({
+        where: {
+          returnId: ret.id,
+          fileId: fileId, // Maps to 'filePath'
+        },
+      });
+
+      if (existing) {
+        return NextResponse.json(
+          { ok: false, error: "Ce fichier est déjà attaché à ce retour" },
+          { status: 409 }
+        );
+      }
+
+      // Create attachment record
+      const attachment = await prisma.returnAttachment.create({
+        data: {
+          returnId: ret.id,
+          fileId: fileId,
+          fileName: fileName || "Unknown",
+          mimeType: mimeType || "application/octet-stream",
+          fileSize: fileSize || null,
+        },
+      });
+
+      return NextResponse.json({
+        ok: true,
+        attachment: {
+          id: attachment.fileId,
+          dbId: attachment.id,
+          name: attachment.fileName,
+          mimeType: attachment.mimeType,
+          fileSize: attachment.fileSize,
+          url: getViewUrl(attachment.fileId),
+          previewUrl: getPreviewUrl(attachment.fileId),
+          downloadUrl: getDownloadUrl(attachment.fileId),
+          createdAt: attachment.createdAt.toISOString(),
+        },
+      });
+    }
+
+    return NextResponse.json({ ok: false, error: "Content-Type non supporté" }, { status: 415 });
 
   } catch (error: any) {
-    console.error("POST Attachment Error Details:", error);
-    // Return specific error message to frontend for debugging
+    console.error("POST Error details:", error);
     return NextResponse.json(
       { 
         ok: false, 
@@ -249,7 +291,7 @@ export async function DELETE(
       return NextResponse.json({ ok: false, error: "Retour introuvable" }, { status: 404 });
     }
 
-    // Find attachment using the mapped field
+    // Find attachment using the mapped field (Prisma: fileId -> DB: filePath)
     const attachment = await prisma.returnAttachment.findFirst({
       where: {
         returnId: ret.id,
