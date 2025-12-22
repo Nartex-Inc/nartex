@@ -228,24 +228,22 @@ async function deleteReturn(code: string): Promise<void> {
 // === Attachment Utils ===
 
 async function uploadAttachment(returnId: string, file: File): Promise<Attachment> {
-  // NOTE: In a real Google Drive integration, you would upload the file to Drive here
-  // and get the ID. For now, we mock the ID generation to satisfy the API.
-  const mockFileId = `gdrive_mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  
+  // 👇 FIXED: Use FormData to perform a real upload to the backend (which sends to Drive)
+  // instead of sending JSON with a fake ID.
+  const formData = new FormData();
+  formData.append("files", file);
+
   const res = await fetch(`/api/returns/${encodeURIComponent(returnId)}/attachments`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      fileId: mockFileId,
-      fileName: file.name,
-      mimeType: file.type,
-      fileSize: file.size
-    })
+    // Note: Do NOT set Content-Type header here; fetch sets it automatically for FormData
+    body: formData,
   });
   
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || "Upload failed");
-  return json.attachment;
+  
+  // The backend returns an array 'attachments' for multipart uploads
+  return json.attachments[0];
 }
 
 // Note: deleteAttachment is not used in DetailModal anymore (handled by component), 
