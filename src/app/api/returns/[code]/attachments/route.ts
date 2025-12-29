@@ -89,14 +89,21 @@ export async function POST(
   request: NextRequest,
   { params }: RouteContext
 ) {
+  console.log("[Attachments API] POST request received");
+  
   try {
     const session = await getServerSession(authOptions);
+    console.log("[Attachments API] Session:", session?.user?.name || "Not authenticated");
+    
     if (!session?.user) {
       return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
     const { code } = await params;
+    console.log("[Attachments API] Return code:", code);
+    
     const codeRetour = parseCode(code);
+    console.log("[Attachments API] Parsed code:", codeRetour);
 
     if (!codeRetour) {
       return NextResponse.json({ ok: false, error: "Code invalide" }, { status: 400 });
@@ -104,48 +111,93 @@ export async function POST(
 
     const ret = await prisma.return.findUnique({ where: { id: codeRetour } });
     if (!ret) {
+      console.log("[Attachments API] Return not found:", codeRetour);
       return NextResponse.json({ ok: false, error: "Retour introuvable" }, { status: 404 });
     }
+    console.log("[Attachments API] Found return:", ret.id);
 
     const contentType = request.headers.get("content-type") || "";
+    console.log("[Attachments API] Content-Type:", contentType);
 
     // =========================================================
     // SCENARIO 1: Multipart Form Data (Actual File Upload)
     // =========================================================
     if (contentType.includes("multipart/form-data")) {
-      const formData = await request.formData();
-      const files = formData.getAll("files") as File[];
+      console.log("[Attachments API] Processing multipart form data");
+      
+      let formData;
+      try {
+        formData = await request.formData();
+      } catch (formError: any) {
+        console.error("[Attachments API] FormData parsing error:", formError);
+        return NextResponse.json({ ok: false, error: `FormData error: ${formError.message}` }, { status: 400 });
+      }
+      
+      const files = formData.getAll("files");
+      console.log("[Attachments API] Files received:", files.length);
 
       if (files.length === 0) {
         return NextResponse.json({ ok: false, error: "Aucun fichier fourni" }, { status: 400 });
       }
 
       const uploadedAttachments = [];
+      const errors: string[] = [];
 
-      for (const file of files) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        // Check if it's a File object
+        if (!(file instanceof File)) {
+          console.warn(`[Attachments API] Item ${i} is not a File:`, typeof file);
+          errors.push(`Item ${i} is not a file`);
+          continue;
+        }
+        
+        console.log(`[Attachments API] Processing file ${i + 1}/${files.length}: ${file.name} (${file.type}, ${file.size} bytes)`);
+
         if (file.size > 25 * 1024 * 1024) {
-          console.warn(`File too large: ${file.name}`);
+          console.warn(`[Attachments API] File too large: ${file.name}`);
+          errors.push(`${file.name}: trop volumineux (max 25MB)`);
           continue; 
         }
 
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
+        if (file.size === 0) {
+          console.warn(`[Attachments API] Empty file: ${file.name}`);
+          errors.push(`${file.name}: fichier vide`);
+          continue;
+        }
 
-        console.log(`Uploading ${file.name} to Google Drive...`);
+        let arrayBuffer;
+        try {
+          arrayBuffer = await file.arrayBuffer();
+        } catch (readError: any) {
+          console.error(`[Attachments API] Error reading file ${file.name}:`, readError);
+          errors.push(`${file.name}: erreur de lecture`);
+          continue;
+        }
+        
+        const buffer = Buffer.from(arrayBuffer);
+        console.log(`[Attachments API] Buffer size: ${buffer.length} bytes`);
+
+        console.log(`[Attachments API] Uploading ${file.name} to Google Drive...`);
 
         let driveResult;
         try {
-          driveResult = await uploadFileToDrive(buffer, file.name, file.type);
+          driveResult = await uploadFileToDrive(buffer, file.name, file.type || 'application/octet-stream');
+          console.log(`[Attachments API] Drive upload result:`, driveResult);
         } catch (driveErr: any) {
-          console.error("Google Drive Upload Failed:", driveErr);
-          throw new Error(`Google Drive Error: ${driveErr.message}`);
+          console.error("[Attachments API] Google Drive Upload Failed:", driveErr);
+          errors.push(`${file.name}: ${driveErr.message}`);
+          continue;
         }
 
         if (!driveResult || !driveResult.fileId) {
-          throw new Error("Upload Google Drive réussi mais aucun ID retourné.");
+          console.error("[Attachments API] No file ID returned from Drive");
+          errors.push(`${file.name}: aucun ID retourné par Google Drive`);
+          continue;
         }
 
-        console.log(`Drive Upload Success. ID: ${driveResult.fileId}. Saving to DB...`);
+        console.log(`[Attachments API] Drive Upload Success. ID: ${driveResult.fileId}. Saving to DB...`);
 
         let attachment;
         try {
@@ -158,10 +210,13 @@ export async function POST(
               fileSize: file.size,
             },
           });
+          console.log(`[Attachments API] Saved to DB with ID: ${attachment.id}`);
         } catch (dbErr: any) {
-          console.error("Database Save Failed:", dbErr);
+          console.error("[Attachments API] Database Save Failed:", dbErr);
+          // Try to clean up the uploaded file
           await deleteFileFromDrive(driveResult.fileId).catch(console.error);
-          throw new Error(`Database Error: ${dbErr.message}`);
+          errors.push(`${file.name}: erreur base de données`);
+          continue;
         }
 
         uploadedAttachments.push({
@@ -177,9 +232,14 @@ export async function POST(
         });
       }
 
+      console.log(`[Attachments API] Upload complete. Success: ${uploadedAttachments.length}, Errors: ${errors.length}`);
+
       if (uploadedAttachments.length === 0) {
+        const errorMsg = errors.length > 0 
+          ? `Aucun fichier uploadé. Erreurs: ${errors.join('; ')}`
+          : "Aucun fichier n'a pu être sauvegardé.";
         return NextResponse.json(
-          { ok: false, error: "Aucun fichier n'a pu être sauvegardé." },
+          { ok: false, error: errorMsg },
           { status: 500 }
         );
       }
@@ -188,6 +248,7 @@ export async function POST(
         ok: true,
         message: `${uploadedAttachments.length} fichier(s) uploadé(s)`,
         attachments: uploadedAttachments,
+        errors: errors.length > 0 ? errors : undefined,
       });
     }
 
@@ -195,6 +256,8 @@ export async function POST(
     // SCENARIO 2: JSON Body (Legacy / Direct Link by ID)
     // =========================================================
     if (contentType.includes("application/json")) {
+      console.log("[Attachments API] Processing JSON body");
+      
       const body = await request.json();
       const { fileId, fileName, mimeType, fileSize } = body;
 
@@ -244,10 +307,11 @@ export async function POST(
       });
     }
 
-    return NextResponse.json({ ok: false, error: "Content-Type non supporté" }, { status: 415 });
+    console.log("[Attachments API] Unsupported Content-Type:", contentType);
+    return NextResponse.json({ ok: false, error: `Content-Type non supporté: ${contentType}` }, { status: 415 });
 
   } catch (error: any) {
-    console.error("POST Error details:", error);
+    console.error("[Attachments API] POST Error details:", error);
     return NextResponse.json(
       { 
         ok: false, 
