@@ -10,25 +10,34 @@ function getCleanPrivateKey(): string | undefined {
   let key = process.env.GOOGLE_PRIVATE_KEY;
   
   if (!key) {
-    console.error("❌ GOOGLE_PRIVATE_KEY is missing from environment variables.");
+    console.error("❌ GOOGLE_PRIVATE_KEY is missing.");
     return undefined;
   }
 
-  console.log("[Google Drive] Raw key length:", key.length);
-
-  // 1. Check if it's Base64 encoded (doesn't start with -----)
-  //    Base64 keys won't have dashes at the start
-  if (!key.trim().startsWith('-----') && !key.trim().startsWith('{')) {
+  // 1. If the key is the entire JSON string (accidental paste of the whole secret), extract the field
+  if (key.trim().startsWith('{')) {
     try {
-      const decoded = Buffer.from(key, 'base64').toString('utf-8');
-      if (decoded.includes('-----BEGIN')) {
-        console.log("[Google Drive] Successfully decoded Base64 key");
-        key = decoded;
-      }
-    } catch (e) {
-      // Not base64, continue with original
-    }
+      const json = JSON.parse(key);
+      key = json.GOOGLE_PRIVATE_KEY || json.private_key || key;
+    } catch (e) { /* continue */ }
   }
+
+  // 2. Fix newline escaping
+  // AWS and shell environments often turn a real newline into the literal string "\n"
+  // We need to turn those back into real line breaks.
+  key = key.replace(/\\n/gm, '\n');
+
+  // 3. Remove any accidental surrounding quotes
+  key = key.trim().replace(/^["']|["']$/g, '');
+
+  // 4. Ensure headers exist
+  if (!key.includes('-----BEGIN PRIVATE KEY-----')) {
+    console.error("❌ Key is missing PEM headers.");
+    return undefined;
+  }
+
+  return key;
+}
 
   // 2. Handle JSON format (if user pasted the whole service-account.json content)
   if (key.trim().startsWith('{')) {
