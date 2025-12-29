@@ -1521,10 +1521,13 @@ function NewReturnModal({
                     multiple 
                     className="hidden" 
                     onChange={(e) => {
-                      if (e.target.files) {
-                        setFilesToUpload(prev => [...prev, ...Array.from(e.target.files || [])]);
-                        e.target.value = ""; // reset
+                      const selectedFiles = e.target.files;
+                      if (selectedFiles && selectedFiles.length > 0) {
+                        const fileArray = Array.from(selectedFiles);
+                        console.log("[NewReturnModal] Files selected:", fileArray.map(f => f.name));
+                        setFilesToUpload(prev => [...prev, ...fileArray]);
                       }
+                      e.target.value = "";
                     }}
                   />
                   <label 
