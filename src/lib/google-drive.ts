@@ -14,25 +14,19 @@ function getCleanPrivateKey(): string | undefined {
     return undefined;
   }
 
-  // 1. If the key is the entire JSON string (accidental paste of the whole secret), extract the field
-  if (key.trim().startsWith('{')) {
-    try {
-      const json = JSON.parse(key);
-      key = json.GOOGLE_PRIVATE_KEY || json.private_key || key;
-    } catch (e) { /* continue */ }
+  // Handle case where the whole secret might be wrapped in quotes
+  key = key.trim();
+  if (key.startsWith('"') && key.endsWith('"')) {
+    key = key.slice(1, -1);
   }
 
-  // 2. Fix newline escaping
-  // AWS and shell environments often turn a real newline into the literal string "\n"
-  // We need to turn those back into real line breaks.
+  // Fix escaped newlines: convert literal "\n" strings into actual line breaks
+  // This is the most common fix for the DECODER error.
   key = key.replace(/\\n/gm, '\n');
 
-  // 3. Remove any accidental surrounding quotes
-  key = key.trim().replace(/^["']|["']$/g, '');
-
-  // 4. Ensure headers exist
+  // Validate basic PEM structure
   if (!key.includes('-----BEGIN PRIVATE KEY-----')) {
-    console.error("❌ Key is missing PEM headers.");
+    console.error("❌ Key format invalid: Missing BEGIN header.");
     return undefined;
   }
 
