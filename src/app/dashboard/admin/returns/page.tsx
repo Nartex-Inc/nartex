@@ -237,6 +237,7 @@ async function uploadAttachment(returnId: string, file: File): Promise<Attachmen
     method: "POST",
     // Note: Do NOT set Content-Type header here; fetch sets it automatically for FormData
     body: formData,
+    credentials: "include",
   });
   
   const json = await res.json();
