@@ -13,7 +13,7 @@ function getCleanPrivateKey(): string | undefined {
     return undefined;
   }
 
-  // 1. Handle JSON format (if the whole service-account.json was pasted)
+  // 1. Handle JSON format (if user pasted the whole service-account.json content)
   if (key.trim().startsWith('{')) {
     try {
       const json = JSON.parse(key);
@@ -32,8 +32,7 @@ function getCleanPrivateKey(): string | undefined {
     key = key.slice(1, -1);
   }
 
-  // 3. Handle escape scenarios for newlines (\n string vs actual newline)
-  // This handles keys coming from AWS Secrets Manager or CI/CD pipelines
+  // 3. Fix escaped newlines (literal "\n" -> real newline)
   key = key.replace(/\\n/g, '\n');
   key = key.replace(/\r\n/g, '\n');
 
@@ -43,14 +42,6 @@ function getCleanPrivateKey(): string | undefined {
     return undefined;
   }
 
-  // 5. Final validation - RSA keys usually have ~25+ lines
-  const newlineCount = (key.match(/\n/g) || []).length;
-  if (newlineCount < 5) {
-    console.error("❌ Key appears to be missing newlines. Got:", newlineCount);
-    return undefined;
-  }
-
-  console.log("✅ Private key processed successfully");
   return key;
 }
 
@@ -59,38 +50,21 @@ const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
 const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
 /* =============================================================================
-   Startup Validation
-============================================================================= */
-
-const missingEnvVars: string[] = [];
-if (!privateKey) missingEnvVars.push('GOOGLE_PRIVATE_KEY');
-if (!clientEmail) missingEnvVars.push('GOOGLE_CLIENT_EMAIL');
-if (!folderId) missingEnvVars.push('GOOGLE_DRIVE_FOLDER_ID');
-
-if (missingEnvVars.length > 0) {
-  console.error(`\n❌ GOOGLE DRIVE CONFIG ERROR: ${missingEnvVars.join(', ')}\n`);
-} else {
-  console.log("✅ Google Drive: Configuration OK");
-}
-
-/* =============================================================================
    Auth Setup
 ============================================================================= */
-
-const SCOPES = ["https://www.googleapis.com/auth/drive"];
 
 const auth = new google.auth.GoogleAuth({
   credentials: {
     client_email: clientEmail,
     private_key: privateKey,
   },
-  scopes: SCOPES,
+  scopes: ["https://www.googleapis.com/auth/drive"],
 });
 
 const drive = google.drive({ version: "v3", auth });
 
 /* =============================================================================
-   Types
+   Exported Types
 ============================================================================= */
 
 export interface DriveUploadResult {
@@ -111,52 +85,35 @@ export interface DriveFileInfo {
 }
 
 /* =============================================================================
-   Configuration Check Function
+   Exported Functions
 ============================================================================= */
 
 export function checkDriveConfiguration(): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
-  if (!privateKey) errors.push("GOOGLE_PRIVATE_KEY is not set or invalid");
-  if (!clientEmail) errors.push("GOOGLE_CLIENT_EMAIL is not set");
-  if (!folderId) errors.push("GOOGLE_DRIVE_FOLDER_ID is not set");
+  if (!privateKey) errors.push("GOOGLE_PRIVATE_KEY is missing or invalid");
+  if (!clientEmail) errors.push("GOOGLE_CLIENT_EMAIL is missing");
+  if (!folderId) errors.push("GOOGLE_DRIVE_FOLDER_ID is missing");
   return { valid: errors.length === 0, errors };
 }
-
-/* =============================================================================
-   Upload File to Google Drive
-============================================================================= */
 
 export async function uploadFileToDrive(
   fileBuffer: Buffer,
   fileName: string,
   mimeType: string
 ): Promise<DriveUploadResult> {
-  const config = checkDriveConfiguration();
-  if (!config.valid) {
-    throw new Error(`Google Drive config error: ${config.errors.join(', ')}`);
-  }
-
   const stream = new Readable();
   stream.push(fileBuffer);
   stream.push(null);
 
   try {
     const response = await drive.files.create({
-      requestBody: {
-        name: fileName,
-        parents: [folderId!],
-      },
-      media: {
-        mimeType: mimeType,
-        body: stream,
-      },
-      fields: "id, name, mimeType, webViewLink, webContentLink",
+      requestBody: { name: fileName, parents: [folderId!] },
+      media: { mimeType, body: stream },
+      fields: "id, name, mimeType, webViewLink",
       supportsAllDrives: true,
     });
 
-    const fileId = response.data.id;
-    if (!fileId) throw new Error("No file ID returned");
-
+    const fileId = response.data.id!;
     return {
       fileId,
       fileName: response.data.name || fileName,
@@ -166,27 +123,34 @@ export async function uploadFileToDrive(
       downloadLink: `https://drive.google.com/uc?export=download&id=${fileId}`,
     };
   } catch (error: any) {
-    console.error("[Google Drive] Upload failed:", error.message);
-    throw new Error(`Google Drive Error: ${error.message}`);
+    throw new Error(`Upload Failed: ${error.message}`);
   }
 }
-
-/* =============================================================================
-   Delete File from Google Drive
-============================================================================= */
 
 export async function deleteFileFromDrive(fileId: string): Promise<void> {
   try {
     await drive.files.delete({ fileId, supportsAllDrives: true });
   } catch (error: any) {
-    if (error?.code === 404) return;
-    console.error("Delete error:", error);
+    if (error?.code !== 404) console.error("Delete error:", error);
   }
 }
 
-/* =============================================================================
-   Helpers
-============================================================================= */
+export async function listFilesInFolder(maxResults = 100): Promise<DriveFileInfo[]> {
+  const response = await drive.files.list({
+    q: `'${folderId}' in parents and trashed = false`,
+    fields: "files(id, name, mimeType, webViewLink, size)",
+    pageSize: maxResults,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  });
+  return (response.data.files || []).map(f => ({
+    id: f.id || "",
+    name: f.name || "Unknown",
+    mimeType: f.mimeType || "",
+    webViewLink: f.webViewLink || undefined,
+    size: f.size || undefined,
+  }));
+}
 
 export function getPreviewUrl(fileId: string): string {
   return `https://drive.google.com/file/d/${fileId}/preview`;
