@@ -7,7 +7,7 @@ import crypto from "crypto";
    Configuration & Key Cleaning Logic
 ============================================================================= */
 
-function getCleanPrivateKey() {
+function getCleanPrivateKey(): string | undefined {
   let key = process.env.GOOGLE_PRIVATE_KEY;
   
   if (!key) {
@@ -15,11 +15,15 @@ function getCleanPrivateKey() {
     return undefined;
   }
 
+  console.log("[Google Drive] Raw key length:", key.length);
+  console.log("[Google Drive] Raw key starts with:", key.substring(0, 50));
+
   // 1. Handle JSON format (if user pasted the whole service-account.json content)
   if (key.trim().startsWith('{')) {
     try {
       const json = JSON.parse(key);
       key = json.private_key;
+      console.log("[Google Drive] Extracted key from JSON format");
     } catch (e) {
       // Not valid JSON, continue treating as string
     }
@@ -28,14 +32,54 @@ function getCleanPrivateKey() {
   if (typeof key !== 'string') return undefined;
 
   // 2. Remove surrounding quotes (common .env artifact)
-  if (key.startsWith('"') && key.endsWith('"')) {
+  key = key.trim();
+  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
     key = key.slice(1, -1);
+    console.log("[Google Drive] Removed surrounding quotes");
   }
 
-  // 3. Fix escaped newlines (The most common cause of 1E08010C)
-  // Replaces literal "\n" characters with actual line breaks
-  if (key.includes("\\n")) {
-    key = key.replace(/\\n/g, "\n");
+  // 3. Handle multiple levels of escaping that can happen in different environments
+  // This is the KEY fix - handle all possible escape scenarios
+  
+  // Count occurrences before fixing
+  const doubleEscaped = (key.match(/\\\\n/g) || []).length;
+  const singleEscaped = (key.match(/(?<!\\)\\n/g) || []).length;
+  const realNewlines = (key.match(/\n/g) || []).length;
+  
+  console.log("[Google Drive] Before fix - Double escaped \\\\n:", doubleEscaped);
+  console.log("[Google Drive] Before fix - Single escaped \\n:", singleEscaped);
+  console.log("[Google Drive] Before fix - Real newlines:", realNewlines);
+
+  // First, handle double-escaped: \\n -> actual newline
+  key = key.replace(/\\\\n/g, '\n');
+  
+  // Then handle single-escaped: \n (literal two chars) -> actual newline
+  key = key.replace(/\\n/g, '\n');
+  
+  // Handle Windows-style line endings
+  key = key.replace(/\r\n/g, '\n');
+  key = key.replace(/\r/g, '\n');
+
+  // Count after fixing
+  const finalNewlines = (key.match(/\n/g) || []).length;
+  console.log("[Google Drive] After fix - Real newlines:", finalNewlines);
+
+  // 4. Validate the key has the right structure
+  if (!key.includes('-----BEGIN') || !key.includes('-----END')) {
+    console.error("❌ GOOGLE_PRIVATE_KEY doesn't appear to be a valid PEM key");
+    console.error("Key should start with -----BEGIN PRIVATE KEY----- or similar");
+    console.error("First 100 chars:", key.substring(0, 100));
+    return undefined;
+  }
+
+  // 5. Ensure there are actual newlines in the key (should have ~27+ for a typical RSA key)
+  const lines = key.split('\n').filter(line => line.trim().length > 0);
+  console.log("[Google Drive] Key has", lines.length, "non-empty lines");
+  
+  if (lines.length < 3) {
+    console.error("❌ GOOGLE_PRIVATE_KEY appears to be missing newlines");
+    console.error(`Found only ${lines.length} lines, expected many more (typically 27+)`);
+    return undefined;
   }
 
   return key;
@@ -49,33 +93,32 @@ const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
    Startup Validation (Fail Fast)
 ============================================================================= */
 
-// Check for missing environment variables
 const missingEnvVars: string[] = [];
 if (!privateKey) missingEnvVars.push('GOOGLE_PRIVATE_KEY');
 if (!clientEmail) missingEnvVars.push('GOOGLE_CLIENT_EMAIL');
 if (!folderId) missingEnvVars.push('GOOGLE_DRIVE_FOLDER_ID');
 
 if (missingEnvVars.length > 0) {
-  console.error(`\n❌ GOOGLE DRIVE CONFIG ERROR: Missing environment variables: ${missingEnvVars.join(', ')}`);
+  console.error(`\n❌ GOOGLE DRIVE CONFIG ERROR: Missing/invalid environment variables: ${missingEnvVars.join(', ')}`);
   console.error("File uploads will fail until these are configured.\n");
 }
 
-// This block runs immediately when the server starts or this file is imported.
-// It checks if the key is valid BEFORE you try to upload a file.
+// Validate the key format using Node's crypto library
 let keyIsValid = false;
 if (privateKey) {
   try {
-    // Attempt to parse the key using Node's crypto library
     crypto.createPrivateKey(privateKey);
     keyIsValid = true;
-    console.log("✅ Google Drive: Private Key format is valid.");
+    console.log("✅ Google Drive: Private Key format is VALID and can be parsed.");
   } catch (error: any) {
     console.error("\n❌ FATAL ERROR: Google Private Key is Malformed");
     console.error("---------------------------------------------------");
-    console.error("Error Code:", error.message);
-    console.error("Key received starts with:", `"${privateKey.substring(0, 30)}..."`);
-    console.error("Key received ends with:", `"...${privateKey.substring(privateKey.length - 30)}"` || "Empty");
-    console.error("Does it have real newlines?", privateKey.includes("\n") ? "YES" : "NO (This is the problem!)");
+    console.error("Error:", error.message);
+    console.error("---------------------------------------------------");
+    console.error("TROUBLESHOOTING:");
+    console.error("1. Make sure the key has REAL newlines, not literal \\n characters");
+    console.error("2. In Vercel/hosting: Use the multiline secret input or encode properly");
+    console.error("3. Try wrapping the key in quotes and escaping newlines: \"-----BEGIN...\\n...\"");
     console.error("---------------------------------------------------\n");
   }
 }
@@ -124,10 +167,10 @@ export interface DriveFileInfo {
 export function checkDriveConfiguration(): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   
-  if (!privateKey) errors.push("GOOGLE_PRIVATE_KEY is not set");
+  if (!privateKey) errors.push("GOOGLE_PRIVATE_KEY is not set or could not be parsed");
   if (!clientEmail) errors.push("GOOGLE_CLIENT_EMAIL is not set");
   if (!folderId) errors.push("GOOGLE_DRIVE_FOLDER_ID is not set");
-  if (privateKey && !keyIsValid) errors.push("GOOGLE_PRIVATE_KEY is malformed");
+  if (privateKey && !keyIsValid) errors.push("GOOGLE_PRIVATE_KEY is malformed (failed crypto validation)");
   
   return {
     valid: errors.length === 0,
@@ -154,12 +197,8 @@ export async function uploadFileToDrive(
     throw new Error(errorMsg);
   }
 
-  const targetFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
+  const targetFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID!;
   
-  if (!targetFolderId) {
-    throw new Error("Missing GOOGLE_DRIVE_FOLDER_ID environment variable.");
-  }
-
   console.log(`[Google Drive] Target folder ID: ${targetFolderId}`);
 
   // Create a readable stream from the buffer
@@ -204,27 +243,25 @@ export async function uploadFileToDrive(
     return result;
     
   } catch (error: any) {
-    // Enhance error message for debugging
     console.error("[Google Drive] Upload Error Details:", error);
     
-    // Check for common error types
-    if (error.message && error.message.includes("DECODER routines::unsupported")) {
-      throw new Error("Configuration Error: The GOOGLE_PRIVATE_KEY is invalid. Check server logs for details.");
+    if (error.message?.includes("DECODER") || error.message?.includes("unsupported") || error.code === 'ERR_OSSL_UNSUPPORTED') {
+      throw new Error("Private key format error. The GOOGLE_PRIVATE_KEY needs proper newlines. See server logs for details.");
     }
     
     if (error.code === 403) {
-      throw new Error(`Google Drive permission error: The service account may not have access to the folder. Error: ${error.message}`);
+      throw new Error(`Permission denied. Ensure the service account (${clientEmail}) has Editor access to the Drive folder.`);
     }
     
     if (error.code === 404) {
-      throw new Error(`Google Drive folder not found: Check that GOOGLE_DRIVE_FOLDER_ID (${targetFolderId}) is correct.`);
+      throw new Error(`Folder not found. Check GOOGLE_DRIVE_FOLDER_ID (${targetFolderId}) is correct.`);
     }
     
     if (error.code === 401) {
-      throw new Error(`Google Drive authentication error: Check GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY.`);
+      throw new Error(`Authentication failed. Check GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY.`);
     }
     
-    throw new Error(`Google Drive API Error: ${error.message || 'Unknown error'}`);
+    throw new Error(`Google Drive Error: ${error.message || 'Unknown error'}`);
   }
 }
 
@@ -244,7 +281,6 @@ export async function deleteFileFromDrive(fileId: string): Promise<void> {
       return;
     }
     console.error("Delete from Drive Error:", error);
-    // Don't throw here to allow DB deletion to proceed
   }
 }
 
