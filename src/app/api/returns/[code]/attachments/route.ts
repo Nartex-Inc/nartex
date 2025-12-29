@@ -144,16 +144,17 @@ export async function POST(
       const errors: string[] = [];
 
       for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+        const file = files[i] as any;
         
-        // Check if it's a File object
-        if (!(file instanceof File)) {
-          console.warn(`[Attachments API] Item ${i} is not a File:`, typeof file);
-          errors.push(`Item ${i} is not a file`);
+        // Check if it's a File-like object (has name, size, arrayBuffer method)
+        // Note: We can't use `instanceof File` because File may not be defined in Node.js
+        if (!file || typeof file.arrayBuffer !== 'function' || typeof file.name !== 'string') {
+          console.warn(`[Attachments API] Item ${i} is not a valid file object:`, typeof file, file);
+          errors.push(`Item ${i} is not a valid file`);
           continue;
         }
         
-        console.log(`[Attachments API] Processing file ${i + 1}/${files.length}: ${file.name} (${file.type}, ${file.size} bytes)`);
+        console.log(`[Attachments API] Processing file ${i + 1}/${files.length}: ${file.name} (${file.type || 'unknown'}, ${file.size} bytes)`);
 
         if (file.size > 25 * 1024 * 1024) {
           console.warn(`[Attachments API] File too large: ${file.name}`);
