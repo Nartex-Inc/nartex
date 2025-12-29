@@ -51,12 +51,27 @@ async function uploadFiles(returnCode: string, files: File[]): Promise<Attachmen
   const formData = new FormData();
   files.forEach((file) => formData.append("files", file));
 
+  console.log(`[AttachmentsSection] Uploading ${files.length} file(s) to return ${returnCode}`);
+  console.log(`[AttachmentsSection] Files:`, files.map(f => ({ name: f.name, type: f.type, size: f.size })));
+
   const res = await fetch(`/api/returns/${encodeURIComponent(returnCode)}/attachments`, {
     method: "POST",
     body: formData,
+    credentials: "include", // Important for session auth
   });
 
-  const json = await res.json();
+  console.log(`[AttachmentsSection] Response status: ${res.status}`);
+
+  const text = await res.text();
+  console.log(`[AttachmentsSection] Response body:`, text);
+
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Server returned invalid JSON: ${text.substring(0, 200)}`);
+  }
+
   if (!json.ok) {
     throw new Error(json.error || "Erreur lors de l'upload");
   }
@@ -67,7 +82,10 @@ async function uploadFiles(returnCode: string, files: File[]): Promise<Attachmen
 async function deleteAttachment(returnCode: string, fileId: string): Promise<void> {
   const res = await fetch(
     `/api/returns/${encodeURIComponent(returnCode)}/attachments?fileId=${encodeURIComponent(fileId)}`,
-    { method: "DELETE" }
+    { 
+      method: "DELETE",
+      credentials: "include", // Important for session auth
+    }
   );
 
   const json = await res.json();
@@ -77,7 +95,9 @@ async function deleteAttachment(returnCode: string, fileId: string): Promise<voi
 }
 
 async function fetchAttachments(returnCode: string): Promise<AttachmentData[]> {
-  const res = await fetch(`/api/returns/${encodeURIComponent(returnCode)}/attachments`);
+  const res = await fetch(`/api/returns/${encodeURIComponent(returnCode)}/attachments`, {
+    credentials: "include", // Important for session auth
+  });
   const json = await res.json();
   if (!json.ok) {
     throw new Error(json.error || "Erreur lors du chargement");
@@ -260,33 +280,74 @@ function UploadZone({
   const [isDragging, setIsDragging] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
   const [uploadProgress, setUploadProgress] = React.useState<string>("");
+  const [uploadError, setUploadError] = React.useState<string | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   const handleFiles = async (files: FileList | File[]) => {
     const fileArray = Array.from(files);
     if (fileArray.length === 0) return;
 
-    // Filter valid files
+    setUploadError(null);
+
+    // Filter valid files - be more permissive with MIME types
     const validFiles = fileArray.filter((file) => {
-      const validTypes = ["application/pdf", "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+      // Accept common document and image types
+      const validExtensions = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.doc', '.docx', '.xls', '.xlsx'];
+      const validMimePatterns = [
+        'application/pdf',
+        'image/',  // All image types
+        'application/msword',
+        'application/vnd.openxmlformats',
+        'application/vnd.ms-excel',
+      ];
+      
       const maxSize = 25 * 1024 * 1024; // 25MB
-      return validTypes.includes(file.type) && file.size <= maxSize;
+      
+      const hasValidExtension = validExtensions.some(ext => 
+        file.name.toLowerCase().endsWith(ext)
+      );
+      
+      const hasValidMime = validMimePatterns.some(pattern => 
+        file.type.startsWith(pattern) || file.type.includes(pattern)
+      );
+      
+      const isValidSize = file.size <= maxSize;
+      
+      // Accept if extension OR mime type matches (be permissive)
+      const isValid = (hasValidExtension || hasValidMime) && isValidSize;
+      
+      if (!isValid) {
+        console.warn(`[UploadZone] Rejected file: ${file.name} (type: ${file.type}, size: ${file.size})`);
+      }
+      
+      return isValid;
     });
 
     if (validFiles.length === 0) {
-      alert("Aucun fichier valide. Types acceptés: PDF, JPG, PNG (max 25MB)");
+      const msg = "Aucun fichier valide. Types acceptés: PDF, images, documents Office (max 25MB)";
+      setUploadError(msg);
+      alert(msg);
       return;
+    }
+
+    if (validFiles.length < fileArray.length) {
+      console.warn(`[UploadZone] ${fileArray.length - validFiles.length} file(s) rejected`);
     }
 
     setIsUploading(true);
     setUploadProgress(`Upload de ${validFiles.length} fichier(s)...`);
 
     try {
+      console.log(`[UploadZone] Starting upload of ${validFiles.length} files to return ${returnCode}`);
       const uploaded = await uploadFiles(returnCode, validFiles);
+      console.log(`[UploadZone] Upload successful:`, uploaded);
       onUploadComplete(uploaded);
       setUploadProgress("");
     } catch (err) {
-      alert("Erreur: " + (err instanceof Error ? err.message : String(err)));
+      console.error(`[UploadZone] Upload failed:`, err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setUploadError(errorMsg);
+      alert("Erreur d'upload: " + errorMsg);
     } finally {
       setIsUploading(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -314,47 +375,56 @@ function UploadZone({
   };
 
   return (
-    <div
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      className={cn(
-        "relative border-2 border-dashed rounded-xl p-6 text-center transition-colors",
-        isDragging
-          ? "border-accent bg-accent/5"
-          : "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-muted))]",
-        (disabled || isUploading) && "opacity-50 pointer-events-none"
-      )}
-    >
-      <input
-        ref={inputRef}
-        type="file"
-        multiple
-        accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-        onChange={(e) => e.target.files && handleFiles(e.target.files)}
-        disabled={disabled || isUploading}
-      />
-
-      <div className="flex flex-col items-center gap-2">
-        {isUploading ? (
-          <>
-            <Loader2 className="h-8 w-8 text-accent animate-spin" />
-            <p className="text-sm text-[hsl(var(--text-secondary))]">{uploadProgress}</p>
-          </>
-        ) : (
-          <>
-            <UploadCloud className="h-8 w-8 text-[hsl(var(--text-tertiary))]" />
-            <p className="text-sm text-[hsl(var(--text-secondary))]">
-              <span className="font-medium text-accent">Cliquez pour sélectionner</span> ou
-              glissez-déposez des fichiers
-            </p>
-            <p className="text-xs text-[hsl(var(--text-muted))]">
-              PDF, JPG, PNG (max 25MB par fichier)
-            </p>
-          </>
+    <div className="space-y-2">
+      <div
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        className={cn(
+          "relative border-2 border-dashed rounded-xl p-6 text-center transition-colors",
+          isDragging
+            ? "border-accent bg-accent/5"
+            : "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-muted))]",
+          (disabled || isUploading) && "opacity-50 pointer-events-none"
         )}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,image/*,application/pdf"
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          onChange={(e) => e.target.files && handleFiles(e.target.files)}
+          disabled={disabled || isUploading}
+        />
+
+        <div className="flex flex-col items-center gap-2">
+          {isUploading ? (
+            <>
+              <Loader2 className="h-8 w-8 text-accent animate-spin" />
+              <p className="text-sm text-[hsl(var(--text-secondary))]">{uploadProgress}</p>
+            </>
+          ) : (
+            <>
+              <UploadCloud className="h-8 w-8 text-[hsl(var(--text-tertiary))]" />
+              <p className="text-sm text-[hsl(var(--text-secondary))]">
+                <span className="font-medium text-accent">Cliquez pour sélectionner</span> ou
+                glissez-déposez des fichiers
+              </p>
+              <p className="text-xs text-[hsl(var(--text-muted))]">
+                PDF, images, documents Office (max 25MB par fichier)
+              </p>
+            </>
+          )}
+        </div>
       </div>
+      
+      {/* Show error if any */}
+      {uploadError && (
+        <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
+          <p className="text-sm text-red-600 dark:text-red-400">{uploadError}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -387,6 +457,7 @@ export function AttachmentsSection({
 
   // Handle upload complete
   const handleUploadComplete = (newAttachments: AttachmentData[]) => {
+    console.log(`[AttachmentsSection] Upload complete, adding ${newAttachments.length} new attachments`);
     onAttachmentsChange([...newAttachments, ...attachments]);
   };
 
