@@ -43,19 +43,32 @@ function getCleanPrivateKey() {
 
 const privateKey = getCleanPrivateKey();
 const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
 /* =============================================================================
    Startup Validation (Fail Fast)
 ============================================================================= */
+
+// Check for missing environment variables
+const missingEnvVars: string[] = [];
+if (!privateKey) missingEnvVars.push('GOOGLE_PRIVATE_KEY');
+if (!clientEmail) missingEnvVars.push('GOOGLE_CLIENT_EMAIL');
+if (!folderId) missingEnvVars.push('GOOGLE_DRIVE_FOLDER_ID');
+
+if (missingEnvVars.length > 0) {
+  console.error(`\n❌ GOOGLE DRIVE CONFIG ERROR: Missing environment variables: ${missingEnvVars.join(', ')}`);
+  console.error("File uploads will fail until these are configured.\n");
+}
+
 // This block runs immediately when the server starts or this file is imported.
 // It checks if the key is valid BEFORE you try to upload a file.
-
+let keyIsValid = false;
 if (privateKey) {
   try {
     // Attempt to parse the key using Node's crypto library
     crypto.createPrivateKey(privateKey);
-    // If we get here, the key is Valid!
-    // console.log("✅ Google Drive: Private Key format is valid.");
+    keyIsValid = true;
+    console.log("✅ Google Drive: Private Key format is valid.");
   } catch (error: any) {
     console.error("\n❌ FATAL ERROR: Google Private Key is Malformed");
     console.error("---------------------------------------------------");
@@ -105,6 +118,24 @@ export interface DriveFileInfo {
 }
 
 /* =============================================================================
+   Configuration Check Function
+============================================================================= */
+
+export function checkDriveConfiguration(): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  
+  if (!privateKey) errors.push("GOOGLE_PRIVATE_KEY is not set");
+  if (!clientEmail) errors.push("GOOGLE_CLIENT_EMAIL is not set");
+  if (!folderId) errors.push("GOOGLE_DRIVE_FOLDER_ID is not set");
+  if (privateKey && !keyIsValid) errors.push("GOOGLE_PRIVATE_KEY is malformed");
+  
+  return {
+    valid: errors.length === 0,
+    errors
+  };
+}
+
+/* =============================================================================
    Upload File to Google Drive
 ============================================================================= */
 
@@ -113,11 +144,23 @@ export async function uploadFileToDrive(
   fileName: string,
   mimeType: string
 ): Promise<DriveUploadResult> {
-  const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
+  console.log(`[Google Drive] uploadFileToDrive called: ${fileName} (${mimeType}, ${fileBuffer.length} bytes)`);
+  
+  // Pre-flight configuration check
+  const config = checkDriveConfiguration();
+  if (!config.valid) {
+    const errorMsg = `Google Drive configuration error: ${config.errors.join(', ')}`;
+    console.error(`[Google Drive] ${errorMsg}`);
+    throw new Error(errorMsg);
+  }
 
-  if (!folderId) {
+  const targetFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
+  
+  if (!targetFolderId) {
     throw new Error("Missing GOOGLE_DRIVE_FOLDER_ID environment variable.");
   }
+
+  console.log(`[Google Drive] Target folder ID: ${targetFolderId}`);
 
   // Create a readable stream from the buffer
   const stream = new Readable();
@@ -125,10 +168,12 @@ export async function uploadFileToDrive(
   stream.push(null);
 
   try {
+    console.log(`[Google Drive] Calling drive.files.create...`);
+    
     const response = await drive.files.create({
       requestBody: {
         name: fileName,
-        parents: [folderId],
+        parents: [targetFolderId],
       },
       media: {
         mimeType: mimeType,
@@ -138,12 +183,15 @@ export async function uploadFileToDrive(
       supportsAllDrives: true,
     });
 
+    console.log(`[Google Drive] API response status: ${response.status}`);
+    console.log(`[Google Drive] API response data:`, response.data);
+
     const fileId = response.data.id;
     if (!fileId) {
       throw new Error("Google Drive upload succeeded but no ID was returned.");
     }
 
-    return {
+    const result = {
       fileId,
       fileName: response.data.name || fileName,
       mimeType: response.data.mimeType || mimeType,
@@ -151,15 +199,32 @@ export async function uploadFileToDrive(
       previewLink: `https://drive.google.com/file/d/${fileId}/preview?rm=minimal&ui=integrated&dscale=1&embedded=true`,
       downloadLink: `https://drive.google.com/uc?export=download&id=${fileId}`,
     };
+    
+    console.log(`[Google Drive] Upload successful:`, result);
+    return result;
+    
   } catch (error: any) {
     // Enhance error message for debugging
-    console.error("Google Drive Upload Error Details:", error);
+    console.error("[Google Drive] Upload Error Details:", error);
     
+    // Check for common error types
     if (error.message && error.message.includes("DECODER routines::unsupported")) {
       throw new Error("Configuration Error: The GOOGLE_PRIVATE_KEY is invalid. Check server logs for details.");
     }
     
-    throw new Error(`Google Drive API Error: ${error.message}`);
+    if (error.code === 403) {
+      throw new Error(`Google Drive permission error: The service account may not have access to the folder. Error: ${error.message}`);
+    }
+    
+    if (error.code === 404) {
+      throw new Error(`Google Drive folder not found: Check that GOOGLE_DRIVE_FOLDER_ID (${targetFolderId}) is correct.`);
+    }
+    
+    if (error.code === 401) {
+      throw new Error(`Google Drive authentication error: Check GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY.`);
+    }
+    
+    throw new Error(`Google Drive API Error: ${error.message || 'Unknown error'}`);
   }
 }
 
@@ -209,11 +274,11 @@ export async function getFileInfo(fileId: string): Promise<DriveFileInfo | null>
 }
 
 export async function listFilesInFolder(maxResults = 100): Promise<DriveFileInfo[]> {
-  const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
-  if (!folderId) return [];
+  const targetFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
+  if (!targetFolderId) return [];
 
   const response = await drive.files.list({
-    q: `'${folderId}' in parents and trashed = false`,
+    q: `'${targetFolderId}' in parents and trashed = false`,
     fields: "files(id, name, mimeType, webViewLink, size)",
     pageSize: maxResults,
     supportsAllDrives: true,
