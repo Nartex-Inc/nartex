@@ -1,3 +1,4 @@
+// src/lib/google-drive.ts
 import { google } from "googleapis";
 import { Readable } from "stream";
 import crypto from "crypto";
@@ -6,7 +7,7 @@ import crypto from "crypto";
    Configuration & Key Cleaning Logic
 ============================================================================= */
 
-function getCleanPrivateKey(): string | undefined {
+function getCleanPrivateKey() {
   let key = process.env.GOOGLE_PRIVATE_KEY;
   
   if (!key) {
@@ -14,12 +15,12 @@ function getCleanPrivateKey(): string | undefined {
     return undefined;
   }
 
-  // 1. Handle JSON format (accidental full JSON paste)
+  // 1. Extract from JSON if the whole object was passed
   if (key.trim().startsWith('{')) {
     try {
       const json = JSON.parse(key);
-      key = json.private_key || key;
-    } catch (e) { /* ignore */ }
+      key = json.private_key || json.GOOGLE_PRIVATE_KEY || key;
+    } catch (e) { /* continue */ }
   }
 
   if (typeof key !== 'string') return undefined;
@@ -27,8 +28,7 @@ function getCleanPrivateKey(): string | undefined {
   // 2. Remove surrounding quotes
   key = key.trim().replace(/^["']|["']$/g, '');
 
-  // 3. FIX: Convert literal "\n" strings into actual newline characters
-  // This is the specific fix for error:1E08010C:DECODER routines::unsupported
+  // 3. CRITICAL: Fix literal "\n" strings into real line breaks
   if (key.includes("\\n")) {
     key = key.replace(/\\n/g, "\n");
   }
@@ -41,17 +41,21 @@ const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
 const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
 /* =============================================================================
-   Validation & Setup
+   Startup Validation (Fail Fast)
 ============================================================================= */
 
 if (privateKey) {
   try {
     crypto.createPrivateKey(privateKey);
-    console.log("✅ Google Drive: Private Key validated successfully.");
   } catch (error: any) {
-    console.error("❌ Google Private Key is Malformed:", error.message);
+    console.error("\n❌ FATAL ERROR: Google Private Key is Malformed (DECODER Error)");
+    console.error("Error Detail:", error.message);
   }
 }
+
+/* =============================================================================
+   Auth Setup
+============================================================================= */
 
 const auth = new google.auth.GoogleAuth({
   credentials: {
@@ -64,18 +68,22 @@ const auth = new google.auth.GoogleAuth({
 const drive = google.drive({ version: "v3", auth });
 
 /* =============================================================================
-   Exported Functions (Required for Routes & Build)
+   Exported Members (Required for Build)
 ============================================================================= */
 
-export function checkDriveConfiguration() {
+export function checkDriveConfiguration(): { valid: boolean; errors: string[] } {
   const errors = [];
-  if (!privateKey) errors.push("GOOGLE_PRIVATE_KEY invalid");
-  if (!clientEmail) errors.push("GOOGLE_CLIENT_EMAIL missing");
-  if (!folderId) errors.push("GOOGLE_DRIVE_FOLDER_ID missing");
+  if (!privateKey) errors.push("GOOGLE_PRIVATE_KEY is missing or invalid");
+  if (!clientEmail) errors.push("GOOGLE_CLIENT_EMAIL is missing");
+  if (!folderId) errors.push("GOOGLE_DRIVE_FOLDER_ID is missing");
   return { valid: errors.length === 0, errors };
 }
 
-export async function uploadFileToDrive(fileBuffer: Buffer, fileName: string, mimeType: string) {
+export async function uploadFileToDrive(
+  fileBuffer: Buffer,
+  fileName: string,
+  mimeType: string
+): Promise<any> {
   const stream = new Readable();
   stream.push(fileBuffer);
   stream.push(null);
@@ -84,7 +92,7 @@ export async function uploadFileToDrive(fileBuffer: Buffer, fileName: string, mi
     const response = await drive.files.create({
       requestBody: { name: fileName, parents: [folderId!] },
       media: { mimeType, body: stream },
-      fields: "id, name, mimeType, webViewLink",
+      fields: "id, name, mimeType, webViewLink, webContentLink",
       supportsAllDrives: true,
     });
 
@@ -94,7 +102,7 @@ export async function uploadFileToDrive(fileBuffer: Buffer, fileName: string, mi
       fileName: response.data.name || fileName,
       mimeType: response.data.mimeType || mimeType,
       webViewLink: response.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`,
-      previewLink: `https://drive.google.com/file/d/${fileId}/preview?rm=minimal&ui=integrated&embedded=true`,
+      previewLink: `https://drive.google.com/file/d/${fileId}/preview?rm=minimal&ui=integrated&dscale=1&embedded=true`,
       downloadLink: `https://drive.google.com/uc?export=download&id=${fileId}`,
     };
   } catch (error: any) {
@@ -102,7 +110,15 @@ export async function uploadFileToDrive(fileBuffer: Buffer, fileName: string, mi
   }
 }
 
-export async function listFilesInFolder(maxResults = 100) {
+export async function deleteFileFromDrive(fileId: string): Promise<void> {
+  try {
+    await drive.files.delete({ fileId, supportsAllDrives: true });
+  } catch (error: any) {
+    if (error?.code !== 404) console.error("Delete Error:", error);
+  }
+}
+
+export async function listFilesInFolder(maxResults = 100): Promise<any[]> {
   if (!folderId) return [];
   const response = await drive.files.list({
     q: `'${folderId}' in parents and trashed = false`,
@@ -111,18 +127,29 @@ export async function listFilesInFolder(maxResults = 100) {
     supportsAllDrives: true,
     includeItemsFromAllDrives: true,
   });
-  return response.data.files || [];
+  return (response.data.files || []).map(f => ({
+    id: f.id || "",
+    name: f.name || "Unknown",
+    mimeType: f.mimeType || "application/octet-stream",
+    webViewLink: f.webViewLink || undefined,
+    size: f.size || undefined,
+  }));
 }
 
-export async function deleteFileFromDrive(fileId: string) {
+export async function getFileInfo(fileId: string): Promise<any | null> {
   try {
-    await drive.files.delete({ fileId, supportsAllDrives: true });
+    const response = await drive.files.get({
+      fileId,
+      fields: "id, name, mimeType, webViewLink, size",
+      supportsAllDrives: true,
+    });
+    return response.data;
   } catch (error: any) {
-    if (error?.code !== 404) console.error("Drive Delete Error:", error);
+    if (error?.code === 404) return null;
+    throw error;
   }
 }
 
-// Helpers for URLs
-export const getPreviewUrl = (id: string) => `https://drive.google.com/file/d/${id}/preview?rm=minimal&ui=integrated&embedded=true`;
+export const getPreviewUrl = (id: string) => `https://drive.google.com/file/d/${id}/preview?rm=minimal&ui=integrated&dscale=1&embedded=true`;
 export const getDownloadUrl = (id: string) => `https://drive.google.com/uc?export=download&id=${id}`;
 export const getViewUrl = (id: string) => `https://drive.google.com/file/d/${id}/view`;
