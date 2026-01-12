@@ -23,21 +23,17 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get("mode");
 
-    // 👇 NEW: Handle "Get Next ID" request
+    // 👇 UPDATED: Handle "Get Next ID" request (MAX + 1 Logic)
     if (mode === "next_id") {
-      const existingIds = await prisma.return.findMany({
+      // Find the return with the highest ID
+      const lastReturn = await prisma.return.findFirst({
         select: { id: true },
-        orderBy: { id: 'asc' }
+        orderBy: { id: 'desc' }
       });
 
-      let nextId = 1;
-      for (const record of existingIds) {
-        if (record.id === nextId) {
-          nextId++;
-        } else if (record.id > nextId) {
-          break; // Found a gap
-        }
-      }
+      // If database is empty, start at 1. Otherwise, take max + 1.
+      const nextId = (lastReturn?.id ?? 0) + 1;
+      
       return NextResponse.json({ ok: true, nextId });
     }
 
@@ -127,7 +123,7 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         products: { orderBy: { id: "asc" } },
-        // 👇 FIXED: Changed 'uploadedAt' to 'createdAt'
+        // Use 'createdAt' for ordering attachments (Prisma field name)
         attachments: { orderBy: { createdAt: "desc" } },
       },
       orderBy: { reportedAt: "desc" },
@@ -166,7 +162,7 @@ export async function GET(request: NextRequest) {
         qteDetruite: p.qteDetruite,
         tauxRestock: p.tauxRestock ? Number(p.tauxRestock) : null,
       })),
-      // 👇 FIXED: Changed 'filePath' to 'fileId' to avoid the next error
+      // Use 'fileId' (DB: filePath) as the ID for attachments
       attachments: ret.attachments.map((a) => ({
         id: a.fileId,
         name: a.fileName,
@@ -186,7 +182,7 @@ export async function GET(request: NextRequest) {
 }
 
 /* =============================================================================
-   POST /api/returns - Create new return with Gap-Filling ID Logic
+   POST /api/returns - Create new return (MAX + 1 Logic)
 ============================================================================= */
 
 export async function POST(request: NextRequest) {
@@ -215,32 +211,23 @@ export async function POST(request: NextRequest) {
     const isDraft = !(hasRequiredFields && hasProducts);
 
     // ---------------------------------------------------------
-    // GAP FILLING LOGIC (PRISMA)
+    // UPDATED ID LOGIC: STRICT MAX + 1 (Ignore gaps)
     // ---------------------------------------------------------
-    // 1. Fetch all existing IDs (lightweight query) to check for holes
-    const existingIds = await prisma.return.findMany({
+    // Find the return with the highest ID
+    const lastReturn = await prisma.return.findFirst({
       select: { id: true },
-      orderBy: { id: 'asc' }
+      orderBy: { id: 'desc' }
     });
 
-    // 2. Find the first missing number in the sequence (1, 2, 3...)
-    // This allows reusing an ID if a previous return was deleted.
-    let nextId = 1;
-    for (const record of existingIds) {
-      if (record.id === nextId) {
-        nextId++;
-      } else if (record.id > nextId) {
-        // Gap found! We will use nextId.
-        break;
-      }
-    }
+    // Calculate next ID
+    const nextId = (lastReturn?.id ?? 0) + 1;
     // ---------------------------------------------------------
 
-    // Create the return with the calculated Gap ID
+    // Create the return with the calculated ID
     const ret = await prisma.return.create({
       data: {
         id: nextId, // Explicitly use the calculated ID
-        reportedAt: new Date(),
+        reportedAt: body.reportedAt ? new Date(body.reportedAt) : new Date(), // Allow frontend date or default to now
         reporter: body.reporter || "expert",
         cause: body.cause || "production",
         expert: body.expert,
@@ -252,7 +239,7 @@ export async function POST(request: NextRequest) {
         dateCommande: body.dateCommande || null,
         transporteur: body.transport || null,
         description: body.description || null,
-        returnPhysical: body.physicalReturn ?? false, // Mapped from frontend logic
+        returnPhysical: body.physicalReturn ?? false,
         isPickup: body.isPickup ?? false,
         isCommande: body.isCommande ?? false,
         isReclamation: body.isReclamation ?? false,
@@ -265,7 +252,7 @@ export async function POST(request: NextRequest) {
         isStandby: false,
         initiatedBy: session.user.name || "Système",
         initializedAt: new Date(),
-        noCommandeCheckbox: body.noCommandeCheckbox ?? false, // ✅ Added new field
+        noCommandeCheckbox: body.noCommandeCheckbox ?? false,
         // Create products inline
         products: {
           create: (body.products && Array.isArray(body.products)) 
