@@ -1,75 +1,70 @@
+// src/app/api/items/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { pg } from "@/lib/db";
+import prisma from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+      return NextResponse.json({ ok: false, error: "Non autorisé" }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
-    const itemTypeId = searchParams.get("itemTypeId");
-    const search = searchParams.get("search");
+    const q = (searchParams.get("q") || "").trim(); // Frontend sends 'q'
+    const code = (searchParams.get("code") || "").trim(); // Frontend might send 'code' for single item lookup
 
-    let query = `
-      SELECT 
-        i."ItemId" as "itemId",
-        i."ItemCode" as "itemCode",
-        i."Descr" as "description",
-        i."ProdId" as "prodId",
-        i."locitemtype" as "itemTypeId",
-        t."descr" as "className",
-        p."Name" as "categoryName"
-      FROM public."Items" i
-      LEFT JOIN public."itemtype" t ON i."locitemtype" = t."itemtypeid"
-      LEFT JOIN public."Products" p ON i."ProdId" = p."ProdId"
-      WHERE i."ProdId" BETWEEN 1 AND 10
-        AND i."IsActive" = true
-    `;
-    
-    const params: (string | number)[] = [];
-    let paramIndex = 1;
+    // 1. Single Item Lookup (for getItem)
+    if (code) {
+      const item = await prisma.items.findFirst({
+        where: { itemcode: code },
+        select: { itemcode: true, descr: true },
+      });
 
-    if (search) {
-      query += ` AND (i."ItemCode" ILIKE $${paramIndex} OR i."Descr" ILIKE $${paramIndex})`;
-      params.push(`%${search}%`);
-      paramIndex++;
-      
-      query += ` 
-        ORDER BY 
-          CASE 
-            WHEN i."ItemCode" ILIKE $${paramIndex} THEN 1 
-            WHEN i."ItemCode" ILIKE $${paramIndex + 1} THEN 2 
-            WHEN i."Descr" ILIKE $${paramIndex + 1} THEN 3 
-            ELSE 4 
-          END,
-          i."ItemCode" ASC
-        LIMIT 50
-      `;
-      params.push(search);
-      params.push(`${search}%`);
-      
-    } else if (itemTypeId) {
-      query += ` AND i."locitemtype" = $${paramIndex}`;
-      params.push(parseInt(itemTypeId, 10));
-      paramIndex++;
-      query += ` ORDER BY i."ItemCode" ASC`;
-    } else {
-      return NextResponse.json(
-        { error: "Paramètres manquants: itemTypeId ou search requis" }, 
-        { status: 400 }
-      );
+      if (!item) {
+        return NextResponse.json({ ok: false, error: "Item not found" }, { status: 404 });
+      }
+
+      return NextResponse.json({
+        ok: true,
+        item: {
+          code: item.itemcode,
+          descr: item.descr,
+          weight: 0, // Placeholder if weight isn't in DB
+        },
+      });
     }
 
-    const { rows } = await pg.query(query, params);
-    return NextResponse.json(rows);
+    // 2. Search Suggestions (for searchItems)
+    if (q) {
+      const items = await prisma.items.findMany({
+        where: {
+          OR: [
+            { itemcode: { contains: q, mode: "insensitive" } },
+            { descr: { contains: q, mode: "insensitive" } },
+          ],
+        },
+        select: { itemcode: true, descr: true },
+        take: 20,
+        orderBy: { itemcode: "asc" },
+      });
+
+      return NextResponse.json({
+        ok: true,
+        suggestions: items.map((i) => ({
+          code: i.itemcode,
+          descr: i.descr,
+        })),
+      });
+    }
+
+    return NextResponse.json({ ok: false, error: "Missing parameters" }, { status: 400 });
+
   } catch (error: any) {
-    console.error("GET /api/catalogue/items error:", error);
+    console.error("GET /api/items error:", error);
     return NextResponse.json(
-      { error: "Erreur lors du chargement des articles" },
+      { ok: false, error: "Erreur serveur" },
       { status: 500 }
     );
   }
