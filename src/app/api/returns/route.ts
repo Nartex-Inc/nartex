@@ -1,6 +1,4 @@
 // src/app/api/returns/route.ts
-// Returns list and create - GET (list), POST (create)
-
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
@@ -49,7 +47,7 @@ export async function GET(request: NextRequest) {
     const where: Prisma.ReturnWhereInput = {};
     const AND: Prisma.ReturnWhereInput[] = [];
 
-    // 1. Safety Filter: Never show rows that are BOTH Draft AND Final (Corrupted data)
+    // 1. Safety Filter: Never show rows that are BOTH Draft AND Final
     AND.push({
       NOT: {
         AND: [{ isDraft: true }, { isFinal: true }]
@@ -86,7 +84,6 @@ export async function GET(request: NextRequest) {
     } else if (status === "awaiting_physical") {
       AND.push({ returnPhysical: true, isVerified: false, isDraft: false, isFinal: false });
     } else if (status === "received_or_no_physical") {
-      // Matches the green rows logic roughly
       AND.push({
         isDraft: false,
         isFinal: false,
@@ -101,12 +98,9 @@ export async function GET(request: NextRequest) {
       AND.push({ isFinal: true });
     }
 
-    // 6. Default Visibility Rules (If no specific status selected)
+    // 6. Default Visibility Rules
     if (!status) {
-      // Hide Standby by default
       AND.push({ isStandby: false });
-      
-      // Hide Finalized by default (unless history=true)
       if (!history) {
         AND.push({ isFinal: false });
       }
@@ -118,7 +112,7 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         products: { orderBy: { id: "asc" } },
-        attachments: { orderBy: { createdAt: "asc" } }, // Oldest first (Chronological)
+        attachments: { orderBy: { createdAt: "asc" } }, // Oldest first
       },
       orderBy: { reportedAt: "desc" },
       take,
@@ -141,13 +135,16 @@ export async function GET(request: NextRequest) {
       dateCommande: ret.dateCommande,
       transport: ret.transporteur,
       description: ret.description,
-      returnPhysical: ret.returnPhysical,
+      
+      // 👇 THIS WAS THE BUG. WE MAP 'returnPhysical' (DB) TO 'physicalReturn' (FRONTEND)
+      physicalReturn: ret.returnPhysical, 
       verified: ret.isVerified,
       finalized: ret.isFinal,
       isPickup: ret.isPickup,
       isCommande: ret.isCommande,
       isReclamation: ret.isReclamation,
       isDraft: ret.isDraft,
+      
       products: ret.products.map((p) => ({
         id: String(p.id),
         codeProduit: p.codeProduit,
@@ -200,7 +197,6 @@ export async function POST(request: NextRequest) {
     
     const isDraft = !(hasRequiredFields && hasProducts);
 
-    // Max ID + 1 Logic
     const lastReturn = await prisma.return.findFirst({
       select: { id: true },
       orderBy: { id: 'desc' }
