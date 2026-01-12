@@ -1,4 +1,5 @@
 // src/app/api/returns/route.ts
+// Returns list and create - GET (list), POST (create)
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
     const where: Prisma.ReturnWhereInput = {};
     const AND: Prisma.ReturnWhereInput[] = [];
 
-    // 1. Safety Filter: Never show rows that are BOTH Draft AND Final
+    // 1. Safety Filter: Never show rows that are BOTH Draft AND Final (Corrupted data)
     AND.push({
       NOT: {
         AND: [{ isDraft: true }, { isFinal: true }]
@@ -101,13 +102,13 @@ export async function GET(request: NextRequest) {
     }
 
     // 6. Default Visibility Rules (If no specific status selected)
-    // - Hide Standby by default
-    // - Hide Finalized by default (unless history=true)
     if (!status) {
-      AND.push({ isStandby: false }); // Hide standby by default
+      // Hide Standby by default
+      AND.push({ isStandby: false });
       
+      // Hide Finalized by default (unless history=true)
       if (!history) {
-        AND.push({ isFinal: false }); // Hide finalized by default
+        AND.push({ isFinal: false });
       }
     }
 
@@ -117,7 +118,7 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         products: { orderBy: { id: "asc" } },
-        attachments: { orderBy: { createdAt: "asc" } }, // Oldest first
+        attachments: { orderBy: { createdAt: "asc" } }, // Oldest first (Chronological)
       },
       orderBy: { reportedAt: "desc" },
       take,
@@ -146,6 +147,7 @@ export async function GET(request: NextRequest) {
       isPickup: ret.isPickup,
       isCommande: ret.isCommande,
       isReclamation: ret.isReclamation,
+      isDraft: ret.isDraft,
       products: ret.products.map((p) => ({
         id: String(p.id),
         codeProduit: p.codeProduit,
@@ -198,6 +200,7 @@ export async function POST(request: NextRequest) {
     
     const isDraft = !(hasRequiredFields && hasProducts);
 
+    // Max ID + 1 Logic
     const lastReturn = await prisma.return.findFirst({
       select: { id: true },
       orderBy: { id: 'desc' }
