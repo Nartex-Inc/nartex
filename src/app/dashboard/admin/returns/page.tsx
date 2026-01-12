@@ -213,26 +213,7 @@ async function fetchReturns(params: {
   }
 }
 
-async function createReturn(payload: {
-  reporter: Reporter;
-  cause: Cause;
-  expert: string;
-  client: string;
-  noClient?: string | null;
-  noCommande?: string | null;
-  tracking?: string | null;
-  amount?: number | null;
-  dateCommande?: string | null;
-  transport?: string | null;
-  description?: string | null;
-  physicalReturn?: boolean; 
-  products?: {
-    codeProduit: string;
-    descriptionProduit: string;
-    descriptionRetour?: string;
-    quantite: number;
-  }[];
-}) {
+async function createReturn(payload: any) {
   const res = await fetch(`/api/returns`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1155,10 +1136,11 @@ function DetailModal({
           <div className="px-6 py-4 border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-elevated))]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className={cn(
-                  "w-1.5 h-10 rounded-full",
-                  STATUS_CONFIG[draft.status].bgClass
-                )} />
+                <div className="flex items-center justify-center h-10 w-10 rounded-full bg-[hsl(var(--bg-muted))]">
+                  <span className="font-mono font-bold text-[hsl(var(--text-primary))]">
+                    {draft.id.replace('R', '')}
+                  </span>
+                </div>
                 <div>
                   <h2 className="text-lg font-bold text-[hsl(var(--text-primary))]">
                     Retour {draft.id} — {CAUSE_LABEL[draft.cause]}
@@ -1400,6 +1382,7 @@ function NewReturnModal({
   
   // New state for next ID
   const [nextId, setNextId] = React.useState<string>("...");
+  const [reportedAt, setReportedAt] = React.useState<string>(new Date().toISOString().slice(0, 10));
 
   // File upload state for new return
   const [filesToUpload, setFilesToUpload] = React.useState<File[]>([]);
@@ -1442,8 +1425,8 @@ function NewReturnModal({
   };
 
   const submit = async () => {
-    if (!expert.trim() || !client.trim()) {
-      alert("Expert et client sont requis.");
+    if (!expert.trim() || !client.trim() || !reportedAt) {
+      alert("Expert, client et date de signalement sont requis.");
       return;
     }
     setBusy(true);
@@ -1462,6 +1445,7 @@ function NewReturnModal({
         transport: transport.trim() || null,
         description: description.trim() || null,
         physicalReturn, // Pass new field
+        reportedAt, // Pass editable date
         products: products.map((p) => ({
           codeProduit: p.codeProduit.trim(),
           descriptionProduit: p.descriptionProduit.trim(),
@@ -1509,13 +1493,25 @@ function NewReturnModal({
           <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-6 py-6 space-y-6">
             
             {/* Options block */}
-            <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))]">
-               <Switch 
-                 label="Retour physique de la marchandise"
-                 checked={physicalReturn}
-                 onCheckedChange={setPhysicalReturn}
-               />
-               {physicalReturn && <p className="mt-2 text-xs text-[hsl(var(--text-muted))]">Ce retour apparaîtra en évidence (ligne noire) jusqu'à sa réception.</p>}
+            <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] flex items-center justify-between gap-6">
+               <div className="flex-1">
+                 <Switch 
+                   label="Retour physique de la marchandise"
+                   checked={physicalReturn}
+                   onCheckedChange={setPhysicalReturn}
+                 />
+                 {physicalReturn && <p className="mt-2 text-xs text-[hsl(var(--text-muted))]">Ce retour apparaîtra en évidence (ligne noire) jusqu'à sa réception.</p>}
+               </div>
+               
+               <div className="flex-1 max-w-[300px]">
+                 <Field 
+                   label="No. commande" 
+                   value={noCommande} 
+                   onChange={setNoCommande} 
+                   onBlur={onFetchFromOrder} 
+                   placeholder="Ex: 92427"
+                 />
+               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1526,6 +1522,13 @@ function NewReturnModal({
                 readOnly
                 className="bg-[hsl(var(--bg-muted))/50] text-[hsl(var(--text-secondary))] font-mono"
               />
+              <Field 
+                label="Date de signalement" 
+                type="date" 
+                value={reportedAt} 
+                onChange={setReportedAt} 
+                required
+              />
               <Field
                 label="Signalé par"
                 as="select"
@@ -1534,8 +1537,10 @@ function NewReturnModal({
                 options={[
                   { value: "expert", label: "Expert" },
                   { value: "transporteur", label: "Transporteur" },
+                  { value: "client", label: "Client" },
                   { value: "autre", label: "Autre" },
                 ]}
+                required
               />
               <Field
                 label="Cause"
@@ -1543,21 +1548,12 @@ function NewReturnModal({
                 value={cause}
                 onChange={(v) => setCause(v as Cause)}
                 options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))}
+                required
               />
-              <Field label="Expert" value={expert} onChange={setExpert} />
-              <Field label="Client" value={client} onChange={setClient} />
+              <Field label="Expert" value={expert} onChange={setExpert} required />
+              <Field label="Client" value={client} onChange={setClient} required />
               <Field label="No. client" value={noClient} onChange={setNoClient} />
-              <Field label="No. commande" value={noCommande} onChange={setNoCommande} onBlur={onFetchFromOrder} />
-              <button
-                onClick={onFetchFromOrder}
-                className={cn(
-                  "self-end h-[42px] rounded-xl border px-3 text-sm font-medium",
-                  "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))]",
-                  "hover:bg-[hsl(var(--bg-elevated))]"
-                )}
-              >
-                Remplir depuis commande
-              </button>
+              
               <Field label="No. tracking" value={tracking} onChange={setTracking} />
               <Field label="Transport" value={transport} onChange={setTransport} />
               <Field label="Montant" value={amount} onChange={setAmount} />
@@ -1723,6 +1719,8 @@ function Field({
   onBlur,
   readOnly,
   className,
+  placeholder,
+  required
 }: {
   label: string;
   value: string;
@@ -1733,11 +1731,13 @@ function Field({
   onBlur?: () => void;
   readOnly?: boolean;
   className?: string;
+  placeholder?: string;
+  required?: boolean;
 }) {
   return (
     <label className="grid gap-1.5">
       <span className="text-xs font-semibold text-[hsl(var(--text-muted))] uppercase tracking-wider">
-        {label}
+        {label} {required && <span className="text-red-500">*</span>}
       </span>
       {as === "select" ? (
         <select
@@ -1747,6 +1747,7 @@ function Field({
             "text-[hsl(var(--text-primary))]",
             "focus:outline-none focus:ring-2 focus:ring-accent",
             readOnly && "pointer-events-none opacity-80",
+            required && "border-emerald-500/50",
             className
           )}
           value={value}
@@ -1767,6 +1768,7 @@ function Field({
             "text-[hsl(var(--text-primary))]",
             "focus:outline-none focus:ring-2 focus:ring-accent",
             readOnly && "pointer-events-none opacity-80",
+            required && "border-emerald-500/50",
             className
           )}
           value={value}
@@ -1774,6 +1776,7 @@ function Field({
           onChange={(e) => onChange(e.target.value)}
           readOnly={readOnly}
           autoComplete="off"
+          placeholder={placeholder}
         />
       )}
     </label>
