@@ -1,5 +1,4 @@
 // src/app/api/returns/route.ts
-// Returns list and create - GET (list), POST (create)
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -23,15 +22,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get("mode");
 
-    // 👇 Handle "Get Next ID" request (MAX + 1 Logic)
+    // Handle "Get Next ID" request (MAX + 1 Logic)
     if (mode === "next_id") {
       const lastReturn = await prisma.return.findFirst({
         select: { id: true },
         orderBy: { id: 'desc' }
       });
-
       const nextId = (lastReturn?.id ?? 0) + 1;
-      
       return NextResponse.json({ ok: true, nextId });
     }
 
@@ -48,16 +45,22 @@ export async function GET(request: NextRequest) {
     const userRole = (session.user as { role?: string }).role;
     const userName = session.user.name || "";
 
-    // Build where conditions
     const where: Prisma.ReturnWhereInput = {};
     const AND: Prisma.ReturnWhereInput[] = [];
 
-    // Expert filter - only see their own returns
+    // 1. Safety Filter: Never show rows that are BOTH Draft AND Final
+    AND.push({
+      NOT: {
+        AND: [{ isDraft: true }, { isFinal: true }]
+      }
+    });
+
+    // 2. Expert Filter
     if (userRole === "Expert") {
       AND.push({ expert: { contains: userName, mode: "insensitive" } });
     }
 
-    // Search filter
+    // 3. Search Filter
     if (q) {
       AND.push({
         OR: [
@@ -70,30 +73,19 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Cause filter
-    if (cause && cause !== "all") {
-      AND.push({ cause: cause as Cause });
-    }
+    // 4. Dropdowns
+    if (cause && cause !== "all") AND.push({ cause: cause as Cause });
+    if (reporter && reporter !== "all") AND.push({ reporter: reporter as Reporter });
+    if (dateFrom) AND.push({ reportedAt: { gte: new Date(dateFrom) } });
+    if (dateTo) AND.push({ reportedAt: { lte: new Date(dateTo) } });
 
-    // Reporter filter
-    if (reporter && reporter !== "all") {
-      AND.push({ reporter: reporter as Reporter });
-    }
-
-    // Date range filter
-    if (dateFrom) {
-      AND.push({ reportedAt: { gte: new Date(dateFrom) } });
-    }
-    if (dateTo) {
-      AND.push({ reportedAt: { lte: new Date(dateTo) } });
-    }
-
-    // Status filter
+    // 5. Status Logic
     if (status === "draft") {
       AND.push({ isDraft: true });
     } else if (status === "awaiting_physical") {
       AND.push({ returnPhysical: true, isVerified: false, isDraft: false, isFinal: false });
-    } else if (status === "ready_for_finalization") {
+    } else if (status === "received_or_no_physical") {
+      // Matches the green rows logic roughly
       AND.push({
         isDraft: false,
         isFinal: false,
@@ -102,33 +94,35 @@ export async function GET(request: NextRequest) {
           { returnPhysical: true, isVerified: true },
         ],
       });
-    } else if (status === "finalized") {
-      AND.push({ isFinal: true, isStandby: false });
     } else if (status === "standby") {
       AND.push({ isStandby: true });
+    } else if (status === "finalized") {
+      AND.push({ isFinal: true });
     }
 
-    // History filter - show finalized, otherwise show active
-    if (!history) {
-      AND.push({ OR: [{ isFinal: false }, { isStandby: true }] });
+    // 6. Default Visibility Rules (If no specific status selected)
+    // - Hide Standby by default
+    // - Hide Finalized by default (unless history=true)
+    if (!status) {
+      AND.push({ isStandby: false }); // Hide standby by default
+      
+      if (!history) {
+        AND.push({ isFinal: false }); // Hide finalized by default
+      }
     }
 
-    if (AND.length > 0) {
-      where.AND = AND;
-    }
+    if (AND.length > 0) where.AND = AND;
 
     const returns = await prisma.return.findMany({
       where,
       include: {
         products: { orderBy: { id: "asc" } },
-        // 👇 FIXED: Changed to 'asc' to invert order (Oldest first)
-        attachments: { orderBy: { createdAt: "asc" } },
+        attachments: { orderBy: { createdAt: "asc" } }, // Oldest first
       },
       orderBy: { reportedAt: "desc" },
       take,
     });
 
-    // Map to response format
     const data: ReturnRow[] = returns.map((ret) => ({
       id: formatReturnCode(ret.id),
       codeRetour: ret.id,
@@ -149,6 +143,9 @@ export async function GET(request: NextRequest) {
       returnPhysical: ret.returnPhysical,
       verified: ret.isVerified,
       finalized: ret.isFinal,
+      isPickup: ret.isPickup,
+      isCommande: ret.isCommande,
+      isReclamation: ret.isReclamation,
       products: ret.products.map((p) => ({
         id: String(p.id),
         codeProduit: p.codeProduit,
@@ -178,10 +175,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/* =============================================================================
-   POST /api/returns - Create new return (MAX + 1 Logic)
-============================================================================= */
-
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -191,7 +184,6 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    // Validate required fields
     if (!body.expert || !body.client) {
       return NextResponse.json(
         { ok: false, error: "Expert et client sont requis" },
@@ -199,7 +191,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Determine if this is a draft
     const hasRequiredFields = body.reporter && body.cause && body.expert && body.client;
     const hasProducts = body.products 
       && body.products.length > 0 
@@ -207,23 +198,15 @@ export async function POST(request: NextRequest) {
     
     const isDraft = !(hasRequiredFields && hasProducts);
 
-    // ---------------------------------------------------------
-    // UPDATED ID LOGIC: STRICT MAX + 1 (Ignore gaps)
-    // ---------------------------------------------------------
-    // Find the return with the highest ID
     const lastReturn = await prisma.return.findFirst({
       select: { id: true },
       orderBy: { id: 'desc' }
     });
-
-    // Calculate next ID
     const nextId = (lastReturn?.id ?? 0) + 1;
-    // ---------------------------------------------------------
 
-    // Create the return with the calculated ID
     const ret = await prisma.return.create({
       data: {
-        id: nextId, // Explicitly use the calculated ID
+        id: nextId,
         reportedAt: body.reportedAt ? new Date(body.reportedAt) : new Date(),
         reporter: body.reporter || "expert",
         cause: body.cause || "production",
@@ -250,7 +233,6 @@ export async function POST(request: NextRequest) {
         initiatedBy: session.user.name || "Système",
         initializedAt: new Date(),
         noCommandeCheckbox: body.noCommandeCheckbox ?? false,
-        // Create products inline
         products: {
           create: (body.products && Array.isArray(body.products)) 
             ? body.products.map((p: { codeProduit: string; descriptionProduit?: string; descriptionRetour?: string; quantite?: number }) => ({
