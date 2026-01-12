@@ -42,8 +42,8 @@ import { AttachmentsSection } from "@/components/returns/AttachmentsSection";
 type Reporter = 
   | "expert" 
   | "transporteur" 
-  | "client"          // <-- Added
-  | "prise_commande"  // <-- Added
+  | "client" 
+  | "prise_commande" 
   | "autre";
 
 type Cause =
@@ -52,15 +52,15 @@ type Cause =
   | "autre_cause"
   | "exposition_sinto"
   | "transporteur"
-  | "expert"          // <-- Added
-  | "expedition"      // <-- Added
-  | "analyse"         // <-- Added
-  | "defect"          // <-- Added
-  | "surplus_inventaire" // <-- Added
-  | "prise_commande"  // <-- Added
-  | "rappel"          // <-- Added
-  | "redirection"     // <-- Added
-  | "fournisseur"     // <-- Added
+  | "expert"
+  | "expedition"
+  | "analyse"
+  | "defect"
+  | "surplus_inventaire"
+  | "prise_commande"
+  | "rappel"
+  | "redirection"
+  | "fournisseur"
   | "autre";
 
 type ReturnStatus = "draft" | "awaiting_physical" | "received_or_no_physical";
@@ -100,7 +100,7 @@ type ReturnRow = {
   finalized?: boolean;
 };
 
-const REPORTER_LABEL: Record<string, string> = { // Changed key type to string to be safe
+const REPORTER_LABEL: Record<string, string> = {
   expert: "Expert",
   transporteur: "Transporteur",
   client: "Client",
@@ -108,7 +108,7 @@ const REPORTER_LABEL: Record<string, string> = { // Changed key type to string t
   autre: "Autre",
 };
 
-const CAUSE_LABEL: Record<string, string> = { // Changed key type to string to be safe
+const CAUSE_LABEL: Record<string, string> = {
   production: "Production",
   pompe: "Pompe",
   autre_cause: "Autre cause",
@@ -126,15 +126,14 @@ const CAUSE_LABEL: Record<string, string> = { // Changed key type to string to b
   autre: "Autre",
 };
 
-// Update filter list if you want these selectable
 const CAUSES_IN_ORDER: Cause[] = [
   "production",
   "transporteur",
   "pompe",
   "exposition_sinto",
-  "expedition", // Added
-  "fournisseur", // Added
-  "expert", // Added
+  "expedition",
+  "fournisseur",
+  "expert",
   "autre_cause",
   "autre",
 ];
@@ -453,8 +452,8 @@ export default function ReturnsPage() {
       switch (sortKey) {
         case "id": return r.id;
         case "reportedAt": return r.reportedAt;
-        case "reporter": return REPORTER_LABEL[r.reporter];
-        case "cause": return CAUSE_LABEL[r.cause];
+        case "reporter": return REPORTER_LABEL[r.reporter] || r.reporter; // Fallback
+        case "cause": return CAUSE_LABEL[r.cause] || r.cause; // Fallback
         case "client": return `${r.client} ${r.expert}`;
         case "noCommande": return r.noCommande ?? "";
         case "tracking": return r.tracking ?? "";
@@ -643,8 +642,8 @@ export default function ReturnsPage() {
                   )}
                 >
                   <option value="all">Tous les signaleurs</option>
-                  {(["expert", "transporteur", "autre"] as Reporter[]).map((r) => (
-                    <option key={r} value={r}>{REPORTER_LABEL[r]}</option>
+                  {(["expert", "transporteur", "autre", "client"] as string[]).map((r) => (
+                    <option key={r} value={r}>{REPORTER_LABEL[r] ?? r}</option>
                   ))}
                 </select>
 
@@ -786,7 +785,7 @@ export default function ReturnsPage() {
                                 ? "bg-white/20 text-inherit border-white/20"
                                 : "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))] border border-[hsl(var(--border-subtle))]"
                             )}>
-                              {REPORTER_LABEL[row.reporter]}
+                              {REPORTER_LABEL[row.reporter] ?? row.reporter}
                             </span>
                           </td>
                           <td className="px-4 py-3.5">
@@ -796,7 +795,7 @@ export default function ReturnsPage() {
                                 ? "bg-white/20 text-inherit border-white/20"
                                 : "bg-accent-muted text-accent border border-accent/20"
                             )}>
-                              {CAUSE_LABEL[row.cause]}
+                              {CAUSE_LABEL[row.cause] ?? row.cause}
                             </span>
                           </td>
                           <td className="px-4 py-3.5">
@@ -1399,9 +1398,30 @@ function NewReturnModal({
   const [physicalReturn, setPhysicalReturn] = React.useState(false); // New state
   const [products, setProducts] = React.useState<ProductLine[]>([]);
   
+  // New state for next ID
+  const [nextId, setNextId] = React.useState<string>("...");
+
   // File upload state for new return
   const [filesToUpload, setFilesToUpload] = React.useState<File[]>([]);
   const [busy, setBusy] = React.useState(false);
+
+  React.useEffect(() => {
+    // Fetch the next ID when the modal mounts
+    const fetchNextId = async () => {
+      try {
+        const res = await fetch("/api/returns?mode=next_id");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.ok && json.nextId) {
+            setNextId(`R${json.nextId}`);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch next ID", error);
+      }
+    };
+    fetchNextId();
+  }, []);
 
   const addProduct = () =>
     setProducts((p) => [...p, { id: `np-${Date.now()}`, codeProduit: "", descriptionProduit: "", descriptionRetour: "", quantite: 1 }]);
@@ -1500,6 +1520,13 @@ function NewReturnModal({
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Field
+                label="Code de retour"
+                value={nextId}
+                onChange={() => {}} // No-op
+                readOnly
+                className="bg-[hsl(var(--bg-muted))/50] text-[hsl(var(--text-secondary))] font-mono"
+              />
+              <Field
                 label="Signalé par"
                 as="select"
                 value={reporter}
@@ -1553,13 +1580,10 @@ function NewReturnModal({
                     multiple 
                     className="hidden" 
                     onChange={(e) => {
-                      const selectedFiles = e.target.files;
-                      if (selectedFiles && selectedFiles.length > 0) {
-                        const fileArray = Array.from(selectedFiles);
-                        console.log("[NewReturnModal] Files selected:", fileArray.map(f => f.name));
-                        setFilesToUpload(prev => [...prev, ...fileArray]);
+                      if (e.target.files) {
+                        setFilesToUpload(prev => [...prev, ...Array.from(e.target.files || [])]);
+                        e.target.value = ""; // reset
                       }
-                      e.target.value = "";
                     }}
                   />
                   <label 
@@ -1697,6 +1721,8 @@ function Field({
   as,
   options,
   onBlur,
+  readOnly,
+  className,
 }: {
   label: string;
   value: string;
@@ -1705,6 +1731,8 @@ function Field({
   as?: "select";
   options?: { value: string; label: string }[];
   onBlur?: () => void;
+  readOnly?: boolean;
+  className?: string;
 }) {
   return (
     <label className="grid gap-1.5">
@@ -1717,11 +1745,14 @@ function Field({
             "rounded-xl border px-3 py-2.5 text-sm",
             "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-subtle))]",
             "text-[hsl(var(--text-primary))]",
-            "focus:outline-none focus:ring-2 focus:ring-accent"
+            "focus:outline-none focus:ring-2 focus:ring-accent",
+            readOnly && "pointer-events-none opacity-80",
+            className
           )}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onBlur={onBlur}
+          disabled={readOnly}
         >
           {options?.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
@@ -1734,11 +1765,14 @@ function Field({
             "rounded-xl border px-3 py-2.5 text-sm",
             "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-subtle))]",
             "text-[hsl(var(--text-primary))]",
-            "focus:outline-none focus:ring-2 focus:ring-accent"
+            "focus:outline-none focus:ring-2 focus:ring-accent",
+            readOnly && "pointer-events-none opacity-80",
+            className
           )}
           value={value}
           onBlur={onBlur}
           onChange={(e) => onChange(e.target.value)}
+          readOnly={readOnly}
           autoComplete="off"
         />
       )}
