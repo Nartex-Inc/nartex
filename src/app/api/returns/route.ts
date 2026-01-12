@@ -23,15 +23,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get("mode");
 
-    // 👇 UPDATED: Handle "Get Next ID" request (MAX + 1 Logic)
+    // 👇 Handle "Get Next ID" request (MAX + 1 Logic)
     if (mode === "next_id") {
-      // Find the return with the highest ID
       const lastReturn = await prisma.return.findFirst({
         select: { id: true },
         orderBy: { id: 'desc' }
       });
 
-      // If database is empty, start at 1. Otherwise, take max + 1.
       const nextId = (lastReturn?.id ?? 0) + 1;
       
       return NextResponse.json({ ok: true, nextId });
@@ -123,8 +121,8 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         products: { orderBy: { id: "asc" } },
-        // Use 'createdAt' for ordering attachments (Prisma field name)
-        attachments: { orderBy: { createdAt: "desc" } },
+        // 👇 FIXED: Changed to 'asc' to invert order (Oldest first)
+        attachments: { orderBy: { createdAt: "asc" } },
       },
       orderBy: { reportedAt: "desc" },
       take,
@@ -162,7 +160,6 @@ export async function GET(request: NextRequest) {
         qteDetruite: p.qteDetruite,
         tauxRestock: p.tauxRestock ? Number(p.tauxRestock) : null,
       })),
-      // Use 'fileId' (DB: filePath) as the ID for attachments
       attachments: ret.attachments.map((a) => ({
         id: a.fileId,
         name: a.fileName,
@@ -227,7 +224,7 @@ export async function POST(request: NextRequest) {
     const ret = await prisma.return.create({
       data: {
         id: nextId, // Explicitly use the calculated ID
-        reportedAt: body.reportedAt ? new Date(body.reportedAt) : new Date(), // Allow frontend date or default to now
+        reportedAt: body.reportedAt ? new Date(body.reportedAt) : new Date(),
         reporter: body.reporter || "expert",
         cause: body.cause || "production",
         expert: body.expert,
@@ -266,7 +263,7 @@ export async function POST(request: NextRequest) {
         }
       },
       include: {
-        products: true // Include products in the returned object so frontend updates immediately
+        products: true
       }
     });
 
