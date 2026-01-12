@@ -102,6 +102,7 @@ type ReturnRow = {
   isPickup?: boolean;       // is_pickup
   isCommande?: boolean;     // is_commande
   isReclamation?: boolean;  // is_reclamation
+  isDraft?: boolean;
 };
 
 const REPORTER_LABEL: Record<string, string> = {
@@ -142,34 +143,15 @@ const CAUSES_IN_ORDER: Cause[] = [
   "autre",
 ];
 
-/* =============================================================================
-   Status styling
-============================================================================= */
+// NOTE: Status config used for badges/metrics logic only. 
+// Row colors are controlled by getRowClasses to enforce strict visibility rules.
 const STATUS_CONFIG: Record<
   ReturnStatus,
-  { label: string; bgClass: string; textClass: string; borderClass: string; icon: React.ElementType }
+  { label: string; icon: React.ElementType }
 > = {
-  draft: {
-    label: "Brouillon",
-    bgClass: "bg-[hsl(var(--bg-muted))]",
-    textClass: "text-[hsl(var(--text-secondary))]",
-    borderClass: "border-[hsl(var(--border-default))]",
-    icon: FileText,
-  },
-  awaiting_physical: {
-    label: "En attente",
-    bgClass: "bg-[hsl(var(--warning-muted))]",
-    textClass: "text-[hsl(var(--warning))]",
-    borderClass: "border-[hsl(var(--warning)/0.3)]",
-    icon: Clock,
-  },
-  received_or_no_physical: {
-    label: "Reçu",
-    bgClass: "bg-[hsl(var(--success-muted))]",
-    textClass: "text-[hsl(var(--success))]",
-    borderClass: "border-[hsl(var(--success)/0.3)]",
-    icon: CheckCircle,
-  },
+  draft: { label: "Brouillon", icon: FileText },
+  awaiting_physical: { label: "En attente", icon: Clock },
+  received_or_no_physical: { label: "Reçu", icon: CheckCircle },
 };
 
 /* =============================================================================
@@ -197,20 +179,14 @@ async function fetchReturns(params: {
       cache: "no-store",
     });
 
-    if (!res.ok) {
-      console.error(`API Error: ${res.status}`);
-      return []; 
-    }
+    if (!res.ok) return []; 
 
     const json = await res.json();
     if (json.ok && Array.isArray(json.data)) {
       return json.data as ReturnRow[];
     }
-    
-    console.warn("Invalid API response format", json);
     return [];
   } catch (error) {
-    console.error("Fetch error:", error);
     return [];
   }
 }
@@ -336,7 +312,6 @@ type SortDir = "asc" | "desc";
 
 export default function ReturnsPage() {
   const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
 
   // filters
   const [query, setQuery] = React.useState("");
@@ -362,7 +337,6 @@ export default function ReturnsPage() {
   // new return modal
   const [openNew, setOpenNew] = React.useState(false);
 
-  // load
   const load = React.useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -388,21 +362,31 @@ export default function ReturnsPage() {
     load();
   }, [load]);
 
-  // sorting
   const sorted = React.useMemo(() => {
+    // 1. FILTER: Exclude rows that shouldn't be seen by default
+    // Logic: 
+    // - Hide corrupted rows (Draft & Finalized)
+    // - Hide Standby rows (API should handle this, but double check)
+    const validRows = rows.filter(r => {
+      if (r.isDraft && r.finalized) return false; // Corrupted
+      // Standby rows should be filtered by backend unless status=standby is active.
+      // We'll trust the API results for standby to allow "status=standby" filter to work if implemented later.
+      return true;
+    });
+
     const get = (r: ReturnRow) => {
       switch (sortKey) {
         case "id": return r.id;
         case "reportedAt": return r.reportedAt;
         case "reporter": return REPORTER_LABEL[r.reporter] || r.reporter; 
-        case "cause": return CAUSE_LABEL[r.cause] || r.cause;
+        case "cause": return CAUSE_LABEL[r.cause] || r.cause; 
         case "client": return `${r.client} ${r.expert}`;
         case "noCommande": return r.noCommande ?? "";
         case "tracking": return r.tracking ?? "";
         case "attachments": return r.attachments?.length ?? 0;
       }
     };
-    const copy = [...rows];
+    const copy = [...validRows];
     copy.sort((a, b) => {
       const va = get(a);
       const vb = get(b);
@@ -437,8 +421,7 @@ export default function ReturnsPage() {
     try {
       await deleteReturn(code);
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "La suppression a échoué";
-      alert(message);
+      alert("La suppression a échoué");
       setRows(prev);
     }
   };
@@ -462,35 +445,33 @@ export default function ReturnsPage() {
     });
   };
 
-  const getRowClasses = (row: ReturnRow, isHovered: boolean) => {
-    const base = "transition-colors duration-150 border-b border-[hsl(var(--border-subtle))]";
-    if (row.finalized) {
-       return cn(base, "bg-gray-50 dark:bg-gray-900/50 opacity-60 grayscale");
+  // -------------------------------------------------------------------------
+  //  STRICT COLOR LOGIC
+  // -------------------------------------------------------------------------
+  const getRowClasses = (row: ReturnRow) => {
+    // 1. Draft -> WHITE
+    if (row.isDraft || row.status === "draft") {
+      return "bg-white text-black border-b border-gray-200 hover:brightness-95";
     }
-    if (row.verified) {
-      return cn(
-        base, 
-        "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-100",
-        isHovered && "bg-emerald-100 dark:bg-emerald-950/60"
-      );
+
+    // 2. Physical & NOT Verified -> BLACK (Text White)
+    if (row.physicalReturn && !row.verified) {
+      return "bg-black text-white border-b border-gray-800 hover:bg-neutral-900";
     }
-    if (row.physicalReturn) {
-      return cn(
-        base,
-        "bg-neutral-900 text-white dark:bg-black",
-        isHovered && "bg-neutral-800 dark:bg-neutral-950"
-      );
+
+    // 3. (Physical & Verified) OR (!Physical) -> GREEN (Text White)
+    if ((row.physicalReturn && row.verified) || !row.physicalReturn) {
+      return "bg-emerald-600 text-white border-b border-emerald-700 hover:bg-emerald-700";
     }
-    return cn(
-      base,
-      row.standby && "opacity-50",
-      isHovered ? "bg-[hsl(var(--bg-elevated))]" : "bg-[hsl(var(--bg-surface))]"
-    );
+
+    // Fallback (Safe default)
+    return "bg-white text-black border-b border-gray-200";
   };
 
   return (
     <div className="min-h-[100dvh] bg-[hsl(var(--bg-base))]">
       <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8 py-6">
+        {/* Header Card */}
         <div className="rounded-2xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-surface))] overflow-hidden">
           <div className="px-6 py-5">
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -519,6 +500,7 @@ export default function ReturnsPage() {
               </button>
             </div>
 
+            {/* Filters */}
             <div className="mt-5 flex flex-col lg:flex-row gap-3">
               <div className="flex-1 relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-muted))]" />
@@ -594,28 +576,12 @@ export default function ReturnsPage() {
                   )}
                 />
 
-                <button
-                  onClick={() => load()}
-                  className={cn(
-                    "hidden lg:inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium",
-                    "bg-[hsl(var(--bg-elevated))] border border-[hsl(var(--border-default))]",
-                    "text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))]",
-                    "hover:bg-[hsl(var(--bg-muted))] transition-colors"
-                  )}
-                >
+                <button onClick={() => load()} className="hidden lg:inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium bg-[hsl(var(--bg-elevated))] border border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-muted))] transition-colors">
                   <Download className="h-4 w-4" />
                   Rafraîchir
                 </button>
 
-                <button
-                  onClick={onReset}
-                  className={cn(
-                    "hidden lg:inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium",
-                    "bg-[hsl(var(--bg-elevated))] border border-[hsl(var(--border-default))]",
-                    "text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))]",
-                    "hover:bg-[hsl(var(--bg-muted))] transition-colors"
-                  )}
-                >
+                <button onClick={onReset} className="hidden lg:inline-flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium bg-[hsl(var(--bg-elevated))] border border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-muted))] transition-colors">
                   <RotateCcw className="h-4 w-4" />
                   Réinitialiser
                 </button>
@@ -630,6 +596,7 @@ export default function ReturnsPage() {
           </div>
         </div>
 
+        {/* Table */}
         <div className="mt-6 rounded-2xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-surface))] overflow-hidden">
           {loading && (
             <div className="py-16 text-center">
@@ -650,7 +617,8 @@ export default function ReturnsPage() {
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-[hsl(var(--bg-muted))] border-b border-[hsl(var(--border-subtle))]">
+                  {/* HEADER: Always Accent Color */}
+                  <thead className="!bg-accent !text-white border-b border-accent/20">
                     <tr>
                       <SortTh label="Code" sortKey="id" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
                       <SortTh label="Date" sortKey="reportedAt" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
@@ -660,79 +628,59 @@ export default function ReturnsPage() {
                       <SortTh label="No commande" sortKey="noCommande" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
                       <SortTh label="Tracking" sortKey="tracking" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
                       <SortTh label="P.J." sortKey="attachments" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                      <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[hsl(var(--text-muted))]">
+                      <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-white/80">
                         Actions
                       </th>
                     </tr>
                   </thead>
 
-                  <tbody className="divide-y divide-[hsl(var(--border-subtle))]">
+                  <tbody>
                     {sorted.map((row) => {
                       const hasFiles = (row.attachments?.length ?? 0) > 0;
-                      const statusConfig = STATUS_CONFIG[row.status];
-                      
-                      const isSpecialRow = row.physicalReturn || row.verified || row.finalized;
-                      const rowClass = getRowClasses(row, hovered === row.id);
+                      const rowClass = getRowClasses(row);
 
                       return (
                         <tr
                           key={row.id}
                           onMouseEnter={() => setHovered(row.id)}
                           onMouseLeave={() => setHovered(null)}
-                          className={rowClass}
+                          className={cn("transition-colors duration-150", rowClass)}
                         >
                           <td className="px-4 py-3.5">
-                            <div className="flex items-center gap-3">
-                              <div className={cn("w-1.5 h-6 rounded-full", statusConfig.bgClass)} />
-                              <span className={cn("font-mono font-semibold", isSpecialRow ? "text-inherit" : "text-[hsl(var(--text-primary))]")}>
-                                {row.id}
-                              </span>
-                            </div>
+                            <span className="font-mono font-semibold text-inherit">
+                              {row.id}
+                            </span>
                           </td>
-                          <td className={cn("px-4 py-3.5", isSpecialRow ? "text-inherit/80" : "text-[hsl(var(--text-secondary))]")}>
+                          <td className="px-4 py-3.5 text-inherit/90">
                             <div className="flex items-center gap-2">
                               <Calendar className="h-3.5 w-3.5 opacity-60" />
                               {new Date(row.reportedAt).toLocaleDateString("fr-CA")}
                             </div>
                           </td>
                           <td className="px-4 py-3.5">
-                            <span className={cn(
-                              "inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium",
-                              isSpecialRow 
-                                ? "bg-white/20 text-inherit border-white/20"
-                                : "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))] border border-[hsl(var(--border-subtle))]"
-                            )}>
-                              {REPORTER_LABEL[row.reporter] ?? row.reporter}
-                            </span>
+                            {REPORTER_LABEL[row.reporter] ?? row.reporter}
                           </td>
                           <td className="px-4 py-3.5">
-                            <span className={cn(
-                              "inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium",
-                              isSpecialRow
-                                ? "bg-white/20 text-inherit border-white/20"
-                                : "bg-accent-muted text-accent border border-accent/20"
-                            )}>
-                              {CAUSE_LABEL[row.cause] ?? row.cause}
-                            </span>
+                            {CAUSE_LABEL[row.cause] ?? row.cause}
                           </td>
                           <td className="px-4 py-3.5">
-                            <div className={cn("font-medium", isSpecialRow ? "text-inherit" : "text-[hsl(var(--text-primary))]")}>{row.client}</div>
-                            <div className={cn("text-[11px]", isSpecialRow ? "text-inherit/70" : "text-[hsl(var(--text-muted))]")}>{row.expert}</div>
+                            <div className="font-medium text-inherit">{row.client}</div>
+                            <div className="text-[11px] text-inherit/70">{row.expert}</div>
                           </td>
-                          <td className={cn("px-4 py-3.5 font-mono", isSpecialRow ? "text-inherit/80" : "text-[hsl(var(--text-secondary))]")}>
+                          <td className="px-4 py-3.5 font-mono text-inherit/90">
                             {row.noCommande ?? "—"}
                           </td>
-                          <td className={cn("px-4 py-3.5", isSpecialRow ? "text-inherit/80" : "text-[hsl(var(--text-secondary))]")}>
+                          <td className="px-4 py-3.5 text-inherit/90">
                             {row.tracking ?? "—"}
                           </td>
                           <td className="px-4 py-3.5">
                             {hasFiles ? (
-                              <div className={cn("inline-flex items-center gap-1.5", isSpecialRow ? "text-inherit" : "text-[hsl(var(--text-secondary))]")}>
+                              <div className="inline-flex items-center gap-1.5 text-inherit">
                                 <Folder className="h-4 w-4" />
                                 <span className="text-xs font-medium">{row.attachments!.length}</span>
                               </div>
                             ) : (
-                              <span className={cn("text-xs", isSpecialRow ? "text-inherit/50" : "text-[hsl(var(--text-muted))]")}>—</span>
+                              <span className="text-xs text-inherit/50">—</span>
                             )}
                           </td>
                           <td className="px-4 py-3.5">
@@ -742,21 +690,21 @@ export default function ReturnsPage() {
                             )}>
                               <button
                                 onClick={() => setOpenId(row.id)}
-                                className={cn("p-2 rounded-lg transition-colors", isSpecialRow ? "hover:bg-white/20 text-inherit" : "text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-muted))]")}
+                                className="p-2 rounded-lg transition-colors hover:bg-white/20 text-inherit"
                                 title="Consulter"
                               >
                                 <Eye className="h-4 w-4" />
                               </button>
                               <button
                                 onClick={() => onToggleStandby(row.id)}
-                                className={cn("p-2 rounded-lg transition-colors", isSpecialRow ? "hover:bg-white/20 text-inherit" : "text-[hsl(var(--warning))] hover:bg-[hsl(var(--warning-muted))]")}
+                                className="p-2 rounded-lg transition-colors hover:bg-white/20 text-inherit"
                                 title={row.standby ? "Retirer du standby" : "Mettre en standby"}
                               >
                                 <Pause className="h-4 w-4" />
                               </button>
                               <button
                                 onClick={() => onDelete(row.id)}
-                                className={cn("p-2 rounded-lg transition-colors", isSpecialRow ? "hover:bg-white/20 text-inherit" : "text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))]")}
+                                className="p-2 rounded-lg transition-colors hover:bg-white/20 text-inherit"
                                 title="Supprimer"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -785,9 +733,9 @@ export default function ReturnsPage() {
                   {sorted.length} résultat{sorted.length > 1 ? "s" : ""}
                 </span>
                 <div className="flex items-center gap-2">
-                  <StatusBadge status="draft" />
-                  <StatusBadge status="awaiting_physical" />
-                  <StatusBadge status="received_or_no_physical" />
+                  <span className="flex items-center gap-1.5 px-2 py-1 rounded bg-white text-black text-xs border border-gray-200">Brouillon</span>
+                  <span className="flex items-center gap-1.5 px-2 py-1 rounded bg-black text-white text-xs">Physique (Non vérifié)</span>
+                  <span className="flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-600 text-white text-xs">Vérifié / Non Physique</span>
                 </div>
               </div>
             </>
@@ -821,6 +769,72 @@ export default function ReturnsPage() {
 }
 
 /* =============================================================================
+   Components
+============================================================================= */
+function MetricCard({
+  title,
+  value,
+  icon: Icon,
+}: {
+  title: string;
+  value: number | string;
+  icon: React.ElementType;
+}) {
+  return (
+    <div className="rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-elevated))] p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-[11px] uppercase tracking-wider font-semibold text-[hsl(var(--text-muted))]">
+            {title}
+          </div>
+          <div className="mt-1 text-2xl font-bold text-[hsl(var(--text-primary))] font-mono-data">
+            {value}
+          </div>
+        </div>
+        <div className="p-2.5 rounded-xl bg-accent-muted">
+          <Icon className="h-5 w-5 text-accent" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SortTh({
+  label,
+  sortKey,
+  currentKey,
+  dir,
+  onSort,
+}: {
+  label: string;
+  sortKey: SortKey;
+  currentKey: SortKey;
+  dir: SortDir;
+  onSort: (key: SortKey) => void;
+}) {
+  const active = sortKey === currentKey;
+  return (
+    <th className="px-4 py-3 text-left">
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={cn(
+          "inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-semibold",
+          active ? "text-white" : "text-white/70"
+        )}
+      >
+        <span>{label}</span>
+        {active ? (
+          dir === "asc" ? <ArrowUpNarrowWide className="h-3.5 w-3.5" /> : <ArrowDownNarrowWide className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronUp className="h-3.5 w-3.5 opacity-40" />
+        )}
+      </button>
+    </th>
+  );
+}
+
+/* =============================================================================
    Product Row Component (with Autocomplete)
 ============================================================================= */
 function ProductRow({
@@ -836,32 +850,25 @@ function ProductRow({
   const [showSuggestions, setShowSuggestions] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
   
-  // Use debounced value for API search
   const debouncedCode = useDebounced(product.codeProduit, 300);
 
-  // Trigger search when debounced code changes
   React.useEffect(() => {
     let active = true;
-
     const fetchSuggestions = async () => {
       if (!showSuggestions || debouncedCode.trim().length < 2) {
         setSuggestions([]);
         return;
       }
-
       setIsLoading(true);
       try {
         const results = await searchItems(debouncedCode);
-        if (active) {
-          setSuggestions(results);
-        }
+        if (active) setSuggestions(results);
       } catch (error) {
         console.error("Autocomplete error:", error);
       } finally {
         if (active) setIsLoading(false);
       }
     };
-
     fetchSuggestions();
     return () => { active = false; };
   }, [debouncedCode, showSuggestions]);
@@ -878,7 +885,6 @@ function ProductRow({
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-[200px_1fr_1fr_100px_40px] gap-2 items-start p-3 rounded-xl bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))] relative">
-      {/* Code Product Input + Autocomplete Dropdown */}
       <div className="relative">
         <input
           className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
@@ -892,12 +898,10 @@ function ProductRow({
             if (product.codeProduit.length >= 2) setShowSuggestions(true);
           }}
           onBlur={() => {
-            // Delay hide to allow click on suggestion
             setTimeout(() => setShowSuggestions(false), 200);
           }}
           autoComplete="off"
         />
-        {/* Dropdown */}
         {showSuggestions && (suggestions.length > 0 || isLoading) && (
           <div className="absolute z-50 top-full left-0 mt-1 w-[300px] max-h-60 overflow-y-auto rounded-lg border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-elevated))] shadow-xl">
             {isLoading && suggestions.length === 0 && (
@@ -911,7 +915,7 @@ function ProductRow({
                 key={s.code}
                 className="w-full text-left px-3 py-2 text-sm hover:bg-[hsl(var(--bg-muted))] border-b border-[hsl(var(--border-subtle))] last:border-0"
                 onClick={(e) => {
-                  e.preventDefault(); // Prevent blur from firing too early if possible, though timeout handles it
+                  e.preventDefault();
                   selectSuggestion(s);
                 }}
               >
@@ -972,7 +976,6 @@ function DetailModal({
 
   const creatorName = draft.createdBy?.name ?? session?.user?.name ?? REPORTER_LABEL[draft.reporter];
 
-  // Helper for color logic display
   const isPhysical = draft.physicalReturn;
   const isVerified = draft.verified;
   const isFinalized = draft.finalized;
@@ -988,7 +991,6 @@ function DetailModal({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="absolute inset-0 flex items-start justify-center p-4 sm:p-8 overflow-y-auto">
         <div className="w-full max-w-[1100px] rounded-2xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-2xl my-8">
-          {/* Header */}
           <div className="px-6 py-4 border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-elevated))]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -1012,63 +1014,31 @@ function DetailModal({
             </div>
           </div>
 
-          {/* Body */}
           <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-6 py-6 space-y-6">
-            
-            {/* LOGIC TOGGLES */}
             <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] space-y-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-[hsl(var(--text-muted))]">Options de traitement</h4>
               <div className="flex flex-wrap items-center gap-6">
-                 {/* Switches */}
                  <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-                    <Switch 
-                      label="Retour physique"
-                      checked={draft.physicalReturn || false}
-                      onCheckedChange={(c) => setDraft({ ...draft, physicalReturn: c })}
-                    />
-                    <Switch 
-                      label="Pickup"
-                      checked={draft.isPickup || false}
-                      onCheckedChange={(c) => setDraft({ ...draft, isPickup: c })}
-                    />
-                    <Switch 
-                      label="Commande"
-                      checked={draft.isCommande || false}
-                      onCheckedChange={(c) => setDraft({ ...draft, isCommande: c })}
-                    />
-                    <Switch 
-                      label="Réclamation"
-                      checked={draft.isReclamation || false}
-                      onCheckedChange={(c) => setDraft({ ...draft, isReclamation: c })}
-                    />
+                    <Switch label="Retour physique" checked={draft.physicalReturn || false} onCheckedChange={(c) => setDraft({ ...draft, physicalReturn: c })} />
+                    <Switch label="Pickup" checked={draft.isPickup || false} onCheckedChange={(c) => setDraft({ ...draft, isPickup: c })} />
+                    <Switch label="Commande" checked={draft.isCommande || false} onCheckedChange={(c) => setDraft({ ...draft, isCommande: c })} />
+                    <Switch label="Réclamation" checked={draft.isReclamation || false} onCheckedChange={(c) => setDraft({ ...draft, isReclamation: c })} />
                  </div>
                 
-                {/* Verification (Only if physical) */}
                 {isPhysical && (
                   <button
                     onClick={() => setDraft({ ...draft, verified: !isVerified })}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
-                      isVerified
-                        ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-                        : "bg-white border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]"
-                    )}
+                    className={cn("flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors", isVerified ? "bg-emerald-100 text-emerald-800 border-emerald-200" : "bg-white border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]" )}
                   >
                     <CheckCircle className="h-4 w-4" />
                     {isVerified ? "Vérifié (OK)" : "Marquer comme vérifié"}
                   </button>
                 )}
 
-                {/* Finalization */}
                 {isVerified && (
                   <button
                     onClick={() => setDraft({ ...draft, finalized: !isFinalized })}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
-                      isFinalized
-                        ? "bg-gray-100 text-gray-800 border-gray-200"
-                        : "bg-white border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]"
-                    )}
+                    className={cn("flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors", isFinalized ? "bg-gray-100 text-gray-800 border-gray-200" : "bg-white border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]" )}
                   >
                     <Archive className="h-4 w-4" />
                     {isFinalized ? "Finalisé (Archivé)" : "Finaliser le retour"}
@@ -1076,30 +1046,13 @@ function DetailModal({
                 )}
               </div>
               
-              {/* Contextual Status Message */}
               <div className="text-sm font-medium">
-                {isPhysical && !isVerified && (
-                  <span className="text-red-500 flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4"/>
-                    En attente de vérification physique (Ligne noire)
-                  </span>
-                )}
-                {isPhysical && isVerified && !isFinalized && (
-                  <span className="text-emerald-600 flex items-center gap-2">
-                      <Check className="h-4 w-4"/>
-                      Marchandise vérifiée (Ligne verte)
-                  </span>
-                )}
-                {isFinalized && (
-                  <span className="text-gray-500 flex items-center gap-2">
-                    <Archive className="h-4 w-4"/>
-                    Dossier clos (Archivé)
-                  </span>
-                )}
+                {isPhysical && !isVerified && <span className="text-red-500 flex items-center gap-2"><AlertCircle className="h-4 w-4"/> En attente de vérification physique (Ligne noire)</span>}
+                {isPhysical && isVerified && !isFinalized && <span className="text-emerald-600 flex items-center gap-2"><Check className="h-4 w-4"/> Marchandise vérifiée (Ligne verte)</span>}
+                {isFinalized && <span className="text-gray-500 flex items-center gap-2"><Archive className="h-4 w-4"/> Dossier clos (Archivé)</span>}
               </div>
             </div>
 
-            {/* Creator Info */}
             <div className="flex items-center gap-3 p-3 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))]">
               <Avatar className="h-9 w-9">
                 <AvatarImage src={session?.user?.image ?? ""} alt={creatorName} />
@@ -1115,7 +1068,6 @@ function DetailModal({
               </div>
             </div>
 
-            {/* Fields */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Field label="Expert" value={draft.expert} onChange={(v) => setDraft({ ...draft, expert: v })} />
               <Field label="Client" value={draft.client} onChange={(v) => setDraft({ ...draft, client: v })} />
@@ -1125,24 +1077,12 @@ function DetailModal({
               <Field label="Transport" value={draft.transport ?? ""} onChange={(v) => setDraft({ ...draft, transport: v || null })} />
               <Field label="Montant" value={draft.amount?.toString() ?? ""} onChange={(v) => setDraft({ ...draft, amount: v ? Number(v) : null })} />
               <Field label="Date commande" type="date" value={draft.dateCommande ?? ""} onChange={(v) => setDraft({ ...draft, dateCommande: v || null })} />
-              <Field
-                label="Cause"
-                as="select"
-                value={draft.cause}
-                onChange={(v) => setDraft({ ...draft, cause: v as Cause })}
-                options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))}
-              />
+              <Field label="Cause" as="select" value={draft.cause} onChange={(v) => setDraft({ ...draft, cause: v as Cause })} options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))} />
             </div>
 
-            {/* Attachments Section */}
             <AttachmentsSection
               returnCode={draft.id}
-              attachments={draft.attachments?.map(a => ({
-                id: a.id,
-                name: a.name,
-                url: a.url,
-                downloadUrl: a.downloadUrl,
-              })) || []}
+              attachments={draft.attachments?.map(a => ({ id: a.id, name: a.name, url: a.url, downloadUrl: a.downloadUrl })) || []}
               onAttachmentsChange={(newAttachments) => {
                 const typedAttachments = newAttachments as Attachment[]; 
                 setDraft(prev => ({ ...prev, attachments: typedAttachments }));
@@ -1151,13 +1091,10 @@ function DetailModal({
               readOnly={draft.finalized}
             />
 
-            {/* Products */}
             <div className="space-y-3">
               <h4 className="font-semibold flex items-center gap-2 text-[hsl(var(--text-primary))]">
-                <Package className="h-4 w-4" />
-                Produits (RMA)
+                <Package className="h-4 w-4" /> Produits (RMA)
               </h4>
-
               <div className="space-y-2">
                 {(draft.products ?? []).map((p, idx) => (
                   <ProductRow
@@ -1174,51 +1111,25 @@ function DetailModal({
                     }}
                   />
                 ))}
-                {(draft.products?.length ?? 0) === 0 && (
-                  <div className="text-sm text-[hsl(var(--text-muted))] py-6 text-center">Aucun produit.</div>
-                )}
+                {(draft.products?.length ?? 0) === 0 && <div className="text-sm text-[hsl(var(--text-muted))] py-6 text-center">Aucun produit.</div>}
               </div>
             </div>
 
-            {/* Description */}
             <div className="space-y-2">
               <h4 className="font-semibold text-[hsl(var(--text-primary))]">Description</h4>
-              <textarea
-                className="w-full rounded-xl border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-accent"
-                rows={4}
-                placeholder="Notes internes, contexte, instructions…"
-                value={draft.description ?? ""}
-                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-              />
+              <textarea className="w-full rounded-xl border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-accent" rows={4} placeholder="Notes internes, contexte, instructions…" value={draft.description ?? ""} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
             </div>
           </div>
 
-          {/* Footer */}
           <div className="px-6 py-4 border-t border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))]">
             <div className="flex items-center justify-between">
               <div className="text-xs text-[hsl(var(--text-muted))]">Lecture/édition locale.</div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => { onPatched(draft); alert("Brouillon enregistré (local)."); }}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium",
-                    "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]",
-                    "hover:bg-[hsl(var(--bg-elevated))]"
-                  )}
-                >
-                  <Save className="h-4 w-4" />
-                  Enregistrer
+                <button onClick={() => { onPatched(draft); alert("Brouillon enregistré (local)."); }} className={cn("inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium", "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]", "hover:bg-[hsl(var(--bg-elevated))]")}>
+                  <Save className="h-4 w-4" /> Enregistrer
                 </button>
-                <button
-                  onClick={() => { onPatched({ status: "received_or_no_physical" }); alert("Envoyé (local)."); }}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold",
-                    "bg-[hsl(var(--success))] text-white",
-                    "hover:brightness-110"
-                  )}
-                >
-                  <Send className="h-4 w-4" />
-                  Envoyer pour approbation
+                <button onClick={() => { onPatched({ status: "received_or_no_physical" }); alert("Envoyé (local)."); }} className={cn("inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold", "bg-[hsl(var(--success))] text-white", "hover:brightness-110")}>
+                  <Send className="h-4 w-4" /> Envoyer pour approbation
                 </button>
               </div>
             </div>
@@ -1251,23 +1162,19 @@ function NewReturnModal({
   const [dateCommande, setDateCommande] = React.useState<string>("");
   const [description, setDescription] = React.useState("");
   const [physicalReturn, setPhysicalReturn] = React.useState(false); 
-  // Added states for restored checkboxes
   const [isPickup, setIsPickup] = React.useState(false);
   const [isCommande, setIsCommande] = React.useState(false);
   const [isReclamation, setIsReclamation] = React.useState(false);
 
   const [products, setProducts] = React.useState<ProductLine[]>([]);
   
-  // New state for next ID
   const [nextId, setNextId] = React.useState<string>("...");
   const [reportedAt, setReportedAt] = React.useState<string>(new Date().toISOString().slice(0, 10));
 
-  // File upload state for new return
   const [filesToUpload, setFilesToUpload] = React.useState<File[]>([]);
   const [busy, setBusy] = React.useState(false);
 
   React.useEffect(() => {
-    // Fetch the next ID when the modal mounts
     const fetchNextId = async () => {
       try {
         const res = await fetch("/api/returns?mode=next_id");
@@ -1284,9 +1191,7 @@ function NewReturnModal({
     fetchNextId();
   }, []);
 
-  const addProduct = () =>
-    setProducts((p) => [...p, { id: `np-${Date.now()}`, codeProduit: "", descriptionProduit: "", descriptionRetour: "", quantite: 1 }]);
-
+  const addProduct = () => setProducts((p) => [...p, { id: `np-${Date.now()}`, codeProduit: "", descriptionProduit: "", descriptionRetour: "", quantite: 1 }]);
   const removeProduct = (pid: string) => setProducts((p) => p.filter((x) => x.id !== pid));
 
   const onFetchFromOrder = async () => {
@@ -1309,7 +1214,6 @@ function NewReturnModal({
     }
     setBusy(true);
     try {
-      // 1. Create the return
       const createdReturn = await createReturn({
         reporter,
         cause,
@@ -1323,9 +1227,9 @@ function NewReturnModal({
         transport: transport.trim() || null,
         description: description.trim() || null,
         physicalReturn, 
-        isPickup,      // Pass new field
-        isCommande,    // Pass new field
-        isReclamation, // Pass new field
+        isPickup,      
+        isCommande,    
+        isReclamation, 
         reportedAt, 
         products: products.map((p) => ({
           codeProduit: p.codeProduit.trim(),
@@ -1335,7 +1239,6 @@ function NewReturnModal({
         })),
       });
 
-      // 2. Upload files if any, linking them to the new return ID
       if (filesToUpload.length > 0 && createdReturn?.codeRetour) {
         for (const file of filesToUpload) {
           await uploadAttachment(String(createdReturn.codeRetour), file);
@@ -1372,91 +1275,34 @@ function NewReturnModal({
           </div>
 
           <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-6 py-6 space-y-6">
-            
-            {/* Options block */}
             <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] flex flex-col sm:flex-row gap-6">
                <div className="flex-1 grid grid-cols-2 gap-x-8 gap-y-4">
-                 <Switch 
-                   label="Retour physique"
-                   checked={physicalReturn}
-                   onCheckedChange={setPhysicalReturn}
-                 />
-                 <Switch 
-                   label="Pickup"
-                   checked={isPickup}
-                   onCheckedChange={setIsPickup}
-                 />
-                 <Switch 
-                   label="Commande"
-                   checked={isCommande}
-                   onCheckedChange={setIsCommande}
-                 />
-                 <Switch 
-                   label="Réclamation"
-                   checked={isReclamation}
-                   onCheckedChange={setIsReclamation}
-                 />
+                 <Switch label="Retour physique" checked={physicalReturn} onCheckedChange={setPhysicalReturn} />
+                 <Switch label="Pickup" checked={isPickup} onCheckedChange={setIsPickup} />
+                 <Switch label="Commande" checked={isCommande} onCheckedChange={setIsCommande} />
+                 <Switch label="Réclamation" checked={isReclamation} onCheckedChange={setIsReclamation} />
                  {physicalReturn && <p className="col-span-2 mt-2 text-xs text-[hsl(var(--text-muted))]">Ce retour apparaîtra en évidence (ligne noire) jusqu'à sa réception.</p>}
                </div>
-               
                <div className="w-full sm:max-w-[300px]">
-                 <Field 
-                   label="No. commande" 
-                   value={noCommande} 
-                   onChange={setNoCommande} 
-                   onBlur={onFetchFromOrder} 
-                   placeholder="Ex: 92427"
-                 />
+                 <Field label="No. commande" value={noCommande} onChange={setNoCommande} onBlur={onFetchFromOrder} placeholder="Ex: 92427" />
                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Field
-                label="Code de retour"
-                value={nextId}
-                onChange={() => {}} // No-op
-                readOnly
-                className="bg-[hsl(var(--bg-muted))/50] text-[hsl(var(--text-secondary))] font-mono"
-              />
-              <Field 
-                label="Date de signalement" 
-                type="date" 
-                value={reportedAt} 
-                onChange={setReportedAt} 
-                required
-              />
-              <Field
-                label="Signalé par"
-                as="select"
-                value={reporter}
-                onChange={(v) => setReporter(v as Reporter)}
-                options={[
-                  { value: "expert", label: "Expert" },
-                  { value: "transporteur", label: "Transporteur" },
-                  { value: "client", label: "Client" },
-                  { value: "autre", label: "Autre" },
-                ]}
-                required
-              />
-              <Field
-                label="Cause"
-                as="select"
-                value={cause}
-                onChange={(v) => setCause(v as Cause)}
-                options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))}
-                required
-              />
+              <Field label="Code de retour" value={nextId} onChange={() => {}} readOnly className="bg-[hsl(var(--bg-muted))/50] text-[hsl(var(--text-secondary))] font-mono" />
+              <Field label="Date de signalement" type="date" value={reportedAt} onChange={setReportedAt} required />
+              <Field label="Signalé par" as="select" value={reporter} onChange={(v) => setReporter(v as Reporter)} options={[{ value: "expert", label: "Expert" }, { value: "transporteur", label: "Transporteur" }, { value: "client", label: "Client" }, { value: "autre", label: "Autre" }]} required />
+              <Field label="Cause" as="select" value={cause} onChange={(v) => setCause(v as Cause)} options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))} required />
               <Field label="Expert" value={expert} onChange={setExpert} required />
               <Field label="Client" value={client} onChange={setClient} required />
               <Field label="No. client" value={noClient} onChange={setNoClient} />
-              
               <Field label="No. tracking" value={tracking} onChange={setTracking} />
               <Field label="Transport" value={transport} onChange={setTransport} />
               <Field label="Montant" value={amount} onChange={setAmount} />
               <Field label="Date commande" type="date" value={dateCommande} onChange={setDateCommande} />
             </div>
 
-            {/* Attachments (Queue) */}
+            <AttachmentsSection returnCode={nextId.replace("R", "")} attachments={[]} onAttachmentsChange={() => {}} readOnly={false} />
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1464,34 +1310,13 @@ function NewReturnModal({
                   <h4 className="font-semibold text-[hsl(var(--text-primary))]">Fichiers à joindre</h4>
                   <span className="text-xs text-[hsl(var(--text-muted))]">({filesToUpload.length})</span>
                 </div>
-                
                 <div className="relative">
-                  <input 
-                    type="file" 
-                    id="new-return-upload" 
-                    multiple 
-                    className="hidden" 
-                    onChange={(e) => {
-                      if (e.target.files) {
-                        setFilesToUpload(prev => [...prev, ...Array.from(e.target.files || [])]);
-                        e.target.value = ""; // reset
-                      }
-                    }}
-                  />
-                  <label 
-                    htmlFor="new-return-upload"
-                    className={cn(
-                      "cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
-                      "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]",
-                      "hover:bg-[hsl(var(--bg-muted))]"
-                    )}
-                  >
-                    <UploadCloud className="h-4 w-4" />
-                    Ajouter un fichier
+                  <input type="file" id="new-return-upload" multiple className="hidden" onChange={(e) => { if (e.target.files) { setFilesToUpload(prev => [...prev, ...Array.from(e.target.files || [])]); e.target.value = ""; } }} />
+                  <label htmlFor="new-return-upload" className={cn("cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors", "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]", "hover:bg-[hsl(var(--bg-muted))]")}>
+                    <UploadCloud className="h-4 w-4" /> Ajouter un fichier
                   </label>
                 </div>
               </div>
-              
               {filesToUpload.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {filesToUpload.map((f, i) => (
@@ -1501,19 +1326,14 @@ function NewReturnModal({
                         <span className="truncate max-w-[200px]">{f.name}</span>
                         <span className="text-xs text-[hsl(var(--text-muted))]">({(f.size / 1024).toFixed(0)} KB)</span>
                       </div>
-                      <button 
-                        onClick={() => setFilesToUpload(prev => prev.filter((_, idx) => idx !== i))}
-                        className="p-1 rounded-md text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))]"
-                      >
+                      <button onClick={() => setFilesToUpload(prev => prev.filter((_, idx) => idx !== i))} className="p-1 rounded-md text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))]">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-sm text-[hsl(var(--text-muted))] text-center py-2 italic">
-                  Les fichiers seront uploadés à la création du retour.
-                </div>
+                <div className="text-sm text-[hsl(var(--text-muted))] text-center py-2 italic">Les fichiers seront uploadés à la création du retour.</div>
               )}
             </div>
 
@@ -1521,77 +1341,30 @@ function NewReturnModal({
               <h4 className="font-semibold text-[hsl(var(--text-primary))]">Produits</h4>
               <div className="space-y-2">
                 {products.map((p, idx) => (
-                  <ProductRow
-                    key={p.id}
-                    product={p}
-                    onChange={(updatedProduct) => {
-                      const arr = products.slice();
-                      arr[idx] = updatedProduct;
-                      setProducts(arr);
-                    }}
-                    onRemove={() => removeProduct(p.id)}
-                  />
+                  <ProductRow key={p.id} product={p} onChange={(updatedProduct) => { const arr = products.slice(); arr[idx] = updatedProduct; setProducts(arr); }} onRemove={() => removeProduct(p.id)} />
                 ))}
-                {products.length === 0 && (
-                  <div className="text-sm text-[hsl(var(--text-muted))] py-6 text-center">
-                    Aucun produit. Ajoutez des lignes ci-dessous.
-                  </div>
-                )}
+                {products.length === 0 && <div className="text-sm text-[hsl(var(--text-muted))] py-6 text-center">Aucun produit. Ajoutez des lignes ci-dessous.</div>}
               </div>
-              <button
-                onClick={addProduct}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium",
-                  "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))]",
-                  "hover:bg-[hsl(var(--bg-elevated))]"
-                )}
-              >
-                <Plus className="h-4 w-4" />
-                Ajouter produit
+              <button onClick={addProduct} className={cn("inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium", "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))]", "hover:bg-[hsl(var(--bg-elevated))]")}>
+                <Plus className="h-4 w-4" /> Ajouter produit
               </button>
             </div>
 
             <div className="space-y-2">
               <h4 className="font-semibold text-[hsl(var(--text-primary))]">Description</h4>
-              <textarea
-                className="w-full rounded-xl border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-accent"
-                rows={4}
-                placeholder="Notes internes, contexte, instructions…"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
+              <textarea className="w-full rounded-xl border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-accent" rows={4} placeholder="Notes internes, contexte, instructions…" value={description} onChange={(e) => setDescription(e.target.value)} />
             </div>
           </div>
 
           <div className="px-6 py-4 border-t border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))]">
             <div className="flex items-center justify-between">
-              <div className="text-xs text-[hsl(var(--text-muted))]">
-                Le code retour sera généré automatiquement.
-              </div>
+              <div className="text-xs text-[hsl(var(--text-muted))]">Le code retour sera généré automatiquement.</div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={onClose}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium",
-                    "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]",
-                    "hover:bg-[hsl(var(--bg-elevated))]"
-                  )}
-                >
-                  <X className="h-4 w-4" />
-                  Annuler
+                <button onClick={onClose} className={cn("inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium", "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]", "hover:bg-[hsl(var(--bg-elevated))]")}>
+                  <X className="h-4 w-4" /> Annuler
                 </button>
-                <button
-                  disabled={busy}
-                  onClick={submit}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold",
-                    "bg-[hsl(var(--success))] text-white",
-                    "hover:brightness-110",
-                    busy && "opacity-70 pointer-events-none"
-                  )}
-                >
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4" />}
-                  Créer le retour
+                <button disabled={busy} onClick={submit} className={cn("inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold", "bg-[hsl(var(--success))] text-white", "hover:brightness-110", busy && "opacity-70 pointer-events-none")}>
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4" />} Créer le retour
                 </button>
               </div>
             </div>
@@ -1605,75 +1378,18 @@ function NewReturnModal({
 /* =============================================================================
    Field Component
 ============================================================================= */
-function Field({
-  label,
-  value,
-  onChange,
-  type = "text",
-  as,
-  options,
-  onBlur,
-  readOnly,
-  className,
-  placeholder,
-  required
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-  as?: "select";
-  options?: { value: string; label: string }[];
-  onBlur?: () => void;
-  readOnly?: boolean;
-  className?: string;
-  placeholder?: string;
-  required?: boolean;
-}) {
+function Field({ label, value, onChange, type = "text", as, options, onBlur, readOnly, className, placeholder, required }: { label: string; value: string; onChange: (v: string) => void; type?: string; as?: "select"; options?: { value: string; label: string }[]; onBlur?: () => void; readOnly?: boolean; className?: string; placeholder?: string; required?: boolean; }) {
   return (
     <label className="grid gap-1.5">
       <span className="text-xs font-semibold text-[hsl(var(--text-muted))] uppercase tracking-wider">
         {label} {required && <span className="text-red-500">*</span>}
       </span>
       {as === "select" ? (
-        <select
-          className={cn(
-            "rounded-xl border px-3 py-2.5 text-sm",
-            "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-subtle))]",
-            "text-[hsl(var(--text-primary))]",
-            "focus:outline-none focus:ring-2 focus:ring-accent",
-            readOnly && "pointer-events-none opacity-80",
-            required && "border-emerald-500/50",
-            className
-          )}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={onBlur}
-          disabled={readOnly}
-        >
-          {options?.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
+        <select className={cn("rounded-xl border px-3 py-2.5 text-sm", "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-subtle))]", "text-[hsl(var(--text-primary))]", "focus:outline-none focus:ring-2 focus:ring-accent", readOnly && "pointer-events-none opacity-80", required && "border-emerald-500/50", className)} value={value} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} disabled={readOnly}>
+          {options?.map((o) => ( <option key={o.value} value={o.value}>{o.label}</option> ))}
         </select>
       ) : (
-        <input
-          type={type}
-          className={cn(
-            "rounded-xl border px-3 py-2.5 text-sm",
-            "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-subtle))]",
-            "text-[hsl(var(--text-primary))]",
-            "focus:outline-none focus:ring-2 focus:ring-accent",
-            readOnly && "pointer-events-none opacity-80",
-            required && "border-emerald-500/50",
-            className
-          )}
-          value={value}
-          onBlur={onBlur}
-          onChange={(e) => onChange(e.target.value)}
-          readOnly={readOnly}
-          autoComplete="off"
-          placeholder={placeholder}
-        />
+        <input type={type} className={cn("rounded-xl border px-3 py-2.5 text-sm", "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-subtle))]", "text-[hsl(var(--text-primary))]", "focus:outline-none focus:ring-2 focus:ring-accent", readOnly && "pointer-events-none opacity-80", required && "border-emerald-500/50", className)} value={value} onBlur={onBlur} onChange={(e) => onChange(e.target.value)} readOnly={readOnly} autoComplete="off" placeholder={placeholder} />
       )}
     </label>
   );
