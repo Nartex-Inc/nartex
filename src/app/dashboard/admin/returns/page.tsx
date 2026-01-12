@@ -94,10 +94,14 @@ type ReturnRow = {
   products?: ProductLine[];
   description?: string;
   createdBy?: { name: string; avatar?: string | null; at: string };
-  // New fields for logic
+  
+  // Logic fields
   physicalReturn?: boolean; // retour_physique
-  verified?: boolean;
-  finalized?: boolean;
+  verified?: boolean;       // is_verified
+  finalized?: boolean;      // is_final
+  isPickup?: boolean;       // is_pickup
+  isCommande?: boolean;     // is_commande
+  isReclamation?: boolean;  // is_reclamation
 };
 
 const REPORTER_LABEL: Record<string, string> = {
@@ -139,7 +143,7 @@ const CAUSES_IN_ORDER: Cause[] = [
 ];
 
 /* =============================================================================
-   Status styling using design tokens
+   Status styling
 ============================================================================= */
 const STATUS_CONFIG: Record<
   ReturnStatus,
@@ -195,12 +199,10 @@ async function fetchReturns(params: {
 
     if (!res.ok) {
       console.error(`API Error: ${res.status}`);
-      return []; // Return empty array instead of crashing
+      return []; 
     }
 
     const json = await res.json();
-    
-    // The critical fix: check for 'data' property and ensure it is an array
     if (json.ok && Array.isArray(json.data)) {
       return json.data as ReturnRow[];
     }
@@ -222,7 +224,7 @@ async function createReturn(payload: any) {
   });
   const json = await res.json();
   if (!json.ok) throw new Error("Création échouée");
-  return json.data; // Return the created object
+  return json.data; 
 }
 
 async function deleteReturn(code: string): Promise<void> {
@@ -237,50 +239,22 @@ async function deleteReturn(code: string): Promise<void> {
   }
 }
 
-// === Attachment Utils ===
-
 async function uploadAttachment(returnId: string, file: File): Promise<Attachment> {
-  // 👇 FIXED: Use FormData to perform a real upload to the backend (which sends to Drive)
-  // instead of sending JSON with a fake ID.
   const formData = new FormData();
   formData.append("files", file);
 
   const res = await fetch(`/api/returns/${encodeURIComponent(returnId)}/attachments`, {
     method: "POST",
-    // Note: Do NOT set Content-Type header here; fetch sets it automatically for FormData
     body: formData,
     credentials: "include",
   });
   
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || "Upload failed");
-  
-  // The backend returns an array 'attachments' for multipart uploads
   return json.attachments[0];
 }
 
-// Note: deleteAttachment is not used in DetailModal anymore (handled by component), 
-// but might be useful to keep for API parity or other components.
-async function deleteAttachment(returnId: string, fileId: string): Promise<void> {
-  const res = await fetch(`/api/returns/${encodeURIComponent(returnId)}/attachments?fileId=${encodeURIComponent(fileId)}`, {
-    method: "DELETE"
-  });
-  const json = await res.json();
-  if (!json.ok) throw new Error(json.error || "Delete failed");
-}
-
-type OrderLookup = {
-  sonbr: string | number;
-  orderDate?: string | null;
-  totalamt: number | null;
-  customerName?: string | null;
-  carrierName?: string | null;
-  salesrepName?: string | null;
-  tracking?: string | null;
-  noClient?: string | null;
-};
-
-async function lookupOrder(noCommande: string): Promise<OrderLookup | null> {
+async function lookupOrder(noCommande: string): Promise<any | null> {
   if (!noCommande.trim()) return null;
   const res = await fetch(
     `/api/prextra/order?no_commande=${encodeURIComponent(noCommande.trim())}`,
@@ -308,26 +282,13 @@ type ItemSuggestion = { code: string; descr?: string | null };
 
 async function searchItems(q: string): Promise<ItemSuggestion[]> {
   if (!q.trim()) return [];
-  // Use the 'q' parameter and match the API response structure (json.suggestions)
   const res = await fetch(`/api/items?q=${encodeURIComponent(q)}`, {
     cache: "no-store",
     credentials: "include",
   });
   if (!res.ok) return [];
   const json = await res.json();
-  // FIXED: Access 'suggestions' instead of 'items'
   return (json.suggestions ?? []) as ItemSuggestion[];
-}
-
-async function getItem(code: string): Promise<{ code: string; descr?: string | null; weight?: number | null } | null> {
-  if (!code.trim()) return null;
-  const res = await fetch(`/api/items?code=${encodeURIComponent(code.trim())}`, {
-    cache: "no-store",
-    credentials: "include",
-  });
-  if (!res.ok) return null;
-  const json = await res.json();
-  return (json.item as { code: string; descr?: string | null; weight?: number | null } | null) ?? null;
 }
 
 function useDebounced<T>(value: T, delay = 300) {
@@ -433,8 +394,8 @@ export default function ReturnsPage() {
       switch (sortKey) {
         case "id": return r.id;
         case "reportedAt": return r.reportedAt;
-        case "reporter": return REPORTER_LABEL[r.reporter] || r.reporter; // Fallback
-        case "cause": return CAUSE_LABEL[r.cause] || r.cause; // Fallback
+        case "reporter": return REPORTER_LABEL[r.reporter] || r.reporter; 
+        case "cause": return CAUSE_LABEL[r.cause] || r.cause;
         case "client": return `${r.client} ${r.expert}`;
         case "noCommande": return r.noCommande ?? "";
         case "tracking": return r.tracking ?? "";
@@ -466,7 +427,6 @@ export default function ReturnsPage() {
     [rows]
   );
 
-  // actions
   const onToggleStandby = (id: string) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, standby: !r.standby } : r)));
 
@@ -502,18 +462,11 @@ export default function ReturnsPage() {
     });
   };
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  //  ROW CLASS LOGIC
-  // ─────────────────────────────────────────────────────────────────────────────
   const getRowClasses = (row: ReturnRow, isHovered: boolean) => {
     const base = "transition-colors duration-150 border-b border-[hsl(var(--border-subtle))]";
-    
-    // 1. FINALIZED -> Archived (Usually grayed out)
     if (row.finalized) {
        return cn(base, "bg-gray-50 dark:bg-gray-900/50 opacity-60 grayscale");
     }
-
-    // 2. VERIFIED -> Green (Verified but not finalized)
     if (row.verified) {
       return cn(
         base, 
@@ -521,19 +474,13 @@ export default function ReturnsPage() {
         isHovered && "bg-emerald-100 dark:bg-emerald-950/60"
       );
     }
-
-    // 3. PHYSICAL RETURN & NOT VERIFIED -> Black (Needs verification)
     if (row.physicalReturn) {
-      // "Black" background. In dark mode, this is standard, but we make it deeper/contrast.
-      // In light mode, this is dark gray/black.
       return cn(
         base,
         "bg-neutral-900 text-white dark:bg-black",
         isHovered && "bg-neutral-800 dark:bg-neutral-950"
       );
     }
-
-    // 4. Default -> Standard colors
     return cn(
       base,
       row.standby && "opacity-50",
@@ -544,12 +491,8 @@ export default function ReturnsPage() {
   return (
     <div className="min-h-[100dvh] bg-[hsl(var(--bg-base))]">
       <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8 py-6">
-        {/* ─────────────────────────────────────────────────────────────────────
-            Header Card
-            ───────────────────────────────────────────────────────────────────── */}
         <div className="rounded-2xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-surface))] overflow-hidden">
           <div className="px-6 py-5">
-            {/* Title Row */}
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-bold tracking-tight text-[hsl(var(--text-primary))]">
@@ -565,10 +508,10 @@ export default function ReturnsPage() {
                 onClick={() => setOpenNew(true)}
                 className={cn(
                   "inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold",
-                  "bg-accent text-[hsl(var(--bg-base))]", // This is the key line
+                  "bg-accent text-[hsl(var(--bg-base))]",
                   "hover:brightness-110 active:scale-[0.98]",
                   "transition-all duration-150",
-                  "shadow-sm shadow-accent/25" // And this one
+                  "shadow-sm shadow-accent/25"
                 )}
               >
                 <Plus className="h-4 w-4" />
@@ -576,7 +519,6 @@ export default function ReturnsPage() {
               </button>
             </div>
 
-            {/* Search + Filters */}
             <div className="mt-5 flex flex-col lg:flex-row gap-3">
               <div className="flex-1 relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-muted))]" />
@@ -680,7 +622,6 @@ export default function ReturnsPage() {
               </div>
             </div>
 
-            {/* Metrics */}
             <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
               <MetricCard title="Total retours" value={stats.total} icon={Package} />
               <MetricCard title="En attente" value={stats.awaiting} icon={Clock} />
@@ -689,9 +630,6 @@ export default function ReturnsPage() {
           </div>
         </div>
 
-        {/* ─────────────────────────────────────────────────────────────────────
-            Table
-            ───────────────────────────────────────────────────────────────────── */}
         <div className="mt-6 rounded-2xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-surface))] overflow-hidden">
           {loading && (
             <div className="py-16 text-center">
@@ -732,7 +670,6 @@ export default function ReturnsPage() {
                     {sorted.map((row) => {
                       const hasFiles = (row.attachments?.length ?? 0) > 0;
                       const statusConfig = STATUS_CONFIG[row.status];
-                      const StatusIcon = statusConfig.icon;
                       
                       const isSpecialRow = row.physicalReturn || row.verified || row.finalized;
                       const rowClass = getRowClasses(row, hovered === row.id);
@@ -746,7 +683,6 @@ export default function ReturnsPage() {
                         >
                           <td className="px-4 py-3.5">
                             <div className="flex items-center gap-3">
-                              {/* If black row (physical return), hide the colored pill or adjust it? keeping it for now but it might look odd on black */}
                               <div className={cn("w-1.5 h-6 rounded-full", statusConfig.bgClass)} />
                               <span className={cn("font-mono font-semibold", isSpecialRow ? "text-inherit" : "text-[hsl(var(--text-primary))]")}>
                                 {row.id}
@@ -881,86 +817,6 @@ export default function ReturnsPage() {
         )}
       </div>
     </div>
-  );
-}
-
-/* =============================================================================
-   Components
-============================================================================= */
-function MetricCard({
-  title,
-  value,
-  icon: Icon,
-}: {
-  title: string;
-  value: number | string;
-  icon: React.ElementType;
-}) {
-  return (
-    <div className="rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-elevated))] p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-[11px] uppercase tracking-wider font-semibold text-[hsl(var(--text-muted))]">
-            {title}
-          </div>
-          <div className="mt-1 text-2xl font-bold text-[hsl(var(--text-primary))] font-mono-data">
-            {value}
-          </div>
-        </div>
-        <div className="p-2.5 rounded-xl bg-accent-muted">
-          <Icon className="h-5 w-5 text-accent" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: ReturnStatus }) {
-  const config = STATUS_CONFIG[status];
-  const Icon = config.icon;
-  return (
-    <span className={cn(
-      "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border",
-      config.bgClass, config.textClass, config.borderClass
-    )}>
-      <Icon className="h-3.5 w-3.5" />
-      {config.label}
-    </span>
-  );
-}
-
-function SortTh({
-  label,
-  sortKey,
-  currentKey,
-  dir,
-  onSort,
-}: {
-  label: string;
-  sortKey: SortKey;
-  currentKey: SortKey;
-  dir: SortDir;
-  onSort: (key: SortKey) => void;
-}) {
-  const active = sortKey === currentKey;
-  return (
-    <th className="px-4 py-3 text-left">
-      <button
-        type="button"
-        onClick={() => onSort(sortKey)}
-        className={cn(
-          "inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-semibold",
-          active ? "text-[hsl(var(--text-primary))]" : "text-[hsl(var(--text-muted))]"
-        )}
-      >
-        <span>{label}</span>
-        {active ? (
-          dir === "asc" ? <ArrowUpNarrowWide className="h-3.5 w-3.5" /> : <ArrowDownNarrowWide className="h-3.5 w-3.5" />
-        ) : (
-          <ChevronUp className="h-3.5 w-3.5 opacity-40" />
-        )}
-      </button>
-    </th>
   );
 }
 
@@ -1163,14 +1019,31 @@ function DetailModal({
             <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] space-y-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-[hsl(var(--text-muted))]">Options de traitement</h4>
               <div className="flex flex-wrap items-center gap-6">
-                 {/* 1. Retour Physique Toggle */}
-                <Switch 
-                  label="Retour physique de la marchandise"
-                  checked={draft.physicalReturn || false}
-                  onCheckedChange={(c) => setDraft({ ...draft, physicalReturn: c })}
-                />
+                 {/* Switches */}
+                 <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                    <Switch 
+                      label="Retour physique"
+                      checked={draft.physicalReturn || false}
+                      onCheckedChange={(c) => setDraft({ ...draft, physicalReturn: c })}
+                    />
+                    <Switch 
+                      label="Pickup"
+                      checked={draft.isPickup || false}
+                      onCheckedChange={(c) => setDraft({ ...draft, isPickup: c })}
+                    />
+                    <Switch 
+                      label="Commande"
+                      checked={draft.isCommande || false}
+                      onCheckedChange={(c) => setDraft({ ...draft, isCommande: c })}
+                    />
+                    <Switch 
+                      label="Réclamation"
+                      checked={draft.isReclamation || false}
+                      onCheckedChange={(c) => setDraft({ ...draft, isReclamation: c })}
+                    />
+                 </div>
                 
-                {/* 2. Verification (Only if physical) */}
+                {/* Verification (Only if physical) */}
                 {isPhysical && (
                   <button
                     onClick={() => setDraft({ ...draft, verified: !isVerified })}
@@ -1186,7 +1059,7 @@ function DetailModal({
                   </button>
                 )}
 
-                {/* 3. Finalization */}
+                {/* Finalization */}
                 {isVerified && (
                   <button
                     onClick={() => setDraft({ ...draft, finalized: !isFinalized })}
@@ -1377,7 +1250,12 @@ function NewReturnModal({
   const [amount, setAmount] = React.useState<string>("");
   const [dateCommande, setDateCommande] = React.useState<string>("");
   const [description, setDescription] = React.useState("");
-  const [physicalReturn, setPhysicalReturn] = React.useState(false); // New state
+  const [physicalReturn, setPhysicalReturn] = React.useState(false); 
+  // Added states for restored checkboxes
+  const [isPickup, setIsPickup] = React.useState(false);
+  const [isCommande, setIsCommande] = React.useState(false);
+  const [isReclamation, setIsReclamation] = React.useState(false);
+
   const [products, setProducts] = React.useState<ProductLine[]>([]);
   
   // New state for next ID
@@ -1444,8 +1322,11 @@ function NewReturnModal({
         dateCommande: dateCommande || null,
         transport: transport.trim() || null,
         description: description.trim() || null,
-        physicalReturn, // Pass new field
-        reportedAt, // Pass editable date
+        physicalReturn, 
+        isPickup,      // Pass new field
+        isCommande,    // Pass new field
+        isReclamation, // Pass new field
+        reportedAt, 
         products: products.map((p) => ({
           codeProduit: p.codeProduit.trim(),
           descriptionProduit: p.descriptionProduit.trim(),
@@ -1493,24 +1374,38 @@ function NewReturnModal({
           <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-6 py-6 space-y-6">
             
             {/* Options block */}
-            <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] flex items-center justify-between gap-6">
-               <div className="flex-1">
+            <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] flex flex-col sm:flex-row gap-6">
+               <div className="flex-1 grid grid-cols-2 gap-x-8 gap-y-4">
                  <Switch 
-                   label="Retour physique de la marchandise"
+                   label="Retour physique"
                    checked={physicalReturn}
                    onCheckedChange={setPhysicalReturn}
                  />
-                 {physicalReturn && <p className="mt-2 text-xs text-[hsl(var(--text-muted))]">Ce retour apparaîtra en évidence (ligne noire) jusqu'à sa réception.</p>}
+                 <Switch 
+                   label="Pickup"
+                   checked={isPickup}
+                   onCheckedChange={setIsPickup}
+                 />
+                 <Switch 
+                   label="Commande"
+                   checked={isCommande}
+                   onCheckedChange={setIsCommande}
+                 />
+                 <Switch 
+                   label="Réclamation"
+                   checked={isReclamation}
+                   onCheckedChange={setIsReclamation}
+                 />
+                 {physicalReturn && <p className="col-span-2 mt-2 text-xs text-[hsl(var(--text-muted))]">Ce retour apparaîtra en évidence (ligne noire) jusqu'à sa réception.</p>}
                </div>
                
-               <div className="flex-1 max-w-[300px]">
+               <div className="w-full sm:max-w-[300px]">
                  <Field 
                    label="No. commande" 
                    value={noCommande} 
                    onChange={setNoCommande} 
                    onBlur={onFetchFromOrder} 
                    placeholder="Ex: 92427"
-                   required
                  />
                </div>
             </div>
