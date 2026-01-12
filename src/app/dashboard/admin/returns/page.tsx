@@ -39,13 +39,28 @@ import { AttachmentsSection } from "@/components/returns/AttachmentsSection";
 /* =============================================================================
    Types & constants
 ============================================================================= */
-type Reporter = "expert" | "transporteur" | "autre";
+type Reporter = 
+  | "expert" 
+  | "transporteur" 
+  | "client"          // <-- Added
+  | "prise_commande"  // <-- Added
+  | "autre";
+
 type Cause =
   | "production"
   | "pompe"
   | "autre_cause"
   | "exposition_sinto"
   | "transporteur"
+  | "expert"          // <-- Added
+  | "expedition"      // <-- Added
+  | "analyse"         // <-- Added
+  | "defect"          // <-- Added
+  | "surplus_inventaire" // <-- Added
+  | "prise_commande"  // <-- Added
+  | "rappel"          // <-- Added
+  | "redirection"     // <-- Added
+  | "fournisseur"     // <-- Added
   | "autre";
 
 type ReturnStatus = "draft" | "awaiting_physical" | "received_or_no_physical";
