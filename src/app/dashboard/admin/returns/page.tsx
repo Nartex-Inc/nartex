@@ -363,14 +363,13 @@ export default function ReturnsPage() {
   }, [load]);
 
   const sorted = React.useMemo(() => {
-    // 1. FILTER: Exclude rows that shouldn't be seen by default
-    // Logic: 
-    // - Hide corrupted rows (Draft & Finalized)
-    // - Hide Standby rows (API should handle this, but double check)
+    // Client-side filtering as safety net
     const validRows = rows.filter(r => {
-      if (r.isDraft && r.finalized) return false; // Corrupted
-      // Standby rows should be filtered by backend unless status=standby is active.
-      // We'll trust the API results for standby to allow "status=standby" filter to work if implemented later.
+      // Corrupted: both draft and finalized
+      if (r.isDraft && r.finalized) return false; 
+      // Default: exclude standby if it somehow arrived here
+      // (Assuming user hasn't explicitly filtered for them, but we don't have that state easily here. 
+      //  The backend handles default filtering, so we trust the API result for standard cases.)
       return true;
     });
 
@@ -446,25 +445,30 @@ export default function ReturnsPage() {
   };
 
   // -------------------------------------------------------------------------
-  //  STRICT COLOR LOGIC
+  //  STRICT COLOR LOGIC (Force colors, ignore theme)
   // -------------------------------------------------------------------------
   const getRowClasses = (row: ReturnRow) => {
-    // 1. Draft -> WHITE
+    // 1. Finalized -> Gray (Standard Archive Look)
+    if (row.finalized) {
+       return "bg-gray-100 text-gray-500 border-b border-gray-200";
+    }
+
+    // 2. Draft -> WHITE
     if (row.isDraft || row.status === "draft") {
       return "bg-white text-black border-b border-gray-200 hover:brightness-95";
     }
 
-    // 2. Physical & NOT Verified -> BLACK (Text White)
+    // 3. Physical & NOT Verified -> BLACK (Text White)
     if (row.physicalReturn && !row.verified) {
       return "bg-black text-white border-b border-gray-800 hover:bg-neutral-900";
     }
 
-    // 3. (Physical & Verified) OR (!Physical) -> GREEN (Text White)
+    // 4. (Physical & Verified) OR (!Physical) -> GREEN (Text White)
     if ((row.physicalReturn && row.verified) || !row.physicalReturn) {
       return "bg-emerald-600 text-white border-b border-emerald-700 hover:bg-emerald-700";
     }
 
-    // Fallback (Safe default)
+    // Fallback
     return "bg-white text-black border-b border-gray-200";
   };
 
@@ -991,6 +995,7 @@ function DetailModal({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="absolute inset-0 flex items-start justify-center p-4 sm:p-8 overflow-y-auto">
         <div className="w-full max-w-[1100px] rounded-2xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-2xl my-8">
+          {/* Header */}
           <div className="px-6 py-4 border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-elevated))]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -1014,7 +1019,10 @@ function DetailModal({
             </div>
           </div>
 
+          {/* Body */}
           <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-6 py-6 space-y-6">
+            
+            {/* LOGIC TOGGLES */}
             <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] space-y-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-[hsl(var(--text-muted))]">Options de traitement</h4>
               <div className="flex flex-wrap items-center gap-6">
@@ -1053,6 +1061,7 @@ function DetailModal({
               </div>
             </div>
 
+            {/* Creator Info */}
             <div className="flex items-center gap-3 p-3 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))]">
               <Avatar className="h-9 w-9">
                 <AvatarImage src={session?.user?.image ?? ""} alt={creatorName} />
@@ -1068,6 +1077,7 @@ function DetailModal({
               </div>
             </div>
 
+            {/* Fields */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Field label="Expert" value={draft.expert} onChange={(v) => setDraft({ ...draft, expert: v })} />
               <Field label="Client" value={draft.client} onChange={(v) => setDraft({ ...draft, client: v })} />
@@ -1077,9 +1087,16 @@ function DetailModal({
               <Field label="Transport" value={draft.transport ?? ""} onChange={(v) => setDraft({ ...draft, transport: v || null })} />
               <Field label="Montant" value={draft.amount?.toString() ?? ""} onChange={(v) => setDraft({ ...draft, amount: v ? Number(v) : null })} />
               <Field label="Date commande" type="date" value={draft.dateCommande ?? ""} onChange={(v) => setDraft({ ...draft, dateCommande: v || null })} />
-              <Field label="Cause" as="select" value={draft.cause} onChange={(v) => setDraft({ ...draft, cause: v as Cause })} options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))} />
+              <Field
+                label="Cause"
+                as="select"
+                value={draft.cause}
+                onChange={(v) => setDraft({ ...draft, cause: v as Cause })}
+                options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))}
+              />
             </div>
 
+            {/* Attachments Section */}
             <AttachmentsSection
               returnCode={draft.id}
               attachments={draft.attachments?.map(a => ({ id: a.id, name: a.name, url: a.url, downloadUrl: a.downloadUrl })) || []}
@@ -1091,10 +1108,12 @@ function DetailModal({
               readOnly={draft.finalized}
             />
 
+            {/* Products */}
             <div className="space-y-3">
               <h4 className="font-semibold flex items-center gap-2 text-[hsl(var(--text-primary))]">
                 <Package className="h-4 w-4" /> Produits (RMA)
               </h4>
+
               <div className="space-y-2">
                 {(draft.products ?? []).map((p, idx) => (
                   <ProductRow
@@ -1111,25 +1130,51 @@ function DetailModal({
                     }}
                   />
                 ))}
-                {(draft.products?.length ?? 0) === 0 && <div className="text-sm text-[hsl(var(--text-muted))] py-6 text-center">Aucun produit.</div>}
+                {(draft.products?.length ?? 0) === 0 && (
+                  <div className="text-sm text-[hsl(var(--text-muted))] py-6 text-center">Aucun produit.</div>
+                )}
               </div>
             </div>
 
+            {/* Description */}
             <div className="space-y-2">
               <h4 className="font-semibold text-[hsl(var(--text-primary))]">Description</h4>
-              <textarea className="w-full rounded-xl border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-accent" rows={4} placeholder="Notes internes, contexte, instructions…" value={draft.description ?? ""} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
+              <textarea
+                className="w-full rounded-xl border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-accent"
+                rows={4}
+                placeholder="Notes internes, contexte, instructions…"
+                value={draft.description ?? ""}
+                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+              />
             </div>
           </div>
 
+          {/* Footer */}
           <div className="px-6 py-4 border-t border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))]">
             <div className="flex items-center justify-between">
               <div className="text-xs text-[hsl(var(--text-muted))]">Lecture/édition locale.</div>
               <div className="flex items-center gap-2">
-                <button onClick={() => { onPatched(draft); alert("Brouillon enregistré (local)."); }} className={cn("inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium", "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]", "hover:bg-[hsl(var(--bg-elevated))]")}>
-                  <Save className="h-4 w-4" /> Enregistrer
+                <button
+                  onClick={() => { onPatched(draft); alert("Brouillon enregistré (local)."); }}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium",
+                    "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]",
+                    "hover:bg-[hsl(var(--bg-elevated))]"
+                  )}
+                >
+                  <Save className="h-4 w-4" />
+                  Enregistrer
                 </button>
-                <button onClick={() => { onPatched({ status: "received_or_no_physical" }); alert("Envoyé (local)."); }} className={cn("inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold", "bg-[hsl(var(--success))] text-white", "hover:brightness-110")}>
-                  <Send className="h-4 w-4" /> Envoyer pour approbation
+                <button
+                  onClick={() => { onPatched({ status: "received_or_no_physical" }); alert("Envoyé (local)."); }}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold",
+                    "bg-[hsl(var(--success))] text-white",
+                    "hover:brightness-110"
+                  )}
+                >
+                  <Send className="h-4 w-4" />
+                  Envoyer pour approbation
                 </button>
               </div>
             </div>
@@ -1175,6 +1220,7 @@ function NewReturnModal({
   const [busy, setBusy] = React.useState(false);
 
   React.useEffect(() => {
+    // Fetch the next ID when the modal mounts
     const fetchNextId = async () => {
       try {
         const res = await fetch("/api/returns?mode=next_id");
@@ -1191,7 +1237,9 @@ function NewReturnModal({
     fetchNextId();
   }, []);
 
-  const addProduct = () => setProducts((p) => [...p, { id: `np-${Date.now()}`, codeProduit: "", descriptionProduit: "", descriptionRetour: "", quantite: 1 }]);
+  const addProduct = () =>
+    setProducts((p) => [...p, { id: `np-${Date.now()}`, codeProduit: "", descriptionProduit: "", descriptionRetour: "", quantite: 1 }]);
+
   const removeProduct = (pid: string) => setProducts((p) => p.filter((x) => x.id !== pid));
 
   const onFetchFromOrder = async () => {
@@ -1214,6 +1262,7 @@ function NewReturnModal({
     }
     setBusy(true);
     try {
+      // 1. Create the return
       const createdReturn = await createReturn({
         reporter,
         cause,
@@ -1226,11 +1275,11 @@ function NewReturnModal({
         dateCommande: dateCommande || null,
         transport: transport.trim() || null,
         description: description.trim() || null,
-        physicalReturn, 
+        physicalReturn, // Pass new field
         isPickup,      
         isCommande,    
         isReclamation, 
-        reportedAt, 
+        reportedAt, // Pass editable date
         products: products.map((p) => ({
           codeProduit: p.codeProduit.trim(),
           descriptionProduit: p.descriptionProduit.trim(),
@@ -1239,6 +1288,7 @@ function NewReturnModal({
         })),
       });
 
+      // 2. Upload files if any, linking them to the new return ID
       if (filesToUpload.length > 0 && createdReturn?.codeRetour) {
         for (const file of filesToUpload) {
           await uploadAttachment(String(createdReturn.codeRetour), file);
@@ -1275,34 +1325,91 @@ function NewReturnModal({
           </div>
 
           <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-6 py-6 space-y-6">
+            
+            {/* Options block */}
             <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] flex flex-col sm:flex-row gap-6">
                <div className="flex-1 grid grid-cols-2 gap-x-8 gap-y-4">
-                 <Switch label="Retour physique" checked={physicalReturn} onCheckedChange={setPhysicalReturn} />
-                 <Switch label="Pickup" checked={isPickup} onCheckedChange={setIsPickup} />
-                 <Switch label="Commande" checked={isCommande} onCheckedChange={setIsCommande} />
-                 <Switch label="Réclamation" checked={isReclamation} onCheckedChange={setIsReclamation} />
+                 <Switch 
+                   label="Retour physique"
+                   checked={physicalReturn}
+                   onCheckedChange={setPhysicalReturn}
+                 />
+                 <Switch 
+                   label="Pickup"
+                   checked={isPickup}
+                   onCheckedChange={setIsPickup}
+                 />
+                 <Switch 
+                   label="Commande"
+                   checked={isCommande}
+                   onCheckedChange={setIsCommande}
+                 />
+                 <Switch 
+                   label="Réclamation"
+                   checked={isReclamation}
+                   onCheckedChange={setIsReclamation}
+                 />
                  {physicalReturn && <p className="col-span-2 mt-2 text-xs text-[hsl(var(--text-muted))]">Ce retour apparaîtra en évidence (ligne noire) jusqu'à sa réception.</p>}
                </div>
+               
                <div className="w-full sm:max-w-[300px]">
-                 <Field label="No. commande" value={noCommande} onChange={setNoCommande} onBlur={onFetchFromOrder} placeholder="Ex: 92427" />
+                 <Field 
+                   label="No. commande" 
+                   value={noCommande} 
+                   onChange={setNoCommande} 
+                   onBlur={onFetchFromOrder} 
+                   placeholder="Ex: 92427"
+                 />
                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Field label="Code de retour" value={nextId} onChange={() => {}} readOnly className="bg-[hsl(var(--bg-muted))/50] text-[hsl(var(--text-secondary))] font-mono" />
-              <Field label="Date de signalement" type="date" value={reportedAt} onChange={setReportedAt} required />
-              <Field label="Signalé par" as="select" value={reporter} onChange={(v) => setReporter(v as Reporter)} options={[{ value: "expert", label: "Expert" }, { value: "transporteur", label: "Transporteur" }, { value: "client", label: "Client" }, { value: "autre", label: "Autre" }]} required />
-              <Field label="Cause" as="select" value={cause} onChange={(v) => setCause(v as Cause)} options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))} required />
+              <Field
+                label="Code de retour"
+                value={nextId}
+                onChange={() => {}} // No-op
+                readOnly
+                className="bg-[hsl(var(--bg-muted))/50] text-[hsl(var(--text-secondary))] font-mono"
+              />
+              <Field 
+                label="Date de signalement" 
+                type="date" 
+                value={reportedAt} 
+                onChange={setReportedAt} 
+                required
+              />
+              <Field
+                label="Signalé par"
+                as="select"
+                value={reporter}
+                onChange={(v) => setReporter(v as Reporter)}
+                options={[
+                  { value: "expert", label: "Expert" },
+                  { value: "transporteur", label: "Transporteur" },
+                  { value: "client", label: "Client" },
+                  { value: "autre", label: "Autre" },
+                ]}
+                required
+              />
+              <Field
+                label="Cause"
+                as="select"
+                value={cause}
+                onChange={(v) => setCause(v as Cause)}
+                options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))}
+                required
+              />
               <Field label="Expert" value={expert} onChange={setExpert} required />
               <Field label="Client" value={client} onChange={setClient} required />
               <Field label="No. client" value={noClient} onChange={setNoClient} />
+              
               <Field label="No. tracking" value={tracking} onChange={setTracking} />
               <Field label="Transport" value={transport} onChange={setTransport} />
               <Field label="Montant" value={amount} onChange={setAmount} />
               <Field label="Date commande" type="date" value={dateCommande} onChange={setDateCommande} />
             </div>
 
-            <AttachmentsSection returnCode={nextId.replace("R", "")} attachments={[]} onAttachmentsChange={() => {}} readOnly={false} />
+            {/* Attachments (Queue) */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1310,13 +1417,34 @@ function NewReturnModal({
                   <h4 className="font-semibold text-[hsl(var(--text-primary))]">Fichiers à joindre</h4>
                   <span className="text-xs text-[hsl(var(--text-muted))]">({filesToUpload.length})</span>
                 </div>
+                
                 <div className="relative">
-                  <input type="file" id="new-return-upload" multiple className="hidden" onChange={(e) => { if (e.target.files) { setFilesToUpload(prev => [...prev, ...Array.from(e.target.files || [])]); e.target.value = ""; } }} />
-                  <label htmlFor="new-return-upload" className={cn("cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors", "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]", "hover:bg-[hsl(var(--bg-muted))]")}>
-                    <UploadCloud className="h-4 w-4" /> Ajouter un fichier
+                  <input 
+                    type="file" 
+                    id="new-return-upload" 
+                    multiple 
+                    className="hidden" 
+                    onChange={(e) => {
+                      if (e.target.files) {
+                        setFilesToUpload(prev => [...prev, ...Array.from(e.target.files || [])]);
+                        e.target.value = ""; // reset
+                      }
+                    }}
+                  />
+                  <label 
+                    htmlFor="new-return-upload"
+                    className={cn(
+                      "cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
+                      "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]",
+                      "hover:bg-[hsl(var(--bg-muted))]"
+                    )}
+                  >
+                    <UploadCloud className="h-4 w-4" />
+                    Ajouter un fichier
                   </label>
                 </div>
               </div>
+              
               {filesToUpload.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {filesToUpload.map((f, i) => (
@@ -1326,14 +1454,19 @@ function NewReturnModal({
                         <span className="truncate max-w-[200px]">{f.name}</span>
                         <span className="text-xs text-[hsl(var(--text-muted))]">({(f.size / 1024).toFixed(0)} KB)</span>
                       </div>
-                      <button onClick={() => setFilesToUpload(prev => prev.filter((_, idx) => idx !== i))} className="p-1 rounded-md text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))]">
+                      <button 
+                        onClick={() => setFilesToUpload(prev => prev.filter((_, idx) => idx !== i))}
+                        className="p-1 rounded-md text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))]"
+                      >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-sm text-[hsl(var(--text-muted))] text-center py-2 italic">Les fichiers seront uploadés à la création du retour.</div>
+                <div className="text-sm text-[hsl(var(--text-muted))] text-center py-2 italic">
+                  Les fichiers seront uploadés à la création du retour.
+                </div>
               )}
             </div>
 
@@ -1341,30 +1474,77 @@ function NewReturnModal({
               <h4 className="font-semibold text-[hsl(var(--text-primary))]">Produits</h4>
               <div className="space-y-2">
                 {products.map((p, idx) => (
-                  <ProductRow key={p.id} product={p} onChange={(updatedProduct) => { const arr = products.slice(); arr[idx] = updatedProduct; setProducts(arr); }} onRemove={() => removeProduct(p.id)} />
+                  <ProductRow
+                    key={p.id}
+                    product={p}
+                    onChange={(updatedProduct) => {
+                      const arr = products.slice();
+                      arr[idx] = updatedProduct;
+                      setProducts(arr);
+                    }}
+                    onRemove={() => removeProduct(p.id)}
+                  />
                 ))}
-                {products.length === 0 && <div className="text-sm text-[hsl(var(--text-muted))] py-6 text-center">Aucun produit. Ajoutez des lignes ci-dessous.</div>}
+                {products.length === 0 && (
+                  <div className="text-sm text-[hsl(var(--text-muted))] py-6 text-center">
+                    Aucun produit. Ajoutez des lignes ci-dessous.
+                  </div>
+                )}
               </div>
-              <button onClick={addProduct} className={cn("inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium", "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))]", "hover:bg-[hsl(var(--bg-elevated))]")}>
-                <Plus className="h-4 w-4" /> Ajouter produit
+              <button
+                onClick={addProduct}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium",
+                  "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))]",
+                  "hover:bg-[hsl(var(--bg-elevated))]"
+                )}
+              >
+                <Plus className="h-4 w-4" />
+                Ajouter produit
               </button>
             </div>
 
             <div className="space-y-2">
               <h4 className="font-semibold text-[hsl(var(--text-primary))]">Description</h4>
-              <textarea className="w-full rounded-xl border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-accent" rows={4} placeholder="Notes internes, contexte, instructions…" value={description} onChange={(e) => setDescription(e.target.value)} />
+              <textarea
+                className="w-full rounded-xl border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-accent"
+                rows={4}
+                placeholder="Notes internes, contexte, instructions…"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
             </div>
           </div>
 
           <div className="px-6 py-4 border-t border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))]">
             <div className="flex items-center justify-between">
-              <div className="text-xs text-[hsl(var(--text-muted))]">Le code retour sera généré automatiquement.</div>
+              <div className="text-xs text-[hsl(var(--text-muted))]">
+                Le code retour sera généré automatiquement.
+              </div>
               <div className="flex items-center gap-2">
-                <button onClick={onClose} className={cn("inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium", "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]", "hover:bg-[hsl(var(--bg-elevated))]")}>
-                  <X className="h-4 w-4" /> Annuler
+                <button
+                  onClick={onClose}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium",
+                    "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]",
+                    "hover:bg-[hsl(var(--bg-elevated))]"
+                  )}
+                >
+                  <X className="h-4 w-4" />
+                  Annuler
                 </button>
-                <button disabled={busy} onClick={submit} className={cn("inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold", "bg-[hsl(var(--success))] text-white", "hover:brightness-110", busy && "opacity-70 pointer-events-none")}>
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4" />} Créer le retour
+                <button
+                  disabled={busy}
+                  onClick={submit}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold",
+                    "bg-[hsl(var(--success))] text-white",
+                    "hover:brightness-110",
+                    busy && "opacity-70 pointer-events-none"
+                  )}
+                >
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4" />}
+                  Créer le retour
                 </button>
               </div>
             </div>
@@ -1378,18 +1558,75 @@ function NewReturnModal({
 /* =============================================================================
    Field Component
 ============================================================================= */
-function Field({ label, value, onChange, type = "text", as, options, onBlur, readOnly, className, placeholder, required }: { label: string; value: string; onChange: (v: string) => void; type?: string; as?: "select"; options?: { value: string; label: string }[]; onBlur?: () => void; readOnly?: boolean; className?: string; placeholder?: string; required?: boolean; }) {
+function Field({
+  label,
+  value,
+  onChange,
+  type = "text",
+  as,
+  options,
+  onBlur,
+  readOnly,
+  className,
+  placeholder,
+  required
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  as?: "select";
+  options?: { value: string; label: string }[];
+  onBlur?: () => void;
+  readOnly?: boolean;
+  className?: string;
+  placeholder?: string;
+  required?: boolean;
+}) {
   return (
     <label className="grid gap-1.5">
       <span className="text-xs font-semibold text-[hsl(var(--text-muted))] uppercase tracking-wider">
         {label} {required && <span className="text-red-500">*</span>}
       </span>
       {as === "select" ? (
-        <select className={cn("rounded-xl border px-3 py-2.5 text-sm", "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-subtle))]", "text-[hsl(var(--text-primary))]", "focus:outline-none focus:ring-2 focus:ring-accent", readOnly && "pointer-events-none opacity-80", required && "border-emerald-500/50", className)} value={value} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} disabled={readOnly}>
-          {options?.map((o) => ( <option key={o.value} value={o.value}>{o.label}</option> ))}
+        <select
+          className={cn(
+            "rounded-xl border px-3 py-2.5 text-sm",
+            "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-subtle))]",
+            "text-[hsl(var(--text-primary))]",
+            "focus:outline-none focus:ring-2 focus:ring-accent",
+            readOnly && "pointer-events-none opacity-80",
+            required && "border-emerald-500/50",
+            className
+          )}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
+          disabled={readOnly}
+        >
+          {options?.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
         </select>
       ) : (
-        <input type={type} className={cn("rounded-xl border px-3 py-2.5 text-sm", "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-subtle))]", "text-[hsl(var(--text-primary))]", "focus:outline-none focus:ring-2 focus:ring-accent", readOnly && "pointer-events-none opacity-80", required && "border-emerald-500/50", className)} value={value} onBlur={onBlur} onChange={(e) => onChange(e.target.value)} readOnly={readOnly} autoComplete="off" placeholder={placeholder} />
+        <input
+          type={type}
+          className={cn(
+            "rounded-xl border px-3 py-2.5 text-sm",
+            "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-subtle))]",
+            "text-[hsl(var(--text-primary))]",
+            "focus:outline-none focus:ring-2 focus:ring-accent",
+            readOnly && "pointer-events-none opacity-80",
+            required && "border-emerald-500/50",
+            className
+          )}
+          value={value}
+          onBlur={onBlur}
+          onChange={(e) => onChange(e.target.value)}
+          readOnly={readOnly}
+          autoComplete="off"
+          placeholder={placeholder}
+        />
       )}
     </label>
   );
