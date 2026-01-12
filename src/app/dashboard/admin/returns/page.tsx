@@ -648,33 +648,35 @@ export default function ReturnsPage() {
                           key={row.id}
                           onMouseEnter={() => setHovered(row.id)}
                           onMouseLeave={() => setHovered(null)}
-                          className={cn("transition-colors duration-150", rowClass)}
+                          // 1️⃣ ADD h-[72px] (or your preferred px) here to force height
+                          className={cn("transition-colors duration-150 h-[72px]", rowClass)}
                         >
-                          <td className="px-4 py-3.5">
+                          <td className="px-4 py-3.5 whitespace-nowrap"> {/* 2️⃣ ADD whitespace-nowrap */}
                             <span className="font-mono font-semibold text-inherit">
                               {row.id}
                             </span>
                           </td>
-                          <td className="px-4 py-3.5 text-inherit/90">
+                          <td className="px-4 py-3.5 text-inherit/90 whitespace-nowrap"> {/* 2️⃣ ADD whitespace-nowrap */}
                             <div className="flex items-center gap-2">
                               <Calendar className="h-3.5 w-3.5 opacity-60" />
                               {new Date(row.reportedAt).toLocaleDateString("fr-CA")}
                             </div>
                           </td>
-                          <td className="px-4 py-3.5">
+                          <td className="px-4 py-3.5 whitespace-nowrap">
                             {REPORTER_LABEL[row.reporter] ?? row.reporter}
                           </td>
-                          <td className="px-4 py-3.5">
+                          <td className="px-4 py-3.5 whitespace-nowrap">
                             {CAUSE_LABEL[row.cause] ?? row.cause}
                           </td>
-                          <td className="px-4 py-3.5">
-                            <div className="font-medium text-inherit">{row.client}</div>
-                            <div className="text-[11px] text-inherit/70">{row.expert}</div>
+                          {/* 3️⃣ ADD max-w and truncate for the text-heavy column */}
+                          <td className="px-4 py-3.5 max-w-[250px]">
+                            <div className="font-medium text-inherit truncate" title={row.client}>{row.client}</div>
+                            <div className="text-[11px] text-inherit/70 truncate" title={row.expert}>{row.expert}</div>
                           </td>
-                          <td className="px-4 py-3.5 font-mono text-inherit/90">
+                          <td className="px-4 py-3.5 font-mono text-inherit/90 whitespace-nowrap">
                             {row.noCommande ?? "—"}
                           </td>
-                          <td className="px-4 py-3.5 text-inherit/90">
+                          <td className="px-4 py-3.5 text-inherit/90 whitespace-nowrap">
                             {row.tracking ?? "—"}
                           </td>
                           <td className="px-4 py-3.5">
