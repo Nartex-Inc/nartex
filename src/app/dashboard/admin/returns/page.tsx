@@ -96,7 +96,7 @@ type ReturnRow = {
   createdBy?: { name: string; avatar?: string | null; at: string };
   
   // Logic fields
-  physicalReturn?: boolean; 
+  physicalReturn?: boolean; // Now correctly mapped from backend!
   verified?: boolean;       
   finalized?: boolean;      
   isPickup?: boolean;       
@@ -143,8 +143,6 @@ const CAUSES_IN_ORDER: Cause[] = [
   "autre",
 ];
 
-// NOTE: Status config used for badges/metrics logic only. 
-// Row colors are controlled by getRowClasses to enforce strict visibility rules.
 const STATUS_CONFIG: Record<
   ReturnStatus,
   { label: string; icon: React.ElementType }
@@ -442,10 +440,10 @@ export default function ReturnsPage() {
   };
 
   // -------------------------------------------------------------------------
-  //  STRICT COLOR LOGIC (Force colors, ignore theme)
+  //  STRICT COLOR LOGIC (Updated to fix mismatch)
   // -------------------------------------------------------------------------
   const getRowClasses = (row: ReturnRow) => {
-    // 1. Finalized -> Gray (Standard Archive Look)
+    // 1. Finalized -> Gray
     if (row.finalized) {
        return "bg-gray-100 text-gray-500 border-b border-gray-200 grayscale";
     }
@@ -455,14 +453,18 @@ export default function ReturnsPage() {
       return "bg-white text-black border-b border-gray-200 hover:brightness-95";
     }
 
+    // Safe casting
+    const isPhysical = !!row.physicalReturn;
+    const isVerified = !!row.verified;
+
     // 3. Physical & NOT Verified -> BLACK (Text White)
-    if (row.physicalReturn && !row.verified) {
+    if (isPhysical && !isVerified) {
       return "bg-black text-white border-b border-gray-800 hover:bg-neutral-900";
     }
 
-    // 4. (Physical & Verified) OR (!Physical) -> BRIGHT YELLOW-GREEN (Text White)
-    // Uses #84cc16 (Lime-500) which is a bright yellow-green
-    if ((row.physicalReturn && row.verified) || !row.physicalReturn) {
+    // 4. (Physical & Verified) OR (!Physical) -> BRIGHT YELLOW-GREEN
+    // Using #84cc16 (Lime-500)
+    if ((isPhysical && isVerified) || !isPhysical) {
       return "bg-[#84cc16] text-white border-b border-[#65a30d] hover:bg-[#65a30d]";
     }
 
@@ -773,6 +775,7 @@ export default function ReturnsPage() {
 /* =============================================================================
    Components
 ============================================================================= */
+
 function MetricCard({
   title,
   value,
