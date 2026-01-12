@@ -100,24 +100,41 @@ type ReturnRow = {
   finalized?: boolean;
 };
 
-const REPORTER_LABEL: Record<Reporter, string> = {
+const REPORTER_LABEL: Record<string, string> = { // Changed key type to string to be safe
   expert: "Expert",
   transporteur: "Transporteur",
+  client: "Client",
+  prise_commande: "Prise de commande",
   autre: "Autre",
 };
-const CAUSE_LABEL: Record<Cause, string> = {
+
+const CAUSE_LABEL: Record<string, string> = { // Changed key type to string to be safe
   production: "Production",
   pompe: "Pompe",
   autre_cause: "Autre cause",
   exposition_sinto: "Exposition Sinto",
   transporteur: "Transporteur",
+  expert: "Expert",
+  expedition: "Expédition",
+  analyse: "Analyse",
+  defect: "Défectueux",
+  surplus_inventaire: "Surplus d'inventaire",
+  prise_commande: "Prise de commande",
+  rappel: "Rappel",
+  redirection: "Redirection",
+  fournisseur: "Fournisseur",
   autre: "Autre",
 };
+
+// Update filter list if you want these selectable
 const CAUSES_IN_ORDER: Cause[] = [
   "production",
   "transporteur",
   "pompe",
   "exposition_sinto",
+  "expedition", // Added
+  "fournisseur", // Added
+  "expert", // Added
   "autre_cause",
   "autre",
 ];
