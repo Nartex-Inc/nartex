@@ -10,7 +10,7 @@ import type { ReturnRow, Reporter, Cause } from "@/types/returns";
 import { Prisma } from "@prisma/client";
 
 /* =============================================================================
-   GET /api/returns - List returns with filters
+   GET /api/returns - List returns OR Get Next ID
 ============================================================================= */
 
 export async function GET(request: NextRequest) {
@@ -21,6 +21,27 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
+    const mode = searchParams.get("mode");
+
+    // 👇 NEW: Handle "Get Next ID" request
+    if (mode === "next_id") {
+      const existingIds = await prisma.return.findMany({
+        select: { id: true },
+        orderBy: { id: 'asc' }
+      });
+
+      let nextId = 1;
+      for (const record of existingIds) {
+        if (record.id === nextId) {
+          nextId++;
+        } else if (record.id > nextId) {
+          break; // Found a gap
+        }
+      }
+      return NextResponse.json({ ok: true, nextId });
+    }
+
+    // --- Standard List Logic ---
     const q = searchParams.get("q") || "";
     const cause = searchParams.get("cause");
     const reporter = searchParams.get("reporter");
@@ -244,6 +265,7 @@ export async function POST(request: NextRequest) {
         isStandby: false,
         initiatedBy: session.user.name || "Système",
         initializedAt: new Date(),
+        noCommandeCheckbox: body.noCommandeCheckbox ?? false, // ✅ Added new field
         // Create products inline
         products: {
           create: (body.products && Array.isArray(body.products)) 
