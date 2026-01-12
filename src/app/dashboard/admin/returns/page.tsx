@@ -96,12 +96,12 @@ type ReturnRow = {
   createdBy?: { name: string; avatar?: string | null; at: string };
   
   // Logic fields
-  physicalReturn?: boolean; // retour_physique
-  verified?: boolean;       // is_verified
-  finalized?: boolean;      // is_final
-  isPickup?: boolean;       // is_pickup
-  isCommande?: boolean;     // is_commande
-  isReclamation?: boolean;  // is_reclamation
+  physicalReturn?: boolean; 
+  verified?: boolean;       
+  finalized?: boolean;      
+  isPickup?: boolean;       
+  isCommande?: boolean;     
+  isReclamation?: boolean;  
   isDraft?: boolean;
 };
 
@@ -363,13 +363,10 @@ export default function ReturnsPage() {
   }, [load]);
 
   const sorted = React.useMemo(() => {
-    // Client-side filtering as safety net
+    // 1. FILTER: Exclude rows that shouldn't be seen by default
     const validRows = rows.filter(r => {
       // Corrupted: both draft and finalized
       if (r.isDraft && r.finalized) return false; 
-      // Default: exclude standby if it somehow arrived here
-      // (Assuming user hasn't explicitly filtered for them, but we don't have that state easily here. 
-      //  The backend handles default filtering, so we trust the API result for standard cases.)
       return true;
     });
 
@@ -450,7 +447,7 @@ export default function ReturnsPage() {
   const getRowClasses = (row: ReturnRow) => {
     // 1. Finalized -> Gray (Standard Archive Look)
     if (row.finalized) {
-       return "bg-gray-100 text-gray-500 border-b border-gray-200";
+       return "bg-gray-100 text-gray-500 border-b border-gray-200 grayscale";
     }
 
     // 2. Draft -> WHITE
@@ -463,9 +460,10 @@ export default function ReturnsPage() {
       return "bg-black text-white border-b border-gray-800 hover:bg-neutral-900";
     }
 
-    // 4. (Physical & Verified) OR (!Physical) -> GREEN (Text White)
+    // 4. (Physical & Verified) OR (!Physical) -> BRIGHT YELLOW-GREEN (Text White)
+    // Uses #84cc16 (Lime-500) which is a bright yellow-green
     if ((row.physicalReturn && row.verified) || !row.physicalReturn) {
-      return "bg-emerald-600 text-white border-b border-emerald-700 hover:bg-emerald-700";
+      return "bg-[#84cc16] text-white border-b border-[#65a30d] hover:bg-[#65a30d]";
     }
 
     // Fallback
@@ -739,7 +737,7 @@ export default function ReturnsPage() {
                 <div className="flex items-center gap-2">
                   <span className="flex items-center gap-1.5 px-2 py-1 rounded bg-white text-black text-xs border border-gray-200">Brouillon</span>
                   <span className="flex items-center gap-1.5 px-2 py-1 rounded bg-black text-white text-xs">Physique (Non vérifié)</span>
-                  <span className="flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-600 text-white text-xs">Vérifié / Non Physique</span>
+                  <span className="flex items-center gap-1.5 px-2 py-1 rounded bg-[#84cc16] text-white text-xs">Vérifié / Non Physique</span>
                 </div>
               </div>
             </>
@@ -1077,7 +1075,6 @@ function DetailModal({
               </div>
             </div>
 
-            {/* Fields */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Field label="Expert" value={draft.expert} onChange={(v) => setDraft({ ...draft, expert: v })} />
               <Field label="Client" value={draft.client} onChange={(v) => setDraft({ ...draft, client: v })} />
@@ -1087,13 +1084,7 @@ function DetailModal({
               <Field label="Transport" value={draft.transport ?? ""} onChange={(v) => setDraft({ ...draft, transport: v || null })} />
               <Field label="Montant" value={draft.amount?.toString() ?? ""} onChange={(v) => setDraft({ ...draft, amount: v ? Number(v) : null })} />
               <Field label="Date commande" type="date" value={draft.dateCommande ?? ""} onChange={(v) => setDraft({ ...draft, dateCommande: v || null })} />
-              <Field
-                label="Cause"
-                as="select"
-                value={draft.cause}
-                onChange={(v) => setDraft({ ...draft, cause: v as Cause })}
-                options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))}
-              />
+              <Field label="Cause" as="select" value={draft.cause} onChange={(v) => setDraft({ ...draft, cause: v as Cause })} options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))} />
             </div>
 
             {/* Attachments Section */}
@@ -1130,9 +1121,7 @@ function DetailModal({
                     }}
                   />
                 ))}
-                {(draft.products?.length ?? 0) === 0 && (
-                  <div className="text-sm text-[hsl(var(--text-muted))] py-6 text-center">Aucun produit.</div>
-                )}
+                {(draft.products?.length ?? 0) === 0 && <div className="text-sm text-[hsl(var(--text-muted))] py-6 text-center">Aucun produit.</div>}
               </div>
             </div>
 
