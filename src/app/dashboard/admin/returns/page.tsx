@@ -1510,6 +1510,7 @@ function NewReturnModal({
                    onChange={setNoCommande} 
                    onBlur={onFetchFromOrder} 
                    placeholder="Ex: 92427"
+                   required
                  />
                </div>
             </div>
