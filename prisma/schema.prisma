@@ -242,6 +242,7 @@ model Return {
   isPickup            Boolean  @default(false)
   isCommande          Boolean  @default(false)
   isReclamation       Boolean  @default(false)
+  noCommandeCheckbox  Boolean? @default(false) @map("no_commande_checkbox")
 
   // Documents / References
   noBill              String?  @db.VarChar(50)
