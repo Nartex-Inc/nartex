@@ -1,4 +1,3 @@
-// src/app/dashboard/admin/returns/page.tsx
 "use client";
 
 import * as React from "react";
@@ -38,6 +37,7 @@ import { AttachmentsSection } from "@/components/returns/AttachmentsSection";
 // 👇 IMPORT TYPES (Assumes you created src/types/returns.ts)
 import type { ReturnRow, Reporter, Cause, Attachment, ProductLine, ReturnStatus, ItemSuggestion } from "@/types/returns";
 
+// Labels can stay local for UI display
 const REPORTER_LABEL: Record<string, string> = {
   expert: "Expert",
   transporteur: "Transporteur",
@@ -400,7 +400,7 @@ export default function ReturnsPage() {
       return "bg-black text-white border-b border-gray-800 hover:bg-neutral-900";
     }
 
-    // (Physical & Verified) OR (!Physical) -> BRIGHT YELLOW-GREEN (#84cc16)
+    // (Physical & Verified) OR (!Physical) -> BRIGHT YELLOW-GREEN
     if ((isPhysical && isVerified) || !isPhysical) {
       return "bg-[#84cc16] text-white border-b border-[#65a30d] hover:bg-[#65a30d]";
     }
@@ -870,13 +870,13 @@ function ProductRow({
       <input
         className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
         placeholder="Description produit"
-        value={product.descriptionProduit}
+        value={product.descriptionProduit || ""} // FIX: Handle null with || ""
         onChange={(e) => onChange({ ...product, descriptionProduit: e.target.value })}
       />
       <input
         className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
         placeholder="Description retour"
-        value={product.descriptionRetour ?? ""}
+        value={product.descriptionRetour ?? ""} // FIX: Handle null with ?? ""
         onChange={(e) => onChange({ ...product, descriptionRetour: e.target.value })}
       />
       <input
@@ -914,9 +914,9 @@ function DetailModal({
 
   React.useEffect(() => setDraft(row), [row]);
 
-  // 👇 FIXED: Prioritize the API-provided creator info
+  // Use API creator data if available
   const creatorName = draft.createdBy?.name ?? session?.user?.name ?? REPORTER_LABEL[draft.reporter];
-  const creatorAvatar = draft.createdBy?.avatar ?? null; // Removed session fallback to avoid showing current user
+  const creatorAvatar = draft.createdBy?.avatar ?? null; // Don't fallback to session user to avoid confusion
   const creatorDate = draft.createdBy?.at ? new Date(draft.createdBy.at) : new Date(draft.reportedAt);
 
   const isPhysical = !!draft.physicalReturn;
@@ -1327,7 +1327,7 @@ function NewReturnModal({
             
             {/* Top Row: Physical & No Commande */}
             <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] flex items-center justify-between gap-6">
-               <div className="flex-1 grid grid-cols-2 gap-x-8 gap-y-4">
+               <div className="flex-1">
                  <Switch 
                    label="Retour physique de la marchandise"
                    checked={physicalReturn}
