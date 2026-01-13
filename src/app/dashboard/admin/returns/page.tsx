@@ -34,10 +34,91 @@ import {
 import { cn } from "@/lib/utils";
 import { AttachmentsSection } from "@/components/returns/AttachmentsSection";
 
-// 👇 IMPORT TYPES (Assumes you created src/types/returns.ts)
-import type { ReturnRow, Reporter, Cause, Attachment, ProductLine, ReturnStatus, ItemSuggestion } from "@/types/returns";
+// 👇 Use the shared types if available, or fallback to local definition if you prefer. 
+// For safety against build errors, I am defining the interface locally here to match your Backend response exactly.
 
-// Labels can stay local for UI display
+/* =============================================================================
+   Types & constants
+============================================================================= */
+type Reporter = 
+  | "expert" 
+  | "transporteur" 
+  | "client" 
+  | "prise_commande" 
+  | "autre";
+
+type Cause =
+  | "production"
+  | "pompe"
+  | "autre_cause"
+  | "exposition_sinto"
+  | "transporteur"
+  | "expert"
+  | "expedition"
+  | "analyse"
+  | "defect"
+  | "surplus_inventaire"
+  | "prise_commande"
+  | "rappel"
+  | "redirection"
+  | "fournisseur"
+  | "autre";
+
+type ReturnStatus = "draft" | "awaiting_physical" | "received_or_no_physical";
+
+type Attachment = { id: string; name: string; url: string; downloadUrl?: string };
+
+type ProductLine = {
+  id: string;
+  codeProduit: string;
+  descriptionProduit: string | null;
+  descriptionRetour?: string | null;
+  quantite: number;
+  poidsUnitaire?: number | null;
+  poidsTotal?: number | null;
+};
+
+// Update ReturnRow to include all fields sent by the backend
+type ReturnRow = {
+  id: string;
+  reportedAt: string;
+  reporter: Reporter;
+  cause: Cause;
+  expert: string;
+  client: string;
+  noClient?: string;
+  noCommande?: string;
+  tracking?: string;
+  status: ReturnStatus;
+  standby?: boolean;
+  amount?: number | null;
+  dateCommande?: string | null;
+  transport?: string | null;
+  attachments?: Attachment[];
+  products?: ProductLine[];
+  description?: string;
+  // Creator info populated by backend
+  createdBy?: { name: string; avatar?: string | null; at: string };
+  
+  // Logic fields
+  physicalReturn?: boolean; 
+  verified?: boolean;       
+  finalized?: boolean;      
+  isDraft?: boolean;
+
+  // Toggles & Linked Fields
+  isPickup?: boolean;       
+  noBill?: string | null;
+  
+  isCommande?: boolean;     
+  noBonCommande?: string | null;
+
+  isReclamation?: boolean;  
+  noReclamation?: string | null;
+};
+
+type ItemSuggestion = { code: string; descr?: string | null };
+
 const REPORTER_LABEL: Record<string, string> = {
   expert: "Expert",
   transporteur: "Transporteur",
@@ -380,9 +461,6 @@ export default function ReturnsPage() {
     });
   };
 
-  // -------------------------------------------------------------------------
-  //  STRICT COLOR LOGIC
-  // -------------------------------------------------------------------------
   const getRowClasses = (row: ReturnRow) => {
     if (row.finalized) {
        return "bg-gray-100 text-gray-500 border-b border-gray-200 grayscale";
@@ -392,15 +470,16 @@ export default function ReturnsPage() {
       return "bg-white text-black border-b border-gray-200 hover:brightness-95";
     }
 
+    // Safe casting
     const isPhysical = !!row.physicalReturn;
     const isVerified = !!row.verified;
 
-    // Physical & NOT Verified -> BLACK
+    // Physical & NOT Verified -> BLACK (Text White)
     if (isPhysical && !isVerified) {
       return "bg-black text-white border-b border-gray-800 hover:bg-neutral-900";
     }
 
-    // (Physical & Verified) OR (!Physical) -> BRIGHT YELLOW-GREEN
+    // (Physical & Verified) OR (!Physical) -> BRIGHT YELLOW-GREEN (#84cc16)
     if ((isPhysical && isVerified) || !isPhysical) {
       return "bg-[#84cc16] text-white border-b border-[#65a30d] hover:bg-[#65a30d]";
     }
@@ -870,13 +949,13 @@ function ProductRow({
       <input
         className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
         placeholder="Description produit"
-        value={product.descriptionProduit || ""} // FIX: Handle null with || ""
+        value={product.descriptionProduit || ""} // FIX: Handle null gracefully
         onChange={(e) => onChange({ ...product, descriptionProduit: e.target.value })}
       />
       <input
         className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
         placeholder="Description retour"
-        value={product.descriptionRetour ?? ""} // FIX: Handle null with ?? ""
+        value={product.descriptionRetour ?? ""} // FIX: Handle null gracefully
         onChange={(e) => onChange({ ...product, descriptionRetour: e.target.value })}
       />
       <input
@@ -914,9 +993,9 @@ function DetailModal({
 
   React.useEffect(() => setDraft(row), [row]);
 
-  // Use API creator data if available
+  // Use API creator data if available, prioritizing legacy mapping over active user
   const creatorName = draft.createdBy?.name ?? session?.user?.name ?? REPORTER_LABEL[draft.reporter];
-  const creatorAvatar = draft.createdBy?.avatar ?? null; // Don't fallback to session user to avoid confusion
+  const creatorAvatar = draft.createdBy?.avatar ?? null; // Removed session fallback to ensure correct avatar for legacy returns
   const creatorDate = draft.createdBy?.at ? new Date(draft.createdBy.at) : new Date(draft.reportedAt);
 
   const isPhysical = !!draft.physicalReturn;
@@ -1067,8 +1146,8 @@ function DetailModal({
 
             {/* Fields */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Field label="Expert" value={draft.expert} onChange={(v) => setDraft({ ...draft, expert: v })} />
-              <Field label="Client" value={draft.client} onChange={(v) => setDraft({ ...draft, client: v })} />
+              <Field label="Expert" value={draft.expert || ""} onChange={(v) => setDraft({ ...draft, expert: v })} />
+              <Field label="Client" value={draft.client || ""} onChange={(v) => setDraft({ ...draft, client: v })} />
               <Field label="No. client" value={draft.noClient ?? ""} onChange={(v) => setDraft({ ...draft, noClient: v || undefined })} />
               <Field label="No. commande" value={draft.noCommande ?? ""} onChange={(v) => setDraft({ ...draft, noCommande: v || undefined })} />
               <Field label="No. tracking" value={draft.tracking ?? ""} onChange={(v) => setDraft({ ...draft, tracking: v || undefined })} />
@@ -1281,8 +1360,8 @@ function NewReturnModal({
         reportedAt, 
         products: products.map((p) => ({
           codeProduit: p.codeProduit.trim(),
-          descriptionProduit: p.descriptionProduit.trim(),
-          descriptionRetour: p.descriptionRetour?.trim(),
+          descriptionProduit: (p.descriptionProduit || "").trim(), // Handle null here too
+          descriptionRetour: (p.descriptionRetour || "").trim(),   // Handle null here too
           quantite: p.quantite,
         })),
       });
@@ -1393,7 +1472,7 @@ function NewReturnModal({
               <Field label="Date commande" type="date" value={dateCommande} onChange={setDateCommande} />
             </div>
 
-            {/* Attachments */}
+            {/* Attachments (Queue) */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
