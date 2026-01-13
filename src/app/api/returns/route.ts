@@ -1,12 +1,21 @@
 // src/app/api/returns/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
-// Use Shared Types
 import { formatReturnCode, getReturnStatus } from "@/types/returns";
 import type { ReturnRow, Reporter, Cause } from "@/types/returns";
 import { Prisma } from "@prisma/client";
+
+// MAPPING: Legacy Name -> New Email
+const LEGACY_USER_MAP: Record<string, string> = {
+  'Suzie Boutin': 's.boutin@sinto.ca',
+  'Hugo Fortin': 'h.fortin@sinto.ca',
+  'Anick Poulin': 'a.poulin@sinto.ca',
+  'Jessica Lessard': 'j.lessard@sinto.ca',
+  'Stéphanie Veilleux': 's.veilleux@sinto.ca',
+};
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,6 +27,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get("mode");
 
+    // Handle "Get Next ID" request
     if (mode === "next_id") {
       const lastReturn = await prisma.return.findFirst({
         select: { id: true },
@@ -27,6 +37,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ok: true, nextId });
     }
 
+    // --- Standard List Logic ---
     const q = searchParams.get("q") || "";
     const cause = searchParams.get("cause");
     const reporter = searchParams.get("reporter");
@@ -42,7 +53,7 @@ export async function GET(request: NextRequest) {
     const where: Prisma.ReturnWhereInput = {};
     const AND: Prisma.ReturnWhereInput[] = [];
 
-    // Safety: Hide corrupted rows (Draft & Final)
+    // Safety: Hide corrupted rows
     AND.push({
       NOT: {
         AND: [{ isDraft: true }, { isFinal: true }]
@@ -70,6 +81,7 @@ export async function GET(request: NextRequest) {
     if (dateFrom) AND.push({ reportedAt: { gte: new Date(dateFrom) } });
     if (dateTo) AND.push({ reportedAt: { lte: new Date(dateTo) } });
 
+    // Status Filters
     if (status === "draft") {
       AND.push({ isDraft: true });
     } else if (status === "awaiting_physical") {
@@ -89,6 +101,7 @@ export async function GET(request: NextRequest) {
       AND.push({ isFinal: true });
     }
 
+    // Default Visibility
     if (!status) {
       AND.push({ isStandby: false });
       if (!history) {
@@ -108,55 +121,104 @@ export async function GET(request: NextRequest) {
       take,
     });
 
-    const data: ReturnRow[] = returns.map((ret) => ({
-      id: formatReturnCode(ret.id),
-      codeRetour: ret.id,
-      reportedAt: ret.reportedAt.toISOString(),
-      reporter: ret.reporter as Reporter,
-      cause: ret.cause as Cause,
-      expert: ret.expert || "",
-      client: ret.client || "",
-      noClient: ret.noClient,
-      noCommande: ret.noCommande,
-      tracking: ret.noTracking,
-      status: getReturnStatus(ret),
-      standby: ret.isStandby,
-      amount: ret.amount ? Number(ret.amount) : null,
-      dateCommande: ret.dateCommande,
-      transport: ret.transporteur,
-      description: ret.description,
-      
-      // Mapped fields
-      physicalReturn: ret.returnPhysical, 
-      verified: ret.isVerified,
-      finalized: ret.isFinal,
-      isPickup: ret.isPickup,
-      isCommande: ret.isCommande,
-      isReclamation: ret.isReclamation,
-      isDraft: ret.isDraft,
-      
-      noBill: ret.noBill,
-      noBonCommande: ret.noBonCommande,
-      noReclamation: ret.noReclamation,
+    // --- USER AVATAR LOOKUP LOGIC ---
+    // 1. Collect all unique emails from the returns list
+    const emailsToFetch = new Set<string>();
+    
+    returns.forEach(r => {
+      const initiator = r.initiatedBy || "";
+      // Check legacy map first
+      if (LEGACY_USER_MAP[initiator]) {
+        emailsToFetch.add(LEGACY_USER_MAP[initiator]);
+      } 
+      // If it looks like an email, add it directly (for modern returns)
+      else if (initiator.includes("@")) {
+        emailsToFetch.add(initiator);
+      }
+    });
 
-      products: ret.products.map((p) => ({
-        id: String(p.id),
-        codeProduit: p.codeProduit,
-        descriptionProduit: p.descrProduit || "",
-        descriptionRetour: p.descriptionRetour || "",
-        quantite: p.quantite,
-        quantiteRecue: p.quantiteRecue,
-        qteInventaire: p.qteInventaire,
-        qteDetruite: p.qteDetruite,
-        tauxRestock: p.tauxRestock ? Number(p.tauxRestock) : null,
-      })),
-      attachments: ret.attachments.map((a) => ({
-        id: a.fileId,
-        name: a.fileName,
-        url: `https://drive.google.com/file/d/${a.fileId}/preview`,
-        downloadUrl: `https://drive.google.com/uc?export=download&id=${a.fileId}`,
-      })),
-    }));
+    // 2. Fetch User objects from DB
+    const users = await prisma.user.findMany({
+      where: { email: { in: Array.from(emailsToFetch) } },
+      select: { email: true, image: true, name: true }
+    });
+
+    // 3. Create a Map for O(1) access
+    const userMap = new Map<string, { image: string | null, name: string | null }>();
+    users.forEach(u => {
+      if (u.email) userMap.set(u.email, { image: u.image, name: u.name });
+    });
+
+    // --- MAP RESPONSE ---
+    const data: ReturnRow[] = returns.map((ret) => {
+      // Resolve Created By info
+      const initiatorName = ret.initiatedBy || "Système";
+      let avatarUrl = null;
+      
+      // Try to find email
+      const email = LEGACY_USER_MAP[initiatorName] || (initiatorName.includes("@") ? initiatorName : null);
+      
+      if (email && userMap.has(email)) {
+        const u = userMap.get(email);
+        avatarUrl = u?.image || null;
+      }
+
+      return {
+        id: formatReturnCode(ret.id),
+        codeRetour: ret.id,
+        reportedAt: ret.reportedAt.toISOString(),
+        reporter: ret.reporter as Reporter,
+        cause: ret.cause as Cause,
+        expert: ret.expert || "",
+        client: ret.client || "",
+        noClient: ret.noClient,
+        noCommande: ret.noCommande,
+        tracking: ret.noTracking,
+        status: getReturnStatus(ret),
+        standby: ret.isStandby,
+        amount: ret.amount ? Number(ret.amount) : null,
+        dateCommande: ret.dateCommande,
+        transport: ret.transporteur,
+        description: ret.description,
+        
+        physicalReturn: ret.returnPhysical,
+        verified: ret.isVerified,
+        finalized: ret.isFinal,
+        isPickup: ret.isPickup,
+        isCommande: ret.isCommande,
+        isReclamation: ret.isReclamation,
+        isDraft: ret.isDraft,
+        
+        noBill: ret.noBill,
+        noBonCommande: ret.noBonCommande,
+        noReclamation: ret.noReclamation,
+
+        // Populated Creator Info
+        createdBy: {
+          name: initiatorName,
+          avatar: avatarUrl,
+          at: (ret.initializedAt || ret.reportedAt).toISOString()
+        },
+
+        products: ret.products.map((p) => ({
+          id: String(p.id),
+          codeProduit: p.codeProduit,
+          descriptionProduit: p.descrProduit || "",
+          descriptionRetour: p.descriptionRetour || "",
+          quantite: p.quantite,
+          quantiteRecue: p.quantiteRecue,
+          qteInventaire: p.qteInventaire,
+          qteDetruite: p.qteDetruite,
+          tauxRestock: p.tauxRestock ? Number(p.tauxRestock) : null,
+        })),
+        attachments: ret.attachments.map((a) => ({
+          id: a.fileId,
+          name: a.fileName,
+          url: `https://drive.google.com/file/d/${a.fileId}/preview`,
+          downloadUrl: `https://drive.google.com/uc?export=download&id=${a.fileId}`,
+        })),
+      };
+    });
 
     return NextResponse.json({ ok: true, data });
   } catch (error) {
