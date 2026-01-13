@@ -7,10 +7,6 @@ import { formatReturnCode, getReturnStatus } from "@/types/returns";
 import type { ReturnRow, Reporter, Cause } from "@/types/returns";
 import { Prisma } from "@prisma/client";
 
-/* =============================================================================
-   GET /api/returns - List returns OR Get Next ID
-============================================================================= */
-
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -21,7 +17,6 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get("mode");
 
-    // Handle "Get Next ID" request (MAX + 1 Logic)
     if (mode === "next_id") {
       const lastReturn = await prisma.return.findFirst({
         select: { id: true },
@@ -31,7 +26,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ok: true, nextId });
     }
 
-    // --- Standard List Logic ---
     const q = searchParams.get("q") || "";
     const cause = searchParams.get("cause");
     const reporter = searchParams.get("reporter");
@@ -47,19 +41,16 @@ export async function GET(request: NextRequest) {
     const where: Prisma.ReturnWhereInput = {};
     const AND: Prisma.ReturnWhereInput[] = [];
 
-    // 1. Safety Filter: Never show rows that are BOTH Draft AND Final
     AND.push({
       NOT: {
         AND: [{ isDraft: true }, { isFinal: true }]
       }
     });
 
-    // 2. Expert Filter
     if (userRole === "Expert") {
       AND.push({ expert: { contains: userName, mode: "insensitive" } });
     }
 
-    // 3. Search Filter
     if (q) {
       AND.push({
         OR: [
@@ -72,13 +63,11 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 4. Dropdowns
     if (cause && cause !== "all") AND.push({ cause: cause as Cause });
     if (reporter && reporter !== "all") AND.push({ reporter: reporter as Reporter });
     if (dateFrom) AND.push({ reportedAt: { gte: new Date(dateFrom) } });
     if (dateTo) AND.push({ reportedAt: { lte: new Date(dateTo) } });
 
-    // 5. Status Logic
     if (status === "draft") {
       AND.push({ isDraft: true });
     } else if (status === "awaiting_physical") {
@@ -98,7 +87,6 @@ export async function GET(request: NextRequest) {
       AND.push({ isFinal: true });
     }
 
-    // 6. Default Visibility Rules
     if (!status) {
       AND.push({ isStandby: false });
       if (!history) {
@@ -112,7 +100,7 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         products: { orderBy: { id: "asc" } },
-        attachments: { orderBy: { createdAt: "asc" } }, // Oldest first
+        attachments: { orderBy: { createdAt: "asc" } },
       },
       orderBy: { reportedAt: "desc" },
       take,
@@ -136,7 +124,7 @@ export async function GET(request: NextRequest) {
       transport: ret.transporteur,
       description: ret.description,
       
-      // 👇 THIS WAS THE BUG. WE MAP 'returnPhysical' (DB) TO 'physicalReturn' (FRONTEND)
+      // Booleans
       physicalReturn: ret.returnPhysical, 
       verified: ret.isVerified,
       finalized: ret.isFinal,
@@ -145,6 +133,11 @@ export async function GET(request: NextRequest) {
       isReclamation: ret.isReclamation,
       isDraft: ret.isDraft,
       
+      // Strings for the new toggles
+      noBill: ret.noBill,
+      noBonCommande: ret.noBonCommande,
+      noReclamation: ret.noReclamation,
+
       products: ret.products.map((p) => ({
         id: String(p.id),
         codeProduit: p.codeProduit,
@@ -218,13 +211,18 @@ export async function POST(request: NextRequest) {
         dateCommande: body.dateCommande || null,
         transporteur: body.transport || null,
         description: body.description || null,
+        
+        // Booleans
         returnPhysical: body.physicalReturn ?? false,
         isPickup: body.isPickup ?? false,
         isCommande: body.isCommande ?? false,
         isReclamation: body.isReclamation ?? false,
+        
+        // Associated Strings
         noBill: body.noBill || null,
         noBonCommande: body.noBonCommande || null,
         noReclamation: body.noReclamation || null,
+
         isDraft,
         isFinal: false,
         isVerified: false,
