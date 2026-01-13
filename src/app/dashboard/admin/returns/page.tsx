@@ -29,90 +29,15 @@ import {
   Archive,
   AlertCircle,
   Paperclip,
-  UploadCloud,
-  File as FileIcon
+  UploadCloud
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AttachmentsSection } from "@/components/returns/AttachmentsSection";
 
-/* =============================================================================
-   Types & constants
-============================================================================= */
-type Reporter = 
-  | "expert" 
-  | "transporteur" 
-  | "client" 
-  | "prise_commande" 
-  | "autre";
+// 👇 IMPORT TYPES (Assumes you created src/types/returns.ts)
+import type { ReturnRow, Reporter, Cause, Attachment, ProductLine, ReturnStatus, ItemSuggestion } from "@/types/returns";
 
-type Cause =
-  | "production"
-  | "pompe"
-  | "autre_cause"
-  | "exposition_sinto"
-  | "transporteur"
-  | "expert"
-  | "expedition"
-  | "analyse"
-  | "defect"
-  | "surplus_inventaire"
-  | "prise_commande"
-  | "rappel"
-  | "redirection"
-  | "fournisseur"
-  | "autre";
-
-type ReturnStatus = "draft" | "awaiting_physical" | "received_or_no_physical";
-
-type Attachment = { id: string; name: string; url: string; downloadUrl?: string };
-
-type ProductLine = {
-  id: string;
-  codeProduit: string;
-  descriptionProduit: string;
-  descriptionRetour?: string;
-  quantite: number;
-  poidsUnitaire?: number | null;
-  poidsTotal?: number | null;
-};
-
-type ReturnRow = {
-  id: string;
-  reportedAt: string;
-  reporter: Reporter;
-  cause: Cause;
-  expert: string;
-  client: string;
-  noClient?: string;
-  noCommande?: string;
-  tracking?: string;
-  status: ReturnStatus;
-  standby?: boolean;
-  amount?: number | null;
-  dateCommande?: string | null;
-  transport?: string | null;
-  attachments?: Attachment[];
-  products?: ProductLine[];
-  description?: string;
-  createdBy?: { name: string; avatar?: string | null; at: string };
-  
-  // Logic fields
-  physicalReturn?: boolean; 
-  verified?: boolean;       
-  finalized?: boolean;      
-  isDraft?: boolean;
-
-  // Toggles & Linked Fields
-  isPickup?: boolean;       
-  noBill?: string | null;
-  
-  isCommande?: boolean;     
-  noBonCommande?: string | null;
-
-  isReclamation?: boolean;  
-  noReclamation?: string | null;
-};
-
+// Labels can stay local for UI display
 const REPORTER_LABEL: Record<string, string> = {
   expert: "Expert",
   transporteur: "Transporteur",
@@ -236,18 +161,7 @@ async function uploadAttachment(returnId: string, file: File): Promise<Attachmen
   return json.attachments[0];
 }
 
-type OrderLookup = {
-  sonbr: string | number;
-  orderDate?: string | null;
-  totalamt: number | null;
-  customerName?: string | null;
-  carrierName?: string | null;
-  salesrepName?: string | null;
-  tracking?: string | null;
-  noClient?: string | null;
-};
-
-async function lookupOrder(noCommande: string): Promise<OrderLookup | null> {
+async function lookupOrder(noCommande: string): Promise<any | null> {
   if (!noCommande.trim()) return null;
   const res = await fetch(
     `/api/prextra/order?no_commande=${encodeURIComponent(noCommande.trim())}`,
@@ -270,8 +184,6 @@ async function lookupOrder(noCommande: string): Promise<OrderLookup | null> {
     noClient: normalizedNoClient,
   };
 }
-
-type ItemSuggestion = { code: string; descr?: string | null };
 
 async function searchItems(q: string): Promise<ItemSuggestion[]> {
   if (!q.trim()) return [];
@@ -458,7 +370,7 @@ export default function ReturnsPage() {
   };
 
   // -------------------------------------------------------------------------
-  //  STRICT COLOR LOGIC (Updated to fix mismatch)
+  //  STRICT COLOR LOGIC
   // -------------------------------------------------------------------------
   const getRowClasses = (row: ReturnRow) => {
     // 1. Finalized -> Gray
@@ -481,7 +393,6 @@ export default function ReturnsPage() {
     }
 
     // 4. (Physical & Verified) OR (!Physical) -> BRIGHT YELLOW-GREEN
-    // Using #84cc16 (Lime-500)
     if ((isPhysical && isVerified) || !isPhysical) {
       return "bg-[#84cc16] text-white border-b border-[#65a30d] hover:bg-[#65a30d]";
     }
@@ -686,8 +597,8 @@ export default function ReturnsPage() {
                             {CAUSE_LABEL[row.cause] ?? row.cause}
                           </td>
                           <td className="px-4 py-3.5 max-w-[250px]">
-                            <div className="font-medium text-inherit truncate" title={row.client}>{row.client}</div>
-                            <div className="text-[11px] text-inherit/70 truncate" title={row.expert}>{row.expert}</div>
+                            <div className="font-medium text-inherit truncate" title={row.client || ""}>{row.client}</div>
+                            <div className="text-[11px] text-inherit/70 truncate" title={row.expert || ""}>{row.expert}</div>
                           </td>
                           <td className="px-4 py-3.5 font-mono text-inherit/90 whitespace-nowrap">
                             {row.noCommande ?? "—"}
@@ -952,7 +863,7 @@ function ProductRow({
       <input
         className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
         placeholder="Description produit"
-        value={product.descriptionProduit}
+        value={product.descriptionProduit || ""}
         onChange={(e) => onChange({ ...product, descriptionProduit: e.target.value })}
       />
       <input
@@ -997,6 +908,8 @@ function DetailModal({
   React.useEffect(() => setDraft(row), [row]);
 
   const creatorName = draft.createdBy?.name ?? session?.user?.name ?? REPORTER_LABEL[draft.reporter];
+  const creatorAvatar = draft.createdBy?.avatar ?? session?.user?.image;
+  const creatorDate = draft.createdBy?.at ? new Date(draft.createdBy.at) : new Date(draft.reportedAt);
 
   const isPhysical = !!draft.physicalReturn;
   const isVerified = !!draft.verified;
@@ -1131,7 +1044,7 @@ function DetailModal({
             {/* Creator Info */}
             <div className="flex items-center gap-3 p-3 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))]">
               <Avatar className="h-9 w-9">
-                <AvatarImage src={session?.user?.image ?? ""} alt={creatorName} />
+                <AvatarImage src={creatorAvatar ?? ""} alt={creatorName} />
                 <AvatarFallback className="text-xs font-bold bg-accent text-[hsl(var(--bg-base))]">
                   {creatorName.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase()}
                 </AvatarFallback>
@@ -1139,15 +1052,15 @@ function DetailModal({
               <div className="text-sm">
                 <div className="font-medium text-[hsl(var(--text-primary))]">{creatorName}</div>
                 <div className="text-xs text-[hsl(var(--text-muted))]">
-                  {new Date(draft.createdBy?.at ?? draft.reportedAt).toLocaleString("fr-CA")}
+                  {creatorDate.toLocaleString("fr-CA")}
                 </div>
               </div>
             </div>
 
             {/* Fields */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Field label="Expert" value={draft.expert} onChange={(v) => setDraft({ ...draft, expert: v })} />
-              <Field label="Client" value={draft.client} onChange={(v) => setDraft({ ...draft, client: v })} />
+              <Field label="Expert" value={draft.expert || ""} onChange={(v) => setDraft({ ...draft, expert: v })} />
+              <Field label="Client" value={draft.client || ""} onChange={(v) => setDraft({ ...draft, client: v })} />
               <Field label="No. client" value={draft.noClient ?? ""} onChange={(v) => setDraft({ ...draft, noClient: v || undefined })} />
               <Field label="No. commande" value={draft.noCommande ?? ""} onChange={(v) => setDraft({ ...draft, noCommande: v || undefined })} />
               <Field label="No. tracking" value={draft.tracking ?? ""} onChange={(v) => setDraft({ ...draft, tracking: v || undefined })} />
@@ -1334,7 +1247,6 @@ function NewReturnModal({
     }
     setBusy(true);
     try {
-      // 1. Create the return
       const createdReturn = await createReturn({
         reporter,
         cause,
@@ -1366,7 +1278,6 @@ function NewReturnModal({
         })),
       });
 
-      // 2. Upload files if any, linking them to the new return ID
       if (filesToUpload.length > 0 && createdReturn?.codeRetour) {
         for (const file of filesToUpload) {
           await uploadAttachment(String(createdReturn.codeRetour), file);
@@ -1404,15 +1315,15 @@ function NewReturnModal({
 
           <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-6 py-6 space-y-6">
             
-            {/* Top Row: Physical & No Commande */}
-            <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] flex items-center justify-between gap-6">
-               <div className="flex-1">
+            {/* Options block */}
+            <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] flex flex-col sm:flex-row gap-6">
+               <div className="flex-1 grid grid-cols-2 gap-x-8 gap-y-4">
                  <Switch 
                    label="Retour physique de la marchandise"
                    checked={physicalReturn}
                    onCheckedChange={setPhysicalReturn}
                  />
-                 {physicalReturn && <p className="mt-2 text-xs text-[hsl(var(--text-muted))]">Ce retour apparaîtra en évidence (ligne noire) jusqu'à sa réception.</p>}
+                 {physicalReturn && <p className="col-span-2 mt-2 text-xs text-[hsl(var(--text-muted))]">Ce retour apparaîtra en évidence (ligne noire) jusqu'à sa réception.</p>}
                </div>
                
                <div className="w-full sm:max-w-[300px]">
@@ -1490,7 +1401,7 @@ function NewReturnModal({
                     onChange={(e) => {
                       if (e.target.files) {
                         setFilesToUpload(prev => [...prev, ...Array.from(e.target.files || [])]);
-                        e.target.value = ""; // reset
+                        e.target.value = ""; 
                       }
                     }}
                   />
