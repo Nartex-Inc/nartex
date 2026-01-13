@@ -186,7 +186,7 @@ export async function GET(request: NextRequest) {
         transport: ret.transporteur,
         description: ret.description,
         
-        // 👇 CRITICAL FIX: Mapping 'returnPhysical' to 'physicalReturn'
+        // Mapped fields
         physicalReturn: ret.returnPhysical, 
         verified: ret.isVerified,
         finalized: ret.isFinal,
