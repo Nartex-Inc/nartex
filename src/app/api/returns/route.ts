@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
+// Use Shared Types
 import { formatReturnCode, getReturnStatus } from "@/types/returns";
 import type { ReturnRow, Reporter, Cause } from "@/types/returns";
 import { Prisma } from "@prisma/client";
@@ -41,6 +42,7 @@ export async function GET(request: NextRequest) {
     const where: Prisma.ReturnWhereInput = {};
     const AND: Prisma.ReturnWhereInput[] = [];
 
+    // Safety: Hide corrupted rows (Draft & Final)
     AND.push({
       NOT: {
         AND: [{ isDraft: true }, { isFinal: true }]
@@ -110,10 +112,10 @@ export async function GET(request: NextRequest) {
       id: formatReturnCode(ret.id),
       codeRetour: ret.id,
       reportedAt: ret.reportedAt.toISOString(),
-      reporter: ret.reporter,
-      cause: ret.cause,
-      expert: ret.expert,
-      client: ret.client,
+      reporter: ret.reporter as Reporter,
+      cause: ret.cause as Cause,
+      expert: ret.expert || "",
+      client: ret.client || "",
       noClient: ret.noClient,
       noCommande: ret.noCommande,
       tracking: ret.noTracking,
@@ -124,7 +126,7 @@ export async function GET(request: NextRequest) {
       transport: ret.transporteur,
       description: ret.description,
       
-      // Booleans
+      // Mapped fields
       physicalReturn: ret.returnPhysical, 
       verified: ret.isVerified,
       finalized: ret.isFinal,
@@ -133,7 +135,6 @@ export async function GET(request: NextRequest) {
       isReclamation: ret.isReclamation,
       isDraft: ret.isDraft,
       
-      // Strings for the new toggles
       noBill: ret.noBill,
       noBonCommande: ret.noBonCommande,
       noReclamation: ret.noReclamation,
@@ -141,8 +142,8 @@ export async function GET(request: NextRequest) {
       products: ret.products.map((p) => ({
         id: String(p.id),
         codeProduit: p.codeProduit,
-        descriptionProduit: p.descrProduit,
-        descriptionRetour: p.descriptionRetour,
+        descriptionProduit: p.descrProduit || "",
+        descriptionRetour: p.descriptionRetour || "",
         quantite: p.quantite,
         quantiteRecue: p.quantiteRecue,
         qteInventaire: p.qteInventaire,
@@ -211,18 +212,13 @@ export async function POST(request: NextRequest) {
         dateCommande: body.dateCommande || null,
         transporteur: body.transport || null,
         description: body.description || null,
-        
-        // Booleans
         returnPhysical: body.physicalReturn ?? false,
         isPickup: body.isPickup ?? false,
         isCommande: body.isCommande ?? false,
         isReclamation: body.isReclamation ?? false,
-        
-        // Associated Strings
         noBill: body.noBill || null,
         noBonCommande: body.noBonCommande || null,
         noReclamation: body.noReclamation || null,
-
         isDraft,
         isFinal: false,
         isVerified: false,
