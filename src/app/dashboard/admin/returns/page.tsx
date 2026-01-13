@@ -35,83 +35,8 @@ import {
 import { cn } from "@/lib/utils";
 import { AttachmentsSection } from "@/components/returns/AttachmentsSection";
 
-/* =============================================================================
-   Types & constants
-============================================================================= */
-type Reporter = 
-  | "expert" 
-  | "transporteur" 
-  | "client" 
-  | "prise_commande" 
-  | "autre";
-
-type Cause =
-  | "production"
-  | "pompe"
-  | "autre_cause"
-  | "exposition_sinto"
-  | "transporteur"
-  | "expert"
-  | "expedition"
-  | "analyse"
-  | "defect"
-  | "surplus_inventaire"
-  | "prise_commande"
-  | "rappel"
-  | "redirection"
-  | "fournisseur"
-  | "autre";
-
-type ReturnStatus = "draft" | "awaiting_physical" | "received_or_no_physical";
-
-type Attachment = { id: string; name: string; url: string; downloadUrl?: string };
-
-type ProductLine = {
-  id: string;
-  codeProduit: string;
-  descriptionProduit: string;
-  descriptionRetour?: string;
-  quantite: number;
-  poidsUnitaire?: number | null;
-  poidsTotal?: number | null;
-};
-
-type ReturnRow = {
-  id: string;
-  reportedAt: string;
-  reporter: Reporter;
-  cause: Cause;
-  expert: string;
-  client: string;
-  noClient?: string;
-  noCommande?: string;
-  tracking?: string;
-  status: ReturnStatus;
-  standby?: boolean;
-  amount?: number | null;
-  dateCommande?: string | null;
-  transport?: string | null;
-  attachments?: Attachment[];
-  products?: ProductLine[];
-  description?: string;
-  createdBy?: { name: string; avatar?: string | null; at: string };
-  
-  // Logic fields
-  physicalReturn?: boolean; 
-  verified?: boolean;       
-  finalized?: boolean;      
-  isDraft?: boolean;
-
-  // Toggles & Linked Fields
-  isPickup?: boolean;       
-  noBill?: string | null;
-  
-  isCommande?: boolean;     
-  noBonCommande?: string | null;
-
-  isReclamation?: boolean;  
-  noReclamation?: string | null;
-};
+// 👇 IMPORT TYPES (Assumes you created src/types/returns.ts)
+import type { ReturnRow, Reporter, Cause, Attachment, ProductLine, ReturnStatus, ItemSuggestion } from "@/types/returns";
 
 const REPORTER_LABEL: Record<string, string> = {
   expert: "Expert",
@@ -270,8 +195,6 @@ async function lookupOrder(noCommande: string): Promise<OrderLookup | null> {
     noClient: normalizedNoClient,
   };
 }
-
-type ItemSuggestion = { code: string; descr?: string | null };
 
 async function searchItems(q: string): Promise<ItemSuggestion[]> {
   if (!q.trim()) return [];
@@ -457,6 +380,9 @@ export default function ReturnsPage() {
     });
   };
 
+  // -------------------------------------------------------------------------
+  //  STRICT COLOR LOGIC
+  // -------------------------------------------------------------------------
   const getRowClasses = (row: ReturnRow) => {
     if (row.finalized) {
        return "bg-gray-100 text-gray-500 border-b border-gray-200 grayscale";
@@ -469,10 +395,12 @@ export default function ReturnsPage() {
     const isPhysical = !!row.physicalReturn;
     const isVerified = !!row.verified;
 
+    // Physical & NOT Verified -> BLACK
     if (isPhysical && !isVerified) {
       return "bg-black text-white border-b border-gray-800 hover:bg-neutral-900";
     }
 
+    // (Physical & Verified) OR (!Physical) -> BRIGHT YELLOW-GREEN (#84cc16)
     if ((isPhysical && isVerified) || !isPhysical) {
       return "bg-[#84cc16] text-white border-b border-[#65a30d] hover:bg-[#65a30d]";
     }
@@ -676,8 +604,8 @@ export default function ReturnsPage() {
                             {CAUSE_LABEL[row.cause] ?? row.cause}
                           </td>
                           <td className="px-4 py-3.5 max-w-[250px]">
-                            <div className="font-medium text-inherit truncate" title={row.client}>{row.client}</div>
-                            <div className="text-[11px] text-inherit/70 truncate" title={row.expert}>{row.expert}</div>
+                            <div className="font-medium text-inherit truncate" title={row.client || ""}>{row.client}</div>
+                            <div className="text-[11px] text-inherit/70 truncate" title={row.expert || ""}>{row.expert}</div>
                           </td>
                           <td className="px-4 py-3.5 font-mono text-inherit/90 whitespace-nowrap">
                             {row.noCommande ?? "—"}
@@ -988,7 +916,7 @@ function DetailModal({
 
   // 👇 FIXED: Prioritize the API-provided creator info
   const creatorName = draft.createdBy?.name ?? session?.user?.name ?? REPORTER_LABEL[draft.reporter];
-  const creatorAvatar = draft.createdBy?.avatar ?? session?.user?.image;
+  const creatorAvatar = draft.createdBy?.avatar ?? null; // Removed session fallback to avoid showing current user
   const creatorDate = draft.createdBy?.at ? new Date(draft.createdBy.at) : new Date(draft.reportedAt);
 
   const isPhysical = !!draft.physicalReturn;
@@ -1399,7 +1327,7 @@ function NewReturnModal({
             
             {/* Top Row: Physical & No Commande */}
             <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] flex items-center justify-between gap-6">
-               <div className="flex-1">
+               <div className="flex-1 grid grid-cols-2 gap-x-8 gap-y-4">
                  <Switch 
                    label="Retour physique de la marchandise"
                    checked={physicalReturn}
