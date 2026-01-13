@@ -30,88 +30,15 @@ import {
   Archive,
   AlertCircle,
   Paperclip,
-  UploadCloud,
-  File as FileIcon
+  UploadCloud
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AttachmentsSection } from "@/components/returns/AttachmentsSection";
 
-/* =============================================================================
-   Types & constants
-============================================================================= */
-type Reporter = 
-  | "expert" 
-  | "transporteur" 
-  | "client" 
-  | "prise_commande" 
-  | "autre";
+// 👇 IMPORT TYPES INSTEAD OF REDEFINING
+import type { ReturnRow, Reporter, Cause, Attachment, ProductLine, ReturnStatus, ItemSuggestion } from "@/types/returns";
 
-type Cause =
-  | "production"
-  | "pompe"
-  | "autre_cause"
-  | "exposition_sinto"
-  | "transporteur"
-  | "expert"
-  | "expedition"
-  | "analyse"
-  | "defect"
-  | "surplus_inventaire"
-  | "prise_commande"
-  | "rappel"
-  | "redirection"
-  | "fournisseur"
-  | "autre";
-
-type ReturnStatus = "draft" | "awaiting_physical" | "received_or_no_physical";
-
-type Attachment = { id: string; name: string; url: string; downloadUrl?: string };
-type ProductLine = {
-  id: string;
-  codeProduit: string;
-  descriptionProduit: string;
-  descriptionRetour?: string;
-  quantite: number;
-  poidsUnitaire?: number | null;
-  poidsTotal?: number | null;
-};
-type ReturnRow = {
-  id: string;
-  reportedAt: string;
-  reporter: Reporter;
-  cause: Cause;
-  expert: string;
-  client: string;
-  noClient?: string;
-  noCommande?: string;
-  tracking?: string;
-  status: ReturnStatus;
-  standby?: boolean;
-  amount?: number | null;
-  dateCommande?: string | null;
-  transport?: string | null;
-  attachments?: Attachment[];
-  products?: ProductLine[];
-  description?: string;
-  createdBy?: { name: string; avatar?: string | null; at: string };
-  
-  // Logic fields
-  physicalReturn?: boolean; 
-  verified?: boolean;       
-  finalized?: boolean;      
-  isDraft?: boolean;
-
-  // Toggles & Linked Fields
-  isPickup?: boolean;       
-  noBill?: string | null;
-  
-  isCommande?: boolean;     
-  noBonCommande?: string | null;
-
-  isReclamation?: boolean;  
-  noReclamation?: string | null;
-};
-
+// NOTE: Re-defining labels is fine for frontend UI usage
 const REPORTER_LABEL: Record<string, string> = {
   expert: "Expert",
   transporteur: "Transporteur",
@@ -259,8 +186,6 @@ async function lookupOrder(noCommande: string): Promise<any | null> {
   };
 }
 
-type ItemSuggestion = { code: string; descr?: string | null };
-
 async function searchItems(q: string): Promise<ItemSuggestion[]> {
   if (!q.trim()) return [];
   const res = await fetch(`/api/items?q=${encodeURIComponent(q)}`, {
@@ -369,6 +294,7 @@ export default function ReturnsPage() {
 
   const sorted = React.useMemo(() => {
     const validRows = rows.filter(r => {
+      // Corrupted: both draft and finalized
       if (r.isDraft && r.finalized) return false; 
       return true;
     });
@@ -444,9 +370,6 @@ export default function ReturnsPage() {
     });
   };
 
-  // -------------------------------------------------------------------------
-  //  STRICT COLOR LOGIC
-  // -------------------------------------------------------------------------
   const getRowClasses = (row: ReturnRow) => {
     if (row.finalized) {
        return "bg-gray-100 text-gray-500 border-b border-gray-200 grayscale";
@@ -456,16 +379,13 @@ export default function ReturnsPage() {
       return "bg-white text-black border-b border-gray-200 hover:brightness-95";
     }
 
-    // Cast to ensure boolean comparison logic works
     const isPhysical = !!row.physicalReturn;
     const isVerified = !!row.verified;
 
-    // Physical & NOT Verified -> BLACK (Text White)
     if (isPhysical && !isVerified) {
       return "bg-black text-white border-b border-gray-800 hover:bg-neutral-900";
     }
 
-    // (Physical & Verified) OR (!Physical) -> BRIGHT YELLOW-GREEN
     if ((isPhysical && isVerified) || !isPhysical) {
       return "bg-[#84cc16] text-white border-b border-[#65a30d] hover:bg-[#65a30d]";
     }
@@ -622,6 +542,7 @@ export default function ReturnsPage() {
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
+                  {/* HEADER: Always Accent Color */}
                   <thead className="!bg-accent !text-white border-b border-accent/20">
                     <tr>
                       <SortTh label="Code" sortKey="id" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
@@ -773,8 +694,9 @@ export default function ReturnsPage() {
 }
 
 /* =============================================================================
-   Detail Modal
+   Components
 ============================================================================= */
+
 function DetailModal({
   row,
   onClose,
