@@ -21,7 +21,7 @@ export type ReturnStatus = "draft" | "awaiting_physical" | "received_or_no_physi
    Label Maps
 ============================================================================= */
 
-export const REPORTER_LABELS: Record<Reporter, string> = {
+export const REPORTER_LABELS: Record<string, string> = {
   expert: "Expert",
   transporteur: "Transporteur",
   client: "Client",
@@ -29,7 +29,7 @@ export const REPORTER_LABELS: Record<Reporter, string> = {
   prise_commande: "Prise de commande",
 };
 
-export const CAUSE_LABELS: Record<Cause, string> = {
+export const CAUSE_LABELS: Record<string, string> = {
   production: "Production",
   pompe: "Pompe de transfert",
   autre_cause: "Autre cause",
@@ -52,6 +52,28 @@ export const CAUSE_LABELS: Record<Cause, string> = {
    API Response Types
 ============================================================================= */
 
+export type Attachment = { 
+  id: string; 
+  name: string; 
+  url: string; 
+  downloadUrl?: string 
+};
+
+export type ProductLine = {
+  id: string;
+  codeProduit: string;
+  descriptionProduit: string | null; // Allow null for strict check
+  descriptionRetour?: string | null;
+  quantite: number;
+  poidsUnitaire?: number | null;
+  poidsTotal?: number | null;
+  // Added optional fields often used in UI
+  quantiteRecue?: number | null;
+  qteInventaire?: number | null;
+  qteDetruite?: number | null;
+  tauxRestock?: number | null;
+};
+
 export interface ReturnRow {
   id: string; // "R123" format
   codeRetour: number;
@@ -68,8 +90,8 @@ export interface ReturnRow {
   amount?: number | null;
   dateCommande?: string | null;
   transport?: string | null;
-  attachments?: AttachmentResponse[];
-  products?: ProductLineResponse[];
+  attachments?: Attachment[];
+  products?: ProductLine[];
   description?: string | null;
   createdBy?: { name: string; avatar?: string | null; at: string } | null;
   
@@ -79,6 +101,7 @@ export interface ReturnRow {
   isPickup?: boolean;
   isCommande?: boolean;
   isReclamation?: boolean;
+  isDraft?: boolean;
   
   // Status flags (Fixes the build error)
   verified?: boolean;
@@ -148,10 +171,14 @@ export interface CreateReturnPayload {
   isPickup?: boolean;
   isCommande?: boolean;
   isReclamation?: boolean;
+  
   noBill?: string | null;
   noBonCommande?: string | null;
   noReclamation?: string | null;
+  noCommandeCheckbox?: boolean;
+  
   products?: ProductInput[];
+  reportedAt?: string | Date; // Allow passing custom date
 }
 
 export interface ProductInput {
@@ -232,7 +259,7 @@ export interface ItemDetail {
  * Derive status from Return flags
  * Uses field names from prisma schema: isDraft, returnPhysical, isVerified
  */
-export function getReturnStatus(ret: Return): ReturnStatus {
+export function getReturnStatus(ret: Partial<Return>): ReturnStatus {
   if (ret.isDraft) return "draft";
   if (ret.returnPhysical && !ret.isVerified) return "awaiting_physical";
   return "received_or_no_physical";
