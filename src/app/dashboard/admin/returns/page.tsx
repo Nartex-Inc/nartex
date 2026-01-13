@@ -96,13 +96,20 @@ type ReturnRow = {
   createdBy?: { name: string; avatar?: string | null; at: string };
   
   // Logic fields
-  physicalReturn?: boolean; // Now correctly mapped from backend!
+  physicalReturn?: boolean; 
   verified?: boolean;       
   finalized?: boolean;      
-  isPickup?: boolean;       
-  isCommande?: boolean;     
-  isReclamation?: boolean;  
   isDraft?: boolean;
+
+  // Toggles & Linked Fields
+  isPickup?: boolean;       
+  noBill?: string | null;
+  
+  isCommande?: boolean;     
+  noBonCommande?: string | null;
+
+  isReclamation?: boolean;  
+  noReclamation?: string | null;
 };
 
 const REPORTER_LABEL: Record<string, string> = {
@@ -361,9 +368,7 @@ export default function ReturnsPage() {
   }, [load]);
 
   const sorted = React.useMemo(() => {
-    // 1. FILTER: Exclude rows that shouldn't be seen by default
     const validRows = rows.filter(r => {
-      // Corrupted: both draft and finalized
       if (r.isDraft && r.finalized) return false; 
       return true;
     });
@@ -440,35 +445,31 @@ export default function ReturnsPage() {
   };
 
   // -------------------------------------------------------------------------
-  //  STRICT COLOR LOGIC (Updated to fix mismatch)
+  //  STRICT COLOR LOGIC
   // -------------------------------------------------------------------------
   const getRowClasses = (row: ReturnRow) => {
-    // 1. Finalized -> Gray
     if (row.finalized) {
        return "bg-gray-100 text-gray-500 border-b border-gray-200 grayscale";
     }
 
-    // 2. Draft -> WHITE
     if (row.isDraft || row.status === "draft") {
       return "bg-white text-black border-b border-gray-200 hover:brightness-95";
     }
 
-    // Safe casting
+    // Cast to ensure boolean comparison logic works
     const isPhysical = !!row.physicalReturn;
     const isVerified = !!row.verified;
 
-    // 3. Physical & NOT Verified -> BLACK (Text White)
+    // Physical & NOT Verified -> BLACK (Text White)
     if (isPhysical && !isVerified) {
       return "bg-black text-white border-b border-gray-800 hover:bg-neutral-900";
     }
 
-    // 4. (Physical & Verified) OR (!Physical) -> BRIGHT YELLOW-GREEN
-    // Using #84cc16 (Lime-500)
+    // (Physical & Verified) OR (!Physical) -> BRIGHT YELLOW-GREEN
     if ((isPhysical && isVerified) || !isPhysical) {
       return "bg-[#84cc16] text-white border-b border-[#65a30d] hover:bg-[#65a30d]";
     }
 
-    // Fallback
     return "bg-white text-black border-b border-gray-200";
   };
 
@@ -621,7 +622,6 @@ export default function ReturnsPage() {
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  {/* HEADER: Always Accent Color */}
                   <thead className="!bg-accent !text-white border-b border-accent/20">
                     <tr>
                       <SortTh label="Code" sortKey="id" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
@@ -648,15 +648,14 @@ export default function ReturnsPage() {
                           key={row.id}
                           onMouseEnter={() => setHovered(row.id)}
                           onMouseLeave={() => setHovered(null)}
-                          // 1️⃣ ADD h-[72px] (or your preferred px) here to force height
                           className={cn("transition-colors duration-150 h-[72px]", rowClass)}
                         >
-                          <td className="px-4 py-3.5 whitespace-nowrap"> {/* 2️⃣ ADD whitespace-nowrap */}
+                          <td className="px-4 py-3.5 whitespace-nowrap">
                             <span className="font-mono font-semibold text-inherit">
                               {row.id}
                             </span>
                           </td>
-                          <td className="px-4 py-3.5 text-inherit/90 whitespace-nowrap"> {/* 2️⃣ ADD whitespace-nowrap */}
+                          <td className="px-4 py-3.5 text-inherit/90 whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               <Calendar className="h-3.5 w-3.5 opacity-60" />
                               {new Date(row.reportedAt).toLocaleDateString("fr-CA")}
@@ -668,7 +667,6 @@ export default function ReturnsPage() {
                           <td className="px-4 py-3.5 whitespace-nowrap">
                             {CAUSE_LABEL[row.cause] ?? row.cause}
                           </td>
-                          {/* 3️⃣ ADD max-w and truncate for the text-heavy column */}
                           <td className="px-4 py-3.5 max-w-[250px]">
                             <div className="font-medium text-inherit truncate" title={row.client}>{row.client}</div>
                             <div className="text-[11px] text-inherit/70 truncate" title={row.expert}>{row.expert}</div>
@@ -775,196 +773,6 @@ export default function ReturnsPage() {
 }
 
 /* =============================================================================
-   Components
-============================================================================= */
-
-function MetricCard({
-  title,
-  value,
-  icon: Icon,
-}: {
-  title: string;
-  value: number | string;
-  icon: React.ElementType;
-}) {
-  return (
-    <div className="rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-elevated))] p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-[11px] uppercase tracking-wider font-semibold text-[hsl(var(--text-muted))]">
-            {title}
-          </div>
-          <div className="mt-1 text-2xl font-bold text-[hsl(var(--text-primary))] font-mono-data">
-            {value}
-          </div>
-        </div>
-        <div className="p-2.5 rounded-xl bg-accent-muted">
-          <Icon className="h-5 w-5 text-accent" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SortTh({
-  label,
-  sortKey,
-  currentKey,
-  dir,
-  onSort,
-}: {
-  label: string;
-  sortKey: SortKey;
-  currentKey: SortKey;
-  dir: SortDir;
-  onSort: (key: SortKey) => void;
-}) {
-  const active = sortKey === currentKey;
-  return (
-    <th className="px-4 py-3 text-left">
-      <button
-        type="button"
-        onClick={() => onSort(sortKey)}
-        className={cn(
-          "inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-semibold",
-          active ? "text-white" : "text-white/70"
-        )}
-      >
-        <span>{label}</span>
-        {active ? (
-          dir === "asc" ? <ArrowUpNarrowWide className="h-3.5 w-3.5" /> : <ArrowDownNarrowWide className="h-3.5 w-3.5" />
-        ) : (
-          <ChevronUp className="h-3.5 w-3.5 opacity-40" />
-        )}
-      </button>
-    </th>
-  );
-}
-
-/* =============================================================================
-   Product Row Component (with Autocomplete)
-============================================================================= */
-function ProductRow({
-  product,
-  onChange,
-  onRemove
-}: {
-  product: ProductLine;
-  onChange: (p: ProductLine) => void;
-  onRemove: () => void;
-}) {
-  const [suggestions, setSuggestions] = React.useState<ItemSuggestion[]>([]);
-  const [showSuggestions, setShowSuggestions] = React.useState(false);
-  const [isLoading, setIsLoading] = React.useState(false);
-  
-  const debouncedCode = useDebounced(product.codeProduit, 300);
-
-  React.useEffect(() => {
-    let active = true;
-    const fetchSuggestions = async () => {
-      if (!showSuggestions || debouncedCode.trim().length < 2) {
-        setSuggestions([]);
-        return;
-      }
-      setIsLoading(true);
-      try {
-        const results = await searchItems(debouncedCode);
-        if (active) setSuggestions(results);
-      } catch (error) {
-        console.error("Autocomplete error:", error);
-      } finally {
-        if (active) setIsLoading(false);
-      }
-    };
-    fetchSuggestions();
-    return () => { active = false; };
-  }, [debouncedCode, showSuggestions]);
-
-  const selectSuggestion = (s: ItemSuggestion) => {
-    onChange({
-      ...product,
-      codeProduit: s.code,
-      descriptionProduit: s.descr || product.descriptionProduit
-    });
-    setSuggestions([]);
-    setShowSuggestions(false);
-  };
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-[200px_1fr_1fr_100px_40px] gap-2 items-start p-3 rounded-xl bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))] relative">
-      <div className="relative">
-        <input
-          className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
-          placeholder="Code produit"
-          value={product.codeProduit}
-          onChange={(e) => {
-            onChange({ ...product, codeProduit: e.target.value });
-            setShowSuggestions(true);
-          }}
-          onFocus={() => {
-            if (product.codeProduit.length >= 2) setShowSuggestions(true);
-          }}
-          onBlur={() => {
-            setTimeout(() => setShowSuggestions(false), 200);
-          }}
-          autoComplete="off"
-        />
-        {showSuggestions && (suggestions.length > 0 || isLoading) && (
-          <div className="absolute z-50 top-full left-0 mt-1 w-[300px] max-h-60 overflow-y-auto rounded-lg border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-elevated))] shadow-xl">
-            {isLoading && suggestions.length === 0 && (
-               <div className="flex items-center gap-2 px-3 py-2 text-xs text-[hsl(var(--text-muted))]">
-                 <Loader2 className="h-3 w-3 animate-spin" />
-                 Recherche...
-               </div>
-            )}
-            {suggestions.map((s) => (
-              <button
-                key={s.code}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-[hsl(var(--bg-muted))] border-b border-[hsl(var(--border-subtle))] last:border-0"
-                onClick={(e) => {
-                  e.preventDefault();
-                  selectSuggestion(s);
-                }}
-              >
-                <div className="font-semibold text-[hsl(var(--text-primary))]">{s.code}</div>
-                {s.descr && <div className="text-xs text-[hsl(var(--text-secondary))] truncate">{s.descr}</div>}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <input
-        className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
-        placeholder="Description produit"
-        value={product.descriptionProduit}
-        onChange={(e) => onChange({ ...product, descriptionProduit: e.target.value })}
-      />
-      <input
-        className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
-        placeholder="Description retour"
-        value={product.descriptionRetour ?? ""}
-        onChange={(e) => onChange({ ...product, descriptionRetour: e.target.value })}
-      />
-      <input
-        type="number"
-        min={0}
-        className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
-        placeholder="Qté"
-        value={product.quantite}
-        onChange={(e) => onChange({ ...product, quantite: Number(e.target.value || 0) })}
-      />
-      <button
-        className="p-2 rounded-lg text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))]"
-        onClick={onRemove}
-      >
-        <Trash2 className="h-4 w-4" />
-      </button>
-    </div>
-  );
-}
-
-/* =============================================================================
    Detail Modal
 ============================================================================= */
 function DetailModal({
@@ -983,9 +791,10 @@ function DetailModal({
 
   const creatorName = draft.createdBy?.name ?? session?.user?.name ?? REPORTER_LABEL[draft.reporter];
 
-  const isPhysical = draft.physicalReturn;
-  const isVerified = draft.verified;
-  const isFinalized = draft.finalized;
+  const isPhysical = !!draft.physicalReturn;
+  const isVerified = !!draft.verified;
+  const isFinalized = !!draft.finalized;
+  const isDraft = !!draft.isDraft;
 
   React.useEffect(() => {
     const prev = document.body.style.overflow;
@@ -1028,39 +837,87 @@ function DetailModal({
             {/* LOGIC TOGGLES */}
             <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] space-y-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-[hsl(var(--text-muted))]">Options de traitement</h4>
-              <div className="flex flex-wrap items-center gap-6">
-                 <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-                    <Switch label="Retour physique" checked={draft.physicalReturn || false} onCheckedChange={(c) => setDraft({ ...draft, physicalReturn: c })} />
-                    <Switch label="Pickup" checked={draft.isPickup || false} onCheckedChange={(c) => setDraft({ ...draft, isPickup: c })} />
-                    <Switch label="Commande" checked={draft.isCommande || false} onCheckedChange={(c) => setDraft({ ...draft, isCommande: c })} />
-                    <Switch label="Réclamation" checked={draft.isReclamation || false} onCheckedChange={(c) => setDraft({ ...draft, isReclamation: c })} />
-                 </div>
+              
+              {/* Top Row: Physical Return & Verification */}
+              <div className="flex flex-wrap items-center gap-6 border-b border-[hsl(var(--border-subtle))] pb-4">
+                <Switch 
+                   label="Retour physique de la marchandise" 
+                   checked={isPhysical} 
+                   onCheckedChange={(c) => setDraft({ ...draft, physicalReturn: c })} 
+                />
                 
                 {isPhysical && (
                   <button
                     onClick={() => setDraft({ ...draft, verified: !isVerified })}
-                    className={cn("flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors", isVerified ? "bg-emerald-100 text-emerald-800 border-emerald-200" : "bg-white border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]" )}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
+                      isVerified
+                        ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                        : "bg-white border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]"
+                    )}
                   >
                     <CheckCircle className="h-4 w-4" />
                     {isVerified ? "Vérifié (OK)" : "Marquer comme vérifié"}
                   </button>
                 )}
 
-                {isVerified && (
-                  <button
+                {(isVerified || !isPhysical) && !isDraft && (
+                   <button
                     onClick={() => setDraft({ ...draft, finalized: !isFinalized })}
-                    className={cn("flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors", isFinalized ? "bg-gray-100 text-gray-800 border-gray-200" : "bg-white border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]" )}
-                  >
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
+                      isFinalized
+                        ? "bg-gray-100 text-gray-800 border-gray-200"
+                        : "bg-white border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]"
+                    )}
+                   >
                     <Archive className="h-4 w-4" />
                     {isFinalized ? "Finalisé (Archivé)" : "Finaliser le retour"}
-                  </button>
+                   </button>
                 )}
               </div>
               
-              <div className="text-sm font-medium">
+              {/* Contextual Status Message */}
+              <div className="text-sm font-medium pb-2">
                 {isPhysical && !isVerified && <span className="text-red-500 flex items-center gap-2"><AlertCircle className="h-4 w-4"/> En attente de vérification physique (Ligne noire)</span>}
-                {isPhysical && isVerified && !isFinalized && <span className="text-emerald-600 flex items-center gap-2"><Check className="h-4 w-4"/> Marchandise vérifiée (Ligne verte)</span>}
+                {((isPhysical && isVerified) || !isPhysical) && !isFinalized && <span className="text-emerald-600 flex items-center gap-2"><Check className="h-4 w-4"/> Dossier actif (Ligne verte)</span>}
                 {isFinalized && <span className="text-gray-500 flex items-center gap-2"><Archive className="h-4 w-4"/> Dossier clos (Archivé)</span>}
+              </div>
+
+              {/* Bottom Row: Admin Toggles */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+                  <div className="space-y-3 p-3 bg-[hsl(var(--bg-surface))] rounded-lg border border-[hsl(var(--border-subtle))]">
+                     <Switch label="Pickup" checked={!!draft.isPickup} onCheckedChange={(c) => setDraft({ ...draft, isPickup: c })} />
+                     <input 
+                       disabled={!draft.isPickup} 
+                       value={draft.noBill ?? ""} 
+                       onChange={(e) => setDraft({ ...draft, noBill: e.target.value })}
+                       className="w-full text-xs p-2 rounded border disabled:opacity-50 disabled:bg-gray-100"
+                       placeholder="No. Bill / Bon de transport"
+                     />
+                  </div>
+
+                  <div className="space-y-3 p-3 bg-[hsl(var(--bg-surface))] rounded-lg border border-[hsl(var(--border-subtle))]">
+                     <Switch label="Commande" checked={!!draft.isCommande} onCheckedChange={(c) => setDraft({ ...draft, isCommande: c })} />
+                     <input 
+                       disabled={!draft.isCommande} 
+                       value={draft.noBonCommande ?? ""} 
+                       onChange={(e) => setDraft({ ...draft, noBonCommande: e.target.value })}
+                       className="w-full text-xs p-2 rounded border disabled:opacity-50 disabled:bg-gray-100"
+                       placeholder="No. Bon de commande"
+                     />
+                  </div>
+
+                  <div className="space-y-3 p-3 bg-[hsl(var(--bg-surface))] rounded-lg border border-[hsl(var(--border-subtle))]">
+                     <Switch label="Réclamation" checked={!!draft.isReclamation} onCheckedChange={(c) => setDraft({ ...draft, isReclamation: c })} />
+                     <input 
+                       disabled={!draft.isReclamation} 
+                       value={draft.noReclamation ?? ""} 
+                       onChange={(e) => setDraft({ ...draft, noReclamation: e.target.value })}
+                       className="w-full text-xs p-2 rounded border disabled:opacity-50 disabled:bg-gray-100"
+                       placeholder="No. Réclamation"
+                     />
+                  </div>
               </div>
             </div>
 
@@ -1080,6 +937,7 @@ function DetailModal({
               </div>
             </div>
 
+            {/* Fields */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Field label="Expert" value={draft.expert} onChange={(v) => setDraft({ ...draft, expert: v })} />
               <Field label="Client" value={draft.client} onChange={(v) => setDraft({ ...draft, client: v })} />
@@ -1089,7 +947,13 @@ function DetailModal({
               <Field label="Transport" value={draft.transport ?? ""} onChange={(v) => setDraft({ ...draft, transport: v || null })} />
               <Field label="Montant" value={draft.amount?.toString() ?? ""} onChange={(v) => setDraft({ ...draft, amount: v ? Number(v) : null })} />
               <Field label="Date commande" type="date" value={draft.dateCommande ?? ""} onChange={(v) => setDraft({ ...draft, dateCommande: v || null })} />
-              <Field label="Cause" as="select" value={draft.cause} onChange={(v) => setDraft({ ...draft, cause: v as Cause })} options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))} />
+              <Field
+                label="Cause"
+                as="select"
+                value={draft.cause}
+                onChange={(v) => setDraft({ ...draft, cause: v as Cause })}
+                options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))}
+              />
             </div>
 
             {/* Attachments Section */}
@@ -1126,7 +990,9 @@ function DetailModal({
                     }}
                   />
                 ))}
-                {(draft.products?.length ?? 0) === 0 && <div className="text-sm text-[hsl(var(--text-muted))] py-6 text-center">Aucun produit.</div>}
+                {(draft.products?.length ?? 0) === 0 && (
+                  <div className="text-sm text-[hsl(var(--text-muted))] py-6 text-center">Aucun produit.</div>
+                )}
               </div>
             </div>
 
@@ -1169,6 +1035,409 @@ function DetailModal({
                 >
                   <Send className="h-4 w-4" />
                   Envoyer pour approbation
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =============================================================================
+   New Return Modal
+============================================================================= */
+function NewReturnModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: () => Promise<void> | void;
+}) {
+  const [reporter, setReporter] = React.useState<Reporter>("expert");
+  const [cause, setCause] = React.useState<Cause>("production");
+  const [expert, setExpert] = React.useState("");
+  const [client, setClient] = React.useState("");
+  const [noClient, setNoClient] = React.useState("");
+  const [noCommande, setNoCommande] = React.useState("");
+  const [tracking, setTracking] = React.useState("");
+  const [transport, setTransport] = React.useState("");
+  const [amount, setAmount] = React.useState<string>("");
+  const [dateCommande, setDateCommande] = React.useState<string>("");
+  const [description, setDescription] = React.useState("");
+  const [physicalReturn, setPhysicalReturn] = React.useState(false); 
+  const [isPickup, setIsPickup] = React.useState(false);
+  const [isCommande, setIsCommande] = React.useState(false);
+  const [isReclamation, setIsReclamation] = React.useState(false);
+  
+  // New string fields for toggles
+  const [noBill, setNoBill] = React.useState("");
+  const [noBonCommande, setNoBonCommande] = React.useState("");
+  const [noReclamation, setNoReclamation] = React.useState("");
+
+  const [products, setProducts] = React.useState<ProductLine[]>([]);
+  
+  const [nextId, setNextId] = React.useState<string>("...");
+  const [reportedAt, setReportedAt] = React.useState<string>(new Date().toISOString().slice(0, 10));
+
+  const [filesToUpload, setFilesToUpload] = React.useState<File[]>([]);
+  const [busy, setBusy] = React.useState(false);
+
+  React.useEffect(() => {
+    // Fetch the next ID when the modal mounts
+    const fetchNextId = async () => {
+      try {
+        const res = await fetch("/api/returns?mode=next_id");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.ok && json.nextId) {
+            setNextId(`R${json.nextId}`);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch next ID", error);
+      }
+    };
+    fetchNextId();
+  }, []);
+
+  const addProduct = () =>
+    setProducts((p) => [...p, { id: `np-${Date.now()}`, codeProduit: "", descriptionProduit: "", descriptionRetour: "", quantite: 1 }]);
+
+  const removeProduct = (pid: string) => setProducts((p) => p.filter((x) => x.id !== pid));
+
+  const onFetchFromOrder = async () => {
+    const data = await lookupOrder(noCommande);
+    if (!data) return;
+    if (data.customerName) setClient(data.customerName);
+    if (data.salesrepName) setExpert(data.salesrepName);
+    if (data.carrierName) setTransport(data.carrierName);
+    if (data.tracking) setTracking(data.tracking);
+    if (data.orderDate) setDateCommande(String(data.orderDate).slice(0, 10));
+    if (data.totalamt != null) setAmount(String(data.totalamt));
+    const customerCode = (data.noClient ?? "") as string | number;
+    setNoClient(String(customerCode));
+  };
+
+  const submit = async () => {
+    if (!expert.trim() || !client.trim() || !reportedAt) {
+      alert("Expert, client et date de signalement sont requis.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const createdReturn = await createReturn({
+        reporter,
+        cause,
+        expert: expert.trim(),
+        client: client.trim(),
+        noClient: noClient.trim() || null,
+        noCommande: noCommande.trim() || null,
+        tracking: tracking.trim() || null,
+        amount: amount ? Number(amount) : null,
+        dateCommande: dateCommande || null,
+        transport: transport.trim() || null,
+        description: description.trim() || null,
+        
+        physicalReturn, 
+        isPickup,      
+        isCommande,    
+        isReclamation, 
+        
+        noBill: isPickup ? noBill : null,
+        noBonCommande: isCommande ? noBonCommande : null,
+        noReclamation: isReclamation ? noReclamation : null,
+
+        reportedAt, 
+        products: products.map((p) => ({
+          codeProduit: p.codeProduit.trim(),
+          descriptionProduit: p.descriptionProduit.trim(),
+          descriptionRetour: p.descriptionRetour?.trim(),
+          quantite: p.quantite,
+        })),
+      });
+
+      if (filesToUpload.length > 0 && createdReturn?.codeRetour) {
+        for (const file of filesToUpload) {
+          await uploadAttachment(String(createdReturn.codeRetour), file);
+        }
+      }
+
+      await onCreated();
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Erreur à la création";
+      alert(message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  React.useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-[210]">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 flex items-start justify-center p-4 sm:p-8 overflow-y-auto">
+        <div className="w-full max-w-[1100px] rounded-2xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-2xl my-8">
+          <div className="px-6 py-4 border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-elevated))]">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-[hsl(var(--text-primary))]">Nouveau retour</h2>
+              <button onClick={onClose} className="p-2 rounded-lg hover:bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))]">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-6 py-6 space-y-6">
+            
+            {/* Top Row: Physical & No Commande */}
+            <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] flex items-center justify-between gap-6">
+               <div className="flex-1">
+                 <Switch 
+                   label="Retour physique de la marchandise"
+                   checked={physicalReturn}
+                   onCheckedChange={setPhysicalReturn}
+                 />
+                 {physicalReturn && <p className="mt-2 text-xs text-[hsl(var(--text-muted))]">Ce retour apparaîtra en évidence (ligne noire) jusqu'à sa réception.</p>}
+               </div>
+               
+               <div className="w-full sm:max-w-[300px]">
+                 <Field 
+                   label="No. commande" 
+                   value={noCommande} 
+                   onChange={setNoCommande} 
+                   onBlur={onFetchFromOrder} 
+                   placeholder="Ex: 92427"
+                 />
+               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Field
+                label="Code de retour"
+                value={nextId}
+                onChange={() => {}} 
+                readOnly
+                className="bg-[hsl(var(--bg-muted))/50] text-[hsl(var(--text-secondary))] font-mono"
+              />
+              <Field 
+                label="Date de signalement" 
+                type="date" 
+                value={reportedAt} 
+                onChange={setReportedAt} 
+                required
+              />
+              <Field
+                label="Signalé par"
+                as="select"
+                value={reporter}
+                onChange={(v) => setReporter(v as Reporter)}
+                options={[
+                  { value: "expert", label: "Expert" },
+                  { value: "transporteur", label: "Transporteur" },
+                  { value: "client", label: "Client" },
+                  { value: "autre", label: "Autre" },
+                ]}
+                required
+              />
+              <Field
+                label="Cause"
+                as="select"
+                value={cause}
+                onChange={(v) => setCause(v as Cause)}
+                options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))}
+                required
+              />
+              <Field label="Expert" value={expert} onChange={setExpert} required />
+              <Field label="Client" value={client} onChange={setClient} required />
+              <Field label="No. client" value={noClient} onChange={setNoClient} />
+              
+              <Field label="No. tracking" value={tracking} onChange={setTracking} />
+              <Field label="Transport" value={transport} onChange={setTransport} />
+              <Field label="Montant" value={amount} onChange={setAmount} />
+              <Field label="Date commande" type="date" value={dateCommande} onChange={setDateCommande} />
+            </div>
+
+            {/* Attachments */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Folder className="h-5 w-5 text-[hsl(var(--text-tertiary))]" />
+                  <h4 className="font-semibold text-[hsl(var(--text-primary))]">Fichiers à joindre</h4>
+                  <span className="text-xs text-[hsl(var(--text-muted))]">({filesToUpload.length})</span>
+                </div>
+                
+                <div className="relative">
+                  <input 
+                    type="file" 
+                    id="new-return-upload" 
+                    multiple 
+                    className="hidden" 
+                    onChange={(e) => {
+                      if (e.target.files) {
+                        setFilesToUpload(prev => [...prev, ...Array.from(e.target.files || [])]);
+                        e.target.value = ""; 
+                      }
+                    }}
+                  />
+                  <label 
+                    htmlFor="new-return-upload"
+                    className={cn(
+                      "cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
+                      "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]",
+                      "hover:bg-[hsl(var(--bg-muted))]"
+                    )}
+                  >
+                    <UploadCloud className="h-4 w-4" />
+                    Ajouter un fichier
+                  </label>
+                </div>
+              </div>
+              
+              {filesToUpload.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filesToUpload.map((f, i) => (
+                    <div key={i} className="flex justify-between items-center px-3 py-2 text-sm rounded-lg border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))]">
+                      <div className="flex items-center gap-2 truncate">
+                        <Paperclip className="h-3.5 w-3.5 text-[hsl(var(--text-tertiary))]" />
+                        <span className="truncate max-w-[200px]">{f.name}</span>
+                        <span className="text-xs text-[hsl(var(--text-muted))]">({(f.size / 1024).toFixed(0)} KB)</span>
+                      </div>
+                      <button 
+                        onClick={() => setFilesToUpload(prev => prev.filter((_, idx) => idx !== i))}
+                        className="p-1 rounded-md text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))]"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-[hsl(var(--text-muted))] text-center py-2 italic">
+                  Les fichiers seront uploadés à la création du retour.
+                </div>
+              )}
+            </div>
+
+            {/* Products */}
+            <div className="space-y-3">
+              <h4 className="font-semibold text-[hsl(var(--text-primary))]">Produits</h4>
+              <div className="space-y-2">
+                {products.map((p, idx) => (
+                  <ProductRow
+                    key={p.id}
+                    product={p}
+                    onChange={(updatedProduct) => {
+                      const arr = products.slice();
+                      arr[idx] = updatedProduct;
+                      setProducts(arr);
+                    }}
+                    onRemove={() => removeProduct(p.id)}
+                  />
+                ))}
+                {products.length === 0 && (
+                  <div className="text-sm text-[hsl(var(--text-muted))] py-6 text-center">
+                    Aucun produit. Ajoutez des lignes ci-dessous.
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={addProduct}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium",
+                  "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))]",
+                  "hover:bg-[hsl(var(--bg-elevated))]"
+                )}
+              >
+                <Plus className="h-4 w-4" />
+                Ajouter produit
+              </button>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <h4 className="font-semibold text-[hsl(var(--text-primary))]">Description</h4>
+              <textarea
+                className="w-full rounded-xl border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-accent"
+                rows={4}
+                placeholder="Notes internes, contexte, instructions…"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+            
+            {/* Bottom Options Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-[hsl(var(--border-subtle))]">
+                <div className="space-y-3 p-3 bg-[hsl(var(--bg-muted))] rounded-lg border border-[hsl(var(--border-subtle))]">
+                   <Switch label="Pickup" checked={isPickup} onCheckedChange={setIsPickup} />
+                   <input 
+                     disabled={!isPickup} 
+                     value={noBill} 
+                     onChange={(e) => setNoBill(e.target.value)}
+                     className="w-full text-xs p-2 rounded border disabled:opacity-50 disabled:bg-gray-100"
+                     placeholder="No. Bill / Bon de transport"
+                   />
+                </div>
+
+                <div className="space-y-3 p-3 bg-[hsl(var(--bg-muted))] rounded-lg border border-[hsl(var(--border-subtle))]">
+                   <Switch label="Commande" checked={isCommande} onCheckedChange={setIsCommande} />
+                   <input 
+                     disabled={!isCommande} 
+                     value={noBonCommande} 
+                     onChange={(e) => setNoBonCommande(e.target.value)}
+                     className="w-full text-xs p-2 rounded border disabled:opacity-50 disabled:bg-gray-100"
+                     placeholder="No. Bon de commande"
+                   />
+                </div>
+
+                <div className="space-y-3 p-3 bg-[hsl(var(--bg-muted))] rounded-lg border border-[hsl(var(--border-subtle))]">
+                   <Switch label="Réclamation" checked={isReclamation} onCheckedChange={setIsReclamation} />
+                   <input 
+                     disabled={!isReclamation} 
+                     value={noReclamation} 
+                     onChange={(e) => setNoReclamation(e.target.value)}
+                     className="w-full text-xs p-2 rounded border disabled:opacity-50 disabled:bg-gray-100"
+                     placeholder="No. Réclamation"
+                   />
+                </div>
+            </div>
+
+          </div>
+
+          <div className="px-6 py-4 border-t border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))]">
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-[hsl(var(--text-muted))]">
+                Le code retour sera généré automatiquement.
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={onClose}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium",
+                    "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]",
+                    "hover:bg-[hsl(var(--bg-elevated))]"
+                  )}
+                >
+                  <X className="h-4 w-4" />
+                  Annuler
+                </button>
+                <button
+                  disabled={busy}
+                  onClick={submit}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold",
+                    "bg-[hsl(var(--success))] text-white",
+                    "hover:brightness-110",
+                    busy && "opacity-70 pointer-events-none"
+                  )}
+                >
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4" />}
+                  Créer le retour
                 </button>
               </div>
             </div>
