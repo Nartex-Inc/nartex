@@ -1,3 +1,4 @@
+// src/app/dashboard/admin/returns/page.tsx
 "use client";
 
 import * as React from "react";
@@ -34,91 +35,10 @@ import {
 import { cn } from "@/lib/utils";
 import { AttachmentsSection } from "@/components/returns/AttachmentsSection";
 
-// 👇 Use the shared types if available, or fallback to local definition if you prefer. 
-// For safety against build errors, I am defining the interface locally here to match your Backend response exactly.
+// 👇 IMPORT TYPES (Assumes you created src/types/returns.ts)
+import type { ReturnRow, Reporter, Cause, Attachment, ProductLine, ReturnStatus, ItemSuggestion } from "@/types/returns";
 
-/* =============================================================================
-   Types & constants
-============================================================================= */
-type Reporter = 
-  | "expert" 
-  | "transporteur" 
-  | "client" 
-  | "prise_commande" 
-  | "autre";
-
-type Cause =
-  | "production"
-  | "pompe"
-  | "autre_cause"
-  | "exposition_sinto"
-  | "transporteur"
-  | "expert"
-  | "expedition"
-  | "analyse"
-  | "defect"
-  | "surplus_inventaire"
-  | "prise_commande"
-  | "rappel"
-  | "redirection"
-  | "fournisseur"
-  | "autre";
-
-type ReturnStatus = "draft" | "awaiting_physical" | "received_or_no_physical";
-
-type Attachment = { id: string; name: string; url: string; downloadUrl?: string };
-
-type ProductLine = {
-  id: string;
-  codeProduit: string;
-  descriptionProduit: string | null;
-  descriptionRetour?: string | null;
-  quantite: number;
-  poidsUnitaire?: number | null;
-  poidsTotal?: number | null;
-};
-
-// Update ReturnRow to include all fields sent by the backend
-type ReturnRow = {
-  id: string;
-  reportedAt: string;
-  reporter: Reporter;
-  cause: Cause;
-  expert: string;
-  client: string;
-  noClient?: string;
-  noCommande?: string;
-  tracking?: string;
-  status: ReturnStatus;
-  standby?: boolean;
-  amount?: number | null;
-  dateCommande?: string | null;
-  transport?: string | null;
-  attachments?: Attachment[];
-  products?: ProductLine[];
-  description?: string;
-  // Creator info populated by backend
-  createdBy?: { name: string; avatar?: string | null; at: string };
-  
-  // Logic fields
-  physicalReturn?: boolean; 
-  verified?: boolean;       
-  finalized?: boolean;      
-  isDraft?: boolean;
-
-  // Toggles & Linked Fields
-  isPickup?: boolean;       
-  noBill?: string | null;
-  
-  isCommande?: boolean;     
-  noBonCommande?: string | null;
-
-  isReclamation?: boolean;  
-  noReclamation?: string | null;
-};
-
-type ItemSuggestion = { code: string; descr?: string | null };
-
+// Labels can stay local for UI display
 const REPORTER_LABEL: Record<string, string> = {
   expert: "Expert",
   transporteur: "Transporteur",
@@ -461,6 +381,9 @@ export default function ReturnsPage() {
     });
   };
 
+  // -------------------------------------------------------------------------
+  //  STRICT COLOR LOGIC
+  // -------------------------------------------------------------------------
   const getRowClasses = (row: ReturnRow) => {
     if (row.finalized) {
        return "bg-gray-100 text-gray-500 border-b border-gray-200 grayscale";
@@ -470,16 +393,15 @@ export default function ReturnsPage() {
       return "bg-white text-black border-b border-gray-200 hover:brightness-95";
     }
 
-    // Safe casting
     const isPhysical = !!row.physicalReturn;
     const isVerified = !!row.verified;
 
-    // Physical & NOT Verified -> BLACK (Text White)
+    // Physical & NOT Verified -> BLACK
     if (isPhysical && !isVerified) {
       return "bg-black text-white border-b border-gray-800 hover:bg-neutral-900";
     }
 
-    // (Physical & Verified) OR (!Physical) -> BRIGHT YELLOW-GREEN (#84cc16)
+    // (Physical & Verified) OR (!Physical) -> BRIGHT YELLOW-GREEN
     if ((isPhysical && isVerified) || !isPhysical) {
       return "bg-[#84cc16] text-white border-b border-[#65a30d] hover:bg-[#65a30d]";
     }
@@ -949,13 +871,13 @@ function ProductRow({
       <input
         className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
         placeholder="Description produit"
-        value={product.descriptionProduit || ""} // FIX: Handle null gracefully
+        value={product.descriptionProduit || ""} // FIX: Handle null with || ""
         onChange={(e) => onChange({ ...product, descriptionProduit: e.target.value })}
       />
       <input
         className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
         placeholder="Description retour"
-        value={product.descriptionRetour ?? ""} // FIX: Handle null gracefully
+        value={product.descriptionRetour ?? ""} // FIX: Handle null with ?? ""
         onChange={(e) => onChange({ ...product, descriptionRetour: e.target.value })}
       />
       <input
@@ -976,6 +898,11 @@ function ProductRow({
   );
 }
 
+// ... Rest of components (DetailModal, NewReturnModal, Field) ...
+// Make sure DetailModal uses `creatorAvatar ?? null` or similar if needed, 
+// though `AvatarImage` handles null src gracefully usually.
+// Wait, DetailModal also needs the same fix for creator info.
+
 /* =============================================================================
    Detail Modal
 ============================================================================= */
@@ -993,9 +920,9 @@ function DetailModal({
 
   React.useEffect(() => setDraft(row), [row]);
 
-  // Use API creator data if available, prioritizing legacy mapping over active user
+  // Use API creator data if available
   const creatorName = draft.createdBy?.name ?? session?.user?.name ?? REPORTER_LABEL[draft.reporter];
-  const creatorAvatar = draft.createdBy?.avatar ?? null; // Removed session fallback to ensure correct avatar for legacy returns
+  const creatorAvatar = draft.createdBy?.avatar ?? null; // Don't fallback to session user to avoid confusion
   const creatorDate = draft.createdBy?.at ? new Date(draft.createdBy.at) : new Date(draft.reportedAt);
 
   const isPhysical = !!draft.physicalReturn;
@@ -1011,11 +938,16 @@ function DetailModal({
 
   return (
     <div className="fixed inset-0 z-[200]">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="absolute inset-0 flex items-start justify-center p-4 sm:p-8 overflow-y-auto">
+       {/* ... Same modal content ... */}
+       {/* Just checking if there are other potential null errors in DetailModal inputs? */}
+       {/* Field component uses `value={value}`. If value is null it might warn but usually controlled inputs want "" */}
+       {/* In DetailModal usage of Field: value={draft.expert || ""} etc. I added those checks in previous step. */}
+       
+       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+       <div className="absolute inset-0 flex items-start justify-center p-4 sm:p-8 overflow-y-auto">
         <div className="w-full max-w-[1100px] rounded-2xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-2xl my-8">
-          {/* Header */}
-          <div className="px-6 py-4 border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-elevated))]">
+           {/* ... Header ... */}
+           <div className="px-6 py-4 border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-elevated))]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="flex items-center justify-center h-10 w-10 rounded-full bg-[hsl(var(--bg-muted))]">
@@ -1037,98 +969,45 @@ function DetailModal({
               </button>
             </div>
           </div>
-
-          {/* Body */}
-          <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-6 py-6 space-y-6">
-            
-            {/* LOGIC TOGGLES */}
+          
+           {/* ... Body ... */}
+           <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-6 py-6 space-y-6">
             <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] space-y-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-[hsl(var(--text-muted))]">Options de traitement</h4>
-              
-              {/* Top Row: Physical Return & Verification */}
               <div className="flex flex-wrap items-center gap-6 border-b border-[hsl(var(--border-subtle))] pb-4">
-                <Switch 
-                   label="Retour physique de la marchandise" 
-                   checked={isPhysical} 
-                   onCheckedChange={(c) => setDraft({ ...draft, physicalReturn: c })} 
-                />
-                
+                <Switch label="Retour physique de la marchandise" checked={isPhysical} onCheckedChange={(c) => setDraft({ ...draft, physicalReturn: c })} />
                 {isPhysical && (
-                  <button
-                    onClick={() => setDraft({ ...draft, verified: !isVerified })}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
-                      isVerified
-                        ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-                        : "bg-white border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]"
-                    )}
-                  >
-                    <CheckCircle className="h-4 w-4" />
-                    {isVerified ? "Vérifié (OK)" : "Marquer comme vérifié"}
+                  <button onClick={() => setDraft({ ...draft, verified: !isVerified })} className={cn("flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors", isVerified ? "bg-emerald-100 text-emerald-800 border-emerald-200" : "bg-white border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]" )}>
+                    <CheckCircle className="h-4 w-4" /> {isVerified ? "Vérifié (OK)" : "Marquer comme vérifié"}
                   </button>
                 )}
-
                 {(isVerified || !isPhysical) && !isDraft && (
-                   <button
-                    onClick={() => setDraft({ ...draft, finalized: !isFinalized })}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
-                      isFinalized
-                        ? "bg-gray-100 text-gray-800 border-gray-200"
-                        : "bg-white border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]"
-                    )}
-                   >
-                    <Archive className="h-4 w-4" />
-                    {isFinalized ? "Finalisé (Archivé)" : "Finaliser le retour"}
+                   <button onClick={() => setDraft({ ...draft, finalized: !isFinalized })} className={cn("flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors", isFinalized ? "bg-gray-100 text-gray-800 border-gray-200" : "bg-white border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]" )}>
+                    <Archive className="h-4 w-4" /> {isFinalized ? "Finalisé (Archivé)" : "Finaliser le retour"}
                    </button>
                 )}
               </div>
-              
-              {/* Contextual Status Message */}
               <div className="text-sm font-medium pb-2">
                 {isPhysical && !isVerified && <span className="text-red-500 flex items-center gap-2"><AlertCircle className="h-4 w-4"/> En attente de vérification physique (Ligne noire)</span>}
                 {((isPhysical && isVerified) || !isPhysical) && !isFinalized && <span className="text-emerald-600 flex items-center gap-2"><Check className="h-4 w-4"/> Dossier actif (Ligne verte)</span>}
                 {isFinalized && <span className="text-gray-500 flex items-center gap-2"><Archive className="h-4 w-4"/> Dossier clos (Archivé)</span>}
               </div>
-
-              {/* Bottom Row: Admin Toggles */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
                   <div className="space-y-3 p-3 bg-[hsl(var(--bg-surface))] rounded-lg border border-[hsl(var(--border-subtle))]">
                      <Switch label="Pickup" checked={!!draft.isPickup} onCheckedChange={(c) => setDraft({ ...draft, isPickup: c })} />
-                     <input 
-                       disabled={!draft.isPickup} 
-                       value={draft.noBill ?? ""} 
-                       onChange={(e) => setDraft({ ...draft, noBill: e.target.value })}
-                       className="w-full text-xs p-2 rounded border disabled:opacity-50 disabled:bg-gray-100"
-                       placeholder="No. Bill / Bon de transport"
-                     />
+                     <input disabled={!draft.isPickup} value={draft.noBill ?? ""} onChange={(e) => setDraft({ ...draft, noBill: e.target.value })} className="w-full text-xs p-2 rounded border disabled:opacity-50 disabled:bg-gray-100" placeholder="No. Bill / Bon de transport" />
                   </div>
-
                   <div className="space-y-3 p-3 bg-[hsl(var(--bg-surface))] rounded-lg border border-[hsl(var(--border-subtle))]">
                      <Switch label="Commande" checked={!!draft.isCommande} onCheckedChange={(c) => setDraft({ ...draft, isCommande: c })} />
-                     <input 
-                       disabled={!draft.isCommande} 
-                       value={draft.noBonCommande ?? ""} 
-                       onChange={(e) => setDraft({ ...draft, noBonCommande: e.target.value })}
-                       className="w-full text-xs p-2 rounded border disabled:opacity-50 disabled:bg-gray-100"
-                       placeholder="No. Bon de commande"
-                     />
+                     <input disabled={!draft.isCommande} value={draft.noBonCommande ?? ""} onChange={(e) => setDraft({ ...draft, noBonCommande: e.target.value })} className="w-full text-xs p-2 rounded border disabled:opacity-50 disabled:bg-gray-100" placeholder="No. Bon de commande" />
                   </div>
-
                   <div className="space-y-3 p-3 bg-[hsl(var(--bg-surface))] rounded-lg border border-[hsl(var(--border-subtle))]">
                      <Switch label="Réclamation" checked={!!draft.isReclamation} onCheckedChange={(c) => setDraft({ ...draft, isReclamation: c })} />
-                     <input 
-                       disabled={!draft.isReclamation} 
-                       value={draft.noReclamation ?? ""} 
-                       onChange={(e) => setDraft({ ...draft, noReclamation: e.target.value })}
-                       className="w-full text-xs p-2 rounded border disabled:opacity-50 disabled:bg-gray-100"
-                       placeholder="No. Réclamation"
-                     />
+                     <input disabled={!draft.isReclamation} value={draft.noReclamation ?? ""} onChange={(e) => setDraft({ ...draft, noReclamation: e.target.value })} className="w-full text-xs p-2 rounded border disabled:opacity-50 disabled:bg-gray-100" placeholder="No. Réclamation" />
                   </div>
               </div>
             </div>
 
-            {/* Creator Info */}
             <div className="flex items-center gap-3 p-3 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))]">
               <Avatar className="h-9 w-9">
                 <AvatarImage src={creatorAvatar ?? ""} alt={creatorName} />
@@ -1144,7 +1023,6 @@ function DetailModal({
               </div>
             </div>
 
-            {/* Fields */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Field label="Expert" value={draft.expert || ""} onChange={(v) => setDraft({ ...draft, expert: v })} />
               <Field label="Client" value={draft.client || ""} onChange={(v) => setDraft({ ...draft, client: v })} />
@@ -1154,16 +1032,9 @@ function DetailModal({
               <Field label="Transport" value={draft.transport ?? ""} onChange={(v) => setDraft({ ...draft, transport: v || null })} />
               <Field label="Montant" value={draft.amount?.toString() ?? ""} onChange={(v) => setDraft({ ...draft, amount: v ? Number(v) : null })} />
               <Field label="Date commande" type="date" value={draft.dateCommande ?? ""} onChange={(v) => setDraft({ ...draft, dateCommande: v || null })} />
-              <Field
-                label="Cause"
-                as="select"
-                value={draft.cause}
-                onChange={(v) => setDraft({ ...draft, cause: v as Cause })}
-                options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))}
-              />
+              <Field label="Cause" as="select" value={draft.cause} onChange={(v) => setDraft({ ...draft, cause: v as Cause })} options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))} />
             </div>
 
-            {/* Attachments Section */}
             <AttachmentsSection
               returnCode={draft.id}
               attachments={draft.attachments?.map(a => ({ id: a.id, name: a.name, url: a.url, downloadUrl: a.downloadUrl })) || []}
@@ -1175,12 +1046,10 @@ function DetailModal({
               readOnly={draft.finalized}
             />
 
-            {/* Products */}
             <div className="space-y-3">
               <h4 className="font-semibold flex items-center gap-2 text-[hsl(var(--text-primary))]">
                 <Package className="h-4 w-4" /> Produits (RMA)
               </h4>
-
               <div className="space-y-2">
                 {(draft.products ?? []).map((p, idx) => (
                   <ProductRow
@@ -1197,51 +1066,26 @@ function DetailModal({
                     }}
                   />
                 ))}
-                {(draft.products?.length ?? 0) === 0 && (
-                  <div className="text-sm text-[hsl(var(--text-muted))] py-6 text-center">Aucun produit.</div>
-                )}
+                {(draft.products?.length ?? 0) === 0 && <div className="text-sm text-[hsl(var(--text-muted))] py-6 text-center">Aucun produit.</div>}
               </div>
             </div>
 
-            {/* Description */}
             <div className="space-y-2">
               <h4 className="font-semibold text-[hsl(var(--text-primary))]">Description</h4>
-              <textarea
-                className="w-full rounded-xl border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-accent"
-                rows={4}
-                placeholder="Notes internes, contexte, instructions…"
-                value={draft.description ?? ""}
-                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-              />
+              <textarea className="w-full rounded-xl border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-accent" rows={4} placeholder="Notes internes, contexte, instructions…" value={draft.description ?? ""} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
             </div>
-          </div>
+           </div>
 
-          {/* Footer */}
-          <div className="px-6 py-4 border-t border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))]">
+           {/* Footer */}
+           <div className="px-6 py-4 border-t border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))]">
             <div className="flex items-center justify-between">
               <div className="text-xs text-[hsl(var(--text-muted))]">Lecture/édition locale.</div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => { onPatched(draft); alert("Brouillon enregistré (local)."); }}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium",
-                    "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]",
-                    "hover:bg-[hsl(var(--bg-elevated))]"
-                  )}
-                >
-                  <Save className="h-4 w-4" />
-                  Enregistrer
+                <button onClick={() => { onPatched(draft); alert("Brouillon enregistré (local)."); }} className={cn("inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium", "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]", "hover:bg-[hsl(var(--bg-elevated))]")}>
+                  <Save className="h-4 w-4" /> Enregistrer
                 </button>
-                <button
-                  onClick={() => { onPatched({ status: "received_or_no_physical" }); alert("Envoyé (local)."); }}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold",
-                    "bg-[hsl(var(--success))] text-white",
-                    "hover:brightness-110"
-                  )}
-                >
-                  <Send className="h-4 w-4" />
-                  Envoyer pour approbation
+                <button onClick={() => { onPatched({ status: "received_or_no_physical" }); alert("Envoyé (local)."); }} className={cn("inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold", "bg-[hsl(var(--success))] text-white", "hover:brightness-110")}>
+                  <Send className="h-4 w-4" /> Envoyer pour approbation
                 </button>
               </div>
             </div>
