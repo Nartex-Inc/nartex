@@ -1,4 +1,5 @@
 // src/app/api/returns/route.ts
+// Returns list and create - GET (list), POST (create)
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get("mode");
 
-    // Handle "Get Next ID" request
+    // Handle "Get Next ID" request (MAX + 1 Logic)
     if (mode === "next_id") {
       const lastReturn = await prisma.return.findFirst({
         select: { id: true },
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
     const where: Prisma.ReturnWhereInput = {};
     const AND: Prisma.ReturnWhereInput[] = [];
 
-    // Safety: Hide corrupted rows
+    // Safety: Hide corrupted rows (Draft & Final)
     AND.push({
       NOT: {
         AND: [{ isDraft: true }, { isFinal: true }]
@@ -81,7 +82,6 @@ export async function GET(request: NextRequest) {
     if (dateFrom) AND.push({ reportedAt: { gte: new Date(dateFrom) } });
     if (dateTo) AND.push({ reportedAt: { lte: new Date(dateTo) } });
 
-    // Status Filters
     if (status === "draft") {
       AND.push({ isDraft: true });
     } else if (status === "awaiting_physical") {
@@ -101,7 +101,6 @@ export async function GET(request: NextRequest) {
       AND.push({ isFinal: true });
     }
 
-    // Default Visibility
     if (!status) {
       AND.push({ isStandby: false });
       if (!history) {
@@ -122,7 +121,7 @@ export async function GET(request: NextRequest) {
     });
 
     // --- USER AVATAR LOOKUP LOGIC ---
-    // 1. Collect all unique emails from the returns list
+    // 1. Collect all unique emails/names from the returns list
     const emailsToFetch = new Set<string>();
     
     returns.forEach(r => {
@@ -149,7 +148,6 @@ export async function GET(request: NextRequest) {
       if (u.email) userMap.set(u.email, { image: u.image, name: u.name });
     });
 
-    // --- MAP RESPONSE ---
     const data: ReturnRow[] = returns.map((ret) => {
       // Resolve Created By info
       const initiatorName = ret.initiatedBy || "Système";
@@ -161,6 +159,7 @@ export async function GET(request: NextRequest) {
       if (email && userMap.has(email)) {
         const u = userMap.get(email);
         avatarUrl = u?.image || null;
+        // Optionally override name with DB name if desired, or keep legacy name
       }
 
       return {
@@ -181,7 +180,8 @@ export async function GET(request: NextRequest) {
         transport: ret.transporteur,
         description: ret.description,
         
-        physicalReturn: ret.returnPhysical,
+        // Mapped fields
+        physicalReturn: ret.returnPhysical, 
         verified: ret.isVerified,
         finalized: ret.isFinal,
         isPickup: ret.isPickup,
