@@ -1,6 +1,4 @@
 // src/app/api/returns/route.ts
-// Returns list and create - GET (list), POST (create)
-
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
@@ -16,6 +14,12 @@ const LEGACY_USER_MAP: Record<string, string> = {
   'Anick Poulin': 'a.poulin@sinto.ca',
   'Jessica Lessard': 'j.lessard@sinto.ca',
   'Stéphanie Veilleux': 's.veilleux@sinto.ca',
+  // Lowercase fallbacks for safety
+  'suzie boutin': 's.boutin@sinto.ca',
+  'hugo fortin': 'h.fortin@sinto.ca',
+  'anick poulin': 'a.poulin@sinto.ca',
+  'jessica lessard': 'j.lessard@sinto.ca',
+  'stéphanie veilleux': 's.veilleux@sinto.ca',
 };
 
 export async function GET(request: NextRequest) {
@@ -28,7 +32,6 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get("mode");
 
-    // Handle "Get Next ID" request (MAX + 1 Logic)
     if (mode === "next_id") {
       const lastReturn = await prisma.return.findFirst({
         select: { id: true },
@@ -38,7 +41,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ok: true, nextId });
     }
 
-    // --- Standard List Logic ---
     const q = searchParams.get("q") || "";
     const cause = searchParams.get("cause");
     const reporter = searchParams.get("reporter");
@@ -121,45 +123,49 @@ export async function GET(request: NextRequest) {
     });
 
     // --- USER AVATAR LOOKUP LOGIC ---
-    // 1. Collect all unique emails/names from the returns list
     const emailsToFetch = new Set<string>();
-    
-    returns.forEach(r => {
-      const initiator = r.initiatedBy || "";
-      // Check legacy map first
-      if (LEGACY_USER_MAP[initiator]) {
-        emailsToFetch.add(LEGACY_USER_MAP[initiator]);
-      } 
-      // If it looks like an email, add it directly (for modern returns)
-      else if (initiator.includes("@")) {
-        emailsToFetch.add(initiator);
+
+    const resolveEmail = (ret: any): string | null => {
+      // 1. Try initiatedBy (Legacy Mapping)
+      const initiator = ret.initiatedBy || "";
+      if (LEGACY_USER_MAP[initiator]) return LEGACY_USER_MAP[initiator];
+      if (LEGACY_USER_MAP[initiator.trim()]) return LEGACY_USER_MAP[initiator.trim()];
+      if (initiator.includes("@")) return initiator;
+
+      // 2. Try Expert field if reporter is Expert (Fallback for legacy data)
+      if (ret.reporter === "expert" && ret.expert) {
+        if (LEGACY_USER_MAP[ret.expert]) return LEGACY_USER_MAP[ret.expert];
       }
+      return null;
+    };
+
+    returns.forEach(r => {
+      const email = resolveEmail(r);
+      if (email) emailsToFetch.add(email);
     });
 
-    // 2. Fetch User objects from DB
+    // Fetch User objects
     const users = await prisma.user.findMany({
       where: { email: { in: Array.from(emailsToFetch) } },
       select: { email: true, image: true, name: true }
     });
 
-    // 3. Create a Map for O(1) access
     const userMap = new Map<string, { image: string | null, name: string | null }>();
     users.forEach(u => {
       if (u.email) userMap.set(u.email, { image: u.image, name: u.name });
     });
 
     const data: ReturnRow[] = returns.map((ret) => {
-      // Resolve Created By info
       const initiatorName = ret.initiatedBy || "Système";
+      const email = resolveEmail(ret);
+      
       let avatarUrl = null;
-      
-      // Try to find email
-      const email = LEGACY_USER_MAP[initiatorName] || (initiatorName.includes("@") ? initiatorName : null);
-      
+      let displayName = initiatorName;
+
       if (email && userMap.has(email)) {
         const u = userMap.get(email);
         avatarUrl = u?.image || null;
-        // Optionally override name with DB name if desired, or keep legacy name
+        if (u?.name) displayName = u.name;
       }
 
       return {
@@ -180,7 +186,7 @@ export async function GET(request: NextRequest) {
         transport: ret.transporteur,
         description: ret.description,
         
-        // Mapped fields
+        // 👇 CRITICAL FIX: Mapping 'returnPhysical' to 'physicalReturn'
         physicalReturn: ret.returnPhysical, 
         verified: ret.isVerified,
         finalized: ret.isFinal,
@@ -193,9 +199,8 @@ export async function GET(request: NextRequest) {
         noBonCommande: ret.noBonCommande,
         noReclamation: ret.noReclamation,
 
-        // Populated Creator Info
         createdBy: {
-          name: initiatorName,
+          name: displayName,
           avatar: avatarUrl,
           at: (ret.initializedAt || ret.reportedAt).toISOString()
         },
@@ -274,13 +279,16 @@ export async function POST(request: NextRequest) {
         dateCommande: body.dateCommande || null,
         transporteur: body.transport || null,
         description: body.description || null,
+        
         returnPhysical: body.physicalReturn ?? false,
         isPickup: body.isPickup ?? false,
         isCommande: body.isCommande ?? false,
         isReclamation: body.isReclamation ?? false,
+        
         noBill: body.noBill || null,
         noBonCommande: body.noBonCommande || null,
         noReclamation: body.noReclamation || null,
+
         isDraft,
         isFinal: false,
         isVerified: false,
