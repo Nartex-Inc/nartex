@@ -870,13 +870,13 @@ function ProductRow({
       <input
         className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
         placeholder="Description produit"
-        value={product.descriptionProduit || ""} // FIX: Handle null with || ""
+        value={product.descriptionProduit || ""}
         onChange={(e) => onChange({ ...product, descriptionProduit: e.target.value })}
       />
       <input
         className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
         placeholder="Description retour"
-        value={product.descriptionRetour ?? ""} // FIX: Handle null with ?? ""
+        value={product.descriptionRetour ?? ""}
         onChange={(e) => onChange({ ...product, descriptionRetour: e.target.value })}
       />
       <input
@@ -897,11 +897,6 @@ function ProductRow({
   );
 }
 
-// ... Rest of components (DetailModal, NewReturnModal, Field) ...
-// Make sure DetailModal uses `creatorAvatar ?? null` or similar if needed, 
-// though `AvatarImage` handles null src gracefully usually.
-// Wait, DetailModal also needs the same fix for creator info.
-
 /* =============================================================================
    Detail Modal
 ============================================================================= */
@@ -919,9 +914,9 @@ function DetailModal({
 
   React.useEffect(() => setDraft(row), [row]);
 
-  // Use API creator data if available
+  // Use API creator data if available, prioritizing legacy mapping over active user
   const creatorName = draft.createdBy?.name ?? session?.user?.name ?? REPORTER_LABEL[draft.reporter];
-  const creatorAvatar = draft.createdBy?.avatar ?? null; // Don't fallback to session user to avoid confusion
+  const creatorAvatar = draft.createdBy?.avatar ?? null;
   const creatorDate = draft.createdBy?.at ? new Date(draft.createdBy.at) : new Date(draft.reportedAt);
 
   const isPhysical = !!draft.physicalReturn;
@@ -937,15 +932,10 @@ function DetailModal({
 
   return (
     <div className="fixed inset-0 z-[200]">
-       {/* ... Same modal content ... */}
-       {/* Just checking if there are other potential null errors in DetailModal inputs? */}
-       {/* Field component uses `value={value}`. If value is null it might warn but usually controlled inputs want "" */}
-       {/* In DetailModal usage of Field: value={draft.expert || ""} etc. I added those checks in previous step. */}
-       
        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
        <div className="absolute inset-0 flex items-start justify-center p-4 sm:p-8 overflow-y-auto">
         <div className="w-full max-w-[1100px] rounded-2xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-2xl my-8">
-           {/* ... Header ... */}
+           {/* Header */}
            <div className="px-6 py-4 border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-elevated))]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -969,7 +959,7 @@ function DetailModal({
             </div>
           </div>
           
-           {/* ... Body ... */}
+           {/* Body */}
            <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-6 py-6 space-y-6">
             <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] space-y-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-[hsl(var(--text-muted))]">Options de traitement</h4>
@@ -1071,7 +1061,13 @@ function DetailModal({
 
             <div className="space-y-2">
               <h4 className="font-semibold text-[hsl(var(--text-primary))]">Description</h4>
-              <textarea className="w-full rounded-xl border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-accent" rows={4} placeholder="Notes internes, contexte, instructions…" value={draft.description ?? ""} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
+              <textarea
+                className="w-full rounded-xl border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-accent"
+                rows={4}
+                placeholder="Notes internes, contexte, instructions…"
+                value={draft.description ?? ""}
+                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+              />
             </div>
            </div>
 
@@ -1203,8 +1199,8 @@ function NewReturnModal({
         reportedAt, 
         products: products.map((p) => ({
           codeProduit: p.codeProduit.trim(),
-          descriptionProduit: p.descriptionProduit.trim(),
-          descriptionRetour: p.descriptionRetour?.trim(),
+          descriptionProduit: p.descriptionProduit?.trim() || "",
+          descriptionRetour: p.descriptionRetour?.trim() || "",
           quantite: p.quantite,
         })),
       });
