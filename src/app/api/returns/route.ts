@@ -8,6 +8,7 @@ import type { ReturnRow, Reporter, Cause } from "@/types/returns";
 import { Prisma } from "@prisma/client";
 
 // MAPPING: Legacy Name -> New Email
+// Ensure keys match exactly what is in the DB 'initiatedBy' or 'expert' column
 const LEGACY_USER_MAP: Record<string, string> = {
   'Suzie Boutin': 's.boutin@sinto.ca',
   'Hugo Fortin': 'h.fortin@sinto.ca',
@@ -130,11 +131,18 @@ export async function GET(request: NextRequest) {
       const initiator = ret.initiatedBy || "";
       if (LEGACY_USER_MAP[initiator]) return LEGACY_USER_MAP[initiator];
       if (LEGACY_USER_MAP[initiator.trim()]) return LEGACY_USER_MAP[initiator.trim()];
+      
+      // Case-insensitive check
+      const lowerInitiator = initiator.toLowerCase().trim();
+      if (LEGACY_USER_MAP[lowerInitiator]) return LEGACY_USER_MAP[lowerInitiator];
+
       if (initiator.includes("@")) return initiator;
 
       // 2. Try Expert field if reporter is Expert (Fallback for legacy data)
       if (ret.reporter === "expert" && ret.expert) {
         if (LEGACY_USER_MAP[ret.expert]) return LEGACY_USER_MAP[ret.expert];
+        const lowerExpert = ret.expert.toLowerCase().trim();
+         if (LEGACY_USER_MAP[lowerExpert]) return LEGACY_USER_MAP[lowerExpert];
       }
       return null;
     };
@@ -186,7 +194,6 @@ export async function GET(request: NextRequest) {
         transport: ret.transporteur,
         description: ret.description,
         
-        // Mapped fields
         physicalReturn: ret.returnPhysical, 
         verified: ret.isVerified,
         finalized: ret.isFinal,
@@ -279,16 +286,13 @@ export async function POST(request: NextRequest) {
         dateCommande: body.dateCommande || null,
         transporteur: body.transport || null,
         description: body.description || null,
-        
         returnPhysical: body.physicalReturn ?? false,
         isPickup: body.isPickup ?? false,
         isCommande: body.isCommande ?? false,
         isReclamation: body.isReclamation ?? false,
-        
         noBill: body.noBill || null,
         noBonCommande: body.noBonCommande || null,
         noReclamation: body.noReclamation || null,
-
         isDraft,
         isFinal: false,
         isVerified: false,
