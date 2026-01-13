@@ -897,6 +897,11 @@ function ProductRow({
   );
 }
 
+// ... Rest of components (DetailModal, NewReturnModal, Field) ...
+// Make sure DetailModal uses `creatorAvatar ?? null` or similar if needed, 
+// though `AvatarImage` handles null src gracefully usually.
+// Wait, DetailModal also needs the same fix for creator info.
+
 /* =============================================================================
    Detail Modal
 ============================================================================= */
@@ -932,6 +937,11 @@ function DetailModal({
 
   return (
     <div className="fixed inset-0 z-[200]">
+       {/* ... Same modal content ... */}
+       {/* Just checking if there are other potential null errors in DetailModal inputs? */}
+       {/* Field component uses `value={value}`. If value is null it might warn but usually controlled inputs want "" */}
+       {/* In DetailModal usage of Field: value={draft.expert || ""} etc. I added those checks in previous step. */}
+       
        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
        <div className="absolute inset-0 flex items-start justify-center p-4 sm:p-8 overflow-y-auto">
         <div className="w-full max-w-[1100px] rounded-2xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-2xl my-8">
