@@ -127,23 +127,25 @@ export async function GET(request: NextRequest) {
     const emailsToFetch = new Set<string>();
 
     const resolveEmail = (ret: any): string | null => {
-      // 1. Try initiatedBy (Legacy Mapping)
-      const initiator = ret.initiatedBy || "";
-      if (LEGACY_USER_MAP[initiator]) return LEGACY_USER_MAP[initiator];
-      if (LEGACY_USER_MAP[initiator.trim()]) return LEGACY_USER_MAP[initiator.trim()];
-      
-      // Case-insensitive check
-      const lowerInitiator = initiator.toLowerCase().trim();
-      if (LEGACY_USER_MAP[lowerInitiator]) return LEGACY_USER_MAP[lowerInitiator];
-
-      if (initiator.includes("@")) return initiator;
-
-      // 2. Try Expert field if reporter is Expert (Fallback for legacy data)
+      // Primary: Use reporter type to determine which field contains the person's name
       if (ret.reporter === "expert" && ret.expert) {
-        if (LEGACY_USER_MAP[ret.expert]) return LEGACY_USER_MAP[ret.expert];
-        const lowerExpert = ret.expert.toLowerCase().trim();
-         if (LEGACY_USER_MAP[lowerExpert]) return LEGACY_USER_MAP[lowerExpert];
+        const expertName = ret.expert.trim();
+        // Check legacy map
+        if (LEGACY_USER_MAP[expertName]) return LEGACY_USER_MAP[expertName];
+        if (LEGACY_USER_MAP[expertName.toLowerCase()]) return LEGACY_USER_MAP[expertName.toLowerCase()];
+        // If expert field is already an email
+        if (expertName.includes("@")) return expertName;
       }
+    
+      // For other reporter types (transporteur, client, autre, prise_commande)
+      // Check if initiatedBy has useful data as fallback
+      if (ret.initiatedBy) {
+        const initiator = ret.initiatedBy.trim();
+        if (LEGACY_USER_MAP[initiator]) return LEGACY_USER_MAP[initiator];
+        if (LEGACY_USER_MAP[initiator.toLowerCase()]) return LEGACY_USER_MAP[initiator.toLowerCase()];
+        if (initiator.includes("@")) return initiator;
+      }
+    
       return null;
     };
 
@@ -164,15 +166,20 @@ export async function GET(request: NextRequest) {
     });
 
     const data: ReturnRow[] = returns.map((ret) => {
-      const initiatorName = ret.initiatedBy || "Système";
+      // Primary: Use expert name when reporter is expert
+      const reporterName = ret.reporter === "expert" && ret.expert
+        ? ret.expert
+        : ret.initiatedBy || REPORTER_LABELS[ret.reporter] || "Système";
+    
       const email = resolveEmail(ret);
       
       let avatarUrl = null;
-      let displayName = initiatorName;
-
+      let displayName = reporterName;
+    
       if (email && userMap.has(email)) {
         const u = userMap.get(email);
         avatarUrl = u?.image || null;
+        // Only override name if we have a better one from the user record
         if (u?.name) displayName = u.name;
       }
 
