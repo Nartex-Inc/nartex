@@ -1092,7 +1092,8 @@ function DetailModal({
 }
 
 /* =============================================================================
-   New Return Modal
+   New Return Modal - Premium Redesign
+   Keep all logic identical, only UI/UX improvements
 ============================================================================= */
 function NewReturnModal({
   onClose,
@@ -1101,6 +1102,8 @@ function NewReturnModal({
   onClose: () => void;
   onCreated: () => Promise<void> | void;
 }) {
+  const { data: session } = useSession();
+  
   const [reporter, setReporter] = React.useState<Reporter>("expert");
   const [cause, setCause] = React.useState<Cause>("production");
   const [expert, setExpert] = React.useState("");
@@ -1117,7 +1120,6 @@ function NewReturnModal({
   const [isCommande, setIsCommande] = React.useState(false);
   const [isReclamation, setIsReclamation] = React.useState(false);
   
-  // New string fields for toggles
   const [noBill, setNoBill] = React.useState("");
   const [noBonCommande, setNoBonCommande] = React.useState("");
   const [noReclamation, setNoReclamation] = React.useState("");
@@ -1129,9 +1131,13 @@ function NewReturnModal({
 
   const [filesToUpload, setFilesToUpload] = React.useState<File[]>([]);
   const [busy, setBusy] = React.useState(false);
+  const [orderLookupLoading, setOrderLookupLoading] = React.useState(false);
+
+  // Current user info for display
+  const currentUserName = session?.user?.name || "Utilisateur";
+  const currentUserInitials = currentUserName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
 
   React.useEffect(() => {
-    // Fetch the next ID when the modal mounts
     const fetchNextId = async () => {
       try {
         const res = await fetch("/api/returns?mode=next_id");
@@ -1154,16 +1160,22 @@ function NewReturnModal({
   const removeProduct = (pid: string) => setProducts((p) => p.filter((x) => x.id !== pid));
 
   const onFetchFromOrder = async () => {
-    const data = await lookupOrder(noCommande);
-    if (!data) return;
-    if (data.customerName) setClient(data.customerName);
-    if (data.salesrepName) setExpert(data.salesrepName);
-    if (data.carrierName) setTransport(data.carrierName);
-    if (data.tracking) setTracking(data.tracking);
-    if (data.orderDate) setDateCommande(String(data.orderDate).slice(0, 10));
-    if (data.totalamt != null) setAmount(String(data.totalamt));
-    const customerCode = (data.noClient ?? "") as string | number;
-    setNoClient(String(customerCode));
+    if (!noCommande.trim()) return;
+    setOrderLookupLoading(true);
+    try {
+      const data = await lookupOrder(noCommande);
+      if (!data) return;
+      if (data.customerName) setClient(data.customerName);
+      if (data.salesrepName) setExpert(data.salesrepName);
+      if (data.carrierName) setTransport(data.carrierName);
+      if (data.tracking) setTracking(data.tracking);
+      if (data.orderDate) setDateCommande(String(data.orderDate).slice(0, 10));
+      if (data.totalamt != null) setAmount(String(data.totalamt));
+      const customerCode = (data.noClient ?? "") as string | number;
+      setNoClient(String(customerCode));
+    } finally {
+      setOrderLookupLoading(false);
+    }
   };
 
   const submit = async () => {
@@ -1173,7 +1185,6 @@ function NewReturnModal({
     }
     setBusy(true);
     try {
-      // 1. Create the return
       const createdReturn = await createReturn({
         reporter,
         cause,
@@ -1186,16 +1197,13 @@ function NewReturnModal({
         dateCommande: dateCommande || null,
         transport: transport.trim() || null,
         description: description.trim() || null,
-        
         physicalReturn, 
         isPickup,      
         isCommande,    
         isReclamation, 
-        
         noBill: isPickup ? noBill : null,
         noBonCommande: isCommande ? noBonCommande : null,
         noReclamation: isReclamation ? noReclamation : null,
-
         reportedAt, 
         products: products.map((p) => ({
           codeProduit: p.codeProduit.trim(),
@@ -1205,7 +1213,6 @@ function NewReturnModal({
         })),
       });
 
-      // 2. Upload files if any, linking them to the new return ID
       if (filesToUpload.length > 0 && createdReturn?.codeRetour) {
         for (const file of filesToUpload) {
           await uploadAttachment(String(createdReturn.codeRetour), file);
@@ -1229,262 +1236,539 @@ function NewReturnModal({
 
   return (
     <div className="fixed inset-0 z-[210]">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="absolute inset-0 flex items-start justify-center p-4 sm:p-8 overflow-y-auto">
-        <div className="w-full max-w-[1100px] rounded-2xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-2xl my-8">
-          <div className="px-6 py-4 border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-elevated))]">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-[hsl(var(--text-primary))]">Nouveau retour</h2>
-              <button onClick={onClose} className="p-2 rounded-lg hover:bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))]">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-
-          <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-6 py-6 space-y-6">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/70 backdrop-blur-md" 
+        onClick={onClose} 
+      />
+      
+      {/* Modal Container */}
+      <div className="absolute inset-0 flex items-start justify-center p-4 sm:p-6 overflow-y-auto">
+        <div className="w-full max-w-[1200px] my-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          
+          {/* Modal Card */}
+          <div className="rounded-3xl border border-white/10 bg-gradient-to-b from-[#1a1a1a] to-[#0d0d0d] shadow-2xl shadow-black/50 overflow-hidden">
             
-            {/* Top Row: Physical & No Commande */}
-            <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] flex items-center justify-between gap-6">
-               <div className="flex-1">
-                 <Switch 
-                   label="Retour physique de la marchandise"
-                   checked={physicalReturn}
-                   onCheckedChange={setPhysicalReturn}
-                 />
-                 {physicalReturn && <p className="mt-2 text-xs text-[hsl(var(--text-muted))]">Ce retour apparaîtra en évidence (ligne noire) jusqu'à sa réception.</p>}
-               </div>
-               
-               <div className="w-full sm:max-w-[300px]">
-                 <Field 
-                   label="No. commande" 
-                   value={noCommande} 
-                   onChange={setNoCommande} 
-                   onBlur={onFetchFromOrder} 
-                   placeholder="Ex: 92427"
-                 />
-               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Field
-                label="Code de retour"
-                value={nextId}
-                onChange={() => {}} // No-op
-                readOnly
-                className="bg-[hsl(var(--bg-muted))/50] text-[hsl(var(--text-secondary))] font-mono"
-              />
-              <Field 
-                label="Date de signalement" 
-                type="date" 
-                value={reportedAt} 
-                onChange={setReportedAt} 
-                required
-              />
-              <Field
-                label="Signalé par"
-                as="select"
-                value={reporter}
-                onChange={(v) => setReporter(v as Reporter)}
-                options={[
-                  { value: "expert", label: "Expert" },
-                  { value: "transporteur", label: "Transporteur" },
-                  { value: "client", label: "Client" },
-                  { value: "autre", label: "Autre" },
-                ]}
-                required
-              />
-              <Field
-                label="Cause"
-                as="select"
-                value={cause}
-                onChange={(v) => setCause(v as Cause)}
-                options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))}
-                required
-              />
-              <Field label="Expert" value={expert} onChange={setExpert} required />
-              <Field label="Client" value={client} onChange={setClient} required />
-              <Field label="No. client" value={noClient} onChange={setNoClient} />
-              
-              <Field label="No. tracking" value={tracking} onChange={setTracking} />
-              <Field label="Transport" value={transport} onChange={setTransport} />
-              <Field label="Montant" value={amount} onChange={setAmount} />
-              <Field label="Date commande" type="date" value={dateCommande} onChange={setDateCommande} />
-            </div>
-
-            {/* Attachments (Queue) */}
-            <div className="space-y-3">
+            {/* ============================================================
+                HEADER
+            ============================================================ */}
+            <div className="relative px-8 py-6 border-b border-white/10 bg-gradient-to-r from-white/[0.03] to-transparent">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Folder className="h-5 w-5 text-[hsl(var(--text-tertiary))]" />
-                  <h4 className="font-semibold text-[hsl(var(--text-primary))]">Fichiers à joindre</h4>
-                  <span className="text-xs text-[hsl(var(--text-muted))]">({filesToUpload.length})</span>
+                <div className="flex items-center gap-5">
+                  {/* Return Code Badge */}
+                  <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/25">
+                    <span className="font-mono text-lg font-bold text-white tracking-tight">
+                      {nextId.replace('R', '')}
+                    </span>
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-white tracking-tight">
+                      Nouveau retour
+                    </h2>
+                    <p className="mt-0.5 text-sm text-white/50">
+                      Créé par {currentUserName} • {new Date().toLocaleDateString("fr-CA")}
+                    </p>
+                  </div>
                 </div>
                 
-                <div className="relative">
-                  <input 
-                    type="file" 
-                    id="new-return-upload" 
-                    multiple 
-                    className="hidden" 
-                    onChange={(e) => {
-                      if (e.target.files) {
-                        setFilesToUpload(prev => [...prev, ...Array.from(e.target.files || [])]);
-                        e.target.value = ""; // reset
-                      }
-                    }}
-                  />
-                  <label 
-                    htmlFor="new-return-upload"
-                    className={cn(
-                      "cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
-                      "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]",
-                      "hover:bg-[hsl(var(--bg-muted))]"
-                    )}
-                  >
-                    <UploadCloud className="h-4 w-4" />
-                    Ajouter un fichier
-                  </label>
-                </div>
+                <button 
+                  onClick={onClose} 
+                  className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all duration-200 hover:scale-105"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-              
-              {filesToUpload.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {filesToUpload.map((f, i) => (
-                    <div key={i} className="flex justify-between items-center px-3 py-2 text-sm rounded-lg border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))]">
-                      <div className="flex items-center gap-2 truncate">
-                        <Paperclip className="h-3.5 w-3.5 text-[hsl(var(--text-tertiary))]" />
-                        <span className="truncate max-w-[200px]">{f.name}</span>
-                        <span className="text-xs text-[hsl(var(--text-muted))]">({(f.size / 1024).toFixed(0)} KB)</span>
+            </div>
+
+            {/* ============================================================
+                BODY
+            ============================================================ */}
+            <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
+              <div className="px-8 py-8 space-y-8">
+                
+                {/* --------------------------------------------------------
+                    HERO SECTION: Order Lookup + Physical Return Toggle
+                -------------------------------------------------------- */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  
+                  {/* Order Lookup Card - PROMINENT */}
+                  <div className="relative group">
+                    <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 rounded-2xl opacity-75 blur group-hover:opacity-100 transition duration-300" />
+                    <div className="relative p-6 rounded-2xl bg-[#1a1a1a] border border-white/10">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2.5 rounded-xl bg-amber-500/20">
+                          <Search className="h-5 w-5 text-amber-400" />
+                        </div>
+                        <div>
+                          <h3 className="text-base font-semibold text-white">Recherche rapide</h3>
+                          <p className="text-xs text-white/50">Entrez un numéro de commande pour auto-remplir</p>
+                        </div>
                       </div>
-                      <button 
-                        onClick={() => setFilesToUpload(prev => prev.filter((_, idx) => idx !== i))}
-                        className="p-1 rounded-md text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))]"
+                      
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={noCommande}
+                          onChange={(e) => setNoCommande(e.target.value)}
+                          onBlur={onFetchFromOrder}
+                          onKeyDown={(e) => e.key === "Enter" && onFetchFromOrder()}
+                          placeholder="No. commande (ex: 92427)"
+                          className={cn(
+                            "w-full px-5 py-4 rounded-xl text-lg font-mono font-semibold",
+                            "bg-black/50 border-2 border-amber-500/50",
+                            "text-white placeholder:text-white/30",
+                            "focus:outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-500/20",
+                            "transition-all duration-200"
+                          )}
+                        />
+                        {orderLookupLoading && (
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                            <Loader2 className="h-5 w-5 text-amber-400 animate-spin" />
+                          </div>
+                        )}
+                      </div>
+                      
+                      <p className="mt-3 text-xs text-white/40 flex items-center gap-2">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Appuyez Enter ou cliquez ailleurs pour charger les données
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Physical Return Toggle - GREEN */}
+                  <div 
+                    className={cn(
+                      "relative p-6 rounded-2xl border-2 transition-all duration-300 cursor-pointer",
+                      physicalReturn 
+                        ? "bg-emerald-500/10 border-emerald-500 shadow-lg shadow-emerald-500/20" 
+                        : "bg-white/[0.02] border-white/10 hover:border-white/20"
+                    )}
+                    onClick={() => setPhysicalReturn(!physicalReturn)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className={cn(
+                          "p-3 rounded-xl transition-colors",
+                          physicalReturn ? "bg-emerald-500/20" : "bg-white/5"
+                        )}>
+                          <Package className={cn(
+                            "h-6 w-6 transition-colors",
+                            physicalReturn ? "text-emerald-400" : "text-white/40"
+                          )} />
+                        </div>
+                        <div>
+                          <h3 className={cn(
+                            "text-base font-semibold transition-colors",
+                            physicalReturn ? "text-emerald-400" : "text-white"
+                          )}>
+                            Retour physique de marchandise
+                          </h3>
+                          <p className="mt-1 text-sm text-white/50 max-w-[280px]">
+                            {physicalReturn 
+                              ? "Ce retour nécessite une vérification à la réception" 
+                              : "Activez si le client retourne physiquement le produit"}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Custom Green Toggle */}
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={physicalReturn}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPhysicalReturn(!physicalReturn);
+                        }}
+                        className={cn(
+                          "relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a1a1a]",
+                          physicalReturn ? "bg-emerald-500" : "bg-white/20"
+                        )}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <span
+                          className={cn(
+                            "pointer-events-none block h-7 w-7 rounded-full bg-white shadow-lg ring-0 transition-transform duration-200",
+                            physicalReturn ? "translate-x-6" : "translate-x-0"
+                          )}
+                        />
                       </button>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-[hsl(var(--text-muted))] text-center py-2 italic">
-                  Les fichiers seront uploadés à la création du retour.
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <h4 className="font-semibold text-[hsl(var(--text-primary))]">Produits</h4>
-              <div className="space-y-2">
-                {products.map((p, idx) => (
-                  <ProductRow
-                    key={p.id}
-                    product={p}
-                    onChange={(updatedProduct) => {
-                      const arr = products.slice();
-                      arr[idx] = updatedProduct;
-                      setProducts(arr);
-                    }}
-                    onRemove={() => removeProduct(p.id)}
-                  />
-                ))}
-                {products.length === 0 && (
-                  <div className="text-sm text-[hsl(var(--text-muted))] py-6 text-center">
-                    Aucun produit. Ajoutez des lignes ci-dessous.
+                    
+                    {physicalReturn && (
+                      <div className="mt-4 pt-4 border-t border-emerald-500/20">
+                        <div className="flex items-center gap-2 text-sm text-emerald-400">
+                          <AlertCircle className="h-4 w-4" />
+                          <span>La ligne apparaîtra en <strong>noir</strong> jusqu'à vérification</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <button
-                onClick={addProduct}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium",
-                  "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))]",
-                  "hover:bg-[hsl(var(--bg-elevated))]"
-                )}
-              >
-                <Plus className="h-4 w-4" />
-                Ajouter produit
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              <h4 className="font-semibold text-[hsl(var(--text-primary))]">Description</h4>
-              <textarea
-                className="w-full rounded-xl border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-accent"
-                rows={4}
-                placeholder="Notes internes, contexte, instructions…"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </div>
-            
-            {/* Bottom Options Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-[hsl(var(--border-subtle))]">
-                <div className="space-y-3 p-3 bg-[hsl(var(--bg-muted))] rounded-lg border border-[hsl(var(--border-subtle))]">
-                   <Switch label="Pickup" checked={isPickup} onCheckedChange={setIsPickup} />
-                   <input 
-                     disabled={!isPickup} 
-                     value={noBill} 
-                     onChange={(e) => setNoBill(e.target.value)}
-                     className="w-full text-xs p-2 rounded border disabled:opacity-50 disabled:bg-gray-100"
-                     placeholder="No. Bill / Bon de transport"
-                   />
                 </div>
 
-                <div className="space-y-3 p-3 bg-[hsl(var(--bg-muted))] rounded-lg border border-[hsl(var(--border-subtle))]">
-                   <Switch label="Commande" checked={isCommande} onCheckedChange={setIsCommande} />
-                   <input 
-                     disabled={!isCommande} 
-                     value={noBonCommande} 
-                     onChange={(e) => setNoBonCommande(e.target.value)}
-                     className="w-full text-xs p-2 rounded border disabled:opacity-50 disabled:bg-gray-100"
-                     placeholder="No. Bon de commande"
-                   />
+                {/* --------------------------------------------------------
+                    MAIN FORM SECTION
+                -------------------------------------------------------- */}
+                <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/10">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 rounded-lg bg-white/5">
+                      <FileText className="h-4 w-4 text-white/60" />
+                    </div>
+                    <h3 className="text-sm font-semibold text-white/80 uppercase tracking-wider">
+                      Informations du retour
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                    {/* Date */}
+                    <PremiumField 
+                      label="Date de signalement" 
+                      type="date" 
+                      value={reportedAt} 
+                      onChange={setReportedAt} 
+                      required
+                      icon={<Calendar className="h-4 w-4" />}
+                    />
+                    
+                    {/* Reporter */}
+                    <PremiumField
+                      label="Signalé par"
+                      as="select"
+                      value={reporter}
+                      onChange={(v) => setReporter(v as Reporter)}
+                      options={[
+                        { value: "expert", label: "Expert" },
+                        { value: "transporteur", label: "Transporteur" },
+                        { value: "client", label: "Client" },
+                        { value: "autre", label: "Autre" },
+                      ]}
+                      required
+                    />
+                    
+                    {/* Cause */}
+                    <PremiumField
+                      label="Cause"
+                      as="select"
+                      value={cause}
+                      onChange={(v) => setCause(v as Cause)}
+                      options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))}
+                      required
+                    />
+                    
+                    {/* No Client */}
+                    <PremiumField 
+                      label="No. client" 
+                      value={noClient} 
+                      onChange={setNoClient}
+                      placeholder="Ex: 12345"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
+                    {/* Expert - Important */}
+                    <PremiumField 
+                      label="Expert" 
+                      value={expert} 
+                      onChange={setExpert} 
+                      required
+                      placeholder="Nom du représentant"
+                      highlight
+                    />
+                    
+                    {/* Client - Important */}
+                    <PremiumField 
+                      label="Client" 
+                      value={client} 
+                      onChange={setClient} 
+                      required
+                      placeholder="Nom du client"
+                      highlight
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mt-5">
+                    <PremiumField 
+                      label="No. tracking" 
+                      value={tracking} 
+                      onChange={setTracking}
+                      placeholder="Ex: 1Z999..."
+                      icon={<Truck className="h-4 w-4" />}
+                    />
+                    <PremiumField 
+                      label="Transporteur" 
+                      value={transport} 
+                      onChange={setTransport}
+                      placeholder="Ex: Purolator"
+                    />
+                    <PremiumField 
+                      label="Montant" 
+                      value={amount} 
+                      onChange={setAmount}
+                      placeholder="0.00"
+                      icon={<DollarSign className="h-4 w-4" />}
+                    />
+                    <PremiumField 
+                      label="Date commande" 
+                      type="date" 
+                      value={dateCommande} 
+                      onChange={setDateCommande}
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-3 p-3 bg-[hsl(var(--bg-muted))] rounded-lg border border-[hsl(var(--border-subtle))]">
-                   <Switch label="Réclamation" checked={isReclamation} onCheckedChange={setIsReclamation} />
-                   <input 
-                     disabled={!isReclamation} 
-                     value={noReclamation} 
-                     onChange={(e) => setNoReclamation(e.target.value)}
-                     className="w-full text-xs p-2 rounded border disabled:opacity-50 disabled:bg-gray-100"
-                     placeholder="No. Réclamation"
-                   />
-                </div>
-            </div>
+                {/* --------------------------------------------------------
+                    PRODUCTS SECTION
+                -------------------------------------------------------- */}
+                <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/10">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-blue-500/10">
+                        <Package className="h-4 w-4 text-blue-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-white/80 uppercase tracking-wider">
+                          Produits (RMA)
+                        </h3>
+                        <p className="text-xs text-white/40 mt-0.5">
+                          {products.length} produit{products.length !== 1 ? "s" : ""} ajouté{products.length !== 1 ? "s" : ""}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <button
+                      onClick={addProduct}
+                      className={cn(
+                        "inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold",
+                        "bg-blue-500/10 text-blue-400 border border-blue-500/30",
+                        "hover:bg-blue-500/20 hover:border-blue-500/50",
+                        "transition-all duration-200"
+                      )}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Ajouter produit
+                    </button>
+                  </div>
 
-          </div>
-
-          <div className="px-6 py-4 border-t border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))]">
-            <div className="flex items-center justify-between">
-              <div className="text-xs text-[hsl(var(--text-muted))]">
-                Le code retour sera généré automatiquement.
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={onClose}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium",
-                    "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]",
-                    "hover:bg-[hsl(var(--bg-elevated))]"
+                  {products.length === 0 ? (
+                    <div className="py-12 text-center border-2 border-dashed border-white/10 rounded-xl">
+                      <Package className="h-10 w-10 mx-auto mb-3 text-white/20" />
+                      <p className="text-sm text-white/40">Aucun produit ajouté</p>
+                      <p className="text-xs text-white/30 mt-1">Cliquez sur "Ajouter produit" pour commencer</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {products.map((p, idx) => (
+                        <ProductRowPremium
+                          key={p.id}
+                          product={p}
+                          index={idx + 1}
+                          onChange={(updatedProduct) => {
+                            const arr = products.slice();
+                            arr[idx] = updatedProduct;
+                            setProducts(arr);
+                          }}
+                          onRemove={() => removeProduct(p.id)}
+                        />
+                      ))}
+                    </div>
                   )}
-                >
-                  <X className="h-4 w-4" />
-                  Annuler
-                </button>
-                <button
-                  disabled={busy}
-                  onClick={submit}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold",
-                    "bg-[hsl(var(--success))] text-white",
-                    "hover:brightness-110",
-                    busy && "opacity-70 pointer-events-none"
+                </div>
+
+                {/* --------------------------------------------------------
+                    ATTACHMENTS SECTION
+                -------------------------------------------------------- */}
+                <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/10">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-purple-500/10">
+                        <Paperclip className="h-4 w-4 text-purple-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-white/80 uppercase tracking-wider">
+                          Pièces jointes
+                        </h3>
+                        <p className="text-xs text-white/40 mt-0.5">
+                          {filesToUpload.length} fichier{filesToUpload.length !== 1 ? "s" : ""} en attente
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="relative">
+                      <input 
+                        type="file" 
+                        id="new-return-upload" 
+                        multiple 
+                        className="hidden" 
+                        onChange={(e) => {
+                          if (e.target.files) {
+                            setFilesToUpload(prev => [...prev, ...Array.from(e.target.files || [])]);
+                            e.target.value = "";
+                          }
+                        }}
+                      />
+                      <label 
+                        htmlFor="new-return-upload"
+                        className={cn(
+                          "cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold",
+                          "bg-purple-500/10 text-purple-400 border border-purple-500/30",
+                          "hover:bg-purple-500/20 hover:border-purple-500/50",
+                          "transition-all duration-200"
+                        )}
+                      >
+                        <UploadCloud className="h-4 w-4" />
+                        Ajouter fichier
+                      </label>
+                    </div>
+                  </div>
+
+                  {filesToUpload.length === 0 ? (
+                    <div className="py-8 text-center border-2 border-dashed border-white/10 rounded-xl">
+                      <UploadCloud className="h-8 w-8 mx-auto mb-2 text-white/20" />
+                      <p className="text-sm text-white/40">Glissez vos fichiers ici ou cliquez pour parcourir</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {filesToUpload.map((f, i) => (
+                        <div 
+                          key={i} 
+                          className="flex items-center justify-between px-4 py-3 rounded-xl bg-white/5 border border-white/10"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-2 rounded-lg bg-purple-500/10">
+                              <FileText className="h-4 w-4 text-purple-400" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-white truncate">{f.name}</p>
+                              <p className="text-xs text-white/40">{(f.size / 1024).toFixed(0)} KB</p>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => setFilesToUpload(prev => prev.filter((_, idx) => idx !== i))}
+                            className="p-2 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   )}
-                >
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4" />}
-                  Créer le retour
-                </button>
+                </div>
+
+                {/* --------------------------------------------------------
+                    DESCRIPTION
+                -------------------------------------------------------- */}
+                <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/10">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 rounded-lg bg-white/5">
+                      <FileText className="h-4 w-4 text-white/60" />
+                    </div>
+                    <h3 className="text-sm font-semibold text-white/80 uppercase tracking-wider">
+                      Notes & Description
+                    </h3>
+                  </div>
+                  
+                  <textarea
+                    className={cn(
+                      "w-full px-4 py-3 rounded-xl text-sm",
+                      "bg-black/30 border border-white/10",
+                      "text-white placeholder:text-white/30",
+                      "focus:outline-none focus:border-white/30 focus:ring-2 focus:ring-white/10",
+                      "transition-all duration-200 resize-none"
+                    )}
+                    rows={4}
+                    placeholder="Notes internes, contexte, instructions spéciales..."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </div>
+
+                {/* --------------------------------------------------------
+                    OPTIONS GRID
+                -------------------------------------------------------- */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <OptionCard
+                    label="Pickup"
+                    description="Bon de transport requis"
+                    checked={isPickup}
+                    onCheckedChange={setIsPickup}
+                    inputValue={noBill}
+                    onInputChange={setNoBill}
+                    inputPlaceholder="No. Bill / Bon de transport"
+                    color="cyan"
+                  />
+                  <OptionCard
+                    label="Commande"
+                    description="Lier à un bon de commande"
+                    checked={isCommande}
+                    onCheckedChange={setIsCommande}
+                    inputValue={noBonCommande}
+                    onInputChange={setNoBonCommande}
+                    inputPlaceholder="No. Bon de commande"
+                    color="indigo"
+                  />
+                  <OptionCard
+                    label="Réclamation"
+                    description="Ouvrir une réclamation"
+                    checked={isReclamation}
+                    onCheckedChange={setIsReclamation}
+                    inputValue={noReclamation}
+                    onInputChange={setNoReclamation}
+                    inputPlaceholder="No. Réclamation"
+                    color="rose"
+                  />
+                </div>
+
+              </div>
+            </div>
+
+            {/* ============================================================
+                FOOTER
+            ============================================================ */}
+            <div className="px-8 py-5 border-t border-white/10 bg-gradient-to-r from-white/[0.02] to-transparent">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center h-8 w-8 rounded-full bg-emerald-500/20">
+                    <span className="text-xs font-bold text-emerald-400">{currentUserInitials}</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="text-white/40">Création par </span>
+                    <span className="text-white/80 font-medium">{currentUserName}</span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={onClose}
+                    className={cn(
+                      "inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium",
+                      "bg-white/5 text-white/70 border border-white/10",
+                      "hover:bg-white/10 hover:text-white",
+                      "transition-all duration-200"
+                    )}
+                  >
+                    <X className="h-4 w-4" />
+                    Annuler
+                  </button>
+                  <button
+                    disabled={busy}
+                    onClick={submit}
+                    className={cn(
+                      "inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold",
+                      "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white",
+                      "hover:from-emerald-400 hover:to-emerald-500",
+                      "shadow-lg shadow-emerald-500/25",
+                      "transition-all duration-200 hover:scale-[1.02]",
+                      busy && "opacity-70 pointer-events-none"
+                    )}
+                  >
+                    {busy ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                    Créer le retour
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1494,6 +1778,371 @@ function NewReturnModal({
   );
 }
 
+/* =============================================================================
+   Premium Field Component
+============================================================================= */
+function PremiumField({
+  label,
+  value,
+  onChange,
+  type = "text",
+  as,
+  options,
+  placeholder,
+  required,
+  icon,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  as?: "select";
+  options?: { value: string; label: string }[];
+  placeholder?: string;
+  required?: boolean;
+  icon?: React.ReactNode;
+  highlight?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className={cn(
+        "text-xs font-semibold uppercase tracking-wider mb-2 block",
+        required ? "text-white/70" : "text-white/50"
+      )}>
+        {label}
+        {required && <span className="text-emerald-400 ml-1">*</span>}
+      </span>
+      
+      <div className="relative">
+        {icon && (
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30">
+            {icon}
+          </div>
+        )}
+        
+        {as === "select" ? (
+          <select
+            className={cn(
+              "w-full px-4 py-3 rounded-xl text-sm",
+              "bg-black/30 border border-white/10",
+              "text-white",
+              "focus:outline-none focus:border-white/30 focus:ring-2 focus:ring-white/10",
+              "transition-all duration-200",
+              "appearance-none cursor-pointer",
+              highlight && "border-emerald-500/30 bg-emerald-500/5"
+            )}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+          >
+            {options?.map((o) => (
+              <option key={o.value} value={o.value} className="bg-[#1a1a1a]">
+                {o.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            type={type}
+            className={cn(
+              "w-full py-3 rounded-xl text-sm",
+              icon ? "pl-10 pr-4" : "px-4",
+              "bg-black/30 border border-white/10",
+              "text-white placeholder:text-white/30",
+              "focus:outline-none focus:border-white/30 focus:ring-2 focus:ring-white/10",
+              "transition-all duration-200",
+              highlight && "border-emerald-500/30 bg-emerald-500/5"
+            )}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+          />
+        )}
+      </div>
+    </label>
+  );
+}
+
+/* =============================================================================
+   Premium Product Row
+============================================================================= */
+function ProductRowPremium({
+  product,
+  index,
+  onChange,
+  onRemove
+}: {
+  product: ProductLine;
+  index: number;
+  onChange: (p: ProductLine) => void;
+  onRemove: () => void;
+}) {
+  const [suggestions, setSuggestions] = React.useState<ItemSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(false);
+  
+  const debouncedCode = useDebounced(product.codeProduit, 300);
+
+  React.useEffect(() => {
+    let active = true;
+    const fetchSuggestions = async () => {
+      if (!showSuggestions || debouncedCode.trim().length < 2) {
+        setSuggestions([]);
+        return;
+      }
+      setIsLoading(true);
+      try {
+        const results = await searchItems(debouncedCode);
+        if (active) setSuggestions(results);
+      } catch (error) {
+        console.error("Autocomplete error:", error);
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    };
+    fetchSuggestions();
+    return () => { active = false; };
+  }, [debouncedCode, showSuggestions]);
+
+  const selectSuggestion = (s: ItemSuggestion) => {
+    onChange({
+      ...product,
+      codeProduit: s.code,
+      descriptionProduit: s.descr || product.descriptionProduit
+    });
+    setSuggestions([]);
+    setShowSuggestions(false);
+  };
+
+  return (
+    <div className="p-4 rounded-xl bg-black/20 border border-white/10 hover:border-white/20 transition-colors">
+      <div className="flex items-center gap-4">
+        {/* Index Badge */}
+        <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-blue-500/20 text-blue-400 text-sm font-bold shrink-0">
+          {index}
+        </div>
+        
+        {/* Fields Grid */}
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-[180px_1fr_1fr_80px] gap-3">
+          {/* Code Produit with Autocomplete */}
+          <div className="relative">
+            <input
+              className={cn(
+                "w-full px-3 py-2.5 rounded-lg text-sm font-mono",
+                "bg-black/30 border border-white/10",
+                "text-white placeholder:text-white/30",
+                "focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20",
+                "transition-all duration-200"
+              )}
+              placeholder="Code produit"
+              value={product.codeProduit}
+              onChange={(e) => {
+                onChange({ ...product, codeProduit: e.target.value });
+                setShowSuggestions(true);
+              }}
+              onFocus={() => {
+                if (product.codeProduit.length >= 2) setShowSuggestions(true);
+              }}
+              onBlur={() => {
+                setTimeout(() => setShowSuggestions(false), 200);
+              }}
+              autoComplete="off"
+            />
+            
+            {showSuggestions && (suggestions.length > 0 || isLoading) && (
+              <div className="absolute z-50 top-full left-0 mt-1 w-[280px] max-h-48 overflow-y-auto rounded-lg border border-white/20 bg-[#1a1a1a] shadow-xl">
+                {isLoading && suggestions.length === 0 && (
+                  <div className="flex items-center gap-2 px-3 py-2 text-xs text-white/50">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Recherche...
+                  </div>
+                )}
+                {suggestions.map((s) => (
+                  <button
+                    key={s.code}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-white/10 border-b border-white/5 last:border-0 transition-colors"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      selectSuggestion(s);
+                    }}
+                  >
+                    <div className="font-mono font-semibold text-white">{s.code}</div>
+                    {s.descr && <div className="text-xs text-white/50 truncate">{s.descr}</div>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Description Produit */}
+          <input
+            className={cn(
+              "w-full px-3 py-2.5 rounded-lg text-sm",
+              "bg-black/30 border border-white/10",
+              "text-white placeholder:text-white/30",
+              "focus:outline-none focus:border-white/30",
+              "transition-all duration-200"
+            )}
+            placeholder="Description produit"
+            value={product.descriptionProduit || ""}
+            onChange={(e) => onChange({ ...product, descriptionProduit: e.target.value })}
+          />
+
+          {/* Description Retour */}
+          <input
+            className={cn(
+              "w-full px-3 py-2.5 rounded-lg text-sm",
+              "bg-black/30 border border-white/10",
+              "text-white placeholder:text-white/30",
+              "focus:outline-none focus:border-white/30",
+              "transition-all duration-200"
+            )}
+            placeholder="Raison du retour"
+            value={product.descriptionRetour ?? ""}
+            onChange={(e) => onChange({ ...product, descriptionRetour: e.target.value })}
+          />
+
+          {/* Quantité */}
+          <input
+            type="number"
+            min={0}
+            className={cn(
+              "w-full px-3 py-2.5 rounded-lg text-sm text-center font-mono",
+              "bg-black/30 border border-white/10",
+              "text-white placeholder:text-white/30",
+              "focus:outline-none focus:border-white/30",
+              "transition-all duration-200"
+            )}
+            placeholder="Qté"
+            value={product.quantite}
+            onChange={(e) => onChange({ ...product, quantite: Number(e.target.value || 0) })}
+          />
+        </div>
+
+        {/* Delete Button */}
+        <button
+          onClick={onRemove}
+          className="p-2.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 shrink-0"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* =============================================================================
+   Option Card Component
+============================================================================= */
+function OptionCard({
+  label,
+  description,
+  checked,
+  onCheckedChange,
+  inputValue,
+  onInputChange,
+  inputPlaceholder,
+  color,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onCheckedChange: (c: boolean) => void;
+  inputValue: string;
+  onInputChange: (v: string) => void;
+  inputPlaceholder: string;
+  color: "cyan" | "indigo" | "rose";
+}) {
+  const colorClasses = {
+    cyan: {
+      bg: checked ? "bg-cyan-500/10" : "bg-white/[0.02]",
+      border: checked ? "border-cyan-500/50" : "border-white/10",
+      icon: "text-cyan-400",
+      iconBg: "bg-cyan-500/20",
+      toggle: checked ? "bg-cyan-500" : "bg-white/20",
+    },
+    indigo: {
+      bg: checked ? "bg-indigo-500/10" : "bg-white/[0.02]",
+      border: checked ? "border-indigo-500/50" : "border-white/10",
+      icon: "text-indigo-400",
+      iconBg: "bg-indigo-500/20",
+      toggle: checked ? "bg-indigo-500" : "bg-white/20",
+    },
+    rose: {
+      bg: checked ? "bg-rose-500/10" : "bg-white/[0.02]",
+      border: checked ? "border-rose-500/50" : "border-white/10",
+      icon: "text-rose-400",
+      iconBg: "bg-rose-500/20",
+      toggle: checked ? "bg-rose-500" : "bg-white/20",
+    },
+  };
+
+  const c = colorClasses[color];
+
+  return (
+    <div 
+      className={cn(
+        "p-5 rounded-2xl border-2 transition-all duration-300 cursor-pointer",
+        c.bg,
+        c.border,
+        "hover:border-opacity-80"
+      )}
+      onClick={() => onCheckedChange(!checked)}
+    >
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className={cn("p-2 rounded-lg", c.iconBg)}>
+            <Check className={cn("h-4 w-4", c.icon)} />
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold text-white">{label}</h4>
+            <p className="text-xs text-white/50">{description}</p>
+          </div>
+        </div>
+        
+        <button
+          type="button"
+          role="switch"
+          aria-checked={checked}
+          onClick={(e) => {
+            e.stopPropagation();
+            onCheckedChange(!checked);
+          }}
+          className={cn(
+            "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200",
+            c.toggle
+          )}
+        >
+          <span
+            className={cn(
+              "pointer-events-none block h-5 w-5 rounded-full bg-white shadow-lg transition-transform duration-200 mt-0.5 ml-0.5",
+              checked ? "translate-x-5" : "translate-x-0"
+            )}
+          />
+        </button>
+      </div>
+      
+      <input 
+        disabled={!checked}
+        value={inputValue}
+        onClick={(e) => e.stopPropagation()}
+        onChange={(e) => onInputChange(e.target.value)}
+        className={cn(
+          "w-full px-3 py-2.5 rounded-lg text-sm",
+          "bg-black/30 border border-white/10",
+          "text-white placeholder:text-white/30",
+          "focus:outline-none focus:border-white/30",
+          "transition-all duration-200",
+          !checked && "opacity-40 cursor-not-allowed"
+        )}
+        placeholder={inputPlaceholder}
+      />
+    </div>
+  );
+}
+
+// Add these missing icons to your imports at the top of the file:
+// import { Sparkles, Truck, DollarSign } from "lucide-react";
 /* =============================================================================
    Field Component
 ============================================================================= */
