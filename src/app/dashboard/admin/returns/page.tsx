@@ -38,12 +38,13 @@ import { cn } from "@/lib/utils";
 import { AttachmentsSection } from "@/components/returns/AttachmentsSection";
 
 /* =============================================================================
-   1. TYPES (Locally defined to ensure build success)
+   1. LOCAL TYPE DEFINITIONS
+   (Self-contained to prevent build errors from external missing/conflicting types)
 ============================================================================= */
 
-export type Reporter = "expert" | "transporteur" | "client" | "prise_commande" | "autre";
+type Reporter = "expert" | "transporteur" | "client" | "prise_commande" | "autre";
 
-export type Cause =
+type Cause =
   | "production"
   | "pompe"
   | "autre_cause"
@@ -60,16 +61,16 @@ export type Cause =
   | "fournisseur"
   | "autre";
 
-export type ReturnStatus = "draft" | "awaiting_physical" | "received_or_no_physical";
+type ReturnStatus = "draft" | "awaiting_physical" | "received_or_no_physical";
 
-export interface Attachment {
+interface Attachment {
   id: string;
   name: string;
   url: string;
   downloadUrl?: string;
 }
 
-export interface ProductLine {
+interface ProductLine {
   id: string;
   codeProduit: string;
   descriptionProduit: string | null;
@@ -83,7 +84,7 @@ export interface ProductLine {
   tauxRestock?: number | null;
 }
 
-export interface ReturnRow {
+interface ReturnRow {
   id: string;
   codeRetour: number;
   reportedAt: string;
@@ -119,7 +120,7 @@ export interface ReturnRow {
   attachments: Attachment[];
 }
 
-export type ItemSuggestion = { code: string; descr?: string | null };
+type ItemSuggestion = { code: string; descr?: string | null };
 
 type SortKey = "id" | "reportedAt" | "reporter" | "cause" | "client" | "noCommande" | "tracking" | "attachments";
 type SortDir = "asc" | "desc";
@@ -739,6 +740,7 @@ function DetailModal({
 
   React.useEffect(() => setDraft(row), [row]);
 
+  // Use API creator data if available, prioritizing legacy mapping over active user
   const creatorName = draft.createdBy?.name ?? session?.user?.name ?? REPORTER_LABEL[draft.reporter];
   const creatorAvatar = draft.createdBy?.avatar ?? null;
   const creatorDate = draft.createdBy?.at ? new Date(draft.createdBy.at) : new Date(draft.reportedAt);
