@@ -30,9 +30,9 @@ import {
   AlertCircle,
   Paperclip,
   UploadCloud,
-  Sparkles,    // Added
-  Truck,       // Added
-  DollarSign   // Added
+  Sparkles,
+  Truck,
+  DollarSign
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AttachmentsSection } from "@/components/returns/AttachmentsSection";
@@ -873,13 +873,13 @@ function ProductRow({
       <input
         className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
         placeholder="Description produit"
-        value={product.descriptionProduit || ""} // FIX: Handle null with || ""
+        value={product.descriptionProduit || ""}
         onChange={(e) => onChange({ ...product, descriptionProduit: e.target.value })}
       />
       <input
         className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
         placeholder="Description retour"
-        value={product.descriptionRetour ?? ""} // FIX: Handle null with ?? ""
+        value={product.descriptionRetour ?? ""}
         onChange={(e) => onChange({ ...product, descriptionRetour: e.target.value })}
       />
       <input
@@ -922,9 +922,9 @@ function DetailModal({
 
   React.useEffect(() => setDraft(row), [row]);
 
-  // Use API creator data if available
+  // Use API creator data if available, prioritizing legacy mapping over active user
   const creatorName = draft.createdBy?.name ?? session?.user?.name ?? REPORTER_LABEL[draft.reporter];
-  const creatorAvatar = draft.createdBy?.avatar ?? null; // Don't fallback to session user to avoid confusion
+  const creatorAvatar = draft.createdBy?.avatar ?? null;
   const creatorDate = draft.createdBy?.at ? new Date(draft.createdBy.at) : new Date(draft.reportedAt);
 
   const isPhysical = !!draft.physicalReturn;
@@ -948,7 +948,7 @@ function DetailModal({
        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
        <div className="absolute inset-0 flex items-start justify-center p-4 sm:p-8 overflow-y-auto">
         <div className="w-full max-w-[1100px] rounded-2xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-2xl my-8">
-           {/* ... Header ... */}
+           {/* Header */}
            <div className="px-6 py-4 border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-elevated))]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -972,7 +972,7 @@ function DetailModal({
             </div>
           </div>
           
-           {/* ... Body ... */}
+           {/* Body */}
            <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-6 py-6 space-y-6">
             <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] space-y-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-[hsl(var(--text-muted))]">Options de traitement</h4>
@@ -1026,15 +1026,15 @@ function DetailModal({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Field label="Expert" value={draft.expert || ""} onChange={(v) => setDraft({ ...draft, expert: v })} />
-              <Field label="Client" value={draft.client || ""} onChange={(v) => setDraft({ ...draft, client: v })} />
-              <Field label="No. client" value={draft.noClient ?? ""} onChange={(v) => setDraft({ ...draft, noClient: v || undefined })} />
-              <Field label="No. commande" value={draft.noCommande ?? ""} onChange={(v) => setDraft({ ...draft, noCommande: v || undefined })} />
-              <Field label="No. tracking" value={draft.tracking ?? ""} onChange={(v) => setDraft({ ...draft, tracking: v || undefined })} />
-              <Field label="Transport" value={draft.transport ?? ""} onChange={(v) => setDraft({ ...draft, transport: v || null })} />
-              <Field label="Montant" value={draft.amount?.toString() ?? ""} onChange={(v) => setDraft({ ...draft, amount: v ? Number(v) : null })} />
-              <Field label="Date commande" type="date" value={draft.dateCommande ?? ""} onChange={(v) => setDraft({ ...draft, dateCommande: v || null })} />
-              <Field label="Cause" as="select" value={draft.cause} onChange={(v) => setDraft({ ...draft, cause: v as Cause })} options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))} />
+              <PremiumField label="Expert" value={draft.expert || ""} onChange={(v) => setDraft({ ...draft, expert: v })} />
+              <PremiumField label="Client" value={draft.client || ""} onChange={(v) => setDraft({ ...draft, client: v })} />
+              <PremiumField label="No. client" value={draft.noClient ?? ""} onChange={(v) => setDraft({ ...draft, noClient: v || undefined })} />
+              <PremiumField label="No. commande" value={draft.noCommande ?? ""} onChange={(v) => setDraft({ ...draft, noCommande: v || undefined })} />
+              <PremiumField label="No. tracking" value={draft.tracking ?? ""} onChange={(v) => setDraft({ ...draft, tracking: v || undefined })} />
+              <PremiumField label="Transport" value={draft.transport ?? ""} onChange={(v) => setDraft({ ...draft, transport: v || null })} />
+              <PremiumField label="Montant" value={draft.amount?.toString() ?? ""} onChange={(v) => setDraft({ ...draft, amount: v ? Number(v) : null })} />
+              <PremiumField label="Date commande" type="date" value={draft.dateCommande ?? ""} onChange={(v) => setDraft({ ...draft, dateCommande: v || null })} />
+              <PremiumField label="Cause" as="select" value={draft.cause} onChange={(v) => setDraft({ ...draft, cause: v as Cause })} options={CAUSES_IN_ORDER.map((c) => ({ value: c, label: CAUSE_LABEL[c] }))} />
             </div>
 
             <AttachmentsSection
@@ -2153,6 +2153,3 @@ function OptionCard({
     </div>
   );
 }
-
-// Add these missing icons to your imports at the top of the file:
-// import { Sparkles, Truck, DollarSign } from "lucide-react";
