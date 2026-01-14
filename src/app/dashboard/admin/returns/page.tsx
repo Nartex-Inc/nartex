@@ -37,12 +37,96 @@ import {
 import { cn } from "@/lib/utils";
 import { AttachmentsSection } from "@/components/returns/AttachmentsSection";
 
-// 👇 IMPORT TYPES
-import type { ReturnRow, Reporter, Cause, Attachment, ProductLine, ReturnStatus, ItemSuggestion } from "@/types/returns";
+/* =============================================================================
+   1. TYPES (Locally defined to ensure build success)
+============================================================================= */
 
-// =============================================================================
-// 1. CONSTANTS & LABELS
-// =============================================================================
+export type Reporter = "expert" | "transporteur" | "client" | "prise_commande" | "autre";
+
+export type Cause =
+  | "production"
+  | "pompe"
+  | "autre_cause"
+  | "exposition_sinto"
+  | "transporteur"
+  | "expert"
+  | "expedition"
+  | "analyse"
+  | "defect"
+  | "surplus_inventaire"
+  | "prise_commande"
+  | "rappel"
+  | "redirection"
+  | "fournisseur"
+  | "autre";
+
+export type ReturnStatus = "draft" | "awaiting_physical" | "received_or_no_physical";
+
+export interface Attachment {
+  id: string;
+  name: string;
+  url: string;
+  downloadUrl?: string;
+}
+
+export interface ProductLine {
+  id: string;
+  codeProduit: string;
+  descriptionProduit: string | null;
+  descriptionRetour?: string | null;
+  quantite: number;
+  poidsUnitaire?: number | null;
+  poidsTotal?: number | null;
+  quantiteRecue?: number;
+  qteInventaire?: number;
+  qteDetruite?: number;
+  tauxRestock?: number | null;
+}
+
+export interface ReturnRow {
+  id: string;
+  codeRetour: number;
+  reportedAt: string;
+  reporter: Reporter;
+  cause: Cause;
+  expert: string;
+  client: string;
+  noClient?: string;
+  noCommande?: string;
+  tracking?: string;
+  status: ReturnStatus;
+  standby?: boolean;
+  amount?: number | null;
+  dateCommande?: string | null;
+  transport?: string | null;
+  description?: string;
+  physicalReturn?: boolean;
+  verified?: boolean;
+  finalized?: boolean;
+  isDraft?: boolean;
+  isPickup?: boolean;
+  isCommande?: boolean;
+  isReclamation?: boolean;
+  noBill?: string | null;
+  noBonCommande?: string | null;
+  noReclamation?: string | null;
+  createdBy?: {
+    name: string;
+    avatar: string | null;
+    at: string;
+  };
+  products: ProductLine[];
+  attachments: Attachment[];
+}
+
+export type ItemSuggestion = { code: string; descr?: string | null };
+
+type SortKey = "id" | "reportedAt" | "reporter" | "cause" | "client" | "noCommande" | "tracking" | "attachments";
+type SortDir = "asc" | "desc";
+
+/* =============================================================================
+   2. CONSTANTS & API UTILS
+============================================================================= */
 
 const REPORTER_LABEL: Record<string, string> = {
   expert: "Expert",
@@ -81,10 +165,6 @@ const CAUSES_IN_ORDER: Cause[] = [
   "autre_cause",
   "autre",
 ];
-
-// =============================================================================
-// 2. API UTILS
-// =============================================================================
 
 async function fetchReturns(params: {
   q?: string;
@@ -156,18 +236,7 @@ async function uploadAttachment(returnId: string, file: File): Promise<Attachmen
   return json.attachments[0];
 }
 
-type OrderLookup = {
-  sonbr: string | number;
-  orderDate?: string | null;
-  totalamt: number | null;
-  customerName?: string | null;
-  carrierName?: string | null;
-  salesrepName?: string | null;
-  tracking?: string | null;
-  noClient?: string | null;
-};
-
-async function lookupOrder(noCommande: string): Promise<OrderLookup | null> {
+async function lookupOrder(noCommande: string): Promise<any | null> {
   if (!noCommande.trim()) return null;
   const res = await fetch(
     `/api/prextra/order?no_commande=${encodeURIComponent(noCommande.trim())}`,
@@ -177,8 +246,6 @@ async function lookupOrder(noCommande: string): Promise<OrderLookup | null> {
   const json = await res.json();
   if (!json || json.exists === false) return null;
 
-  const normalizedNoClient = json.noClient ?? json.custCode ?? json.CustCode ?? json.customerCode ?? null;
-
   return {
     sonbr: json.sonbr ?? json.sonNbr ?? noCommande,
     orderDate: json.orderDate ?? json.OrderDate ?? null,
@@ -187,7 +254,7 @@ async function lookupOrder(noCommande: string): Promise<OrderLookup | null> {
     carrierName: json.carrierName ?? json.CarrierName ?? null,
     salesrepName: json.salesrepName ?? json.SalesrepName ?? null,
     tracking: json.tracking ?? json.TrackingNumber ?? null,
-    noClient: normalizedNoClient,
+    noClient: json.noClient ?? json.custCode ?? json.CustCode ?? json.customerCode ?? null,
   };
 }
 
@@ -211,34 +278,9 @@ function useDebounced<T>(value: T, delay = 300) {
   return v;
 }
 
-// =============================================================================
-// 3. UI COMPONENTS (Defined FIRST to prevent "Cannot find name" errors)
-// =============================================================================
-
-function Switch({ checked, onCheckedChange, label }: { checked: boolean; onCheckedChange: (c: boolean) => void; label?: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onCheckedChange(!checked)}
-        className={cn(
-          "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--bg-base))]",
-          checked ? "bg-accent" : "bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-default))]"
-        )}
-      >
-        <span
-          className={cn(
-            "pointer-events-none block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform",
-            checked ? "translate-x-5" : "translate-x-0"
-          )}
-        />
-      </button>
-      {label && <span className="text-sm font-medium text-[hsl(var(--text-primary))]">{label}</span>}
-    </div>
-  );
-}
+/* =============================================================================
+   3. SUB-COMPONENTS (Defined BEFORE usage)
+============================================================================= */
 
 function MetricCard({
   title,
@@ -268,9 +310,6 @@ function MetricCard({
   );
 }
 
-type SortKey = "id" | "reportedAt" | "reporter" | "cause" | "client" | "noCommande" | "tracking" | "attachments";
-type SortDir = "asc" | "desc";
-
 function SortTh({
   label,
   sortKey,
@@ -299,6 +338,31 @@ function SortTh({
       ) : (
         <ChevronUp className="h-3.5 w-3.5 opacity-40" />
       )}
+    </div>
+  );
+}
+
+function Switch({ checked, onCheckedChange, label }: { checked: boolean; onCheckedChange: (c: boolean) => void; label?: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onCheckedChange(!checked)}
+        className={cn(
+          "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--bg-base))]",
+          checked ? "bg-accent" : "bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-default))]"
+        )}
+      >
+        <span
+          className={cn(
+            "pointer-events-none block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform",
+            checked ? "translate-x-5" : "translate-x-0"
+          )}
+        />
+      </button>
+      {label && <span className="text-sm font-medium text-[hsl(var(--text-primary))]">{label}</span>}
     </div>
   );
 }
@@ -657,9 +721,9 @@ function OptionCard({
   );
 }
 
-// =============================================================================
-// 4. MODALS (Defined after UI Components so they can use them)
-// =============================================================================
+/* =============================================================================
+   4. MODALS (Defined before Main Page)
+============================================================================= */
 
 function DetailModal({
   row,
