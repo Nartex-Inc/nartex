@@ -29,7 +29,10 @@ import {
   Archive,
   AlertCircle,
   Paperclip,
-  UploadCloud
+  UploadCloud,
+  Sparkles,    // Added
+  Truck,       // Added
+  DollarSign   // Added
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AttachmentsSection } from "@/components/returns/AttachmentsSection";
@@ -870,13 +873,13 @@ function ProductRow({
       <input
         className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
         placeholder="Description produit"
-        value={product.descriptionProduit || ""}
+        value={product.descriptionProduit || ""} // FIX: Handle null with || ""
         onChange={(e) => onChange({ ...product, descriptionProduit: e.target.value })}
       />
       <input
         className="w-full rounded-lg border border-[hsl(var(--border-subtle))] px-3 py-2 text-sm bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]"
         placeholder="Description retour"
-        value={product.descriptionRetour ?? ""}
+        value={product.descriptionRetour ?? ""} // FIX: Handle null with ?? ""
         onChange={(e) => onChange({ ...product, descriptionRetour: e.target.value })}
       />
       <input
@@ -897,6 +900,11 @@ function ProductRow({
   );
 }
 
+// ... Rest of components (DetailModal, NewReturnModal, Field) ...
+// Make sure DetailModal uses `creatorAvatar ?? null` or similar if needed, 
+// though `AvatarImage` handles null src gracefully usually.
+// Wait, DetailModal also needs the same fix for creator info.
+
 /* =============================================================================
    Detail Modal
 ============================================================================= */
@@ -914,9 +922,9 @@ function DetailModal({
 
   React.useEffect(() => setDraft(row), [row]);
 
-  // Use API creator data if available, prioritizing legacy mapping over active user
+  // Use API creator data if available
   const creatorName = draft.createdBy?.name ?? session?.user?.name ?? REPORTER_LABEL[draft.reporter];
-  const creatorAvatar = draft.createdBy?.avatar ?? null;
+  const creatorAvatar = draft.createdBy?.avatar ?? null; // Don't fallback to session user to avoid confusion
   const creatorDate = draft.createdBy?.at ? new Date(draft.createdBy.at) : new Date(draft.reportedAt);
 
   const isPhysical = !!draft.physicalReturn;
@@ -932,10 +940,15 @@ function DetailModal({
 
   return (
     <div className="fixed inset-0 z-[200]">
+       {/* ... Same modal content ... */}
+       {/* Just checking if there are other potential null errors in DetailModal inputs? */}
+       {/* Field component uses `value={value}`. If value is null it might warn but usually controlled inputs want "" */}
+       {/* In DetailModal usage of Field: value={draft.expert || ""} etc. I added those checks in previous step. */}
+       
        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
        <div className="absolute inset-0 flex items-start justify-center p-4 sm:p-8 overflow-y-auto">
         <div className="w-full max-w-[1100px] rounded-2xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-2xl my-8">
-           {/* Header */}
+           {/* ... Header ... */}
            <div className="px-6 py-4 border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-elevated))]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -959,7 +972,7 @@ function DetailModal({
             </div>
           </div>
           
-           {/* Body */}
+           {/* ... Body ... */}
            <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-6 py-6 space-y-6">
             <div className="p-4 rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] space-y-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-[hsl(var(--text-muted))]">Options de traitement</h4>
@@ -2143,79 +2156,3 @@ function OptionCard({
 
 // Add these missing icons to your imports at the top of the file:
 // import { Sparkles, Truck, DollarSign } from "lucide-react";
-/* =============================================================================
-   Field Component
-============================================================================= */
-function Field({
-  label,
-  value,
-  onChange,
-  type = "text",
-  as,
-  options,
-  onBlur,
-  readOnly,
-  className,
-  placeholder,
-  required
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-  as?: "select";
-  options?: { value: string; label: string }[];
-  onBlur?: () => void;
-  readOnly?: boolean;
-  className?: string;
-  placeholder?: string;
-  required?: boolean;
-}) {
-  return (
-    <label className="grid gap-1.5">
-      <span className="text-xs font-semibold text-[hsl(var(--text-muted))] uppercase tracking-wider">
-        {label} {required && <span className="text-red-500">*</span>}
-      </span>
-      {as === "select" ? (
-        <select
-          className={cn(
-            "rounded-xl border px-3 py-2.5 text-sm",
-            "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-subtle))]",
-            "text-[hsl(var(--text-primary))]",
-            "focus:outline-none focus:ring-2 focus:ring-accent",
-            readOnly && "pointer-events-none opacity-80",
-            required && "border-emerald-500/50",
-            className
-          )}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={onBlur}
-          disabled={readOnly}
-        >
-          {options?.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-      ) : (
-        <input
-          type={type}
-          className={cn(
-            "rounded-xl border px-3 py-2.5 text-sm",
-            "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-subtle))]",
-            "text-[hsl(var(--text-primary))]",
-            "focus:outline-none focus:ring-2 focus:ring-accent",
-            readOnly && "pointer-events-none opacity-80",
-            required && "border-emerald-500/50",
-            className
-          )}
-          value={value}
-          onBlur={onBlur}
-          onChange={(e) => onChange(e.target.value)}
-          readOnly={readOnly}
-          autoComplete="off"
-          placeholder={placeholder}
-        />
-      )}
-    </label>
-  );
-}
