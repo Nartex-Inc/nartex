@@ -949,7 +949,7 @@ function StatusToggle({ label, active, onClick, details }: { label: string, acti
     )
 }
 
-function DetailField({ label, value, onChange, type = "text", icon }: any) {
+function DetailField({ label, value, onChange, type = "text", icon }: { label: string; value: string | number; onChange: (val: string) => void; type?: string; icon?: React.ReactNode }) {
     return (
         <div className="space-y-1.5">
             <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">{label}</label>
@@ -1277,7 +1277,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
   );
 }
 
-function PremiumField({ label, value, onChange, type = "text", as, options, placeholder, required, icon, highlight }: any) {
+function PremiumField({ label, value, onChange, type = "text", as, options, placeholder, required, icon, highlight }: { label: string; value: string | number; onChange: (val: string) => void; type?: string; as?: "select"; options?: { value: string; label: string }[]; placeholder?: string; required?: boolean; icon?: React.ReactNode; highlight?: boolean; }) {
   return (
     <label className="block">
       <span className={cn("text-xs font-semibold uppercase tracking-wider mb-2 block", required ? "text-white/70" : "text-white/50")}>{label}{required && <span className="text-emerald-400 ml-1">*</span>}</span>
@@ -1329,8 +1329,8 @@ function ProductRowPremium({ product, index, onChange, onRemove }: { product: Pr
   );
 }
 
-function OptionCard({ label, description, checked, onCheckedChange, inputValue, onInputChange, inputPlaceholder, color }: any) {
-  const c = { cyan: "cyan", indigo: "indigo", rose: "rose" }[color as string] || "cyan";
+function OptionCard({ label, description, checked, onCheckedChange, inputValue, onInputChange, inputPlaceholder, color }: { label: string; description: string; checked: boolean; onCheckedChange: (c: boolean) => void; inputValue: string; onInputChange: (v: string) => void; inputPlaceholder: string; color: "cyan" | "indigo" | "rose"; }) {
+  const c = { cyan: "cyan", indigo: "indigo", rose: "rose" }[color] || "cyan";
   const colors: Record<string, string> = { cyan: "text-cyan-400", indigo: "text-indigo-400", rose: "text-rose-400" };
   const bgs: Record<string, string> = { cyan: "bg-cyan-500", indigo: "bg-indigo-500", rose: "bg-rose-500" };
   
