@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
-import { formatReturnCode, getReturnStatus } from "@/types/returns";
+import { formatReturnCode, getReturnStatus, REPORTER_LABELS } from "@/types/returns";
 import type { ReturnRow, Reporter, Cause } from "@/types/returns";
 import { Prisma } from "@prisma/client";
 
