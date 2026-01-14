@@ -40,6 +40,23 @@ import { AttachmentsSection } from "@/components/returns/AttachmentsSection";
 // 👇 IMPORT TYPES
 import type { ReturnRow, Reporter, Cause, Attachment, ProductLine, ReturnStatus, ItemSuggestion } from "@/types/returns";
 
+// =============================================================================
+// LOCAL TYPES (Missing in previous build)
+// =============================================================================
+type SortKey = "id" | "reportedAt" | "reporter" | "cause" | "client" | "noCommande" | "tracking" | "attachments";
+type SortDir = "asc" | "desc";
+
+type OrderLookup = {
+  sonbr: string | number;
+  orderDate?: string | null;
+  totalamt: number | null;
+  customerName?: string | null;
+  carrierName?: string | null;
+  salesrepName?: string | null;
+  tracking?: string | null;
+  noClient?: string | null;
+};
+
 // Labels
 const REPORTER_LABEL: Record<string, string> = {
   expert: "Expert",
@@ -152,17 +169,6 @@ async function uploadAttachment(returnId: string, file: File): Promise<Attachmen
   return json.attachments[0];
 }
 
-type OrderLookup = {
-  sonbr: string | number;
-  orderDate?: string | null;
-  totalamt: number | null;
-  customerName?: string | null;
-  carrierName?: string | null;
-  salesrepName?: string | null;
-  tracking?: string | null;
-  noClient?: string | null;
-};
-
 async function lookupOrder(noCommande: string): Promise<OrderLookup | null> {
   if (!noCommande.trim()) return null;
   const res = await fetch(
@@ -208,7 +214,7 @@ function useDebounced<T>(value: T, delay = 300) {
 }
 
 /* =============================================================================
-   Main Page Component
+   Page
 ============================================================================= */
 export default function ReturnsPage() {
   const { resolvedTheme } = useTheme();
@@ -623,7 +629,7 @@ export default function ReturnsPage() {
 }
 
 /* =============================================================================
-   Sub-Components
+   Sub-Components (Defined BELOW ReturnsPage)
 ============================================================================= */
 
 function MetricCard({
@@ -686,385 +692,6 @@ function SortTh({
   );
 }
 
-function Switch({ checked, onCheckedChange, label }: { checked: boolean; onCheckedChange: (c: boolean) => void; label?: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onCheckedChange(!checked)}
-        className={cn(
-          "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--bg-base))]",
-          checked ? "bg-accent" : "bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-default))]"
-        )}
-      >
-        <span
-          className={cn(
-            "pointer-events-none block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform",
-            checked ? "translate-x-5" : "translate-x-0"
-          )}
-        />
-      </button>
-      {label && <span className="text-sm font-medium text-[hsl(var(--text-primary))]">{label}</span>}
-    </div>
-  );
-}
-
-function PremiumField({
-  label,
-  value,
-  onChange,
-  type = "text",
-  as,
-  options,
-  placeholder,
-  required,
-  icon,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-  as?: "select";
-  options?: { value: string; label: string }[];
-  placeholder?: string;
-  required?: boolean;
-  icon?: React.ReactNode;
-  highlight?: boolean;
-}) {
-  return (
-    <label className="block">
-      <span className={cn(
-        "text-xs font-semibold uppercase tracking-wider mb-2 block",
-        required ? "text-white/70" : "text-white/50"
-      )}>
-        {label}
-        {required && <span className="text-emerald-400 ml-1">*</span>}
-      </span>
-      
-      <div className="relative">
-        {icon && (
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30">
-            {icon}
-          </div>
-        )}
-        
-        {as === "select" ? (
-          <select
-            className={cn(
-              "w-full px-4 py-3 rounded-xl text-sm",
-              "bg-black/30 border border-white/10",
-              "text-white",
-              "focus:outline-none focus:border-white/30 focus:ring-2 focus:ring-white/10",
-              "transition-all duration-200",
-              "appearance-none cursor-pointer",
-              highlight && "border-emerald-500/30 bg-emerald-500/5"
-            )}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-          >
-            {options?.map((o) => (
-              <option key={o.value} value={o.value} className="bg-[#1a1a1a]">
-                {o.label}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <input
-            type={type}
-            className={cn(
-              "w-full py-3 rounded-xl text-sm",
-              icon ? "pl-10 pr-4" : "px-4",
-              "bg-black/30 border border-white/10",
-              "text-white placeholder:text-white/30",
-              "focus:outline-none focus:border-white/30 focus:ring-2 focus:ring-white/10",
-              "transition-all duration-200",
-              highlight && "border-emerald-500/30 bg-emerald-500/5"
-            )}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder={placeholder}
-          />
-        )}
-      </div>
-    </label>
-  );
-}
-
-function ProductRowPremium({
-  product,
-  index,
-  onChange,
-  onRemove
-}: {
-  product: ProductLine;
-  index: number;
-  onChange: (p: ProductLine) => void;
-  onRemove: () => void;
-}) {
-  const [suggestions, setSuggestions] = React.useState<ItemSuggestion[]>([]);
-  const [showSuggestions, setShowSuggestions] = React.useState(false);
-  const [isLoading, setIsLoading] = React.useState(false);
-  
-  const debouncedCode = useDebounced(product.codeProduit, 300);
-
-  React.useEffect(() => {
-    let active = true;
-    const fetchSuggestions = async () => {
-      if (!showSuggestions || debouncedCode.trim().length < 2) {
-        setSuggestions([]);
-        return;
-      }
-      setIsLoading(true);
-      try {
-        const results = await searchItems(debouncedCode);
-        if (active) setSuggestions(results);
-      } catch (error) {
-        console.error("Autocomplete error:", error);
-      } finally {
-        if (active) setIsLoading(false);
-      }
-    };
-    fetchSuggestions();
-    return () => { active = false; };
-  }, [debouncedCode, showSuggestions]);
-
-  const selectSuggestion = (s: ItemSuggestion) => {
-    onChange({
-      ...product,
-      codeProduit: s.code,
-      descriptionProduit: s.descr || product.descriptionProduit
-    });
-    setSuggestions([]);
-    setShowSuggestions(false);
-  };
-
-  return (
-    <div className="p-4 rounded-xl bg-black/20 border border-white/10 hover:border-white/20 transition-colors">
-      <div className="flex items-center gap-4">
-        {/* Index Badge */}
-        <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-blue-500/20 text-blue-400 text-sm font-bold shrink-0">
-          {index}
-        </div>
-        
-        {/* Fields Grid */}
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-[180px_1fr_1fr_80px] gap-3">
-          {/* Code Produit with Autocomplete */}
-          <div className="relative">
-            <input
-              className={cn(
-                "w-full px-3 py-2.5 rounded-lg text-sm font-mono",
-                "bg-black/30 border border-white/10",
-                "text-white placeholder:text-white/30",
-                "focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20",
-                "transition-all duration-200"
-              )}
-              placeholder="Code produit"
-              value={product.codeProduit}
-              onChange={(e) => {
-                onChange({ ...product, codeProduit: e.target.value });
-                setShowSuggestions(true);
-              }}
-              onFocus={() => {
-                if (product.codeProduit.length >= 2) setShowSuggestions(true);
-              }}
-              onBlur={() => {
-                setTimeout(() => setShowSuggestions(false), 200);
-              }}
-              autoComplete="off"
-            />
-            
-            {showSuggestions && (suggestions.length > 0 || isLoading) && (
-              <div className="absolute z-50 top-full left-0 mt-1 w-[280px] max-h-48 overflow-y-auto rounded-lg border border-white/20 bg-[#1a1a1a] shadow-xl">
-                {isLoading && suggestions.length === 0 && (
-                  <div className="flex items-center gap-2 px-3 py-2 text-xs text-white/50">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Recherche...
-                  </div>
-                )}
-                {suggestions.map((s) => (
-                  <button
-                    key={s.code}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-white/10 border-b border-white/5 last:border-0 transition-colors"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      selectSuggestion(s);
-                    }}
-                  >
-                    <div className="font-mono font-semibold text-white">{s.code}</div>
-                    {s.descr && <div className="text-xs text-white/50 truncate">{s.descr}</div>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Description Produit */}
-          <input
-            className={cn(
-              "w-full px-3 py-2.5 rounded-lg text-sm",
-              "bg-black/30 border border-white/10",
-              "text-white placeholder:text-white/30",
-              "focus:outline-none focus:border-white/30",
-              "transition-all duration-200"
-            )}
-            placeholder="Description produit"
-            value={product.descriptionProduit || ""}
-            onChange={(e) => onChange({ ...product, descriptionProduit: e.target.value })}
-          />
-
-          {/* Description Retour */}
-          <input
-            className={cn(
-              "w-full px-3 py-2.5 rounded-lg text-sm",
-              "bg-black/30 border border-white/10",
-              "text-white placeholder:text-white/30",
-              "focus:outline-none focus:border-white/30",
-              "transition-all duration-200"
-            )}
-            placeholder="Raison du retour"
-            value={product.descriptionRetour ?? ""}
-            onChange={(e) => onChange({ ...product, descriptionRetour: e.target.value })}
-          />
-
-          {/* Quantité */}
-          <input
-            type="number"
-            min={0}
-            className={cn(
-              "w-full px-3 py-2.5 rounded-lg text-sm text-center font-mono",
-              "bg-black/30 border border-white/10",
-              "text-white placeholder:text-white/30",
-              "focus:outline-none focus:border-white/30",
-              "transition-all duration-200"
-            )}
-            placeholder="Qté"
-            value={product.quantite}
-            onChange={(e) => onChange({ ...product, quantite: Number(e.target.value || 0) })}
-          />
-        </div>
-
-        {/* Delete Button */}
-        <button
-          onClick={onRemove}
-          className="p-2.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 shrink-0"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function OptionCard({
-  label,
-  description,
-  checked,
-  onCheckedChange,
-  inputValue,
-  onInputChange,
-  inputPlaceholder,
-  color,
-}: {
-  label: string;
-  description: string;
-  checked: boolean;
-  onCheckedChange: (c: boolean) => void;
-  inputValue: string;
-  onInputChange: (v: string) => void;
-  inputPlaceholder: string;
-  color: "cyan" | "indigo" | "rose";
-}) {
-  const colorClasses = {
-    cyan: {
-      bg: checked ? "bg-cyan-500/10" : "bg-white/[0.02]",
-      border: checked ? "border-cyan-500/50" : "border-white/10",
-      icon: "text-cyan-400",
-      iconBg: "bg-cyan-500/20",
-      toggle: checked ? "bg-cyan-500" : "bg-white/20",
-    },
-    indigo: {
-      bg: checked ? "bg-indigo-500/10" : "bg-white/[0.02]",
-      border: checked ? "border-indigo-500/50" : "border-white/10",
-      icon: "text-indigo-400",
-      iconBg: "bg-indigo-500/20",
-      toggle: checked ? "bg-indigo-500" : "bg-white/20",
-    },
-    rose: {
-      bg: checked ? "bg-rose-500/10" : "bg-white/[0.02]",
-      border: checked ? "border-rose-500/50" : "border-white/10",
-      icon: "text-rose-400",
-      iconBg: "bg-rose-500/20",
-      toggle: checked ? "bg-rose-500" : "bg-white/20",
-    },
-  };
-
-  const c = colorClasses[color];
-
-  return (
-    <div 
-      className={cn(
-        "p-5 rounded-2xl border-2 transition-all duration-300 cursor-pointer",
-        c.bg,
-        c.border,
-        "hover:border-opacity-80"
-      )}
-      onClick={() => onCheckedChange(!checked)}
-    >
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className={cn("p-2 rounded-lg", c.iconBg)}>
-            <Check className={cn("h-4 w-4", c.icon)} />
-          </div>
-          <div>
-            <h4 className="text-sm font-semibold text-white">{label}</h4>
-            <p className="text-xs text-white/50">{description}</p>
-          </div>
-        </div>
-        
-        <button
-          type="button"
-          role="switch"
-          aria-checked={checked}
-          onClick={(e) => {
-            e.stopPropagation();
-            onCheckedChange(!checked);
-          }}
-          className={cn(
-            "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200",
-            c.toggle
-          )}
-        >
-          <span
-            className={cn(
-              "pointer-events-none block h-5 w-5 rounded-full bg-white shadow-lg transition-transform duration-200 mt-0.5 ml-0.5",
-              checked ? "translate-x-5" : "translate-x-0"
-            )}
-          />
-        </button>
-      </div>
-      
-      <input 
-        disabled={!checked}
-        value={inputValue}
-        onClick={(e) => e.stopPropagation()}
-        onChange={(e) => onInputChange(e.target.value)}
-        className={cn(
-          "w-full px-3 py-2.5 rounded-lg text-sm",
-          "bg-black/30 border border-white/10",
-          "text-white placeholder:text-white/30",
-          "focus:outline-none focus:border-white/30",
-          "transition-all duration-200",
-          !checked && "opacity-40 cursor-not-allowed"
-        )}
-        placeholder={inputPlaceholder}
-      />
-    </div>
-  );
-}
-
 /* =============================================================================
    Detail Modal
 ============================================================================= */
@@ -1084,7 +711,7 @@ function DetailModal({
 
   // Use API creator data if available, prioritizing legacy mapping over active user
   const creatorName = draft.createdBy?.name ?? session?.user?.name ?? REPORTER_LABEL[draft.reporter];
-  const creatorAvatar = draft.createdBy?.avatar ?? null; // Don't fallback to session user to avoid confusion
+  const creatorAvatar = draft.createdBy?.avatar ?? null;
   const creatorDate = draft.createdBy?.at ? new Date(draft.createdBy.at) : new Date(draft.reportedAt);
 
   const isPhysical = !!draft.physicalReturn;
@@ -1271,7 +898,6 @@ function NewReturnModal({
   onCreated: () => Promise<void> | void;
 }) {
   const { data: session } = useSession();
-  
   const [reporter, setReporter] = React.useState<Reporter>("expert");
   const [cause, setCause] = React.useState<Cause>("production");
   const [expert, setExpert] = React.useState("");
@@ -1287,21 +913,15 @@ function NewReturnModal({
   const [isPickup, setIsPickup] = React.useState(false);
   const [isCommande, setIsCommande] = React.useState(false);
   const [isReclamation, setIsReclamation] = React.useState(false);
-  
   const [noBill, setNoBill] = React.useState("");
   const [noBonCommande, setNoBonCommande] = React.useState("");
   const [noReclamation, setNoReclamation] = React.useState("");
-
   const [products, setProducts] = React.useState<ProductLine[]>([]);
-  
   const [nextId, setNextId] = React.useState<string>("...");
   const [reportedAt, setReportedAt] = React.useState<string>(new Date().toISOString().slice(0, 10));
-
   const [filesToUpload, setFilesToUpload] = React.useState<File[]>([]);
   const [busy, setBusy] = React.useState(false);
   const [orderLookupLoading, setOrderLookupLoading] = React.useState(false);
-
-  // Current user info for display
   const currentUserName = session?.user?.name || "Utilisateur";
   const currentUserInitials = currentUserName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
 
@@ -1659,6 +1279,369 @@ function NewReturnModal({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* =============================================================================
+   Premium Field Component
+============================================================================= */
+function PremiumField({
+  label,
+  value,
+  onChange,
+  type = "text",
+  as,
+  options,
+  placeholder,
+  required,
+  icon,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  as?: "select";
+  options?: { value: string; label: string }[];
+  placeholder?: string;
+  required?: boolean;
+  icon?: React.ReactNode;
+  highlight?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className={cn(
+        "text-xs font-semibold uppercase tracking-wider mb-2 block",
+        required ? "text-white/70" : "text-white/50"
+      )}>
+        {label}
+        {required && <span className="text-emerald-400 ml-1">*</span>}
+      </span>
+      
+      <div className="relative">
+        {icon && (
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30">
+            {icon}
+          </div>
+        )}
+        
+        {as === "select" ? (
+          <select
+            className={cn(
+              "w-full px-4 py-3 rounded-xl text-sm",
+              "bg-black/30 border border-white/10",
+              "text-white",
+              "focus:outline-none focus:border-white/30 focus:ring-2 focus:ring-white/10",
+              "transition-all duration-200",
+              "appearance-none cursor-pointer",
+              highlight && "border-emerald-500/30 bg-emerald-500/5"
+            )}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+          >
+            {options?.map((o) => (
+              <option key={o.value} value={o.value} className="bg-[#1a1a1a]">
+                {o.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            type={type}
+            className={cn(
+              "w-full py-3 rounded-xl text-sm",
+              icon ? "pl-10 pr-4" : "px-4",
+              "bg-black/30 border border-white/10",
+              "text-white placeholder:text-white/30",
+              "focus:outline-none focus:border-white/30 focus:ring-2 focus:ring-white/10",
+              "transition-all duration-200",
+              highlight && "border-emerald-500/30 bg-emerald-500/5"
+            )}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+          />
+        )}
+      </div>
+    </label>
+  );
+}
+
+/* =============================================================================
+   Premium Product Row
+============================================================================= */
+function ProductRowPremium({
+  product,
+  index,
+  onChange,
+  onRemove
+}: {
+  product: ProductLine;
+  index: number;
+  onChange: (p: ProductLine) => void;
+  onRemove: () => void;
+}) {
+  const [suggestions, setSuggestions] = React.useState<ItemSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(false);
+  
+  const debouncedCode = useDebounced(product.codeProduit, 300);
+
+  React.useEffect(() => {
+    let active = true;
+    const fetchSuggestions = async () => {
+      if (!showSuggestions || debouncedCode.trim().length < 2) {
+        setSuggestions([]);
+        return;
+      }
+      setIsLoading(true);
+      try {
+        const results = await searchItems(debouncedCode);
+        if (active) setSuggestions(results);
+      } catch (error) {
+        console.error("Autocomplete error:", error);
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    };
+    fetchSuggestions();
+    return () => { active = false; };
+  }, [debouncedCode, showSuggestions]);
+
+  const selectSuggestion = (s: ItemSuggestion) => {
+    onChange({
+      ...product,
+      codeProduit: s.code,
+      descriptionProduit: s.descr || product.descriptionProduit
+    });
+    setSuggestions([]);
+    setShowSuggestions(false);
+  };
+
+  return (
+    <div className="p-4 rounded-xl bg-black/20 border border-white/10 hover:border-white/20 transition-colors">
+      <div className="flex items-center gap-4">
+        {/* Index Badge */}
+        <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-blue-500/20 text-blue-400 text-sm font-bold shrink-0">
+          {index}
+        </div>
+        
+        {/* Fields Grid */}
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-[180px_1fr_1fr_80px] gap-3">
+          {/* Code Produit with Autocomplete */}
+          <div className="relative">
+            <input
+              className={cn(
+                "w-full px-3 py-2.5 rounded-lg text-sm font-mono",
+                "bg-black/30 border border-white/10",
+                "text-white placeholder:text-white/30",
+                "focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20",
+                "transition-all duration-200"
+              )}
+              placeholder="Code produit"
+              value={product.codeProduit}
+              onChange={(e) => {
+                onChange({ ...product, codeProduit: e.target.value });
+                setShowSuggestions(true);
+              }}
+              onFocus={() => {
+                if (product.codeProduit.length >= 2) setShowSuggestions(true);
+              }}
+              onBlur={() => {
+                setTimeout(() => setShowSuggestions(false), 200);
+              }}
+              autoComplete="off"
+            />
+            
+            {showSuggestions && (suggestions.length > 0 || isLoading) && (
+              <div className="absolute z-50 top-full left-0 mt-1 w-[280px] max-h-48 overflow-y-auto rounded-lg border border-white/20 bg-[#1a1a1a] shadow-xl">
+                {isLoading && suggestions.length === 0 && (
+                  <div className="flex items-center gap-2 px-3 py-2 text-xs text-white/50">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Recherche...
+                  </div>
+                )}
+                {suggestions.map((s) => (
+                  <button
+                    key={s.code}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-white/10 border-b border-white/5 last:border-0 transition-colors"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      selectSuggestion(s);
+                    }}
+                  >
+                    <div className="font-mono font-semibold text-white">{s.code}</div>
+                    {s.descr && <div className="text-xs text-white/50 truncate">{s.descr}</div>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Description Produit */}
+          <input
+            className={cn(
+              "w-full px-3 py-2.5 rounded-lg text-sm",
+              "bg-black/30 border border-white/10",
+              "text-white placeholder:text-white/30",
+              "focus:outline-none focus:border-white/30",
+              "transition-all duration-200"
+            )}
+            placeholder="Description produit"
+            value={product.descriptionProduit || ""}
+            onChange={(e) => onChange({ ...product, descriptionProduit: e.target.value })}
+          />
+
+          {/* Description Retour */}
+          <input
+            className={cn(
+              "w-full px-3 py-2.5 rounded-lg text-sm",
+              "bg-black/30 border border-white/10",
+              "text-white placeholder:text-white/30",
+              "focus:outline-none focus:border-white/30",
+              "transition-all duration-200"
+            )}
+            placeholder="Raison du retour"
+            value={product.descriptionRetour ?? ""}
+            onChange={(e) => onChange({ ...product, descriptionRetour: e.target.value })}
+          />
+
+          {/* Quantité */}
+          <input
+            type="number"
+            min={0}
+            className={cn(
+              "w-full px-3 py-2.5 rounded-lg text-sm text-center font-mono",
+              "bg-black/30 border border-white/10",
+              "text-white placeholder:text-white/30",
+              "focus:outline-none focus:border-white/30",
+              "transition-all duration-200"
+            )}
+            placeholder="Qté"
+            value={product.quantite}
+            onChange={(e) => onChange({ ...product, quantite: Number(e.target.value || 0) })}
+          />
+        </div>
+
+        {/* Delete Button */}
+        <button
+          onClick={onRemove}
+          className="p-2.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 shrink-0"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* =============================================================================
+   Option Card Component
+============================================================================= */
+function OptionCard({
+  label,
+  description,
+  checked,
+  onCheckedChange,
+  inputValue,
+  onInputChange,
+  inputPlaceholder,
+  color,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onCheckedChange: (c: boolean) => void;
+  inputValue: string;
+  onInputChange: (v: string) => void;
+  inputPlaceholder: string;
+  color: "cyan" | "indigo" | "rose";
+}) {
+  const colorClasses = {
+    cyan: {
+      bg: checked ? "bg-cyan-500/10" : "bg-white/[0.02]",
+      border: checked ? "border-cyan-500/50" : "border-white/10",
+      icon: "text-cyan-400",
+      iconBg: "bg-cyan-500/20",
+      toggle: checked ? "bg-cyan-500" : "bg-white/20",
+    },
+    indigo: {
+      bg: checked ? "bg-indigo-500/10" : "bg-white/[0.02]",
+      border: checked ? "border-indigo-500/50" : "border-white/10",
+      icon: "text-indigo-400",
+      iconBg: "bg-indigo-500/20",
+      toggle: checked ? "bg-indigo-500" : "bg-white/20",
+    },
+    rose: {
+      bg: checked ? "bg-rose-500/10" : "bg-white/[0.02]",
+      border: checked ? "border-rose-500/50" : "border-white/10",
+      icon: "text-rose-400",
+      iconBg: "bg-rose-500/20",
+      toggle: checked ? "bg-rose-500" : "bg-white/20",
+    },
+  };
+
+  const c = colorClasses[color];
+
+  return (
+    <div 
+      className={cn(
+        "p-5 rounded-2xl border-2 transition-all duration-300 cursor-pointer",
+        c.bg,
+        c.border,
+        "hover:border-opacity-80"
+      )}
+      onClick={() => onCheckedChange(!checked)}
+    >
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className={cn("p-2 rounded-lg", c.iconBg)}>
+            <Check className={cn("h-4 w-4", c.icon)} />
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold text-white">{label}</h4>
+            <p className="text-xs text-white/50">{description}</p>
+          </div>
+        </div>
+        
+        <button
+          type="button"
+          role="switch"
+          aria-checked={checked}
+          onClick={(e) => {
+            e.stopPropagation();
+            onCheckedChange(!checked);
+          }}
+          className={cn(
+            "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200",
+            c.toggle
+          )}
+        >
+          <span
+            className={cn(
+              "pointer-events-none block h-5 w-5 rounded-full bg-white shadow-lg transition-transform duration-200 mt-0.5 ml-0.5",
+              checked ? "translate-x-5" : "translate-x-0"
+            )}
+          />
+        </button>
+      </div>
+      
+      <input 
+        disabled={!checked}
+        value={inputValue}
+        onClick={(e) => e.stopPropagation()}
+        onChange={(e) => onInputChange(e.target.value)}
+        className={cn(
+          "w-full px-3 py-2.5 rounded-lg text-sm",
+          "bg-black/30 border border-white/10",
+          "text-white placeholder:text-white/30",
+          "focus:outline-none focus:border-white/30",
+          "transition-all duration-200",
+          !checked && "opacity-40 cursor-not-allowed"
+        )}
+        placeholder={inputPlaceholder}
+      />
     </div>
   );
 }
