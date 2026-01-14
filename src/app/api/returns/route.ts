@@ -8,19 +8,21 @@ import type { ReturnRow, Reporter, Cause } from "@/types/returns";
 import { Prisma } from "@prisma/client";
 
 // MAPPING: Legacy Name -> New Email
-// Ensure keys match exactly what is in the DB 'initiatedBy' or 'expert' column
+// Used to resolve old records where initiatedBy stored names instead of emails
 const LEGACY_USER_MAP: Record<string, string> = {
   'Suzie Boutin': 's.boutin@sinto.ca',
   'Hugo Fortin': 'h.fortin@sinto.ca',
   'Anick Poulin': 'a.poulin@sinto.ca',
   'Jessica Lessard': 'j.lessard@sinto.ca',
   'Stéphanie Veilleux': 's.veilleux@sinto.ca',
+  'Nicolas Labranche': 'n.labranche@sinto.ca',
   // Lowercase fallbacks for safety
   'suzie boutin': 's.boutin@sinto.ca',
   'hugo fortin': 'h.fortin@sinto.ca',
   'anick poulin': 'a.poulin@sinto.ca',
   'jessica lessard': 'j.lessard@sinto.ca',
   'stéphanie veilleux': 's.veilleux@sinto.ca',
+  'nicolas labranche': 'n.labranche@sinto.ca',
 };
 
 export async function GET(request: NextRequest) {
@@ -123,64 +125,86 @@ export async function GET(request: NextRequest) {
       take,
     });
 
-    // --- USER AVATAR LOOKUP LOGIC ---
+    // =========================================================================
+    // USER AVATAR LOOKUP LOGIC
+    // =========================================================================
+    // Key concepts:
+    // - `reporter` (enum): Type of person who reported (expert, transporteur, client, etc.)
+    // - `expert`: Sales rep assigned to the client (NOT the creator)
+    // - `initiatedBy`: The actual user who created the return in the system
+    // =========================================================================
+
     const emailsToFetch = new Set<string>();
 
-    const resolveEmail = (ret: any): string | null => {
-      // Primary: Use reporter type to determine which field contains the person's name
-      if (ret.reporter === "expert" && ret.expert) {
-        const expertName = ret.expert.trim();
-        // Check legacy map
-        if (LEGACY_USER_MAP[expertName]) return LEGACY_USER_MAP[expertName];
-        if (LEGACY_USER_MAP[expertName.toLowerCase()]) return LEGACY_USER_MAP[expertName.toLowerCase()];
-        // If expert field is already an email
-        if (expertName.includes("@")) return expertName;
-      }
-    
-      // For other reporter types (transporteur, client, autre, prise_commande)
-      // Check if initiatedBy has useful data as fallback
+    /**
+     * Resolve the email of the user who CREATED the return.
+     * Always uses `initiatedBy` field, NOT `expert` (which is client data).
+     */
+    const resolveCreatorEmail = (ret: any): string | null => {
       if (ret.initiatedBy) {
         const initiator = ret.initiatedBy.trim();
-        if (LEGACY_USER_MAP[initiator]) return LEGACY_USER_MAP[initiator];
-        if (LEGACY_USER_MAP[initiator.toLowerCase()]) return LEGACY_USER_MAP[initiator.toLowerCase()];
-        if (initiator.includes("@")) return initiator;
+        
+        // Check legacy name -> email map
+        if (LEGACY_USER_MAP[initiator]) {
+          return LEGACY_USER_MAP[initiator];
+        }
+        
+        // Case-insensitive check
+        const lowerInitiator = initiator.toLowerCase();
+        if (LEGACY_USER_MAP[lowerInitiator]) {
+          return LEGACY_USER_MAP[lowerInitiator];
+        }
+        
+        // If initiatedBy is already an email
+        if (initiator.includes("@")) {
+          return initiator;
+        }
       }
-    
+      
       return null;
     };
 
+    // Collect all emails we need to fetch
     returns.forEach(r => {
-      const email = resolveEmail(r);
+      const email = resolveCreatorEmail(r);
       if (email) emailsToFetch.add(email);
     });
 
-    // Fetch User objects
+    // Batch fetch all User objects
     const users = await prisma.user.findMany({
       where: { email: { in: Array.from(emailsToFetch) } },
       select: { email: true, image: true, name: true }
     });
 
+    // Build a lookup map: email -> { image, name }
     const userMap = new Map<string, { image: string | null, name: string | null }>();
     users.forEach(u => {
-      if (u.email) userMap.set(u.email, { image: u.image, name: u.name });
+      if (u.email) {
+        userMap.set(u.email, { image: u.image, name: u.name });
+      }
     });
 
+    // =========================================================================
+    // BUILD RESPONSE DATA
+    // =========================================================================
+
     const data: ReturnRow[] = returns.map((ret) => {
-      // Primary: Use expert name when reporter is expert
-      const reporterName = ret.reporter === "expert" && ret.expert
-        ? ret.expert
-        : ret.initiatedBy || REPORTER_LABELS[ret.reporter] || "Système";
-    
-      const email = resolveEmail(ret);
+      // FIXED: Always use initiatedBy for the creator name
+      // `expert` is the sales rep assigned to the client, NOT who created the return
+      const creatorNameRaw = ret.initiatedBy || "Système";
+      const creatorEmail = resolveCreatorEmail(ret);
       
-      let avatarUrl = null;
-      let displayName = reporterName;
-    
-      if (email && userMap.has(email)) {
-        const u = userMap.get(email);
-        avatarUrl = u?.image || null;
-        // Only override name if we have a better one from the user record
-        if (u?.name) displayName = u.name;
+      let avatarUrl: string | null = null;
+      let displayName = creatorNameRaw;
+
+      // If we found a matching user, use their avatar and clean name
+      if (creatorEmail && userMap.has(creatorEmail)) {
+        const userData = userMap.get(creatorEmail);
+        avatarUrl = userData?.image || null;
+        // Override with cleaner name from user record if available
+        if (userData?.name) {
+          displayName = userData.name;
+        }
       }
 
       return {
@@ -213,6 +237,7 @@ export async function GET(request: NextRequest) {
         noBonCommande: ret.noBonCommande,
         noReclamation: ret.noReclamation,
 
+        // FIXED: createdBy now correctly shows who created the return
         createdBy: {
           name: displayName,
           avatar: avatarUrl,
@@ -304,7 +329,8 @@ export async function POST(request: NextRequest) {
         isFinal: false,
         isVerified: false,
         isStandby: false,
-        initiatedBy: session.user.name || "Système",
+        // Store the actual user who created this return
+        initiatedBy: session.user.name || session.user.email || "Système",
         initializedAt: new Date(),
         noCommandeCheckbox: body.noCommandeCheckbox ?? false,
         products: {
