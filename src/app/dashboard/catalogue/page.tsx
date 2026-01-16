@@ -31,12 +31,8 @@ import {
   AlertCircle,
   RefreshCw,
   Inbox,
-  Settings2,
-  Grid3X3,
-  List,
-  Zap,
-  ArrowRight,
   ChevronUp,
+  Zap,
 } from "lucide-react";
 
 /* =========================
@@ -246,7 +242,6 @@ function ActionButton({
   loading = false,
   disabled = false,
   className = "",
-  accentColor,
 }: {
   onClick: () => void;
   icon: React.ElementType;
@@ -255,7 +250,6 @@ function ActionButton({
   loading?: boolean;
   disabled?: boolean;
   className?: string;
-  accentColor?: string;
 }) {
   return (
     <button
@@ -265,7 +259,6 @@ function ActionButton({
       className={cn(
         "relative flex items-center justify-center gap-2 rounded-2xl font-semibold transition-all duration-300",
         "active:scale-[0.96] disabled:opacity-50 disabled:cursor-not-allowed",
-        // Fat finger friendly - minimum 48px touch target
         label ? "h-12 px-5" : "h-12 w-12",
         variant === "ghost" && "bg-white/10 hover:bg-white/20 text-white border border-white/10",
         variant === "solid" && "bg-white text-neutral-900 shadow-lg hover:shadow-xl",
@@ -284,9 +277,9 @@ function ActionButton({
 }
 
 /* =========================
-   Premium Select Dropdown
+   Compact Select for iPad
 ========================= */
-function PremiumSelect({
+function CompactSelect({
   value,
   onChange,
   options,
@@ -295,7 +288,8 @@ function PremiumSelect({
   loading = false,
   icon: Icon,
   accentColor,
-  variant = "default",
+  label,
+  step,
 }: {
   value: string | number;
   onChange: (value: string) => void;
@@ -305,11 +299,13 @@ function PremiumSelect({
   loading?: boolean;
   icon?: React.ElementType;
   accentColor: string;
-  variant?: "default" | "prominent";
+  label: string;
+  step: number;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const selectedOption = options.find((o) => o.value.toString() === value.toString());
+  const isActive = !disabled && value;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -322,57 +318,55 @@ function PremiumSelect({
   }, []);
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative flex-1">
+      <div className="flex items-center gap-2 mb-1.5">
+        <span
+          className={cn(
+            "w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black flex-shrink-0",
+            isActive || step === 1
+              ? "text-white"
+              : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400"
+          )}
+          style={isActive || step === 1 ? { backgroundColor: accentColor } : undefined}
+        >
+          {step}
+        </span>
+        <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider truncate">
+          {label}
+        </span>
+      </div>
       <button
         onClick={() => !disabled && !loading && setIsOpen(!isOpen)}
         disabled={disabled || loading}
         className={cn(
-          "w-full h-14 px-4 rounded-2xl font-semibold text-left transition-all duration-300",
-          "flex items-center gap-3",
-          "active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed",
-          variant === "prominent"
-            ? "bg-white dark:bg-white/10 text-neutral-900 dark:text-white shadow-lg border-2 border-transparent"
-            : "bg-neutral-100 dark:bg-neutral-800/80 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700",
-          isOpen && "ring-2 ring-offset-2 ring-offset-white dark:ring-offset-neutral-900",
-          variant === "prominent" && isOpen && "border-neutral-900 dark:border-white"
+          "w-full h-11 px-3 rounded-xl font-semibold text-left transition-all duration-300",
+          "flex items-center gap-2 text-sm",
+          "active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed",
+          "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white",
+          "border border-neutral-200 dark:border-neutral-700",
+          isOpen && "ring-2 ring-offset-1 ring-offset-white dark:ring-offset-neutral-900"
         )}
         style={isOpen ? { ["--tw-ring-color" as string]: accentColor } : undefined}
       >
         {loading ? (
-          <Loader2 className="w-5 h-5 animate-spin text-neutral-400" />
+          <Loader2 className="w-4 h-4 animate-spin text-neutral-400 flex-shrink-0" />
         ) : Icon ? (
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: `${accentColor}15` }}
-          >
-            <Icon className="w-5 h-5" style={{ color: accentColor }} />
-          </div>
+          <Icon className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} />
         ) : null}
-        <div className="flex-1 min-w-0">
-          {selectedOption ? (
-            <>
-              <div className="text-sm font-bold truncate">{selectedOption.label}</div>
-              {selectedOption.count !== undefined && (
-                <div className="text-xs text-neutral-500 dark:text-neutral-400">
-                  {selectedOption.count} articles
-                </div>
-              )}
-            </>
-          ) : (
-            <span className="text-neutral-400">{placeholder}</span>
-          )}
-        </div>
+        <span className="flex-1 truncate">
+          {selectedOption ? selectedOption.label : placeholder}
+        </span>
         <ChevronDown
           className={cn(
-            "w-5 h-5 text-neutral-400 transition-transform duration-300 flex-shrink-0",
+            "w-4 h-4 text-neutral-400 transition-transform duration-300 flex-shrink-0",
             isOpen && "rotate-180"
           )}
         />
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 z-50 bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="max-h-72 overflow-y-auto p-2">
+        <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="max-h-48 overflow-y-auto p-1">
             {options.map((option) => (
               <button
                 key={option.value}
@@ -381,23 +375,21 @@ function PremiumSelect({
                   setIsOpen(false);
                 }}
                 className={cn(
-                  "w-full px-4 py-3 rounded-xl text-left transition-all duration-200",
-                  "flex items-center justify-between gap-3",
+                  "w-full px-3 py-2 rounded-lg text-left transition-all duration-200 text-sm",
+                  "flex items-center justify-between gap-2",
                   "hover:bg-neutral-100 dark:hover:bg-neutral-800",
                   option.value.toString() === value.toString() &&
                     "bg-neutral-100 dark:bg-neutral-800"
                 )}
               >
-                <div className="min-w-0">
-                  <div className="font-semibold text-neutral-900 dark:text-white truncate">
-                    {option.label}
-                  </div>
-                  {option.count !== undefined && (
-                    <div className="text-xs text-neutral-500">{option.count} articles</div>
-                  )}
-                </div>
+                <span className="font-medium text-neutral-900 dark:text-white truncate">
+                  {option.label}
+                </span>
+                {option.count !== undefined && (
+                  <span className="text-xs text-neutral-400">{option.count}</span>
+                )}
                 {option.value.toString() === value.toString() && (
-                  <Check className="w-5 h-5 flex-shrink-0" style={{ color: accentColor }} />
+                  <Check className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} />
                 )}
               </button>
             ))}
@@ -461,12 +453,10 @@ function QuickAddPanel({
     <div className="fixed inset-0 z-[999999] flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
       <div className="relative w-full sm:max-w-lg bg-white dark:bg-neutral-900 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 sm:animate-in sm:zoom-in-95">
-        {/* Handle bar for mobile */}
         <div className="sm:hidden flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-700" />
         </div>
 
-        {/* Search header */}
         <div className="p-4 sm:p-6">
           <div className="flex items-center gap-4 mb-4">
             <div
@@ -513,7 +503,6 @@ function QuickAddPanel({
           </div>
         </div>
 
-        {/* Results */}
         <div className="max-h-[50vh] overflow-y-auto px-4 sm:px-6">
           {results.length > 0 ? (
             <div className="space-y-2 pb-4">
@@ -544,10 +533,7 @@ function QuickAddPanel({
                       {isSelected && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div
-                        className="font-mono font-bold text-sm"
-                        style={{ color: accentColor }}
-                      >
+                      <div className="font-mono font-bold text-sm" style={{ color: accentColor }}>
                         {item.itemCode}
                       </div>
                       <div className="text-sm text-neutral-600 dark:text-neutral-400 truncate">
@@ -566,7 +552,6 @@ function QuickAddPanel({
           ) : null}
         </div>
 
-        {/* Footer */}
         <div className="p-4 sm:p-6 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/80">
           <button
             onClick={handleAdd}
@@ -589,7 +574,7 @@ function QuickAddPanel({
 }
 
 /* =========================
-   Multi-Select Dropdown for Items
+   Item Multi-Select
 ========================= */
 function ItemMultiSelect({
   items,
@@ -698,9 +683,7 @@ function ItemMultiSelect({
                       )}
                       style={{
                         backgroundColor: selectedIds.has(item.itemId) ? accentColor : "transparent",
-                        borderColor: selectedIds.has(item.itemId)
-                          ? accentColor
-                          : "rgb(209 213 219)",
+                        borderColor: selectedIds.has(item.itemId) ? accentColor : "rgb(209 213 219)",
                       }}
                     >
                       {selectedIds.has(item.itemId) && (
@@ -708,10 +691,7 @@ function ItemMultiSelect({
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div
-                        className="font-mono font-bold text-sm"
-                        style={{ color: accentColor }}
-                      >
+                      <div className="font-mono font-bold text-sm" style={{ color: accentColor }}>
                         {item.itemCode}
                       </div>
                       <div className="text-xs text-neutral-500 truncate">{item.description}</div>
@@ -763,7 +743,6 @@ function EmailModal({
     <div className="fixed inset-0 z-[999999] flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
       <div className="relative w-full sm:max-w-md bg-white dark:bg-neutral-900 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 sm:animate-in sm:zoom-in-95">
-        {/* Handle bar for mobile */}
         <div className="sm:hidden flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-700" />
         </div>
@@ -894,7 +873,6 @@ function PriceModal({
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
-  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
 
   const isCompact = useMediaQuery("(max-width: 1024px)");
   const isMobile = useMediaQuery("(max-width: 640px)");
@@ -951,42 +929,113 @@ function PriceModal({
     }
   };
 
-  // UNCHANGED: Email PDF logic
+  // ═══════════════════════════════════════════════════════════════════
+  // POLISHED PDF GENERATION - Modern bright red design
+  // ═══════════════════════════════════════════════════════════════════
   const handleEmailPDF = async (recipientEmail: string) => {
     setIsSendingEmail(true);
     try {
       const doc = new jsPDF();
-      const logoData = await getDataUri("/sinto-logo.svg");
-      if (logoData) doc.addImage(logoData, "PNG", 15, 10, 40, 0);
-      doc.setFontSize(22);
-      doc.setFont("helvetica", "bold");
-      const title = "Liste de Prix SINTO";
-      const titleWidth = doc.getTextWidth(title);
       const pageWidth = doc.internal.pageSize.getWidth();
-      doc.text(title, (pageWidth - titleWidth) / 2, 25);
-      doc.setFontSize(10);
+      const pageHeight = doc.internal.pageSize.getHeight();
+      
+      // Modern bright red color palette
+      const primaryRed: [number, number, number] = [220, 38, 38]; // #DC2626 - Bright red
+      const darkRed: [number, number, number] = [185, 28, 28]; // #B91C1C - Darker red
+      const lightRedBg: [number, number, number] = [254, 242, 242]; // #FEF2F2 - Very light red
+      const darkGray: [number, number, number] = [23, 23, 23]; // #171717
+      const mediumGray: [number, number, number] = [82, 82, 82]; // #525252
+      const lightGray: [number, number, number] = [245, 245, 245]; // #F5F5F5
+      
+      // ═══════════════════════════════════════════════════════════════
+      // HEADER SECTION - Full width red banner
+      // ═══════════════════════════════════════════════════════════════
+      
+      // Red header banner
+      doc.setFillColor(...primaryRed);
+      doc.rect(0, 0, pageWidth, 35, "F");
+      
+      // Add subtle gradient effect with darker strip
+      doc.setFillColor(...darkRed);
+      doc.rect(0, 32, pageWidth, 3, "F");
+      
+      // Logo (white background circle for contrast)
+      const logoData = await getDataUri("/sinto-logo.svg");
+      if (logoData) {
+        doc.setFillColor(255, 255, 255);
+        doc.circle(25, 17.5, 12, "F");
+        doc.addImage(logoData, "PNG", 15, 7.5, 20, 20);
+      }
+      
+      // Title - White text on red
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(24);
+      doc.setFont("helvetica", "bold");
+      doc.text("Liste de prix SINTO", 45, 15);
+      
+      // Subtitle
+      doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
-      doc.text(
-        `Liste: ${abbreviateColumnName(selectedPriceList?.code || "")} - ${selectedPriceList?.name}`,
-        15,
-        45
-      );
-      doc.text(`Date: ${new Date().toLocaleDateString()}`, 15, 50);
+      doc.text("Experts en lubrification", 45, 23);
+      
+      // Date badge on right
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(pageWidth - 55, 10, 45, 15, 3, 3, "F");
+      doc.setTextColor(...primaryRed);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text(new Date().toLocaleDateString("fr-CA"), pageWidth - 32.5, 19, { align: "center" });
+      
+      // ═══════════════════════════════════════════════════════════════
+      // INFO BAR - Price list details
+      // ═══════════════════════════════════════════════════════════════
+      
+      doc.setFillColor(...lightRedBg);
+      doc.rect(0, 38, pageWidth, 12, "F");
+      
+      doc.setTextColor(...darkGray);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Liste: ${abbreviateColumnName(selectedPriceList?.code || "")}`, 15, 45);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...mediumGray);
+      doc.text(`${selectedPriceList?.name || ""}`, 50, 45);
+      
+      // Item count badge
+      doc.setFillColor(...primaryRed);
+      doc.roundedRect(pageWidth - 50, 40, 40, 8, 2, 2, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${itemsWithPrices.length} article(s)`, pageWidth - 30, 45.5, { align: "center" });
 
       let finalY = 55;
 
+      // ═══════════════════════════════════════════════════════════════
+      // TABLE SECTIONS
+      // ═══════════════════════════════════════════════════════════════
+      
       for (const [className, classItems] of Object.entries(groupedItems)) {
-        if (finalY > 270) {
+        if (finalY > 260) {
           doc.addPage();
           finalY = 20;
         }
-        doc.setFillColor(220, 220, 220);
-        doc.rect(14, finalY, 182, 8, "F");
+        
+        // Section header - Modern pill style
+        doc.setFillColor(...primaryRed);
+        doc.roundedRect(14, finalY, pageWidth - 28, 10, 2, 2, "F");
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(0, 0, 0);
-        doc.text(className.toUpperCase(), 16, finalY + 6);
-        finalY += 10;
+        doc.setTextColor(255, 255, 255);
+        doc.text(className.toUpperCase(), 18, finalY + 7);
+        
+        // Item count on right of section header
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.text(`${classItems.length} article(s)`, pageWidth - 18, finalY + 7, { align: "right" });
+        
+        finalY += 14;
 
         const firstItem = classItems[0];
         let priceColumns = firstItem.ranges[0]?.columns
@@ -1059,19 +1108,55 @@ function PriceModal({
           startY: finalY,
           head: [headRow],
           body: tableBody,
-          styles: { fontSize: 8, cellPadding: 1.5 },
-          headStyles: { fillColor: [120, 0, 0], textColor: 255 },
-          columnStyles: { 0: { fontStyle: "bold" } },
-          theme: "grid",
+          styles: { 
+            fontSize: 8, 
+            cellPadding: 2,
+            font: "helvetica",
+            overflow: "linebreak",
+          },
+          headStyles: { 
+            fillColor: darkGray,
+            textColor: [255, 255, 255],
+            fontStyle: "bold",
+            halign: "center",
+          },
+          columnStyles: { 
+            0: { fontStyle: "bold", textColor: primaryRed, halign: "left" },
+            1: { halign: "center" },
+            2: { halign: "center" },
+            3: { halign: "center", fontStyle: "bold" },
+          },
+          alternateRowStyles: {
+            fillColor: lightGray,
+          },
+          theme: "plain",
+          tableLineColor: [229, 229, 229],
+          tableLineWidth: 0.1,
           didParseCell: function (d) {
+            // Style price columns
+            if (d.section === "body" && d.column.index >= 4) {
+              d.cell.styles.halign = "right";
+              d.cell.styles.fontStyle = "bold";
+            }
+            // Spacer rows
             if (d.section === "body" && spacerRowIndices.includes(d.row.index)) {
-              d.cell.styles.fillColor = [0, 0, 0];
-              d.cell.styles.textColor = [0, 0, 0];
-              d.cell.styles.minCellHeight = 4;
+              d.cell.styles.fillColor = primaryRed;
+              d.cell.styles.textColor = primaryRed;
+              d.cell.styles.minCellHeight = 2;
             }
           },
+          didDrawPage: function(data) {
+            // Footer on each page
+            doc.setFillColor(...lightRedBg);
+            doc.rect(0, pageHeight - 15, pageWidth, 15, "F");
+            doc.setTextColor(...mediumGray);
+            doc.setFontSize(8);
+            doc.setFont("helvetica", "normal");
+            doc.text("SINTO - Experts en lubrification", 15, pageHeight - 6);
+            doc.text(`Page ${doc.getNumberOfPages()}`, pageWidth - 15, pageHeight - 6, { align: "right" });
+          },
         });
-        finalY = (doc as any).lastAutoTable.finalY + 10;
+        finalY = (doc as any).lastAutoTable.finalY + 12;
       }
 
       const pdfBlob = doc.output("blob");
@@ -1081,7 +1166,7 @@ function PriceModal({
       formData.append("subject", `Liste de prix SINTO : ${selectedPriceList?.name}`);
       formData.append(
         "message",
-        "Liste de Prix SINTO\n\nBonjour,\n\nVeuillez trouver ci-joint la liste de prix que vous avez demandée."
+        "Liste de prix SINTO\n\nBonjour,\n\nVeuillez trouver ci-joint la liste de prix que vous avez demandée.\n\nCordialement,\nSINTO - Experts en lubrification"
       );
       const res = await fetch("/api/catalogue/email", { method: "POST", body: formData });
       if (!res.ok) throw new Error("Erreur envoi");
@@ -1097,29 +1182,23 @@ function PriceModal({
 
   return (
     <div className="fixed inset-0 z-[99990] flex">
-      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-gradient-to-br from-neutral-900/90 via-neutral-900/80 to-neutral-900/90 backdrop-blur-xl"
         onClick={onClose}
       />
 
-      {/* Modal Container */}
       <div className="relative w-full h-full flex flex-col animate-in fade-in duration-300">
-        {/* ═══════════════════════════════════════════════════════════════════
-            HEADER - Sticky, compact, all controls accessible
-            ═══════════════════════════════════════════════════════════════════ */}
+        {/* HEADER */}
         <header
           className="flex-shrink-0 relative overflow-hidden"
           style={{ backgroundColor: accentColor }}
         >
-          {/* Decorative elements */}
           <div className="absolute inset-0 pointer-events-none overflow-hidden">
             <div className="absolute -top-32 -right-32 w-64 h-64 rounded-full bg-white/10 blur-3xl" />
             <div className="absolute -bottom-20 -left-20 w-48 h-48 rounded-full bg-black/10 blur-2xl" />
           </div>
 
           <div className="relative px-4 py-4 sm:px-6">
-            {/* Top row: Title + Close */}
             <div className="flex items-center justify-between gap-4 mb-4">
               <div className="flex items-center gap-4 min-w-0">
                 <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
@@ -1127,7 +1206,7 @@ function PriceModal({
                 </div>
                 <div className="min-w-0">
                   <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                    Liste de Prix
+                    Liste de prix
                   </h1>
                   <p className="text-white/70 text-sm">
                     {itemsWithPrices.length} article(s) •{" "}
@@ -1144,7 +1223,6 @@ function PriceModal({
               </button>
             </div>
 
-            {/* Action bar */}
             <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
               <PremiumToggle
                 enabled={showDetails}
@@ -1157,43 +1235,15 @@ function PriceModal({
 
               <div className="w-px h-8 bg-white/20 flex-shrink-0" />
 
-              <ActionButton
-                onClick={() => setShowEmailModal(true)}
-                icon={Mail}
-                label={isMobile ? undefined : "Email"}
-                variant="ghost"
-              />
-              <ActionButton
-                onClick={onReset}
-                icon={RotateCcw}
-                label={isMobile ? undefined : "Réinitialiser"}
-                variant="ghost"
-              />
-              <ActionButton
-                onClick={() => setFiltersExpanded(!filtersExpanded)}
-                icon={filtersExpanded ? ChevronUp : Filter}
-                label={isMobile ? undefined : "Filtres"}
-                variant={filtersExpanded ? "solid" : "ghost"}
-                accentColor={accentColor}
-              />
-              <ActionButton
-                onClick={onLoadSelection}
-                icon={Plus}
-                label={isMobile ? undefined : "Ajouter"}
-                variant="ghost"
-              />
-              <ActionButton
-                onClick={() => setShowQuickAdd(true)}
-                icon={Search}
-                label={isMobile ? undefined : "Recherche"}
-                variant="ghost"
-              />
+              <ActionButton onClick={() => setShowEmailModal(true)} icon={Mail} label={isMobile ? undefined : "Email"} variant="ghost" />
+              <ActionButton onClick={onReset} icon={RotateCcw} label={isMobile ? undefined : "Réinitialiser"} variant="ghost" />
+              <ActionButton onClick={() => setFiltersExpanded(!filtersExpanded)} icon={filtersExpanded ? ChevronUp : Filter} label={isMobile ? undefined : "Filtres"} variant={filtersExpanded ? "solid" : "ghost"} />
+              <ActionButton onClick={onLoadSelection} icon={Plus} label={isMobile ? undefined : "Ajouter"} variant="ghost" />
+              <ActionButton onClick={() => setShowQuickAdd(true)} icon={Search} label={isMobile ? undefined : "Recherche"} variant="ghost" />
             </div>
 
-            {/* Expandable filters panel */}
             {filtersExpanded && (
               <div className="mt-4 p-4 bg-black/20 backdrop-blur-sm rounded-2xl border border-white/10 space-y-3 animate-in slide-in-from-top-2 duration-200">
-                {/* Price list selector */}
                 <div className="relative">
                   <select
                     value={selectedPriceList?.priceId || ""}
@@ -1210,7 +1260,6 @@ function PriceModal({
                   <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500 pointer-events-none" />
                 </div>
 
-                {/* Category + Class row */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="relative">
                     <select
@@ -1218,13 +1267,9 @@ function PriceModal({
                       onChange={(e) => onProductChange(e.target.value)}
                       className="w-full h-14 px-4 pr-10 rounded-2xl font-semibold text-sm appearance-none cursor-pointer bg-white/15 text-white border border-white/20 focus:outline-none focus:border-white/50 transition-all"
                     >
-                      <option value="" className="text-neutral-900">
-                        Catégorie...
-                      </option>
+                      <option value="" className="text-neutral-900">Catégorie...</option>
                       {products.map((p) => (
-                        <option key={p.prodId} value={p.prodId} className="text-neutral-900">
-                          {p.name}
-                        </option>
+                        <option key={p.prodId} value={p.prodId} className="text-neutral-900">{p.name}</option>
                       ))}
                     </select>
                     <Layers className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
@@ -1236,20 +1281,15 @@ function PriceModal({
                       disabled={!selectedProduct}
                       className="w-full h-14 px-4 pr-10 rounded-2xl font-semibold text-sm appearance-none cursor-pointer bg-white/15 text-white border border-white/20 focus:outline-none focus:border-white/50 disabled:opacity-40 transition-all"
                     >
-                      <option value="" className="text-neutral-900">
-                        Classe...
-                      </option>
+                      <option value="" className="text-neutral-900">Classe...</option>
                       {itemTypes.map((t) => (
-                        <option key={t.itemTypeId} value={t.itemTypeId} className="text-neutral-900">
-                          {t.description}
-                        </option>
+                        <option key={t.itemTypeId} value={t.itemTypeId} className="text-neutral-900">{t.description}</option>
                       ))}
                     </select>
                     <Package className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
                   </div>
                 </div>
 
-                {/* Items multiselect */}
                 <ItemMultiSelect
                   items={items}
                   selectedIds={selectedItemIds}
@@ -1262,64 +1302,39 @@ function PriceModal({
           </div>
         </header>
 
-        {/* ═══════════════════════════════════════════════════════════════════
-            CONTENT AREA
-            ═══════════════════════════════════════════════════════════════════ */}
+        {/* CONTENT */}
         <main className="flex-1 overflow-auto bg-neutral-100 dark:bg-neutral-950">
           {loading && data.length === 0 ? (
-            // Loading state
             <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
               <div className="relative">
                 <div
                   className="w-20 h-20 border-4 border-t-transparent rounded-full animate-spin"
-                  style={{
-                    borderColor: `${accentColor}30`,
-                    borderTopColor: "transparent",
-                  }}
+                  style={{ borderColor: `${accentColor}30`, borderTopColor: "transparent" }}
                 />
                 <div
                   className="absolute inset-3 w-14 h-14 border-4 border-b-transparent rounded-full animate-spin"
-                  style={{
-                    borderColor: accentColor,
-                    borderBottomColor: "transparent",
-                    animationDirection: "reverse",
-                    animationDuration: "0.8s",
-                  }}
+                  style={{ borderColor: accentColor, borderBottomColor: "transparent", animationDirection: "reverse", animationDuration: "0.8s" }}
                 />
               </div>
               <div className="text-center">
-                <p className="text-xl font-bold text-neutral-700 dark:text-neutral-200">
-                  Chargement des prix
-                </p>
+                <p className="text-xl font-bold text-neutral-700 dark:text-neutral-200">Chargement des prix</p>
                 <p className="text-neutral-500 mt-1">Veuillez patienter...</p>
               </div>
             </div>
           ) : error ? (
-            // Error state
             <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
-              <div
-                className="w-24 h-24 rounded-3xl flex items-center justify-center"
-                style={{ backgroundColor: `${accentColor}15` }}
-              >
+              <div className="w-24 h-24 rounded-3xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}15` }}>
                 <AlertCircle className="w-12 h-12" style={{ color: accentColor }} />
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold" style={{ color: accentColor }}>
-                  Erreur
-                </p>
+                <p className="text-2xl font-bold" style={{ color: accentColor }}>Erreur</p>
                 <p className="text-neutral-500 mt-2 max-w-md">{error}</p>
-                <button
-                  onClick={onReset}
-                  className="mt-6 px-6 py-3 rounded-2xl text-sm font-bold border-2 transition-all hover:scale-105 active:scale-95"
-                  style={{ borderColor: accentColor, color: accentColor }}
-                >
-                  <RefreshCw className="w-4 h-4 inline mr-2" />
-                  Réessayer
+                <button onClick={onReset} className="mt-6 px-6 py-3 rounded-2xl text-sm font-bold border-2 transition-all hover:scale-105 active:scale-95" style={{ borderColor: accentColor, color: accentColor }}>
+                  <RefreshCw className="w-4 h-4 inline mr-2" />Réessayer
                 </button>
               </div>
             </div>
           ) : Object.keys(groupedItems).length > 0 ? (
-            // Data display
             <div className="p-4 sm:p-6 space-y-6">
               {Object.entries(groupedItems).map(([className, classItems]) => {
                 const firstItem = classItems[0];
@@ -1330,136 +1345,57 @@ function PriceModal({
                   priceColumns = priceColumns.filter((c) => c.trim() !== "01-EXP");
                 const standardColumns = priceColumns.filter((c) => c.trim() !== "08-PDS");
                 const hasPDS = priceColumns.some((c) => c.trim() === "08-PDS");
-                const totalCols =
-                  4 +
-                  standardColumns.length +
-                  (hasPDS ? 1 : 0) +
-                  (showDetails && !isCompact ? 3 : 0) +
-                  (showDetails && isCompact ? 1 : 0);
 
                 return (
-                  <section
-                    key={className}
-                    className="bg-white dark:bg-neutral-900 rounded-3xl overflow-hidden shadow-xl border border-neutral-200/50 dark:border-neutral-800"
-                  >
-                    {/* Section header */}
+                  <section key={className} className="bg-white dark:bg-neutral-900 rounded-3xl overflow-hidden shadow-xl border border-neutral-200/50 dark:border-neutral-800">
                     <div className="relative px-5 py-4 sm:px-6 sm:py-5" style={{ backgroundColor: accentColor }}>
                       <div className="absolute inset-0 overflow-hidden pointer-events-none">
                         <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
                       </div>
                       <div className="relative flex items-center justify-between">
                         <div>
-                          <h2 className="text-lg sm:text-xl font-black text-white uppercase tracking-wide">
-                            {className}
-                          </h2>
-                          <p className="text-white/70 text-sm mt-0.5">
-                            {classItems.length} article(s)
-                          </p>
+                          <h2 className="text-lg sm:text-xl font-black text-white uppercase tracking-wide">{className}</h2>
+                          <p className="text-white/70 text-sm mt-0.5">{classItems.length} article(s)</p>
                         </div>
                         <div className="flex items-center gap-2 px-3 py-2 bg-white/20 rounded-xl backdrop-blur-sm">
                           <Sparkles className="w-4 h-4 text-white" />
-                          <span className="text-white text-sm font-bold">
-                            {abbreviateColumnName(selectedPriceList?.code || "")}
-                          </span>
+                          <span className="text-white text-sm font-bold">{abbreviateColumnName(selectedPriceList?.code || "")}</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Table */}
                     <div className="overflow-x-auto">
-                      <table
-                        className={cn(
-                          "w-full border-collapse",
-                          isCompact ? "text-xs" : "text-sm"
-                        )}
-                      >
+                      <table className={cn("w-full border-collapse", isCompact ? "text-xs" : "text-sm")}>
                         <thead>
                           <tr className="bg-neutral-50 dark:bg-neutral-800/50">
-                            <th
-                              className={cn(
-                                "text-left font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700 sticky left-0 bg-neutral-50 dark:bg-neutral-800/50 z-10",
-                                isCompact ? "p-3" : "p-4"
-                              )}
-                            >
+                            <th className={cn("text-left font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700 sticky left-0 bg-neutral-50 dark:bg-neutral-800/50 z-10", isCompact ? "p-3" : "p-4")}>
                               <div className="flex items-center gap-2">
-                                <Package
-                                  className={cn(isCompact ? "w-4 h-4" : "w-5 h-5", "opacity-50")}
-                                />
-                                Article
+                                <Package className={cn(isCompact ? "w-4 h-4" : "w-5 h-5", "opacity-50")} />Article
                               </div>
                             </th>
-                            <th
-                              className={cn(
-                                "text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700",
-                                isCompact ? "p-3" : "p-4"
-                              )}
-                            >
-                              Cs
-                            </th>
-                            <th
-                              className={cn(
-                                "text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700",
-                                isCompact ? "p-3" : "p-4"
-                              )}
-                            >
-                              Fmt
-                            </th>
-                            <th
-                              className={cn(
-                                "text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700",
-                                isCompact ? "p-3" : "p-4"
-                              )}
-                            >
-                              Qty
-                            </th>
+                            <th className={cn("text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-3" : "p-4")}>Cs</th>
+                            <th className={cn("text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-3" : "p-4")}>Fmt</th>
+                            <th className={cn("text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-3" : "p-4")}>Qty</th>
                             {standardColumns.map((colCode) => {
-                              const isSelectedList =
-                                colCode.trim() === selectedPriceList?.code?.trim();
+                              const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
                               const displayName = abbreviateColumnName(colCode);
                               return (
                                 <Fragment key={colCode}>
-                                  <th
-                                    className={cn(
-                                      "text-right font-black border-b-2 border-neutral-200 dark:border-neutral-700 whitespace-nowrap",
-                                      isCompact ? "p-3" : "p-4",
-                                      isSelectedList
-                                        ? "text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/20"
-                                        : "text-neutral-600 dark:text-neutral-300"
-                                    )}
-                                  >
-                                    {displayName}
-                                  </th>
+                                  <th className={cn("text-right font-black border-b-2 border-neutral-200 dark:border-neutral-700 whitespace-nowrap", isCompact ? "p-3" : "p-4", isSelectedList ? "text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/20" : "text-neutral-600 dark:text-neutral-300")}>{displayName}</th>
                                   {showDetails && isSelectedList && !isCompact && (
                                     <>
-                                      <th className="text-right p-4 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/20 whitespace-nowrap">
-                                        $/Cs
-                                      </th>
-                                      <th className="text-right p-4 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/20 whitespace-nowrap">
-                                        $/L
-                                      </th>
-                                      <th className="text-right p-4 font-black text-violet-700 dark:text-violet-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-violet-50/50 dark:bg-violet-900/20 whitespace-nowrap">
-                                        %Exp
-                                      </th>
+                                      <th className="text-right p-4 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/20 whitespace-nowrap">$/Cs</th>
+                                      <th className="text-right p-4 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/20 whitespace-nowrap">$/L</th>
+                                      <th className="text-right p-4 font-black text-violet-700 dark:text-violet-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-violet-50/50 dark:bg-violet-900/20 whitespace-nowrap">%Exp</th>
                                     </>
                                   )}
                                   {showDetails && isSelectedList && isCompact && (
-                                    <th className="text-right p-3 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/20 whitespace-nowrap">
-                                      Détails
-                                    </th>
+                                    <th className="text-right p-3 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/20 whitespace-nowrap">Détails</th>
                                   )}
                                 </Fragment>
                               );
                             })}
-                            {hasPDS && (
-                              <th
-                                className={cn(
-                                  "text-right font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700 whitespace-nowrap",
-                                  isCompact ? "p-3" : "p-4"
-                                )}
-                              >
-                                {abbreviateColumnName("08-PDS")}
-                              </th>
-                            )}
+                            {hasPDS && <th className={cn("text-right font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700 whitespace-nowrap", isCompact ? "p-3" : "p-4")}>{abbreviateColumnName("08-PDS")}</th>}
                           </tr>
                         </thead>
                         <tbody>
@@ -1467,239 +1403,101 @@ function PriceModal({
                             <Fragment key={item.itemId}>
                               {item.ranges.map((range, rIdx) => {
                                 const isFirstRowOfItem = rIdx === 0;
-                                const rowBg =
-                                  itemIndex % 2 === 0
-                                    ? "bg-white dark:bg-neutral-900"
-                                    : "bg-neutral-50/70 dark:bg-neutral-800/30";
+                                const rowBg = itemIndex % 2 === 0 ? "bg-white dark:bg-neutral-900" : "bg-neutral-50/70 dark:bg-neutral-800/30";
 
                                 return (
-                                  <tr
-                                    key={range.id}
-                                    className={cn(
-                                      "transition-colors duration-200 group",
-                                      rowBg,
-                                      "hover:bg-amber-50/50 dark:hover:bg-amber-900/10"
-                                    )}
-                                  >
-                                    <td
-                                      className={cn(
-                                        "border-b border-neutral-100 dark:border-neutral-800 align-top sticky left-0 z-10",
-                                        isCompact ? "p-3" : "p-4",
-                                        rowBg,
-                                        "group-hover:bg-amber-50/50 dark:group-hover:bg-amber-900/10"
-                                      )}
-                                    >
+                                  <tr key={range.id} className={cn("transition-colors duration-200 group", rowBg, "hover:bg-amber-50/50 dark:hover:bg-amber-900/10")}>
+                                    <td className={cn("border-b border-neutral-100 dark:border-neutral-800 align-top sticky left-0 z-10", isCompact ? "p-3" : "p-4", rowBg, "group-hover:bg-amber-50/50 dark:group-hover:bg-amber-900/10")}>
                                       {isFirstRowOfItem && (
                                         <div className="flex flex-col gap-0.5">
-                                          <span
-                                            className={cn(
-                                              "font-mono font-black tracking-tight",
-                                              isCompact ? "text-sm" : "text-base"
-                                            )}
-                                            style={{ color: accentColor }}
-                                          >
-                                            {item.itemCode}
-                                          </span>
-                                          <span
-                                            className={cn(
-                                              "text-neutral-500 truncate max-w-[200px]",
-                                              isCompact ? "text-[10px]" : "text-xs"
-                                            )}
-                                            title={item.description}
-                                          >
-                                            {item.description}
-                                          </span>
+                                          <span className={cn("font-mono font-black tracking-tight", isCompact ? "text-sm" : "text-base")} style={{ color: accentColor }}>{item.itemCode}</span>
+                                          <span className={cn("text-neutral-500 truncate max-w-[200px]", isCompact ? "text-[10px]" : "text-xs")} title={item.description}>{item.description}</span>
                                         </div>
                                       )}
                                     </td>
-                                    <td
-                                      className={cn(
-                                        "text-center border-b border-neutral-100 dark:border-neutral-800 align-top",
-                                        isCompact ? "p-3" : "p-4"
-                                      )}
-                                    >
-                                      {isFirstRowOfItem && (
-                                        <span className="font-bold text-neutral-900 dark:text-white">
-                                          {item.caisse ? Math.round(item.caisse) : "-"}
-                                        </span>
-                                      )}
+                                    <td className={cn("text-center border-b border-neutral-100 dark:border-neutral-800 align-top", isCompact ? "p-3" : "p-4")}>
+                                      {isFirstRowOfItem && <span className="font-bold text-neutral-900 dark:text-white">{item.caisse ? Math.round(item.caisse) : "-"}</span>}
                                     </td>
-                                    <td
-                                      className={cn(
-                                        "text-center border-b border-neutral-100 dark:border-neutral-800 align-top",
-                                        isCompact ? "p-3" : "p-4"
-                                      )}
-                                    >
-                                      {isFirstRowOfItem && (
-                                        <span className="font-medium text-neutral-700 dark:text-neutral-300 px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg inline-block text-xs">
-                                          {item.format || "-"}
-                                        </span>
-                                      )}
+                                    <td className={cn("text-center border-b border-neutral-100 dark:border-neutral-800 align-top", isCompact ? "p-3" : "p-4")}>
+                                      {isFirstRowOfItem && <span className="font-medium text-neutral-700 dark:text-neutral-300 px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg inline-block text-xs">{item.format || "-"}</span>}
                                     </td>
-                                    <td
-                                      className={cn(
-                                        "text-center border-b border-neutral-100 dark:border-neutral-800",
-                                        isCompact ? "p-3" : "p-4"
-                                      )}
-                                    >
-                                      <span className="font-mono font-bold text-neutral-900 dark:text-white">
-                                        {range.qtyMin}
-                                      </span>
+                                    <td className={cn("text-center border-b border-neutral-100 dark:border-neutral-800", isCompact ? "p-3" : "p-4")}>
+                                      <span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span>
                                     </td>
                                     {standardColumns.map((colCode) => {
-                                      const priceVal = range.columns
-                                        ? range.columns[colCode]
-                                        : colCode === selectedPriceList?.code
-                                        ? range.unitPrice
-                                        : null;
-                                      const isSelectedList =
-                                        colCode.trim() === selectedPriceList?.code?.trim();
+                                      const priceVal = range.columns ? range.columns[colCode] : colCode === selectedPriceList?.code ? range.unitPrice : null;
+                                      const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
                                       return (
                                         <Fragment key={colCode}>
-                                          <td
-                                            className={cn(
-                                              "text-right border-b border-neutral-100 dark:border-neutral-800",
-                                              isCompact ? "p-3" : "p-4",
-                                              isSelectedList &&
-                                                "bg-amber-50/30 dark:bg-amber-900/10"
-                                            )}
-                                          >
-                                            <span
-                                              className={cn(
-                                                "font-mono font-bold whitespace-nowrap",
-                                                isSelectedList
-                                                  ? "text-amber-700 dark:text-amber-400"
-                                                  : "text-neutral-700 dark:text-neutral-300"
-                                              )}
-                                            >
-                                              {priceVal !== null && priceVal !== undefined ? (
-                                                <AnimatedPrice value={priceVal} />
-                                              ) : (
-                                                "-"
-                                              )}
+                                          <td className={cn("text-right border-b border-neutral-100 dark:border-neutral-800", isCompact ? "p-3" : "p-4", isSelectedList && "bg-amber-50/30 dark:bg-amber-900/10")}>
+                                            <span className={cn("font-mono font-bold whitespace-nowrap", isSelectedList ? "text-amber-700 dark:text-amber-400" : "text-neutral-700 dark:text-neutral-300")}>
+                                              {priceVal !== null && priceVal !== undefined ? <AnimatedPrice value={priceVal} /> : "-"}
                                             </span>
                                           </td>
-                                          {showDetails &&
-                                            isSelectedList &&
-                                            !isCompact &&
-                                            (() => {
-                                              const selectedPriceVal = priceVal ?? 0;
-                                              const ppc = calcPricePerCaisse(
-                                                selectedPriceVal,
-                                                item.caisse
-                                              );
-                                              const ppl = calcPricePerLitre(
-                                                selectedPriceVal,
-                                                item.volume
-                                              );
-                                              const expBaseVal = range.columns?.["01-EXP"] ?? null;
-                                              const percentExp = calcMargin(
-                                                selectedPriceVal,
-                                                expBaseVal
-                                              );
-                                              return (
-                                                <>
-                                                  <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/10">
-                                                    <span className="font-mono text-sky-700 dark:text-sky-400">
-                                                      {ppc ? ppc.toFixed(2) : "-"}
-                                                    </span>
-                                                  </td>
-                                                  <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/10">
-                                                    <span className="font-mono text-sky-700 dark:text-sky-400">
-                                                      {ppl ? ppl.toFixed(2) : "-"}
-                                                    </span>
-                                                  </td>
-                                                  <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-violet-50/30 dark:bg-violet-900/10">
-                                                    <span
-                                                      className={cn(
-                                                        "font-mono font-bold",
-                                                        percentExp && percentExp < 0
-                                                          ? "text-red-600 dark:text-red-400"
-                                                          : "text-violet-700 dark:text-violet-400"
-                                                      )}
-                                                    >
-                                                      {percentExp !== null
-                                                        ? `${percentExp.toFixed(1)}%`
-                                                        : "-"}
-                                                    </span>
-                                                  </td>
-                                                </>
-                                              );
-                                            })()}
-                                          {showDetails &&
-                                            isSelectedList &&
-                                            isCompact &&
-                                            (() => {
-                                              const selectedPriceVal = priceVal ?? 0;
-                                              const ppc = calcPricePerCaisse(
-                                                selectedPriceVal,
-                                                item.caisse
-                                              );
-                                              const ppl = calcPricePerLitre(
-                                                selectedPriceVal,
-                                                item.volume
-                                              );
-                                              const expBaseVal = range.columns?.["01-EXP"] ?? null;
-                                              const percentExp = calcMargin(
-                                                selectedPriceVal,
-                                                expBaseVal
-                                              );
-                                              return (
-                                                <td className="p-3 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/10">
-                                                  <div className="space-y-1 text-[10px]">
-                                                    <div className="flex justify-end gap-2 text-sky-700 dark:text-sky-400">
-                                                      <span className="opacity-60">$/Cs</span>
-                                                      <span className="font-mono font-bold">
-                                                        {ppc ? ppc.toFixed(2) : "-"}
-                                                      </span>
-                                                    </div>
-                                                    <div className="flex justify-end gap-2 text-sky-700 dark:text-sky-400">
-                                                      <span className="opacity-60">$/L</span>
-                                                      <span className="font-mono font-bold">
-                                                        {ppl ? ppl.toFixed(2) : "-"}
-                                                      </span>
-                                                    </div>
-                                                    <div className="flex justify-end gap-2 text-violet-700 dark:text-violet-400">
-                                                      <span className="opacity-60">%Exp</span>
-                                                      <span className="font-mono font-bold">
-                                                        {percentExp !== null
-                                                          ? `${percentExp.toFixed(1)}%`
-                                                          : "-"}
-                                                      </span>
-                                                    </div>
-                                                  </div>
+                                          {showDetails && isSelectedList && !isCompact && (() => {
+                                            const selectedPriceVal = priceVal ?? 0;
+                                            const ppc = calcPricePerCaisse(selectedPriceVal, item.caisse);
+                                            const ppl = calcPricePerLitre(selectedPriceVal, item.volume);
+                                            const expBaseVal = range.columns?.["01-EXP"] ?? null;
+                                            const percentExp = calcMargin(selectedPriceVal, expBaseVal);
+                                            return (
+                                              <>
+                                                <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/10">
+                                                  <span className="font-mono text-sky-700 dark:text-sky-400">{ppc ? ppc.toFixed(2) : "-"}</span>
                                                 </td>
-                                              );
-                                            })()}
+                                                <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/10">
+                                                  <span className="font-mono text-sky-700 dark:text-sky-400">{ppl ? ppl.toFixed(2) : "-"}</span>
+                                                </td>
+                                                <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-violet-50/30 dark:bg-violet-900/10">
+                                                  <span className={cn("font-mono font-bold", percentExp && percentExp < 0 ? "text-red-600 dark:text-red-400" : "text-violet-700 dark:text-violet-400")}>
+                                                    {percentExp !== null ? `${percentExp.toFixed(1)}%` : "-"}
+                                                  </span>
+                                                </td>
+                                              </>
+                                            );
+                                          })()}
+                                          {showDetails && isSelectedList && isCompact && (() => {
+                                            const selectedPriceVal = priceVal ?? 0;
+                                            const ppc = calcPricePerCaisse(selectedPriceVal, item.caisse);
+                                            const ppl = calcPricePerLitre(selectedPriceVal, item.volume);
+                                            const expBaseVal = range.columns?.["01-EXP"] ?? null;
+                                            const percentExp = calcMargin(selectedPriceVal, expBaseVal);
+                                            return (
+                                              <td className="p-3 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/10">
+                                                <div className="space-y-1 text-[10px]">
+                                                  <div className="flex justify-end gap-2 text-sky-700 dark:text-sky-400">
+                                                    <span className="opacity-60">$/Cs</span>
+                                                    <span className="font-mono font-bold">{ppc ? ppc.toFixed(2) : "-"}</span>
+                                                  </div>
+                                                  <div className="flex justify-end gap-2 text-sky-700 dark:text-sky-400">
+                                                    <span className="opacity-60">$/L</span>
+                                                    <span className="font-mono font-bold">{ppl ? ppl.toFixed(2) : "-"}</span>
+                                                  </div>
+                                                  <div className="flex justify-end gap-2 text-violet-700 dark:text-violet-400">
+                                                    <span className="opacity-60">%Exp</span>
+                                                    <span className="font-mono font-bold">{percentExp !== null ? `${percentExp.toFixed(1)}%` : "-"}</span>
+                                                  </div>
+                                                </div>
+                                              </td>
+                                            );
+                                          })()}
                                         </Fragment>
                                       );
                                     })}
-                                    {hasPDS &&
-                                      (() => {
-                                        const p = range.columns?.["08-PDS"] ?? null;
-                                        return (
-                                          <td
-                                            className={cn(
-                                              "text-right border-b border-neutral-100 dark:border-neutral-800",
-                                              isCompact ? "p-3" : "p-4"
-                                            )}
-                                          >
-                                            <span className="font-mono font-bold text-neutral-700 dark:text-neutral-300">
-                                              {p !== null ? <AnimatedPrice value={p} /> : "-"}
-                                            </span>
-                                          </td>
-                                        );
-                                      })()}
+                                    {hasPDS && (() => {
+                                      const p = range.columns?.["08-PDS"] ?? null;
+                                      return (
+                                        <td className={cn("text-right border-b border-neutral-100 dark:border-neutral-800", isCompact ? "p-3" : "p-4")}>
+                                          <span className="font-mono font-bold text-neutral-700 dark:text-neutral-300">{p !== null ? <AnimatedPrice value={p} /> : "-"}</span>
+                                        </td>
+                                      );
+                                    })()}
                                   </tr>
                                 );
                               })}
-                              {/* Spacer row between items */}
                               {itemIndex < classItems.length - 1 && (
                                 <tr className="h-2">
-                                  <td
-                                    colSpan={100}
-                                    className="bg-neutral-200 dark:bg-neutral-800 border-none"
-                                  />
+                                  <td colSpan={100} className="bg-neutral-200 dark:bg-neutral-800 border-none" />
                                 </tr>
                               )}
                             </Fragment>
@@ -1712,97 +1510,56 @@ function PriceModal({
               })}
             </div>
           ) : (
-            // Empty state
             <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
-              <div
-                className="w-28 h-28 rounded-3xl flex items-center justify-center"
-                style={{ backgroundColor: `${accentColor}10` }}
-              >
-                <Inbox
-                  className="w-14 h-14"
-                  style={{ color: `${accentColor}40` }}
-                />
+              <div className="w-28 h-28 rounded-3xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}10` }}>
+                <Inbox className="w-14 h-14" style={{ color: `${accentColor}40` }} />
               </div>
               <div className="text-center max-w-md">
-                <p className="text-2xl font-bold text-neutral-700 dark:text-neutral-200">
-                  Aucun prix trouvé
-                </p>
+                <p className="text-2xl font-bold text-neutral-700 dark:text-neutral-200">Aucun prix trouvé</p>
                 <p className="text-neutral-500 mt-3">
-                  Utilisez le bouton{" "}
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-                    <Plus className="w-4 h-4" /> Ajouter
-                  </span>{" "}
-                  ou la{" "}
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg">
-                    <Search className="w-4 h-4" /> Recherche
-                  </span>{" "}
-                  pour ajouter des articles.
+                  Utilisez le bouton <span className="inline-flex items-center gap-1 px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg"><Plus className="w-4 h-4" /> Ajouter</span> ou la <span className="inline-flex items-center gap-1 px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg"><Search className="w-4 h-4" /> Recherche</span> pour ajouter des articles.
                 </p>
               </div>
             </div>
           )}
         </main>
 
-        {/* ═══════════════════════════════════════════════════════════════════
-            FOOTER - Stats bar
-            ═══════════════════════════════════════════════════════════════════ */}
+        {/* FOOTER */}
         {!loading && itemsWithPrices.length > 0 && (
           <footer className="flex-shrink-0 bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-800 px-4 py-3 sm:px-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div
-                  className="px-4 py-2 rounded-xl font-bold text-sm"
-                  style={{ backgroundColor: `${accentColor}15`, color: accentColor }}
-                >
+                <div className="px-4 py-2 rounded-xl font-bold text-sm" style={{ backgroundColor: `${accentColor}15`, color: accentColor }}>
                   {itemsWithPrices.length} article(s)
                 </div>
                 {showDetails && (
                   <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-semibold text-sm">
-                    <Eye className="w-4 h-4" />
-                    Mode détaillé
+                    <Eye className="w-4 h-4" />Mode détaillé
                   </div>
                 )}
               </div>
               <div className="flex items-center gap-2 text-sm text-neutral-500">
                 <span className="hidden sm:inline">Liste:</span>
-                <span className="font-bold text-neutral-700 dark:text-neutral-300">
-                  {abbreviateColumnName(selectedPriceList?.code || "")}
-                </span>
+                <span className="font-bold text-neutral-700 dark:text-neutral-300">{abbreviateColumnName(selectedPriceList?.code || "")}</span>
               </div>
             </div>
           </footer>
         )}
       </div>
 
-      {/* Modals */}
-      {showQuickAdd && (
-        <QuickAddPanel
-          accentColor={accentColor}
-          onClose={() => setShowQuickAdd(false)}
-          onAddItems={onAddItems}
-        />
-      )}
-
-      <EmailModal
-        isOpen={showEmailModal}
-        onClose={() => setShowEmailModal(false)}
-        onSend={handleEmailPDF}
-        sending={isSendingEmail}
-        accentColor={accentColor}
-      />
+      {showQuickAdd && <QuickAddPanel accentColor={accentColor} onClose={() => setShowQuickAdd(false)} onAddItems={onAddItems} />}
+      <EmailModal isOpen={showEmailModal} onClose={() => setShowEmailModal(false)} onSend={handleEmailPDF} sending={isSendingEmail} accentColor={accentColor} />
     </div>
   );
 }
 
 /* =========================
-   Main Page - Premium Redesign
+   Main Page - iPad Landscape No-Scroll Design
 ========================= */
 export default function CataloguePage() {
   const { color: accentColor } = useCurrentAccent();
 
-  // ═══════════════════════════════════════════════════════════════════
   // STATE (UNCHANGED)
-  // ═══════════════════════════════════════════════════════════════════
   const [products, setProducts] = useState<Product[]>([]);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [items, setItems] = useState<Item[]>([]);
@@ -1827,9 +1584,7 @@ export default function CataloguePage() {
   const [loadingTypes, setLoadingTypes] = useState(false);
   const [loadingItems, setLoadingItems] = useState(false);
 
-  // ═══════════════════════════════════════════════════════════════════
   // DATA FETCHING (UNCHANGED)
-  // ═══════════════════════════════════════════════════════════════════
   useEffect(() => {
     (async () => {
       try {
@@ -1855,9 +1610,7 @@ export default function CataloguePage() {
       if (searchQuery.length > 1) {
         setIsSearching(true);
         try {
-          const res = await fetch(
-            `/api/catalogue/items?search=${encodeURIComponent(searchQuery)}`
-          );
+          const res = await fetch(`/api/catalogue/items?search=${encodeURIComponent(searchQuery)}`);
           if (res.ok) setSearchResults(await res.json());
         } finally {
           setIsSearching(false);
@@ -1867,9 +1620,7 @@ export default function CataloguePage() {
     return () => clearTimeout(timeout);
   }, [searchQuery]);
 
-  // ═══════════════════════════════════════════════════════════════════
   // HANDLERS (UNCHANGED)
-  // ═══════════════════════════════════════════════════════════════════
   const handleAddItems = async (itemIds: number[]) => {
     if (!selectedPriceList || itemIds.length === 0) return;
     setLoadingPrices(true);
@@ -2042,321 +1793,224 @@ export default function CataloguePage() {
   const canGenerate = Boolean(selectedPriceList && selectedProduct);
 
   // ═══════════════════════════════════════════════════════════════════
-  // RENDER
+  // RENDER - iPad Landscape optimized (no scroll)
   // ═══════════════════════════════════════════════════════════════════
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-100 via-neutral-50 to-neutral-100 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
-      <div className="min-h-screen flex flex-col">
-        <main className="flex-1 p-4 sm:p-6 flex flex-col items-center justify-center">
-          <div className="w-full max-w-2xl">
-            {/* Logo & Title */}
-            <div className="text-center mb-8">
-              <div className="relative inline-block mb-4">
+    <div className="h-screen overflow-hidden bg-gradient-to-br from-neutral-100 via-neutral-50 to-neutral-100 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950 flex items-center justify-center p-4">
+      <div className="w-full max-w-5xl h-full max-h-[600px] flex flex-col">
+        {/* Main Card - Fits entirely in viewport */}
+        <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/50 dark:border-neutral-800 shadow-2xl overflow-hidden flex flex-col h-full">
+          {/* Header Row - Logo + Title + Generate Button */}
+          <div
+            className="flex-shrink-0 px-6 py-4 flex items-center justify-between gap-6"
+            style={{
+              background: `linear-gradient(135deg, ${accentColor}08 0%, transparent 100%)`,
+            }}
+          >
+            <div className="flex items-center gap-4">
+              <div className="relative">
                 <div
-                  className="absolute inset-0 rounded-3xl blur-2xl opacity-30"
+                  className="absolute inset-0 rounded-2xl blur-xl opacity-30"
                   style={{ backgroundColor: accentColor }}
                 />
                 <Image
                   src="/sinto-logo.svg"
-                  alt="SINTO Logo"
-                  width={80}
-                  height={80}
-                  className="relative h-20 w-20 object-contain mx-auto"
+                  alt="SINTO"
+                  width={56}
+                  height={56}
+                  className="relative h-14 w-14 object-contain"
                 />
               </div>
-              <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-neutral-900 dark:text-white">
-                Catalogue SINTO
-              </h1>
-              <p className="text-neutral-500 mt-2 text-lg">
-                Générateur de liste de prix
-              </p>
+              <div>
+                <h1 className="text-2xl font-black tracking-tight text-neutral-900 dark:text-white">
+                  Catalogue SINTO
+                </h1>
+                <p className="text-neutral-500 text-sm">Générateur de liste de prix</p>
+              </div>
             </div>
 
-            {/* Main Card */}
-            <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/50 dark:border-neutral-800 shadow-2xl overflow-hidden">
-              {/* Search Bar */}
-              <div className="p-5 sm:p-6 border-b border-neutral-100 dark:border-neutral-800">
-                <div className="relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
-                    <Search className="w-5 h-5 text-neutral-400" />
-                  </div>
-                  <input
-                    type="search"
-                    placeholder="Recherche rapide par code article..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className={cn(
-                      "w-full h-14 pl-12 pr-4 rounded-2xl text-base font-medium",
-                      "bg-neutral-100 dark:bg-neutral-800",
-                      "border-2 border-transparent focus:border-current",
-                      "outline-none transition-all duration-300",
-                      "placeholder:text-neutral-400"
-                    )}
-                    style={{ borderColor: searchQuery ? accentColor : "transparent" }}
-                  />
+            <button
+              onClick={handleGenerate}
+              disabled={!canGenerate}
+              className={cn(
+                "h-14 px-8 rounded-2xl font-black text-base uppercase tracking-wider",
+                "flex items-center justify-center gap-3 transition-all duration-300",
+                "disabled:bg-neutral-200 disabled:dark:bg-neutral-800 disabled:text-neutral-400 disabled:cursor-not-allowed",
+                canGenerate && "hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] text-white"
+              )}
+              style={
+                canGenerate
+                  ? { backgroundColor: accentColor, boxShadow: `0 15px 30px -5px ${accentColor}40` }
+                  : {}
+              }
+            >
+              <Zap className="w-5 h-5" />
+              Générer
+            </button>
+          </div>
 
-                  {/* Search Results Dropdown */}
-                  {searchQuery.length > 1 && (
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden max-h-72 overflow-y-auto z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                      {isSearching ? (
-                        <div className="p-8 flex flex-col items-center gap-3">
-                          <Loader2
-                            className="w-6 h-6 animate-spin"
-                            style={{ color: accentColor }}
-                          />
-                          <span className="text-sm text-neutral-500">Recherche...</span>
-                        </div>
-                      ) : searchResults.length > 0 ? (
-                        <div className="p-2">
-                          {searchResults.slice(0, 6).map((item) => (
-                            <button
-                              key={item.itemId}
-                              onClick={() => handleSearchResultClick(item)}
-                              className="w-full p-4 text-left rounded-xl transition-all hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center gap-4"
-                            >
-                              <div
-                                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                                style={{ backgroundColor: `${accentColor}15` }}
-                              >
-                                <Package
-                                  className="w-5 h-5"
-                                  style={{ color: accentColor }}
-                                />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className="font-mono font-bold text-sm"
-                                    style={{ color: accentColor }}
-                                  >
-                                    {item.itemCode}
-                                  </span>
-                                </div>
-                                <div className="text-sm text-neutral-600 dark:text-neutral-400 truncate">
-                                  {item.description}
-                                </div>
-                                <div className="text-xs text-neutral-400 mt-0.5">
-                                  {item.categoryName} → {item.className}
-                                </div>
-                              </div>
-                              <ChevronRight className="w-5 h-5 text-neutral-300 flex-shrink-0" />
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="p-8 flex flex-col items-center gap-3">
-                          <Inbox className="w-10 h-10 text-neutral-300" />
-                          <span className="text-sm text-neutral-500">Aucun résultat</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Form Fields */}
-              <div className="p-5 sm:p-6 space-y-4">
-                {/* Step 1: Price List */}
-                <div>
-                  <label className="flex items-center gap-2 text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wider">
-                    <span
-                      className="w-6 h-6 rounded-lg flex items-center justify-center text-white text-[10px] font-black"
-                      style={{ backgroundColor: accentColor }}
-                    >
-                      1
-                    </span>
-                    Liste de Prix
-                  </label>
-                  <PremiumSelect
-                    value={selectedPriceList?.priceId || ""}
-                    onChange={handlePriceListChange}
-                    options={priceLists.map((pl) => ({
-                      value: pl.priceId,
-                      label: `${abbreviateColumnName(pl.code)} - ${pl.name}`,
-                    }))}
-                    placeholder="Sélectionner une liste..."
-                    icon={FileText}
-                    accentColor={accentColor}
-                    variant="prominent"
-                  />
-                </div>
-
-                {/* Step 2: Category */}
-                <div>
-                  <label className="flex items-center gap-2 text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wider">
-                    <span
-                      className={cn(
-                        "w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black",
-                        selectedPriceList
-                          ? "text-white"
-                          : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400"
-                      )}
-                      style={
-                        selectedPriceList ? { backgroundColor: accentColor } : undefined
-                      }
-                    >
-                      2
-                    </span>
-                    Catégorie
-                  </label>
-                  <PremiumSelect
-                    value={selectedProduct?.prodId || ""}
-                    onChange={handleProductChange}
-                    options={products.map((p) => ({
-                      value: p.prodId,
-                      label: p.name,
-                      count: p.itemCount,
-                    }))}
-                    placeholder="Sélectionner une catégorie..."
-                    disabled={!selectedPriceList}
-                    icon={Layers}
-                    accentColor={accentColor}
-                  />
-                </div>
-
-                {/* Step 3: Class (Optional) */}
-                <div>
-                  <label className="flex items-center gap-2 text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wider">
-                    <span
-                      className={cn(
-                        "w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black",
-                        selectedProduct
-                          ? "text-white"
-                          : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400"
-                      )}
-                      style={
-                        selectedProduct ? { backgroundColor: accentColor } : undefined
-                      }
-                    >
-                      3
-                    </span>
-                    Classe
-                    <span className="text-neutral-300 dark:text-neutral-600 font-normal normal-case">
-                      (Optionnel)
-                    </span>
-                  </label>
-                  <PremiumSelect
-                    value={selectedType?.itemTypeId || ""}
-                    onChange={handleTypeChange}
-                    options={[
-                      { value: "", label: "Toutes les classes" },
-                      ...itemTypes.map((t) => ({
-                        value: t.itemTypeId,
-                        label: t.description,
-                        count: t.itemCount,
-                      })),
-                    ]}
-                    placeholder="Toutes les classes"
-                    disabled={!selectedProduct}
-                    loading={loadingTypes}
-                    icon={Package}
-                    accentColor={accentColor}
-                  />
-                </div>
-
-                {/* Step 4: Article (Optional) */}
-                <div>
-                  <label className="flex items-center gap-2 text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wider">
-                    <span
-                      className={cn(
-                        "w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black",
-                        selectedType
-                          ? "text-white"
-                          : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400"
-                      )}
-                      style={selectedType ? { backgroundColor: accentColor } : undefined}
-                    >
-                      4
-                    </span>
-                    Article
-                    <span className="text-neutral-300 dark:text-neutral-600 font-normal normal-case">
-                      (Optionnel)
-                    </span>
-                  </label>
-                  <PremiumSelect
-                    value={selectedItem?.itemId || ""}
-                    onChange={handleItemChange}
-                    options={[
-                      { value: "", label: "Tous les articles" },
-                      ...items.map((i) => ({
-                        value: i.itemId,
-                        label: `${i.itemCode} - ${i.description}`,
-                      })),
-                    ]}
-                    placeholder="Tous les articles"
-                    disabled={!selectedType}
-                    loading={loadingItems}
-                    icon={Tag}
-                    accentColor={accentColor}
-                  />
-                </div>
-
-                {/* Selected Item Indicator */}
-                {selectedItem && (
-                  <div
-                    className="p-4 rounded-2xl border-2 animate-in fade-in slide-in-from-bottom-2 duration-300"
-                    style={{
-                      backgroundColor: `${accentColor}08`,
-                      borderColor: `${accentColor}30`,
-                    }}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div
-                        className="w-12 h-12 rounded-xl flex items-center justify-center"
-                        style={{ backgroundColor: `${accentColor}20` }}
-                      >
-                        <Check className="w-6 h-6" style={{ color: accentColor }} />
-                      </div>
-                      <div>
-                        <div
-                          className="font-mono font-black text-lg"
-                          style={{ color: accentColor }}
-                        >
-                          {selectedItem.itemCode}
-                        </div>
-                        <div className="text-sm" style={{ color: accentColor, opacity: 0.7 }}>
-                          {selectedItem.description}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+          {/* Search Bar */}
+          <div className="flex-shrink-0 px-6 pb-4">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 z-10" />
+              <input
+                type="search"
+                placeholder="Recherche rapide par code article..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={cn(
+                  "w-full h-12 pl-12 pr-4 rounded-xl text-sm font-medium",
+                  "bg-neutral-100 dark:bg-neutral-800",
+                  "border-2 border-transparent focus:border-current",
+                  "outline-none transition-all duration-300",
+                  "placeholder:text-neutral-400"
                 )}
-              </div>
+                style={{ borderColor: searchQuery ? accentColor : "transparent" }}
+              />
 
-              {/* Generate Button */}
-              <div className="p-5 sm:p-6 pt-0">
-                <button
-                  onClick={handleGenerate}
-                  disabled={!canGenerate}
-                  className={cn(
-                    "w-full h-16 rounded-2xl font-black text-lg uppercase tracking-wider",
-                    "flex items-center justify-center gap-3 transition-all duration-300",
-                    "disabled:bg-neutral-200 disabled:dark:bg-neutral-800 disabled:text-neutral-400 disabled:cursor-not-allowed",
-                    canGenerate &&
-                      "hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] text-white"
+              {/* Search Results */}
+              {searchQuery.length > 1 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden max-h-48 overflow-y-auto z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                  {isSearching ? (
+                    <div className="p-6 flex items-center justify-center gap-3">
+                      <Loader2 className="w-5 h-5 animate-spin" style={{ color: accentColor }} />
+                      <span className="text-sm text-neutral-500">Recherche...</span>
+                    </div>
+                  ) : searchResults.length > 0 ? (
+                    <div className="p-1">
+                      {searchResults.slice(0, 5).map((item) => (
+                        <button
+                          key={item.itemId}
+                          onClick={() => handleSearchResultClick(item)}
+                          className="w-full p-3 text-left rounded-lg transition-all hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center gap-3"
+                        >
+                          <Package className="w-5 h-5 flex-shrink-0" style={{ color: accentColor }} />
+                          <div className="flex-1 min-w-0">
+                            <span className="font-mono font-bold text-sm mr-2" style={{ color: accentColor }}>
+                              {item.itemCode}
+                            </span>
+                            <span className="text-sm text-neutral-600 dark:text-neutral-400 truncate">
+                              {item.description}
+                            </span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-neutral-300 flex-shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-6 text-center">
+                      <Inbox className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
+                      <span className="text-sm text-neutral-500">Aucun résultat</span>
+                    </div>
                   )}
-                  style={
-                    canGenerate
-                      ? {
-                          backgroundColor: accentColor,
-                          boxShadow: `0 20px 40px -10px ${accentColor}50`,
-                        }
-                      : {}
-                  }
-                >
-                  <Zap className="w-6 h-6" />
-                  Générer la liste
-                  <ArrowRight className="w-5 h-5" />
-                </button>
-              </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Form Grid - 4 columns side by side */}
+          <div className="flex-1 px-6 pb-4 flex flex-col">
+            <div className="grid grid-cols-4 gap-4 flex-1">
+              <CompactSelect
+                value={selectedPriceList?.priceId || ""}
+                onChange={handlePriceListChange}
+                options={priceLists.map((pl) => ({
+                  value: pl.priceId,
+                  label: `${abbreviateColumnName(pl.code)} - ${pl.name}`,
+                }))}
+                placeholder="Sélectionner..."
+                icon={FileText}
+                accentColor={accentColor}
+                label="Liste de prix"
+                step={1}
+              />
+
+              <CompactSelect
+                value={selectedProduct?.prodId || ""}
+                onChange={handleProductChange}
+                options={products.map((p) => ({
+                  value: p.prodId,
+                  label: p.name,
+                  count: p.itemCount,
+                }))}
+                placeholder="Sélectionner..."
+                disabled={!selectedPriceList}
+                icon={Layers}
+                accentColor={accentColor}
+                label="Catégorie"
+                step={2}
+              />
+
+              <CompactSelect
+                value={selectedType?.itemTypeId || ""}
+                onChange={handleTypeChange}
+                options={[
+                  { value: "", label: "Toutes" },
+                  ...itemTypes.map((t) => ({
+                    value: t.itemTypeId,
+                    label: t.description,
+                    count: t.itemCount,
+                  })),
+                ]}
+                placeholder="Toutes"
+                disabled={!selectedProduct}
+                loading={loadingTypes}
+                icon={Package}
+                accentColor={accentColor}
+                label="Classe (opt.)"
+                step={3}
+              />
+
+              <CompactSelect
+                value={selectedItem?.itemId || ""}
+                onChange={handleItemChange}
+                options={[
+                  { value: "", label: "Tous" },
+                  ...items.map((i) => ({
+                    value: i.itemId,
+                    label: `${i.itemCode} - ${i.description}`,
+                  })),
+                ]}
+                placeholder="Tous"
+                disabled={!selectedType}
+                loading={loadingItems}
+                icon={Tag}
+                accentColor={accentColor}
+                label="Article (opt.)"
+                step={4}
+              />
             </div>
 
-            {/* Footer hint */}
-            <p className="text-center text-neutral-400 text-sm mt-6">
-              Sélectionnez au minimum une liste de prix et une catégorie
+            {/* Selected Item Indicator */}
+            {selectedItem && (
+              <div
+                className="mt-4 p-3 rounded-xl border-2 animate-in fade-in slide-in-from-bottom-2 duration-300 flex items-center gap-3"
+                style={{ backgroundColor: `${accentColor}08`, borderColor: `${accentColor}30` }}
+              >
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: `${accentColor}20` }}
+                >
+                  <Check className="w-5 h-5" style={{ color: accentColor }} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="font-mono font-black text-base" style={{ color: accentColor }}>
+                    {selectedItem.itemCode}
+                  </span>
+                  <span className="text-sm text-neutral-500 ml-2 truncate">{selectedItem.description}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer hint */}
+          <div className="flex-shrink-0 px-6 py-3 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50">
+            <p className="text-center text-neutral-400 text-xs">
+              Sélectionnez une liste de prix et une catégorie, puis appuyez sur{" "}
+              <span className="font-bold">Générer</span>
             </p>
           </div>
-        </main>
+        </div>
       </div>
 
       {/* Price Modal */}
