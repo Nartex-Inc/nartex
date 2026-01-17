@@ -826,7 +826,7 @@ function PriceModal({
       // HEADER - Logo left (FIXED ASPECT RATIO), Company info right
       // ═══════════════════════════════════════════════════════════════
       
-      // Logo - FIXED: Load image and use its NATURAL aspect ratio
+      // Logo - FIXED: Load image and use its NATURAL aspect ratio, 1.5x smaller
       const logoData = await getDataUri("/sinto-logo.svg");
       if (logoData) {
         // Create a temporary image to get natural dimensions
@@ -838,15 +838,15 @@ function PriceModal({
         });
         
         // Calculate dimensions preserving aspect ratio
-        // Target max width of 55mm, let height scale naturally
+        // Target max width of 36mm (was 55, now 1.5x smaller), let height scale naturally
         const naturalWidth = tempImg.naturalWidth || 200;
         const naturalHeight = tempImg.naturalHeight || 50;
         const aspectRatio = naturalWidth / naturalHeight;
         
-        const logoWidth = 55;
+        const logoWidth = 36;
         const logoHeight = logoWidth / aspectRatio;
         
-        doc.addImage(logoData, "PNG", 15, 12, logoWidth, logoHeight);
+        doc.addImage(logoData, "PNG", 15, 14, logoWidth, logoHeight);
       }
       
       // Company info - right aligned
@@ -860,7 +860,7 @@ function PriceModal({
       doc.setTextColor(...mediumGray);
       doc.text("3750, 14e Avenue", pageWidth - 15, 21, { align: "right" });
       doc.text("Saint-Georges (Qc) G5Y 8E3", pageWidth - 15, 26, { align: "right" });
-      doc.text("Tél: (418) 228-8031", pageWidth - 15, 31, { align: "right" });
+      doc.text("Tél: (418) 227-6442 | 1-800-463-0025", pageWidth - 15, 31, { align: "right" });
       
       // Price list banner - RED
       doc.setFillColor(...corporateRed);
@@ -1055,7 +1055,7 @@ function PriceModal({
           doc.setTextColor(...mediumGray);
           doc.setFontSize(7);
           doc.setFont("helvetica", "normal");
-          doc.text("SINTO - Experts en lubrification | 3750, 14e Avenue, Saint-Georges (Qc) G5Y 8E3 | Tél: (418) 228-8031", 15, pageHeight - 10);
+          doc.text("SINTO - Experts en lubrification | 3750, 14e Avenue, Saint-Georges (Qc) G5Y 8E3 | Tél: (418) 227-6442 | 1-800-463-0025", 15, pageHeight - 10);
           doc.text(`Page ${i} / ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: "right" });
         }
       };
@@ -1068,7 +1068,7 @@ function PriceModal({
       formData.append("subject", `Liste de prix SINTO : ${selectedPriceList?.name}`);
       formData.append(
         "message",
-        "Bonjour,\n\nVeuillez trouver ci-joint la liste de prix que vous avez demandée.\n\nCordialement,\n\nSINTO\nExperts en lubrification\n3750, 14e Avenue\nSaint-Georges (Qc) G5Y 8E3\nTél: (418) 228-8031"
+        "Bonjour,\n\nVeuillez trouver ci-joint la liste de prix que vous avez demandée.\n\nCordialement,\n\nSINTO\nExperts en lubrification\n3750, 14e Avenue\nSaint-Georges (Qc) G5Y 8E3\nTél: (418) 227-6442\n1-800-463-0025"
       );
       const res = await fetch("/api/catalogue/email", { method: "POST", body: formData });
       if (!res.ok) throw new Error("Erreur envoi");
@@ -1789,9 +1789,10 @@ export default function CataloguePage() {
           </div>
         </div>
 
-        {/* Form - Compact 4-column grid that fits on screen */}
+        {/* Form - 2 columns x 2 rows layout that fits on iPad screen */}
         <div className="flex-1 flex flex-col px-5 py-4 min-h-0">
-          <div className="grid grid-cols-4 gap-4">
+          {/* Row 1: Liste de prix + Catégorie */}
+          <div className="grid grid-cols-2 gap-4 mb-4">
             {/* 1. Liste de prix */}
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-2 mb-2">
@@ -1802,7 +1803,7 @@ export default function CataloguePage() {
                 <select
                   value={selectedPriceList?.priceId || ""}
                   onChange={(e) => handlePriceListChange(e.target.value)}
-                  className="w-full h-12 pl-3 pr-10 rounded-xl text-sm font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all truncate"
+                  className="w-full h-12 pl-3 pr-10 rounded-xl text-sm font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all"
                   style={{ ["--tw-ring-color" as string]: accentColor }}
                 >
                   {priceLists.map((pl) => (
@@ -1824,7 +1825,7 @@ export default function CataloguePage() {
                   value={selectedProduct?.prodId || ""}
                   onChange={(e) => handleProductChange(e.target.value)}
                   disabled={!selectedPriceList}
-                  className="w-full h-12 pl-3 pr-10 rounded-xl text-sm font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed truncate"
+                  className="w-full h-12 pl-3 pr-10 rounded-xl text-sm font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{ ["--tw-ring-color" as string]: accentColor }}
                 >
                   <option value="">Sélectionner...</option>
@@ -1835,7 +1836,10 @@ export default function CataloguePage() {
                 <Layers className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
               </div>
             </div>
+          </div>
 
+          {/* Row 2: Classe + Article */}
+          <div className="grid grid-cols-2 gap-4">
             {/* 3. Classe */}
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-2 mb-2">
@@ -1847,7 +1851,7 @@ export default function CataloguePage() {
                   value={selectedType?.itemTypeId || ""}
                   onChange={(e) => handleTypeChange(e.target.value)}
                   disabled={!selectedProduct || loadingTypes}
-                  className="w-full h-12 pl-3 pr-10 rounded-xl text-sm font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed truncate"
+                  className="w-full h-12 pl-3 pr-10 rounded-xl text-sm font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{ ["--tw-ring-color" as string]: accentColor }}
                 >
                   <option value="">{loadingTypes ? "Chargement..." : "Toutes les classes"}</option>
@@ -1870,7 +1874,7 @@ export default function CataloguePage() {
                   value={selectedItem?.itemId || ""}
                   onChange={(e) => handleItemChange(e.target.value)}
                   disabled={!selectedType || loadingItems}
-                  className="w-full h-12 pl-3 pr-10 rounded-xl text-sm font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed truncate"
+                  className="w-full h-12 pl-3 pr-10 rounded-xl text-sm font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{ ["--tw-ring-color" as string]: accentColor }}
                 >
                   <option value="">{loadingItems ? "Chargement..." : "Tous les articles"}</option>
