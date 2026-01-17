@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, Fragment } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation"; // 1. Import router
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useCurrentAccent } from "@/components/accent-color-provider";
@@ -34,7 +35,7 @@ import {
 } from "lucide-react";
 
 /* =========================
-   Types
+   Types (Unchanged)
 ========================= */
 interface Product {
   prodId: number;
@@ -86,7 +87,7 @@ interface ItemPriceData {
 }
 
 /* =========================
-   Utilities
+   Utilities & Sub-Components (Unchanged)
 ========================= */
 function useMediaQuery(query: string) {
   const [matches, setMatches] = useState(false);
@@ -131,9 +132,6 @@ function abbreviateColumnName(name: string): string {
   return result;
 }
 
-/* =========================
-   Components
-========================= */
 function AnimatedPrice({ value, duration = 500 }: { value: number; duration?: number }) {
   const [displayValue, setDisplayValue] = useState(0);
   const previousValue = useRef(0);
@@ -680,6 +678,7 @@ function EmailModal({
    Main Full Screen Page
 ========================= */
 export default function CataloguePage() {
+  const router = useRouter(); // 2. Initialize router
   const { color: accentColor } = useCurrentAccent();
   const isCompact = useMediaQuery("(max-width: 1024px)");
   const isMobile = useMediaQuery("(max-width: 640px)");
@@ -887,7 +886,6 @@ export default function CataloguePage() {
 
   // PDF Logic
   const handleEmailPDF = async (recipientEmail: string) => {
-    
     setIsSendingEmail(true);
     try {
       const doc = new jsPDF();
@@ -1156,7 +1154,6 @@ export default function CataloguePage() {
       <div className="relative w-full h-full flex flex-col animate-in fade-in duration-300">
         
         {/* HEADER */}
-        
         <header
           className="flex-shrink-0 relative overflow-hidden shadow-2xl z-20"
           style={{ backgroundColor: accentColor }}
@@ -1182,6 +1179,15 @@ export default function CataloguePage() {
                   </p>
                 </div>
               </div>
+
+              {/* 3. ADDED: Close button calling router.back() */}
+              <button
+                onClick={() => router.back()}
+                className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all active:scale-95 flex-shrink-0"
+                aria-label="Fermer"
+              >
+                <X className="w-6 h-6 text-white" />
+              </button>
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
