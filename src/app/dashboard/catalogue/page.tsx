@@ -826,13 +826,26 @@ function PriceModal({
       // HEADER - Logo left (FIXED ASPECT RATIO), Company info right
       // ═══════════════════════════════════════════════════════════════
       
-      // Logo - FIXED: Using proper aspect ratio (original SINTO logo is approximately 4:1)
+      // Logo - FIXED: Load image and use its NATURAL aspect ratio
       const logoData = await getDataUri("/sinto-logo.svg");
       if (logoData) {
-        // Original SINTO logo aspect ratio is roughly 4:1 (width:height)
-        // Setting height to 15 and width to 60 maintains proper proportions
-        const logoHeight = 15;
-        const logoWidth = 60;
+        // Create a temporary image to get natural dimensions
+        const tempImg = new window.Image();
+        tempImg.src = logoData;
+        await new Promise((resolve) => {
+          tempImg.onload = resolve;
+          tempImg.onerror = resolve;
+        });
+        
+        // Calculate dimensions preserving aspect ratio
+        // Target max width of 55mm, let height scale naturally
+        const naturalWidth = tempImg.naturalWidth || 200;
+        const naturalHeight = tempImg.naturalHeight || 50;
+        const aspectRatio = naturalWidth / naturalHeight;
+        
+        const logoWidth = 55;
+        const logoHeight = logoWidth / aspectRatio;
+        
         doc.addImage(logoData, "PNG", 15, 12, logoWidth, logoHeight);
       }
       
@@ -1443,7 +1456,7 @@ function PriceModal({
 }
 
 /* =========================
-   Main Page - FULL SCREEN IPAD LANDSCAPE LAYOUT
+   Main Page - FULL SCREEN IPAD LANDSCAPE LAYOUT - NO SCROLL
 ========================= */
 export default function CataloguePage() {
   const { color: accentColor } = useCurrentAccent();
@@ -1682,213 +1695,213 @@ export default function CataloguePage() {
   const canGenerate = Boolean(selectedPriceList && selectedProduct);
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-gradient-to-br from-neutral-100 via-neutral-50 to-neutral-100 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950 flex flex-col">
-      {/* Full-screen iPad landscape layout */}
-      <div className="flex-1 flex flex-col h-full w-full">
-        {/* Main Card - Full height and width */}
-        <div className="flex-1 flex flex-col bg-white dark:bg-neutral-900 m-4 md:m-6 rounded-3xl border border-neutral-200/50 dark:border-neutral-800 shadow-2xl overflow-hidden">
-          {/* Header */}
-          <div
-            className="flex-shrink-0 px-8 py-6 flex items-center justify-between gap-8 border-b border-neutral-100 dark:border-neutral-800"
-            style={{ background: `linear-gradient(135deg, ${accentColor}08 0%, transparent 100%)` }}
-          >
-            <div className="flex items-center gap-5">
-              <div className="relative">
-                <div className="absolute inset-0 rounded-2xl blur-xl opacity-30" style={{ backgroundColor: accentColor }} />
-                <Image src="/sinto-logo.svg" alt="SINTO" width={72} height={72} className="relative h-16 w-auto object-contain" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-black tracking-tight text-neutral-900 dark:text-white">Catalogue SINTO</h1>
-                <p className="text-neutral-500 text-base mt-1">Générateur de liste de prix</p>
-              </div>
-            </div>
-
-            <button
-              onClick={handleGenerate}
-              disabled={!canGenerate}
-              className={cn(
-                "h-16 px-12 rounded-2xl font-black text-lg uppercase tracking-wider",
-                "flex items-center justify-center transition-all duration-300",
-                "disabled:bg-neutral-200 disabled:dark:bg-neutral-800 disabled:text-neutral-400 disabled:cursor-not-allowed",
-                canGenerate && "hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] text-white"
-              )}
-              style={canGenerate ? { backgroundColor: accentColor, boxShadow: `0 15px 30px -5px ${accentColor}40` } : {}}
-            >
-              Générer
-            </button>
-          </div>
-
-          {/* Search - Full width */}
-          <div className="flex-shrink-0 px-8 py-5 border-b border-neutral-100 dark:border-neutral-800">
-            <div className="relative">
-              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-neutral-400 z-10" />
-              <input
-                type="search"
-                placeholder="Recherche rapide par code article..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={cn(
-                  "w-full h-14 pl-14 pr-6 rounded-2xl text-base font-medium",
-                  "bg-neutral-100 dark:bg-neutral-800",
-                  "border-2 border-transparent focus:border-current",
-                  "outline-none transition-all duration-300",
-                  "placeholder:text-neutral-400"
-                )}
-                style={{ borderColor: searchQuery ? accentColor : "transparent" }}
+    <div className="h-screen w-screen overflow-hidden bg-gradient-to-br from-neutral-100 via-neutral-50 to-neutral-100 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950 p-4">
+      {/* Main Card - Fixed to viewport, no scroll */}
+      <div className="h-full w-full flex flex-col bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/50 dark:border-neutral-800 shadow-2xl overflow-hidden">
+        {/* Header - Compact */}
+        <div
+          className="flex-shrink-0 px-5 py-4 flex items-center justify-between gap-4 border-b border-neutral-100 dark:border-neutral-800"
+          style={{ background: `linear-gradient(135deg, ${accentColor}08 0%, transparent 100%)` }}
+        >
+          <div className="flex items-center gap-4">
+            <div className="relative flex-shrink-0">
+              <Image 
+                src="/sinto-logo.svg" 
+                alt="SINTO" 
+                width={120} 
+                height={40} 
+                className="h-10 w-auto object-contain" 
+                style={{ maxWidth: '120px' }}
               />
-
-              {searchQuery.length > 1 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden max-h-64 overflow-y-auto z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                  {isSearching ? (
-                    <div className="p-8 flex items-center justify-center gap-3">
-                      <Loader2 className="w-6 h-6 animate-spin" style={{ color: accentColor }} />
-                      <span className="text-base text-neutral-500">Recherche...</span>
-                    </div>
-                  ) : searchResults.length > 0 ? (
-                    <div className="p-2">
-                      {searchResults.slice(0, 8).map((item) => (
-                        <button
-                          key={item.itemId}
-                          onClick={() => handleSearchResultClick(item)}
-                          className="w-full p-4 text-left rounded-xl transition-all hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center gap-4"
-                        >
-                          <Package className="w-6 h-6 flex-shrink-0" style={{ color: accentColor }} />
-                          <div className="flex-1 min-w-0">
-                            <span className="font-mono font-bold text-base mr-3" style={{ color: accentColor }}>{item.itemCode}</span>
-                            <span className="text-base text-neutral-600 dark:text-neutral-400 truncate">{item.description}</span>
-                          </div>
-                          <ChevronRight className="w-5 h-5 text-neutral-300 flex-shrink-0" />
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-8 text-center">
-                      <Inbox className="w-10 h-10 text-neutral-300 mx-auto mb-3" />
-                      <span className="text-base text-neutral-500">Aucun résultat</span>
-                    </div>
-                  )}
-                </div>
-              )}
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl font-black tracking-tight text-neutral-900 dark:text-white">Catalogue SINTO</h1>
+              <p className="text-neutral-500 text-xs">Générateur de liste de prix</p>
             </div>
           </div>
 
-          {/* Form - FULL WIDTH dropdowns for iPad landscape */}
-          <div className="flex-1 flex flex-col px-8 py-6 overflow-auto">
-            <div className="grid grid-cols-4 gap-6">
-              {/* 1. Liste de prix */}
-              <div className="flex flex-col">
-                <div className="flex items-center gap-3 mb-3 h-6">
-                  <span className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black text-white flex-shrink-0" style={{ backgroundColor: accentColor }}>1</span>
-                  <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Liste de prix</span>
-                </div>
-                <div className="relative">
-                  <select
-                    value={selectedPriceList?.priceId || ""}
-                    onChange={(e) => handlePriceListChange(e.target.value)}
-                    className="w-full h-16 pl-5 pr-12 rounded-2xl text-base font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all"
-                    style={{ ["--tw-ring-color" as string]: accentColor }}
-                  >
-                    {priceLists.map((pl) => (
-                      <option key={pl.priceId} value={pl.priceId}>{abbreviateColumnName(pl.code)} - {pl.name}</option>
-                    ))}
-                  </select>
-                  <FileText className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none" style={{ color: accentColor }} />
-                </div>
-              </div>
+          <button
+            onClick={handleGenerate}
+            disabled={!canGenerate}
+            className={cn(
+              "h-12 px-8 rounded-xl font-black text-sm uppercase tracking-wider flex-shrink-0",
+              "flex items-center justify-center transition-all duration-300",
+              "disabled:bg-neutral-200 disabled:dark:bg-neutral-800 disabled:text-neutral-400 disabled:cursor-not-allowed",
+              canGenerate && "hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] text-white"
+            )}
+            style={canGenerate ? { backgroundColor: accentColor, boxShadow: `0 10px 20px -5px ${accentColor}40` } : {}}
+          >
+            Générer
+          </button>
+        </div>
 
-              {/* 2. Catégorie */}
-              <div className="flex flex-col">
-                <div className="flex items-center gap-3 mb-3 h-6">
-                  <span className={cn("w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0", selectedPriceList ? "text-white" : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400")} style={selectedPriceList ? { backgroundColor: accentColor } : undefined}>2</span>
-                  <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Catégorie</span>
-                </div>
-                <div className="relative">
-                  <select
-                    value={selectedProduct?.prodId || ""}
-                    onChange={(e) => handleProductChange(e.target.value)}
-                    disabled={!selectedPriceList}
-                    className="w-full h-16 pl-5 pr-12 rounded-2xl text-base font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                    style={{ ["--tw-ring-color" as string]: accentColor }}
-                  >
-                    <option value="">Sélectionner une catégorie...</option>
-                    {products.map((p) => (
-                      <option key={p.prodId} value={p.prodId}>{p.name} ({p.itemCount})</option>
-                    ))}
-                  </select>
-                  <Layers className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />
-                </div>
-              </div>
+        {/* Search - Compact */}
+        <div className="flex-shrink-0 px-5 py-3 border-b border-neutral-100 dark:border-neutral-800">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 z-10" />
+            <input
+              type="search"
+              placeholder="Recherche rapide par code article..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={cn(
+                "w-full h-11 pl-12 pr-4 rounded-xl text-sm font-medium",
+                "bg-neutral-100 dark:bg-neutral-800",
+                "border-2 border-transparent focus:border-current",
+                "outline-none transition-all duration-300",
+                "placeholder:text-neutral-400"
+              )}
+              style={{ borderColor: searchQuery ? accentColor : "transparent" }}
+            />
 
-              {/* 3. Classe */}
-              <div className="flex flex-col">
-                <div className="flex items-center gap-3 mb-3 h-6">
-                  <span className={cn("w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0", selectedProduct ? "text-white" : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400")} style={selectedProduct ? { backgroundColor: accentColor } : undefined}>3</span>
-                  <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Classe <span className="font-normal text-neutral-300">(optionnel)</span></span>
-                </div>
-                <div className="relative">
-                  <select
-                    value={selectedType?.itemTypeId || ""}
-                    onChange={(e) => handleTypeChange(e.target.value)}
-                    disabled={!selectedProduct || loadingTypes}
-                    className="w-full h-16 pl-5 pr-12 rounded-2xl text-base font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                    style={{ ["--tw-ring-color" as string]: accentColor }}
-                  >
-                    <option value="">{loadingTypes ? "Chargement..." : "Toutes les classes"}</option>
-                    {itemTypes.map((t) => (
-                      <option key={t.itemTypeId} value={t.itemTypeId}>{t.description} ({t.itemCount})</option>
+            {searchQuery.length > 1 && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden max-h-56 overflow-y-auto z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                {isSearching ? (
+                  <div className="p-6 flex items-center justify-center gap-3">
+                    <Loader2 className="w-5 h-5 animate-spin" style={{ color: accentColor }} />
+                    <span className="text-sm text-neutral-500">Recherche...</span>
+                  </div>
+                ) : searchResults.length > 0 ? (
+                  <div className="p-1">
+                    {searchResults.slice(0, 6).map((item) => (
+                      <button
+                        key={item.itemId}
+                        onClick={() => handleSearchResultClick(item)}
+                        className="w-full p-3 text-left rounded-lg transition-all hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center gap-3"
+                      >
+                        <Package className="w-5 h-5 flex-shrink-0" style={{ color: accentColor }} />
+                        <div className="flex-1 min-w-0">
+                          <span className="font-mono font-bold text-sm mr-2" style={{ color: accentColor }}>{item.itemCode}</span>
+                          <span className="text-sm text-neutral-600 dark:text-neutral-400 truncate">{item.description}</span>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-neutral-300 flex-shrink-0" />
+                      </button>
                     ))}
-                  </select>
-                  {loadingTypes ? <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 animate-spin pointer-events-none" /> : <Package className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />}
-                </div>
-              </div>
-
-              {/* 4. Article */}
-              <div className="flex flex-col">
-                <div className="flex items-center gap-3 mb-3 h-6">
-                  <span className={cn("w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0", selectedType ? "text-white" : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400")} style={selectedType ? { backgroundColor: accentColor } : undefined}>4</span>
-                  <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Article <span className="font-normal text-neutral-300">(optionnel)</span></span>
-                </div>
-                <div className="relative">
-                  <select
-                    value={selectedItem?.itemId || ""}
-                    onChange={(e) => handleItemChange(e.target.value)}
-                    disabled={!selectedType || loadingItems}
-                    className="w-full h-16 pl-5 pr-12 rounded-2xl text-base font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                    style={{ ["--tw-ring-color" as string]: accentColor }}
-                  >
-                    <option value="">{loadingItems ? "Chargement..." : "Tous les articles"}</option>
-                    {items.map((i) => (
-                      <option key={i.itemId} value={i.itemId}>{i.itemCode} - {i.description}</option>
-                    ))}
-                  </select>
-                  {loadingItems ? <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 animate-spin pointer-events-none" /> : <Tag className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />}
-                </div>
-              </div>
-            </div>
-
-            {/* Selected Item */}
-            {selectedItem && (
-              <div className="mt-6 p-4 rounded-2xl border-2 animate-in fade-in slide-in-from-bottom-2 duration-300 flex items-center gap-4" style={{ backgroundColor: `${accentColor}08`, borderColor: `${accentColor}30` }}>
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}20` }}>
-                  <Check className="w-6 h-6" style={{ color: accentColor }} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <span className="font-mono font-black text-lg" style={{ color: accentColor }}>{selectedItem.itemCode}</span>
-                  <span className="text-base text-neutral-500 ml-3">{selectedItem.description}</span>
-                </div>
+                  </div>
+                ) : (
+                  <div className="p-6 text-center">
+                    <Inbox className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
+                    <span className="text-sm text-neutral-500">Aucun résultat</span>
+                  </div>
+                )}
               </div>
             )}
+          </div>
+        </div>
 
-            {/* Spacer to push footer down */}
-            <div className="flex-1" />
+        {/* Form - Compact 4-column grid that fits on screen */}
+        <div className="flex-1 flex flex-col px-5 py-4 min-h-0">
+          <div className="grid grid-cols-4 gap-4">
+            {/* 1. Liste de prix */}
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black text-white flex-shrink-0" style={{ backgroundColor: accentColor }}>1</span>
+                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider truncate">Liste de prix</span>
+              </div>
+              <div className="relative">
+                <select
+                  value={selectedPriceList?.priceId || ""}
+                  onChange={(e) => handlePriceListChange(e.target.value)}
+                  className="w-full h-12 pl-3 pr-10 rounded-xl text-sm font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all truncate"
+                  style={{ ["--tw-ring-color" as string]: accentColor }}
+                >
+                  {priceLists.map((pl) => (
+                    <option key={pl.priceId} value={pl.priceId}>{abbreviateColumnName(pl.code)} - {pl.name}</option>
+                  ))}
+                </select>
+                <FileText className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: accentColor }} />
+              </div>
+            </div>
+
+            {/* 2. Catégorie */}
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-2 mb-2">
+                <span className={cn("w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black flex-shrink-0", selectedPriceList ? "text-white" : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400")} style={selectedPriceList ? { backgroundColor: accentColor } : undefined}>2</span>
+                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider truncate">Catégorie</span>
+              </div>
+              <div className="relative">
+                <select
+                  value={selectedProduct?.prodId || ""}
+                  onChange={(e) => handleProductChange(e.target.value)}
+                  disabled={!selectedPriceList}
+                  className="w-full h-12 pl-3 pr-10 rounded-xl text-sm font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed truncate"
+                  style={{ ["--tw-ring-color" as string]: accentColor }}
+                >
+                  <option value="">Sélectionner...</option>
+                  {products.map((p) => (
+                    <option key={p.prodId} value={p.prodId}>{p.name} ({p.itemCount})</option>
+                  ))}
+                </select>
+                <Layers className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* 3. Classe */}
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-2 mb-2">
+                <span className={cn("w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black flex-shrink-0", selectedProduct ? "text-white" : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400")} style={selectedProduct ? { backgroundColor: accentColor } : undefined}>3</span>
+                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider truncate">Classe (optionnel)</span>
+              </div>
+              <div className="relative">
+                <select
+                  value={selectedType?.itemTypeId || ""}
+                  onChange={(e) => handleTypeChange(e.target.value)}
+                  disabled={!selectedProduct || loadingTypes}
+                  className="w-full h-12 pl-3 pr-10 rounded-xl text-sm font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed truncate"
+                  style={{ ["--tw-ring-color" as string]: accentColor }}
+                >
+                  <option value="">{loadingTypes ? "Chargement..." : "Toutes les classes"}</option>
+                  {itemTypes.map((t) => (
+                    <option key={t.itemTypeId} value={t.itemTypeId}>{t.description} ({t.itemCount})</option>
+                  ))}
+                </select>
+                {loadingTypes ? <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 animate-spin pointer-events-none" /> : <Package className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />}
+              </div>
+            </div>
+
+            {/* 4. Article */}
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-2 mb-2">
+                <span className={cn("w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black flex-shrink-0", selectedType ? "text-white" : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400")} style={selectedType ? { backgroundColor: accentColor } : undefined}>4</span>
+                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider truncate">Article (optionnel)</span>
+              </div>
+              <div className="relative">
+                <select
+                  value={selectedItem?.itemId || ""}
+                  onChange={(e) => handleItemChange(e.target.value)}
+                  disabled={!selectedType || loadingItems}
+                  className="w-full h-12 pl-3 pr-10 rounded-xl text-sm font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed truncate"
+                  style={{ ["--tw-ring-color" as string]: accentColor }}
+                >
+                  <option value="">{loadingItems ? "Chargement..." : "Tous les articles"}</option>
+                  {items.map((i) => (
+                    <option key={i.itemId} value={i.itemId}>{i.itemCode}</option>
+                  ))}
+                </select>
+                {loadingItems ? <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 animate-spin pointer-events-none" /> : <Tag className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />}
+              </div>
+            </div>
           </div>
 
-          {/* Footer */}
-          <div className="flex-shrink-0 px-8 py-4 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50">
-            <p className="text-center text-neutral-400 text-sm">
-              Sélectionnez une liste de prix et une catégorie, puis appuyez sur <span className="font-bold">Générer</span>
-            </p>
-          </div>
+          {/* Selected Item - Compact */}
+          {selectedItem && (
+            <div className="mt-4 p-3 rounded-xl border-2 animate-in fade-in slide-in-from-bottom-2 duration-300 flex items-center gap-3" style={{ backgroundColor: `${accentColor}08`, borderColor: `${accentColor}30` }}>
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}20` }}>
+                <Check className="w-5 h-5" style={{ color: accentColor }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="font-mono font-black text-base" style={{ color: accentColor }}>{selectedItem.itemCode}</span>
+                <span className="text-sm text-neutral-500 ml-2">{selectedItem.description}</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer - Compact */}
+        <div className="flex-shrink-0 px-5 py-3 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50">
+          <p className="text-center text-neutral-400 text-xs">
+            Sélectionnez une liste de prix et une catégorie, puis appuyez sur <span className="font-bold">Générer</span>
+          </p>
         </div>
       </div>
 
