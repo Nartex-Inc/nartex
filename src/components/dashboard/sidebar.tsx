@@ -40,16 +40,27 @@ import { cn } from "@/lib/utils";
 /* ═══════════════════════════════════════════════════════════════════════════════
    Types & Navigation Config
    ═══════════════════════════════════════════════════════════════════════════════ */
-type NavItem = { href: string; title: string; icon: React.ElementType };
+
+// 1. Define allowed roles for type safety
+type UserRole = "Gestionnaire" | "Analyste" | "Vérificateur" | string;
+
+type NavItem = { 
+  href: string; 
+  title: string; 
+  icon: React.ElementType;
+  // 2. Add an optional array of roles. If undefined, it defaults to strictly "Gestionnaire"
+  allowedRoles?: UserRole[]; 
+};
 
 interface SidebarProps {
   isOpen: boolean;
   isMobileOpen: boolean;
   toggleSidebar: () => void;
   closeMobileSidebar: () => void;
+  // 3. Receive the current user's role
+  userRole: UserRole; 
 }
 
-// Companies for the selector
 const COMPANIES = [
   { id: "sinto", name: "SINTO", plan: "Groupe" },
   { id: "prolab", name: "Prolab", plan: "Filiale" },
@@ -70,7 +81,13 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     items: [
       { href: "/dashboard/sharepoint", title: "Arborescence", icon: FolderTree },
       { href: "/dashboard/admin/onboarding", title: "Onboarding", icon: UserPlus },
-      { href: "/dashboard/admin/returns", title: "Retours", icon: RefreshCcw },
+      { 
+        href: "/dashboard/admin/returns", 
+        title: "Retours", 
+        icon: RefreshCcw,
+        // 4. EXCEPTION: Explicitly allow Analyste & Vérificateur here
+        allowedRoles: ["Gestionnaire", "Analyste", "Vérificateur"] 
+      },
       { href: "/dashboard/admin/collections", title: "Recouvrement", icon: Receipt },
     ],
   },
@@ -91,12 +108,11 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   Company Selector Component — With SINTO Logo (2X BIGGER)
+   Company Selector Component
    ═══════════════════════════════════════════════════════════════════════════════ */
 function CompanySelector({ expanded }: { expanded: boolean }) {
   const [selectedCompany, setSelectedCompany] = React.useState(COMPANIES[0]);
 
-  // Collapsed state — show SINTO logo (smaller for collapsed)
   if (!expanded) {
     return (
       <Tooltip delayDuration={0}>
@@ -118,7 +134,6 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
     );
   }
 
-  // Expanded state — dropdown selector with BIG SINTO logo
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
@@ -129,7 +144,6 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
             "outline-none focus-visible:ring-2 focus-visible:ring-accent"
           )}
         >
-          {/* SINTO Logo — TWICE AS BIG (h-16 = 64px) */}
           <div className="flex items-center justify-center shrink-0">
             <Image
               src="/sinto-logo.svg"
@@ -140,7 +154,6 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
             />
           </div>
 
-          {/* Company Info */}
           <div className="flex-1 text-left min-w-0">
             <div className="text-sm font-semibold text-[hsl(var(--text-primary))] truncate">
               {selectedCompany.name}
@@ -150,7 +163,6 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
             </div>
           </div>
 
-          {/* Dropdown Arrow */}
           <ChevronsUpDown className="h-4 w-4 text-[hsl(var(--text-muted))] shrink-0" />
         </button>
       </DropdownMenuTrigger>
@@ -214,7 +226,7 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   Nav Link Component — Premium Micro-interactions (DYNAMIC ACCENT)
+   Nav Link Component
    ═══════════════════════════════════════════════════════════════════════════════ */
 function NavLink({
   item,
@@ -259,7 +271,6 @@ function NavLink({
       {expanded && (
         <span className="truncate leading-none">{item.title}</span>
       )}
-      {/* Active indicator line */}
       {active && expanded && (
         <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 bg-white/80 rounded-r-full" />
       )}
@@ -309,13 +320,14 @@ function NavGroup({
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   Main Sidebar Component — Fixed collapsed state
+   Main Sidebar Component
    ═══════════════════════════════════════════════════════════════════════════════ */
 export function Sidebar({
   isOpen,
   isMobileOpen,
   toggleSidebar,
   closeMobileSidebar,
+  userRole,
 }: SidebarProps) {
   const expanded = isOpen || isMobileOpen;
   const desktopWidth = isOpen ? "lg:w-64" : "lg:w-[68px]";
@@ -325,10 +337,22 @@ export function Sidebar({
     document.documentElement.style.setProperty("--sidebar-w", w);
   }, [isOpen]);
 
+  const filteredNavGroups = React.useMemo(() => {
+    return NAV_GROUPS.map((group) => {
+      const visibleItems = group.items.filter((item) => {
+        if (item.allowedRoles) {
+          return item.allowedRoles.includes(userRole);
+        }
+        return userRole === "Gestionnaire";
+      });
+      return { ...group, items: visibleItems };
+    }).filter((group) => group.items.length > 0);
+  }, [userRole]);
+
   const sidebarContent = (isMobile: boolean) => (
     <div className="flex h-full flex-col">
       {/* ─────────────────────────────────────────────────────────────────────────
-          Header — Company Selector & Collapse Toggle (FIXED)
+          1. Header — Company Selector ONLY (No Toggle Here)
           ───────────────────────────────────────────────────────────────────────── */}
       <div
         className={cn(
@@ -341,36 +365,20 @@ export function Sidebar({
             <div className="flex-1 min-w-0">
               <CompanySelector expanded={expanded} />
             </div>
-            {!isMobile && (
-              <button
-                onClick={toggleSidebar}
-                className="flex items-center justify-center h-7 w-7 rounded-md text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] transition-all ml-1 shrink-0"
-                aria-label="Réduire la barre latérale"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-            )}
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3">
             <CompanySelector expanded={false} />
-            <button
-              onClick={toggleSidebar}
-              className="flex items-center justify-center h-7 w-7 rounded-md text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] transition-all"
-              aria-label="Agrandir la barre latérale"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
           </div>
         )}
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────────
-          Navigation Content
+          2. Navigation Content
           ───────────────────────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
         <div className="flex flex-col gap-6">
-          {NAV_GROUPS.map((group) => (
+          {filteredNavGroups.map((group) => (
             <NavGroup key={group.title} title={group.title} expanded={expanded}>
               {group.items.map((item) => (
                 <NavLink
@@ -386,13 +394,37 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* No SidebarFooter with user — user is in header */}
+      {/* ─────────────────────────────────────────────────────────────────────────
+          3. Footer — BIGGER Toggle Button (Moved to Bottom)
+          ───────────────────────────────────────────────────────────────────────── */}
+      {!isMobile && (
+        <div className="shrink-0 p-3 border-t border-[hsl(var(--border-subtle))]">
+          <button
+            onClick={toggleSidebar}
+            className={cn(
+              "flex items-center justify-center w-full rounded-lg transition-colors",
+              "hover:bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-primary))]",
+              // Made button taller (h-10) for easier clicking
+              "h-10" 
+            )}
+            title={expanded ? "Réduire le menu" : "Agrandir le menu"}
+          >
+            {expanded ? (
+              // Expanded: Show Chevron Left with some text or just the icon? 
+              // Let's keep it simple and centered but BIG.
+              <ChevronLeft className="h-6 w-6" /> 
+            ) : (
+              // Collapsed: Show Chevron Right
+              <ChevronRight className="h-6 w-6" />
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 
   return (
     <TooltipProvider delayDuration={0}>
-      {/* Mobile Sidebar */}
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-50 w-64 -translate-x-full transition-transform duration-300 ease-out lg:hidden",
@@ -407,7 +439,6 @@ export function Sidebar({
         {sidebarContent(true)}
       </aside>
 
-      {/* Desktop Sidebar */}
       <aside
         aria-label="Navigation principale"
         className={cn(
