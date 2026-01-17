@@ -5,7 +5,7 @@ import * as React from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { Header } from "@/components/dashboard/header";
-import { Sidebar } from "@/components/dashboard/sidebar";
+import { Sidebar } from "@/components/dashboard/sidebar"; // Ensure this path is correct
 import LoadingAnimation from "@/components/LoadingAnimation";
 import { AccentColorProvider } from "@/components/accent-color-provider";
 import { cn } from "@/lib/utils";
@@ -24,14 +24,13 @@ export default function DashboardLayout({
   const [isMobileOpen, setMobileOpen] = React.useState(false);
 
   // ---------------------------------------------------------------------------
-  // ROLE CHECK (The Fix)
+  // ROLE CHECK
   // ---------------------------------------------------------------------------
   React.useEffect(() => {
     if (status === "authenticated" && session?.user) {
       const userEmail = session.user.email;
       const userRole = (session.user as any).role;
       
-      // List of roles allowed to see the dashboard
       const allowedRoles = [
         "ventes-exec", 
         "ventes_exec", 
@@ -40,15 +39,11 @@ export default function DashboardLayout({
         "admin"
       ];
 
-      // Specific bypass for your email
       const isBypassed = userEmail === "n.labranche@sinto.ca";
       const isAllowed = isBypassed || (userRole && allowedRoles.includes(userRole));
 
       if (!isAllowed) {
         console.warn("Access Denied by Layout. Role:", userRole);
-        // Optional: redirect to an unauthorized page or just let them stay 
-        // but they won't see data. 
-        // redirect("/unauthorized"); // Uncomment if you have this page
       }
     }
   }, [status, session]);
@@ -57,7 +52,6 @@ export default function DashboardLayout({
   // UI LOGIC
   // ---------------------------------------------------------------------------
 
-  // Lock body scroll when mobile nav is open
   React.useEffect(() => {
     if (isMobileOpen) {
       document.body.style.overflow = "hidden";
@@ -69,7 +63,6 @@ export default function DashboardLayout({
     };
   }, [isMobileOpen]);
 
-  // Update CSS variable for sidebar width
   React.useEffect(() => {
     const updateSidebarWidth = () => {
       const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
@@ -81,7 +74,6 @@ export default function DashboardLayout({
     return () => window.removeEventListener("resize", updateSidebarWidth);
   }, [isDesktopOpen]);
 
-  // Close mobile sidebar on route change (ESC key)
   React.useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isMobileOpen) {
@@ -96,6 +88,9 @@ export default function DashboardLayout({
     return <LoadingAnimation />;
   }
 
+  // Safely access the role for the sidebar prop
+  const currentUserRole = (session?.user as any)?.role || "";
+
   return (
     <AccentColorProvider>
       <div className="relative min-h-screen bg-[hsl(var(--bg-base))]">
@@ -105,6 +100,8 @@ export default function DashboardLayout({
           isMobileOpen={isMobileOpen}
           toggleSidebar={() => setDesktopOpen((v) => !v)}
           closeMobileSidebar={() => setMobileOpen(false)}
+          // *** FIX: Pass the userRole prop here ***
+          userRole={currentUserRole}
         />
 
         {/* Mobile backdrop with blur */}
