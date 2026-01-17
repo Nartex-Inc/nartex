@@ -436,6 +436,9 @@ function QuickAddPanel({
   );
 }
 
+/* =========================
+   Item Multi-Select (FIXED)
+========================= */
 function ItemMultiSelect({
   items,
   selectedIds,
@@ -451,17 +454,29 @@ function ItemMultiSelect({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const ref = useRef<HTMLDivElement>(null);
+  // 1. Create refs for both the trigger and the dropdown content
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      
+      // 2. Check if click is inside trigger OR inside dropdown
+      const clickedTrigger = triggerRef.current && triggerRef.current.contains(target);
+      const clickedDropdown = dropdownRef.current && dropdownRef.current.contains(target);
+
+      // Only close if clicked OUTSIDE both
+      if (!clickedTrigger && !clickedDropdown) {
         setIsOpen(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [isOpen]);
 
   const filteredItems = items.filter(
     (i) =>
@@ -477,7 +492,7 @@ function ItemMultiSelect({
   };
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={triggerRef} className="relative">
       <button
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
@@ -504,11 +519,13 @@ function ItemMultiSelect({
       {isOpen && (
         <Portal>
           <div
+            ref={dropdownRef} // 3. Attach ref to the portal content
             className="fixed z-[999999] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
             style={{
-              top: ref.current ? ref.current.getBoundingClientRect().bottom + 8 : 0,
-              left: ref.current ? ref.current.getBoundingClientRect().left : 0,
-              width: ref.current ? Math.max(ref.current.offsetWidth, 400) : 400,
+              // Position relative to the trigger ref
+              top: triggerRef.current ? triggerRef.current.getBoundingClientRect().bottom + 8 : 0,
+              left: triggerRef.current ? triggerRef.current.getBoundingClientRect().left : 0,
+              width: triggerRef.current ? Math.max(triggerRef.current.offsetWidth, 400) : 400,
               maxWidth: "calc(100vw - 32px)",
             }}
           >
