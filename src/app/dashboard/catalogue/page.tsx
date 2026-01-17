@@ -17,8 +17,6 @@ import {
   Eye,
   EyeOff,
   ChevronDown,
-  ChevronRight,
-  Check,
   Plus,
   Filter,
   Sparkles,
@@ -32,10 +30,11 @@ import {
   RefreshCw,
   Inbox,
   ChevronUp,
+  Check,
 } from "lucide-react";
 
 /* =========================
-   Types (UNCHANGED)
+   Types
 ========================= */
 interface Product {
   prodId: number;
@@ -87,7 +86,7 @@ interface ItemPriceData {
 }
 
 /* =========================
-   Utilities (UNCHANGED LOGIC)
+   Utilities
 ========================= */
 function useMediaQuery(query: string) {
   const [matches, setMatches] = useState(false);
@@ -133,7 +132,7 @@ function abbreviateColumnName(name: string): string {
 }
 
 /* =========================
-   Animated Price Component
+   Components
 ========================= */
 function AnimatedPrice({ value, duration = 500 }: { value: number; duration?: number }) {
   const [displayValue, setDisplayValue] = useState(0);
@@ -163,9 +162,6 @@ function AnimatedPrice({ value, duration = 500 }: { value: number; duration?: nu
   return <span className="tabular-nums">{displayValue.toFixed(2)}</span>;
 }
 
-/* =========================
-   Premium Toggle Switch
-========================= */
 function PremiumToggle({
   enabled,
   onChange,
@@ -230,9 +226,6 @@ function PremiumToggle({
   );
 }
 
-/* =========================
-   Action Button
-========================= */
 function ActionButton({
   onClick,
   icon: Icon,
@@ -275,9 +268,6 @@ function ActionButton({
   );
 }
 
-/* =========================
-   Quick Add Search Panel
-========================= */
 function QuickAddPanel({
   onAddItems,
   onClose,
@@ -448,9 +438,6 @@ function QuickAddPanel({
   );
 }
 
-/* =========================
-   Item Multi-Select
-========================= */
 function ItemMultiSelect({
   items,
   selectedIds,
@@ -587,9 +574,6 @@ function ItemMultiSelect({
   );
 }
 
-/* =========================
-   Email Modal
-========================= */
 function EmailModal({
   isOpen,
   onClose,
@@ -693,85 +677,183 @@ function EmailModal({
 }
 
 /* =========================
-   Price Modal
+   Main Full Screen Page
 ========================= */
-interface PriceModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  data: ItemPriceData[];
-  priceLists: PriceList[];
-  products: Product[];
-  itemTypes: ItemType[];
-  items: Item[];
-  selectedPriceList: PriceList | null;
-  selectedProduct: Product | null;
-  selectedType: ItemType | null;
-  selectedItemIds: Set<number>;
-  onPriceListChange: (priceId: number) => void;
-  onProductChange: (prodId: string) => void;
-  onTypeChange: (typeId: string) => void;
-  onItemsChange: (ids: Set<number>) => void;
-  onAddItems: (itemIds: number[]) => void;
-  onReset: () => void;
-  onLoadSelection: () => void;
-  loading: boolean;
-  error: string | null;
-  accentColor: string;
-}
-
-function PriceModal({
-  isOpen,
-  onClose,
-  data,
-  priceLists,
-  products,
-  itemTypes,
-  items,
-  selectedPriceList,
-  selectedProduct,
-  selectedType,
-  selectedItemIds,
-  onPriceListChange,
-  onProductChange,
-  onTypeChange,
-  onItemsChange,
-  onAddItems,
-  onReset,
-  onLoadSelection,
-  loading,
-  error,
-  accentColor,
-}: PriceModalProps) {
-  const [showDetails, setShowDetails] = useState(false);
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [showEmailModal, setShowEmailModal] = useState(false);
-  const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [filtersExpanded, setFiltersExpanded] = useState(false);
-
+export default function CataloguePage() {
+  const { color: accentColor } = useCurrentAccent();
   const isCompact = useMediaQuery("(max-width: 1024px)");
   const isMobile = useMediaQuery("(max-width: 640px)");
 
-  if (!isOpen) return null;
+  // --- STATE ---
+  // Data
+  const [products, setProducts] = useState<Product[]>([]);
+  const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
+  const [priceLists, setPriceLists] = useState<PriceList[]>([]);
+  const [priceData, setPriceData] = useState<ItemPriceData[]>([]);
 
-  const itemsWithPrices = data.filter((item) => item.ranges && item.ranges.length > 0);
+  // Selection
+  const [selectedPriceList, setSelectedPriceList] = useState<PriceList | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedType, setSelectedType] = useState<ItemType | null>(null);
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(new Set());
 
-  const groupedItems = itemsWithPrices.reduce((acc, item) => {
-    const key = item.className || "Articles Ajoutés";
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(item);
-    return acc;
-  }, {} as Record<string, ItemPriceData[]>);
+  // UI / Logic
+  const [showDetails, setShowDetails] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [filtersExpanded, setFiltersExpanded] = useState(true); // Default open in full screen
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  
+  // Loading states
+  const [loadingPrices, setLoadingPrices] = useState(false);
+  const [loadingTypes, setLoadingTypes] = useState(false);
+  const [loadingItems, setLoadingItems] = useState(false);
+  const [priceError, setPriceError] = useState<string | null>(null);
 
-  const calcPricePerCaisse = (price: number, caisse: number | null) =>
-    caisse ? price * caisse : null;
-  const calcPricePerLitre = (price: number, volume: number | null) =>
-    volume ? price / volume : null;
-  const calcMargin = (sell: number | null, cost: number | null) => {
-    if (!sell || !cost || sell === 0) return null;
-    return ((sell - cost) / sell) * 100;
+  // --- INITIAL LOAD ---
+  useEffect(() => {
+    (async () => {
+      try {
+        const [prodRes, plRes] = await Promise.all([
+          fetch("/api/catalogue/products"),
+          fetch("/api/catalogue/pricelists"),
+        ]);
+        if (prodRes.ok) setProducts(await prodRes.json());
+        if (plRes.ok) {
+          const pls: PriceList[] = await plRes.json();
+          setPriceLists(pls);
+          const defaultList = pls.find((p) => p.code.startsWith("03")) || pls[0];
+          if (defaultList) setSelectedPriceList(defaultList);
+        }
+      } catch (err) {
+        console.error("Init failed", err);
+      }
+    })();
+  }, []);
+
+  // --- HANDLERS ---
+
+  const handlePriceListChange = async (priceId: string) => {
+    const id = parseInt(priceId);
+    const pl = priceLists.find((p) => p.priceId === id);
+    if (!pl) return;
+    
+    setSelectedPriceList(pl);
+    
+    // If we already have items displayed, re-fetch prices for the new list
+    if (priceData.length > 0) {
+      setLoadingPrices(true);
+      const allIds = Array.from(new Set(priceData.map((i) => i.itemId))).join(",");
+      try {
+        const url = `/api/catalogue/prices?priceId=${id}&itemIds=${allIds}`;
+        const res = await fetch(url);
+        if (res.ok) setPriceData(await res.json());
+      } finally {
+        setLoadingPrices(false);
+      }
+    }
   };
 
+  const handleProductChange = async (prodId: string) => {
+    const prod = products.find((p) => p.prodId === parseInt(prodId));
+    if (!prod) return;
+    
+    setSelectedProduct(prod);
+    setSelectedType(null);
+    setSelectedItemIds(new Set());
+    setItems([]);
+    
+    setLoadingTypes(true);
+    try {
+      const res = await fetch(`/api/catalogue/itemtypes?prodId=${prod.prodId}`);
+      if (res.ok) setItemTypes(await res.json());
+    } finally {
+      setLoadingTypes(false);
+    }
+  };
+
+  const handleTypeChange = async (typeId: string) => {
+    if (!typeId) {
+      setSelectedType(null);
+      setSelectedItemIds(new Set());
+      setItems([]);
+      return;
+    }
+    const type = itemTypes.find((t) => t.itemTypeId === parseInt(typeId));
+    if (!type) return;
+    
+    setSelectedType(type);
+    setSelectedItemIds(new Set());
+    
+    setLoadingItems(true);
+    try {
+      const res = await fetch(`/api/catalogue/items?itemTypeId=${type.itemTypeId}`);
+      if (res.ok) setItems(await res.json());
+    } finally {
+      setLoadingItems(false);
+    }
+  };
+
+  // Primary action: Load based on filters (Add button)
+  const handleLoadSelection = async () => {
+    if (!selectedPriceList) return;
+    
+    // If specific items are selected in the MultiSelect, load those
+    if (selectedItemIds.size > 0) {
+      await handleAddItems(Array.from(selectedItemIds));
+      return;
+    }
+
+    // Otherwise load based on Product/Type selection
+    setLoadingPrices(true);
+    setPriceError(null);
+    try {
+      let url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}`;
+      if (selectedProduct) url += `&prodId=${selectedProduct.prodId}`;
+      if (selectedType) url += `&typeId=${selectedType.itemTypeId}`;
+      
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Erreur lors du chargement des prix");
+      
+      const newItems: ItemPriceData[] = await res.json();
+      // Merge logic: Append new items if they aren't already there
+      setPriceData((prev) => {
+        const existingIds = new Set(prev.map((i) => i.itemId));
+        const filteredNew = newItems.filter((i) => !existingIds.has(i.itemId));
+        return [...prev, ...filteredNew];
+      });
+    } catch (err: any) {
+      setPriceError(err.message);
+    } finally {
+      setLoadingPrices(false);
+    }
+  };
+
+  // Secondary action: Quick Add from search panel
+  const handleAddItems = async (itemIds: number[]) => {
+    if (!selectedPriceList || itemIds.length === 0) return;
+    setLoadingPrices(true);
+    try {
+      const idsString = itemIds.join(",");
+      const url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}&itemIds=${idsString}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Erreur fetch items");
+      const newItems: ItemPriceData[] = await res.json();
+      setPriceData((prev) => {
+        const existingIds = new Set(prev.map((i) => i.itemId));
+        const filteredNew = newItems.filter((i) => !existingIds.has(i.itemId));
+        return [...prev, ...filteredNew];
+      });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingPrices(false);
+    }
+  };
+
+  // Auth for detailed view
   const handleToggleDetails = async (newValue: boolean) => {
     if (!newValue) {
       setShowDetails(false);
@@ -803,53 +885,39 @@ function PriceModal({
     }
   };
 
-  // ═══════════════════════════════════════════════════════════════════
-  // PROFESSIONAL PDF GENERATION - Corporate style with red/black theme
-  // ═══════════════════════════════════════════════════════════════════
+  // PDF Logic
   const handleEmailPDF = async (recipientEmail: string) => {
+    
     setIsSendingEmail(true);
     try {
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       
-      // Color palette - Red and Black corporate theme
       const corporateRed: [number, number, number] = [200, 30, 30];
       const black: [number, number, number] = [0, 0, 0];
       const darkGray: [number, number, number] = [51, 51, 51];
       const mediumGray: [number, number, number] = [102, 102, 102];
-      const lightGray: [number, number, number] = [245, 245, 245];
       const borderGray: [number, number, number] = [200, 200, 200];
       const white: [number, number, number] = [255, 255, 255];
 
-      // ═══════════════════════════════════════════════════════════════
-      // HEADER - Logo left (FIXED ASPECT RATIO), Company info right
-      // ═══════════════════════════════════════════════════════════════
-      
-      // Logo - FIXED: Load image and use its NATURAL aspect ratio, 1.5x smaller
+      // Logo
       const logoData = await getDataUri("/sinto-logo.svg");
       if (logoData) {
-        // Create a temporary image to get natural dimensions
         const tempImg = new window.Image();
         tempImg.src = logoData;
         await new Promise((resolve) => {
           tempImg.onload = resolve;
           tempImg.onerror = resolve;
         });
-        
-        // Calculate dimensions preserving aspect ratio
-        // Target max width of 36mm (was 55, now 1.5x smaller), let height scale naturally
         const naturalWidth = tempImg.naturalWidth || 200;
         const naturalHeight = tempImg.naturalHeight || 50;
         const aspectRatio = naturalWidth / naturalHeight;
-        
         const logoWidth = 36;
         const logoHeight = logoWidth / aspectRatio;
-        
         doc.addImage(logoData, "PNG", 15, 14, logoWidth, logoHeight);
       }
       
-      // Company info - right aligned
       doc.setTextColor(...black);
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
@@ -862,7 +930,6 @@ function PriceModal({
       doc.text("Saint-Georges (Qc) G5Y 8E3", pageWidth - 15, 26, { align: "right" });
       doc.text("Tél: (418) 227-6442 | 1-800-463-0025", pageWidth - 15, 31, { align: "right" });
       
-      // Price list banner - RED
       doc.setFillColor(...corporateRed);
       doc.rect(15, 38, pageWidth - 30, 10, "F");
       doc.setTextColor(...white);
@@ -871,7 +938,6 @@ function PriceModal({
       const priceListTitle = `${abbreviateColumnName(selectedPriceList?.code || "")} - ${selectedPriceList?.name || ""}`.toUpperCase();
       doc.text(priceListTitle, pageWidth / 2, 45, { align: "center" });
       
-      // Effective date
       doc.setTextColor(...darkGray);
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
@@ -879,14 +945,17 @@ function PriceModal({
 
       let finalY = 62;
 
-      // ═══════════════════════════════════════════════════════════════
-      // TABLE SECTIONS - Professional grid style with BLACK separators
-      // ═══════════════════════════════════════════════════════════════
-      
-      for (const [className, classItems] of Object.entries(groupedItems)) {
+      // Grouping for PDF
+      const groupedForPdf = priceData.reduce((acc, item) => {
+        const key = item.className || "Articles Ajoutés";
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(item);
+        return acc;
+      }, {} as Record<string, ItemPriceData[]>);
+
+      for (const [className, classItems] of Object.entries(groupedForPdf)) {
         if (finalY > 250) {
           doc.addPage();
-          // Repeat header on new page - BLACK bar
           doc.setFillColor(...black);
           doc.rect(15, 10, pageWidth - 30, 8, "F");
           doc.setTextColor(...white);
@@ -896,15 +965,12 @@ function PriceModal({
           finalY = 25;
         }
         
-        // Category header - BLACK bar with article count on right
         doc.setFillColor(...black);
         doc.rect(15, finalY, pageWidth - 30, 8, "F");
         doc.setTextColor(...white);
         doc.setFontSize(9);
         doc.setFont("helvetica", "bold");
         doc.text(className.toUpperCase(), 18, finalY + 5.5);
-        
-        // Article count on right side of header
         doc.setTextColor(...corporateRed);
         doc.setFontSize(8);
         doc.text(`${classItems.length} article(s)`, pageWidth - 18, finalY + 5.5, { align: "right" });
@@ -925,7 +991,7 @@ function PriceModal({
         const itemStartRows: number[] = [];
         let rowIndex = 0;
 
-        classItems.forEach((item, index) => {
+        classItems.forEach((item) => {
           itemStartRows.push(rowIndex);
           item.ranges.forEach((range, idx) => {
             const row: string[] = [];
@@ -1001,16 +1067,13 @@ function PriceModal({
           },
           theme: "grid",
           didParseCell: function (d) {
-            // Style price columns - right align
             if (d.section === "body" && d.column.index >= 4) {
               d.cell.styles.halign = "right";
             }
-            // Bold the article code column - RED color
             if (d.section === "body" && d.column.index === 0 && d.cell.raw) {
               d.cell.styles.textColor = corporateRed;
               d.cell.styles.fontStyle = "bold";
             }
-            // Alternate row backgrounds for items
             if (d.section === "body") {
               let itemIndex = 0;
               for (let i = 0; i < itemStartRows.length; i++) {
@@ -1024,19 +1087,12 @@ function PriceModal({
             }
           },
           didDrawCell: function(d) {
-            // Draw BLACK separator line between different articles
             if (d.section === "body" && d.column.index === 0) {
               const nextRowIndex = d.row.index + 1;
-              // Check if this is the last row of an article (next row starts a new article)
               if (itemStartRows.includes(nextRowIndex) && nextRowIndex < tableBody.length) {
                 doc.setDrawColor(...black);
                 doc.setLineWidth(1);
-                doc.line(
-                  d.cell.x,
-                  d.cell.y + d.cell.height,
-                  pageWidth - 15,
-                  d.cell.y + d.cell.height
-                );
+                doc.line(d.cell.x, d.cell.y + d.cell.height, pageWidth - 15, d.cell.y + d.cell.height);
               }
             }
           },
@@ -1044,22 +1100,18 @@ function PriceModal({
         finalY = (doc as any).lastAutoTable.finalY + 10;
       }
 
-      // Footer
-      const addFooter = () => {
-        const totalPages = doc.getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-          doc.setPage(i);
-          doc.setDrawColor(...black);
-          doc.setLineWidth(0.5);
-          doc.line(15, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-          doc.setTextColor(...mediumGray);
-          doc.setFontSize(7);
-          doc.setFont("helvetica", "normal");
-          doc.text("SINTO - Experts en lubrification | 3750, 14e Avenue, Saint-Georges (Qc) G5Y 8E3 | Tél: (418) 227-6442 | 1-800-463-0025", 15, pageHeight - 10);
-          doc.text(`Page ${i} / ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: "right" });
-        }
-      };
-      addFooter();
+      const totalPages = doc.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setDrawColor(...black);
+        doc.setLineWidth(0.5);
+        doc.line(15, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+        doc.setTextColor(...mediumGray);
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "normal");
+        doc.text("SINTO - Experts en lubrification | 3750, 14e Avenue, Saint-Georges (Qc) G5Y 8E3 | Tél: (418) 227-6442 | 1-800-463-0025", 15, pageHeight - 10);
+        doc.text(`Page ${i} / ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: "right" });
+      }
 
       const pdfBlob = doc.output("blob");
       const formData = new FormData();
@@ -1082,17 +1134,31 @@ function PriceModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[99990] flex">
-      <div
-        className="absolute inset-0 bg-gradient-to-br from-neutral-900/90 via-neutral-900/80 to-neutral-900/90 backdrop-blur-xl"
-        onClick={onClose}
-      />
+  // --- RENDER HELPERS ---
+  const calcPricePerCaisse = (price: number, caisse: number | null) => caisse ? price * caisse : null;
+  const calcPricePerLitre = (price: number, volume: number | null) => volume ? price / volume : null;
+  const calcMargin = (sell: number | null, cost: number | null) => {
+    if (!sell || !cost || sell === 0) return null;
+    return ((sell - cost) / sell) * 100;
+  };
 
+  const itemsWithPrices = priceData.filter((item) => item.ranges && item.ranges.length > 0);
+  const groupedItems = itemsWithPrices.reduce((acc, item) => {
+    const key = item.className || "Articles Ajoutés";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(item);
+    return acc;
+  }, {} as Record<string, ItemPriceData[]>);
+
+  // --- VIEW ---
+  return (
+    <div className="fixed inset-0 z-[99990] flex bg-neutral-900">
       <div className="relative w-full h-full flex flex-col animate-in fade-in duration-300">
+        
         {/* HEADER */}
+        
         <header
-          className="flex-shrink-0 relative overflow-hidden"
+          className="flex-shrink-0 relative overflow-hidden shadow-2xl z-20"
           style={{ backgroundColor: accentColor }}
         >
           <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -1116,13 +1182,6 @@ function PriceModal({
                   </p>
                 </div>
               </div>
-
-              <button
-                onClick={onClose}
-                className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all active:scale-95"
-              >
-                <X className="w-6 h-6 text-white" />
-              </button>
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
@@ -1138,9 +1197,9 @@ function PriceModal({
               <div className="w-px h-8 bg-white/20 flex-shrink-0" />
 
               <ActionButton onClick={() => setShowEmailModal(true)} icon={Mail} label={isMobile ? undefined : "Email"} variant="ghost" />
-              <ActionButton onClick={onReset} icon={RotateCcw} label={isMobile ? undefined : "Réinitialiser"} variant="ghost" />
+              <ActionButton onClick={() => setPriceData([])} icon={RotateCcw} label={isMobile ? undefined : "Réinitialiser"} variant="ghost" />
               <ActionButton onClick={() => setFiltersExpanded(!filtersExpanded)} icon={filtersExpanded ? ChevronUp : Filter} label={isMobile ? undefined : "Filtres"} variant={filtersExpanded ? "solid" : "ghost"} />
-              <ActionButton onClick={onLoadSelection} icon={Plus} label={isMobile ? undefined : "Ajouter"} variant="ghost" />
+              <ActionButton onClick={handleLoadSelection} icon={Plus} label={isMobile ? undefined : "Ajouter"} variant="ghost" />
               <ActionButton onClick={() => setShowQuickAdd(true)} icon={Search} label={isMobile ? undefined : "Recherche"} variant="ghost" />
             </div>
 
@@ -1149,8 +1208,8 @@ function PriceModal({
                 <div className="relative">
                   <select
                     value={selectedPriceList?.priceId || ""}
-                    onChange={(e) => onPriceListChange(parseInt(e.target.value))}
-                    disabled={loading}
+                    onChange={(e) => handlePriceListChange(e.target.value)}
+                    disabled={loadingPrices}
                     className="w-full h-14 px-4 pr-12 rounded-2xl font-bold text-sm appearance-none cursor-pointer bg-white text-neutral-900 border-2 border-white focus:outline-none disabled:opacity-50 transition-all"
                   >
                     {priceLists.map((pl) => (
@@ -1166,7 +1225,7 @@ function PriceModal({
                   <div className="relative">
                     <select
                       value={selectedProduct?.prodId || ""}
-                      onChange={(e) => onProductChange(e.target.value)}
+                      onChange={(e) => handleProductChange(e.target.value)}
                       className="w-full h-14 px-4 pr-10 rounded-2xl font-semibold text-sm appearance-none cursor-pointer bg-white/15 text-white border border-white/20 focus:outline-none focus:border-white/50 transition-all"
                     >
                       <option value="" className="text-neutral-900">Catégorie...</option>
@@ -1179,7 +1238,7 @@ function PriceModal({
                   <div className="relative">
                     <select
                       value={selectedType?.itemTypeId || ""}
-                      onChange={(e) => onTypeChange(e.target.value)}
+                      onChange={(e) => handleTypeChange(e.target.value)}
                       disabled={!selectedProduct}
                       className="w-full h-14 px-4 pr-10 rounded-2xl font-semibold text-sm appearance-none cursor-pointer bg-white/15 text-white border border-white/20 focus:outline-none focus:border-white/50 disabled:opacity-40 transition-all"
                     >
@@ -1195,7 +1254,7 @@ function PriceModal({
                 <ItemMultiSelect
                   items={items}
                   selectedIds={selectedItemIds}
-                  onChange={onItemsChange}
+                  onChange={setSelectedItemIds}
                   disabled={!selectedType && !selectedProduct}
                   accentColor={accentColor}
                 />
@@ -1206,7 +1265,7 @@ function PriceModal({
 
         {/* CONTENT */}
         <main className="flex-1 overflow-auto bg-neutral-100 dark:bg-neutral-950">
-          {loading && data.length === 0 ? (
+          {loadingPrices ? (
             <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
               <div className="relative">
                 <div
@@ -1223,15 +1282,15 @@ function PriceModal({
                 <p className="text-neutral-500 mt-1">Veuillez patienter...</p>
               </div>
             </div>
-          ) : error ? (
+          ) : priceError ? (
             <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
               <div className="w-24 h-24 rounded-3xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}15` }}>
                 <AlertCircle className="w-12 h-12" style={{ color: accentColor }} />
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold" style={{ color: accentColor }}>Erreur</p>
-                <p className="text-neutral-500 mt-2 max-w-md">{error}</p>
-                <button onClick={onReset} className="mt-6 px-6 py-3 rounded-2xl text-sm font-bold border-2 transition-all hover:scale-105 active:scale-95" style={{ borderColor: accentColor, color: accentColor }}>
+                <p className="text-neutral-500 mt-2 max-w-md">{priceError}</p>
+                <button onClick={() => handleLoadSelection()} className="mt-6 px-6 py-3 rounded-2xl text-sm font-bold border-2 transition-all hover:scale-105 active:scale-95" style={{ borderColor: accentColor, color: accentColor }}>
                   <RefreshCw className="w-4 h-4 inline mr-2" />Réessayer
                 </button>
               </div>
@@ -1417,9 +1476,9 @@ function PriceModal({
                 <Inbox className="w-14 h-14" style={{ color: `${accentColor}40` }} />
               </div>
               <div className="text-center max-w-md">
-                <p className="text-2xl font-bold text-neutral-700 dark:text-neutral-200">Aucun prix trouvé</p>
+                <p className="text-2xl font-bold text-neutral-700 dark:text-neutral-200">Aucun prix sélectionné</p>
                 <p className="text-neutral-500 mt-3">
-                  Utilisez le bouton <span className="inline-flex items-center gap-1 px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg"><Plus className="w-4 h-4" /> Ajouter</span> ou la <span className="inline-flex items-center gap-1 px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg"><Search className="w-4 h-4" /> Recherche</span> pour ajouter des articles.
+                  Utilisez le bouton <span className="inline-flex items-center gap-1 px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg"><Plus className="w-4 h-4" /> Ajouter</span> pour sélectionner des catégories ou utilisez la <span className="inline-flex items-center gap-1 px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg"><Search className="w-4 h-4" /> Recherche</span> pour ajouter des articles individuels.
                 </p>
               </div>
             </div>
@@ -1427,8 +1486,8 @@ function PriceModal({
         </main>
 
         {/* FOOTER */}
-        {!loading && itemsWithPrices.length > 0 && (
-          <footer className="flex-shrink-0 bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-800 px-4 py-3 sm:px-6">
+        {!loadingPrices && itemsWithPrices.length > 0 && (
+          <footer className="flex-shrink-0 bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-800 px-4 py-3 sm:px-6 z-20">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="px-4 py-2 rounded-xl font-bold text-sm" style={{ backgroundColor: `${accentColor}15`, color: accentColor }}>
@@ -1449,483 +1508,8 @@ function PriceModal({
         )}
       </div>
 
-      {showQuickAdd && <QuickAddPanel accentColor={accentColor} onClose={() => setShowQuickAdd(false)} onAddItems={onAddItems} />}
+      {showQuickAdd && <QuickAddPanel accentColor={accentColor} onClose={() => setShowQuickAdd(false)} onAddItems={handleAddItems} />}
       <EmailModal isOpen={showEmailModal} onClose={() => setShowEmailModal(false)} onSend={handleEmailPDF} sending={isSendingEmail} accentColor={accentColor} />
-    </div>
-  );
-}
-
-/* =========================
-   Main Page - FULL SCREEN IPAD LANDSCAPE LAYOUT - NO SCROLL
-========================= */
-export default function CataloguePage() {
-  const { color: accentColor } = useCurrentAccent();
-
-  // STATE (UNCHANGED)
-  const [products, setProducts] = useState<Product[]>([]);
-  const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
-  const [items, setItems] = useState<Item[]>([]);
-  const [priceLists, setPriceLists] = useState<PriceList[]>([]);
-
-  const [selectedPriceList, setSelectedPriceList] = useState<PriceList | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [selectedType, setSelectedType] = useState<ItemType | null>(null);
-
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(new Set());
-  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Item[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-
-  const [showPriceModal, setShowPriceModal] = useState(false);
-  const [priceData, setPriceData] = useState<ItemPriceData[]>([]);
-  const [loadingPrices, setLoadingPrices] = useState(false);
-  const [priceError, setPriceError] = useState<string | null>(null);
-
-  const [loadingTypes, setLoadingTypes] = useState(false);
-  const [loadingItems, setLoadingItems] = useState(false);
-
-  // DATA FETCHING (UNCHANGED)
-  useEffect(() => {
-    (async () => {
-      try {
-        const [prodRes, plRes] = await Promise.all([
-          fetch("/api/catalogue/products"),
-          fetch("/api/catalogue/pricelists"),
-        ]);
-        if (prodRes.ok) setProducts(await prodRes.json());
-        if (plRes.ok) {
-          const pls: PriceList[] = await plRes.json();
-          setPriceLists(pls);
-          const defaultList = pls.find((p) => p.code.startsWith("03")) || pls[0];
-          if (defaultList) setSelectedPriceList(defaultList);
-        }
-      } catch (err) {
-        console.error("Init failed", err);
-      }
-    })();
-  }, []);
-
-  useEffect(() => {
-    const timeout = setTimeout(async () => {
-      if (searchQuery.length > 1) {
-        setIsSearching(true);
-        try {
-          const res = await fetch(`/api/catalogue/items?search=${encodeURIComponent(searchQuery)}`);
-          if (res.ok) setSearchResults(await res.json());
-        } finally {
-          setIsSearching(false);
-        }
-      } else setSearchResults([]);
-    }, 350);
-    return () => clearTimeout(timeout);
-  }, [searchQuery]);
-
-  // HANDLERS (UNCHANGED)
-  const handleAddItems = async (itemIds: number[]) => {
-    if (!selectedPriceList || itemIds.length === 0) return;
-    setLoadingPrices(true);
-    try {
-      const idsString = itemIds.join(",");
-      const url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}&itemIds=${idsString}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Erreur fetch items");
-      const newItems: ItemPriceData[] = await res.json();
-      setPriceData((prev) => {
-        const existingIds = new Set(prev.map((i) => i.itemId));
-        const filteredNew = newItems.filter((i) => !existingIds.has(i.itemId));
-        return [...prev, ...filteredNew];
-      });
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingPrices(false);
-    }
-  };
-
-  const handleLoadSelection = async () => {
-    if (!selectedPriceList) return;
-    if (selectedItemIds.size > 0) {
-      await handleAddItems(Array.from(selectedItemIds));
-      return;
-    }
-    setLoadingPrices(true);
-    try {
-      let url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}`;
-      if (selectedProduct) url += `&prodId=${selectedProduct.prodId}`;
-      if (selectedType) url += `&typeId=${selectedType.itemTypeId}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Erreur fetch");
-      const newItems: ItemPriceData[] = await res.json();
-      setPriceData((prev) => {
-        const existingIds = new Set(prev.map((i) => i.itemId));
-        const filteredNew = newItems.filter((i) => !existingIds.has(i.itemId));
-        return [...prev, ...filteredNew];
-      });
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingPrices(false);
-    }
-  };
-
-  const handlePriceListChange = (priceId: string) => {
-    const pl = priceLists.find((p) => p.priceId === parseInt(priceId));
-    if (pl) setSelectedPriceList(pl);
-  };
-
-  const handleProductChange = async (prodId: string) => {
-    const prod = products.find((p) => p.prodId === parseInt(prodId));
-    if (!prod) return;
-    setSelectedProduct(prod);
-    setSelectedType(null);
-    setSelectedItem(null);
-    setSelectedItemIds(new Set());
-    setItems([]);
-    setItemTypes([]);
-    setLoadingTypes(true);
-    try {
-      const res = await fetch(`/api/catalogue/itemtypes?prodId=${prod.prodId}`);
-      if (res.ok) setItemTypes(await res.json());
-    } finally {
-      setLoadingTypes(false);
-    }
-  };
-
-  const handleTypeChange = async (typeId: string) => {
-    if (!typeId) {
-      setSelectedType(null);
-      setSelectedItem(null);
-      setSelectedItemIds(new Set());
-      setItems([]);
-      return;
-    }
-    const type = itemTypes.find((t) => t.itemTypeId === parseInt(typeId));
-    if (!type) return;
-    setSelectedType(type);
-    setSelectedItem(null);
-    setSelectedItemIds(new Set());
-    setItems([]);
-    setLoadingItems(true);
-    try {
-      const res = await fetch(`/api/catalogue/items?itemTypeId=${type.itemTypeId}`);
-      if (res.ok) setItems(await res.json());
-    } finally {
-      setLoadingItems(false);
-    }
-  };
-
-  const handleItemChange = (itemId: string) => {
-    if (!itemId) {
-      setSelectedItem(null);
-      return;
-    }
-    const item = items.find((i) => i.itemId === parseInt(itemId));
-    if (item) setSelectedItem(item);
-  };
-
-  const handleSearchResultClick = async (item: Item) => {
-    setSearchQuery("");
-    setSearchResults([]);
-    setSelectedItem(item);
-    const prod = products.find((p) => p.prodId === item.prodId);
-    if (!prod) return;
-    setSelectedProduct(prod);
-    setLoadingTypes(true);
-    try {
-      const typesRes = await fetch(`/api/catalogue/itemtypes?prodId=${item.prodId}`);
-      if (typesRes.ok) {
-        const types = await typesRes.json();
-        setItemTypes(types);
-        const type = types.find((t: any) => t.itemTypeId === item.itemTypeId);
-        if (type) {
-          setSelectedType(type);
-          setLoadingItems(true);
-          try {
-            const itemsRes = await fetch(`/api/catalogue/items?itemTypeId=${type.itemTypeId}`);
-            if (itemsRes.ok) setItems(await itemsRes.json());
-          } finally {
-            setLoadingItems(false);
-          }
-        }
-      }
-    } finally {
-      setLoadingTypes(false);
-    }
-  };
-
-  const handleGenerate = async () => {
-    if (!selectedPriceList || !selectedProduct) return;
-    setPriceData([]);
-    setPriceError(null);
-    setShowPriceModal(true);
-    setLoadingPrices(true);
-    try {
-      let url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}&prodId=${selectedProduct.prodId}`;
-      if (selectedType) url += `&typeId=${selectedType.itemTypeId}`;
-      if (selectedItem) url += `&itemId=${selectedItem.itemId}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Erreur fetch");
-      setPriceData(await res.json());
-    } catch (err: any) {
-      setPriceError(err.message);
-    } finally {
-      setLoadingPrices(false);
-    }
-  };
-
-  const handleModalPriceListChange = async (priceId: number) => {
-    const pl = priceLists.find((p) => p.priceId === priceId);
-    if (!pl) return;
-    setSelectedPriceList(pl);
-    if (priceData.length > 0) {
-      setLoadingPrices(true);
-      const allIds = Array.from(new Set(priceData.map((i) => i.itemId))).join(",");
-      try {
-        const url = `/api/catalogue/prices?priceId=${priceId}&itemIds=${allIds}`;
-        const res = await fetch(url);
-        if (res.ok) setPriceData(await res.json());
-      } finally {
-        setLoadingPrices(false);
-      }
-    }
-  };
-
-  const canGenerate = Boolean(selectedPriceList && selectedProduct);
-
-  return (
-    <div className="h-screen w-screen overflow-hidden bg-gradient-to-br from-neutral-100 via-neutral-50 to-neutral-100 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950 p-3">
-      {/* Main Card - Horizontal layout filling available space */}
-      <div className="h-full w-full flex flex-col bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200/50 dark:border-neutral-800 shadow-2xl overflow-hidden">
-        {/* Header - Single row with logo, title, and Générer button */}
-        <div
-          className="flex-shrink-0 px-4 py-2.5 flex items-center justify-between gap-4 border-b border-neutral-100 dark:border-neutral-800"
-          style={{ background: `linear-gradient(135deg, ${accentColor}08 0%, transparent 100%)` }}
-        >
-          <div className="flex items-center gap-3">
-            <Image 
-              src="/sinto-logo.svg" 
-              alt="SINTO" 
-              width={80} 
-              height={28} 
-              className="h-7 w-auto object-contain flex-shrink-0" 
-            />
-            <div className="min-w-0">
-              <h1 className="text-base font-black tracking-tight text-neutral-900 dark:text-white">Catalogue SINTO</h1>
-              <p className="text-neutral-500 text-[9px]">Générateur de liste de prix</p>
-            </div>
-          </div>
-
-          <button
-            onClick={handleGenerate}
-            disabled={!canGenerate}
-            className={cn(
-              "h-9 px-5 rounded-lg font-bold text-xs uppercase tracking-wider flex-shrink-0",
-              "flex items-center justify-center transition-all duration-300",
-              "disabled:bg-neutral-200 disabled:dark:bg-neutral-800 disabled:text-neutral-400 disabled:cursor-not-allowed",
-              canGenerate && "hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] text-white"
-            )}
-            style={canGenerate ? { backgroundColor: accentColor, boxShadow: `0 8px 16px -4px ${accentColor}40` } : {}}
-          >
-            Générer
-          </button>
-        </div>
-
-        {/* Search bar */}
-        <div className="flex-shrink-0 px-4 py-2 border-b border-neutral-100 dark:border-neutral-800">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 z-10" />
-            <input
-              type="search"
-              placeholder="Recherche rapide par code article..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={cn(
-                "w-full h-9 pl-9 pr-4 rounded-lg text-sm font-medium",
-                "bg-neutral-100 dark:bg-neutral-800",
-                "border-2 border-transparent focus:border-current",
-                "outline-none transition-all duration-300",
-                "placeholder:text-neutral-400"
-              )}
-              style={{ borderColor: searchQuery ? accentColor : "transparent" }}
-            />
-
-            {searchQuery.length > 1 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-900 rounded-lg shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden max-h-48 overflow-y-auto z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                {isSearching ? (
-                  <div className="p-4 flex items-center justify-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" style={{ color: accentColor }} />
-                    <span className="text-sm text-neutral-500">Recherche...</span>
-                  </div>
-                ) : searchResults.length > 0 ? (
-                  <div className="p-1">
-                    {searchResults.slice(0, 5).map((item) => (
-                      <button
-                        key={item.itemId}
-                        onClick={() => handleSearchResultClick(item)}
-                        className="w-full p-2 text-left rounded-md transition-all hover:bg-neutral-50 dark:hover:bg-neutral-800 flex items-center gap-2"
-                      >
-                        <Package className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} />
-                        <div className="flex-1 min-w-0">
-                          <span className="font-mono font-bold text-xs mr-2" style={{ color: accentColor }}>{item.itemCode}</span>
-                          <span className="text-xs text-neutral-600 dark:text-neutral-400 truncate">{item.description}</span>
-                        </div>
-                        <ChevronRight className="w-3 h-3 text-neutral-300 flex-shrink-0" />
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-4 text-center">
-                    <Inbox className="w-6 h-6 text-neutral-300 mx-auto mb-1" />
-                    <span className="text-xs text-neutral-500">Aucun résultat</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Form - All 4 dropdowns in a single row */}
-        <div className="flex-1 flex flex-col px-4 py-3 min-h-0">
-          <div className="grid grid-cols-4 gap-3">
-            {/* 1. Liste de prix */}
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="w-4 h-4 rounded flex items-center justify-center text-[9px] font-black text-white flex-shrink-0" style={{ backgroundColor: accentColor }}>1</span>
-                <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider truncate">Liste de prix</span>
-              </div>
-              <div className="relative">
-                <select
-                  value={selectedPriceList?.priceId || ""}
-                  onChange={(e) => handlePriceListChange(e.target.value)}
-                  className="w-full h-9 pl-2 pr-7 rounded-lg text-xs font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all"
-                  style={{ ["--tw-ring-color" as string]: accentColor }}
-                >
-                  {priceLists.map((pl) => (
-                    <option key={pl.priceId} value={pl.priceId}>{abbreviateColumnName(pl.code)} - {pl.name}</option>
-                  ))}
-                </select>
-                <FileText className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none" style={{ color: accentColor }} />
-              </div>
-            </div>
-
-            {/* 2. Catégorie */}
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className={cn("w-4 h-4 rounded flex items-center justify-center text-[9px] font-black flex-shrink-0", selectedPriceList ? "text-white" : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400")} style={selectedPriceList ? { backgroundColor: accentColor } : undefined}>2</span>
-                <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider truncate">Catégorie</span>
-              </div>
-              <div className="relative">
-                <select
-                  value={selectedProduct?.prodId || ""}
-                  onChange={(e) => handleProductChange(e.target.value)}
-                  disabled={!selectedPriceList}
-                  className="w-full h-9 pl-2 pr-7 rounded-lg text-xs font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{ ["--tw-ring-color" as string]: accentColor }}
-                >
-                  <option value="">Sélectionner...</option>
-                  {products.map((p) => (
-                    <option key={p.prodId} value={p.prodId}>{p.name} ({p.itemCount})</option>
-                  ))}
-                </select>
-                <Layers className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-400 pointer-events-none" />
-              </div>
-            </div>
-
-            {/* 3. Classe */}
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className={cn("w-4 h-4 rounded flex items-center justify-center text-[9px] font-black flex-shrink-0", selectedProduct ? "text-white" : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400")} style={selectedProduct ? { backgroundColor: accentColor } : undefined}>3</span>
-                <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider truncate">Classe (opt.)</span>
-              </div>
-              <div className="relative">
-                <select
-                  value={selectedType?.itemTypeId || ""}
-                  onChange={(e) => handleTypeChange(e.target.value)}
-                  disabled={!selectedProduct || loadingTypes}
-                  className="w-full h-9 pl-2 pr-7 rounded-lg text-xs font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{ ["--tw-ring-color" as string]: accentColor }}
-                >
-                  <option value="">{loadingTypes ? "Chargement..." : "Toutes"}</option>
-                  {itemTypes.map((t) => (
-                    <option key={t.itemTypeId} value={t.itemTypeId}>{t.description} ({t.itemCount})</option>
-                  ))}
-                </select>
-                {loadingTypes ? <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-400 animate-spin pointer-events-none" /> : <Package className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-400 pointer-events-none" />}
-              </div>
-            </div>
-
-            {/* 4. Article */}
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className={cn("w-4 h-4 rounded flex items-center justify-center text-[9px] font-black flex-shrink-0", selectedType ? "text-white" : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400")} style={selectedType ? { backgroundColor: accentColor } : undefined}>4</span>
-                <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider truncate">Article (opt.)</span>
-              </div>
-              <div className="relative">
-                <select
-                  value={selectedItem?.itemId || ""}
-                  onChange={(e) => handleItemChange(e.target.value)}
-                  disabled={!selectedType || loadingItems}
-                  className="w-full h-9 pl-2 pr-7 rounded-lg text-xs font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{ ["--tw-ring-color" as string]: accentColor }}
-                >
-                  <option value="">{loadingItems ? "Chargement..." : "Tous"}</option>
-                  {items.map((i) => (
-                    <option key={i.itemId} value={i.itemId}>{i.itemCode}</option>
-                  ))}
-                </select>
-                {loadingItems ? <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-400 animate-spin pointer-events-none" /> : <Tag className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-neutral-400 pointer-events-none" />}
-              </div>
-            </div>
-          </div>
-
-          {/* Selected Item indicator */}
-          {selectedItem && (
-            <div className="mt-3 p-2 rounded-lg border-2 animate-in fade-in slide-in-from-bottom-2 duration-300 flex items-center gap-2" style={{ backgroundColor: `${accentColor}08`, borderColor: `${accentColor}30` }}>
-              <div className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}20` }}>
-                <Check className="w-3 h-3" style={{ color: accentColor }} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <span className="font-mono font-black text-xs" style={{ color: accentColor }}>{selectedItem.itemCode}</span>
-                <span className="text-[10px] text-neutral-500 ml-2">{selectedItem.description}</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex-shrink-0 px-4 py-2 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50">
-          <p className="text-center text-neutral-400 text-[9px]">
-            Sélectionnez une liste de prix et une catégorie, puis appuyez sur <span className="font-bold">Générer</span>
-          </p>
-        </div>
-      </div>
-
-      {/* Price Modal */}
-      <PriceModal
-        isOpen={showPriceModal}
-        onClose={() => setShowPriceModal(false)}
-        data={priceData}
-        priceLists={priceLists}
-        products={products}
-        itemTypes={itemTypes}
-        items={items}
-        selectedPriceList={selectedPriceList}
-        selectedProduct={selectedProduct}
-        selectedType={selectedType}
-        selectedItemIds={selectedItemIds}
-        onPriceListChange={handleModalPriceListChange}
-        onProductChange={handleProductChange}
-        onTypeChange={handleTypeChange}
-        onItemsChange={setSelectedItemIds}
-        onAddItems={handleAddItems}
-        onReset={() => setPriceData([])}
-        onLoadSelection={handleLoadSelection}
-        loading={loadingPrices}
-        error={priceError}
-        accentColor={accentColor}
-      />
     </div>
   );
 }
