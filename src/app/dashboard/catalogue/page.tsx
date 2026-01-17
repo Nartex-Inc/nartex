@@ -1696,27 +1696,27 @@ export default function CataloguePage() {
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-gradient-to-br from-neutral-100 via-neutral-50 to-neutral-100 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950 p-4">
-      {/* Main Card - Fixed to viewport, no scroll */}
-      <div className="h-full w-full flex flex-col bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/50 dark:border-neutral-800 shadow-2xl overflow-hidden">
-        {/* Header - Compact */}
+      {/* Main Card - Fixed to viewport, no scroll, constrained width */}
+      <div className="h-full w-full max-w-4xl mx-auto flex flex-col bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/50 dark:border-neutral-800 shadow-2xl overflow-hidden">
+        {/* Header - Compact with Générer button */}
         <div
-          className="flex-shrink-0 px-5 py-4 flex items-center justify-between gap-4 border-b border-neutral-100 dark:border-neutral-800"
+          className="flex-shrink-0 px-4 py-3 flex items-center justify-between gap-4 border-b border-neutral-100 dark:border-neutral-800"
           style={{ background: `linear-gradient(135deg, ${accentColor}08 0%, transparent 100%)` }}
         >
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <div className="relative flex-shrink-0">
               <Image 
                 src="/sinto-logo.svg" 
                 alt="SINTO" 
-                width={120} 
-                height={40} 
-                className="h-10 w-auto object-contain" 
-                style={{ maxWidth: '120px' }}
+                width={100} 
+                height={32} 
+                className="h-8 w-auto object-contain" 
+                style={{ maxWidth: '100px' }}
               />
             </div>
             <div className="min-w-0">
-              <h1 className="text-xl font-black tracking-tight text-neutral-900 dark:text-white">Catalogue SINTO</h1>
-              <p className="text-neutral-500 text-xs">Générateur de liste de prix</p>
+              <h1 className="text-lg font-black tracking-tight text-neutral-900 dark:text-white">Catalogue SINTO</h1>
+              <p className="text-neutral-500 text-[10px]">Générateur de liste de prix</p>
             </div>
           </div>
 
@@ -1724,7 +1724,7 @@ export default function CataloguePage() {
             onClick={handleGenerate}
             disabled={!canGenerate}
             className={cn(
-              "h-12 px-8 rounded-xl font-black text-sm uppercase tracking-wider flex-shrink-0",
+              "h-10 px-6 rounded-xl font-black text-sm uppercase tracking-wider flex-shrink-0",
               "flex items-center justify-center transition-all duration-300",
               "disabled:bg-neutral-200 disabled:dark:bg-neutral-800 disabled:text-neutral-400 disabled:cursor-not-allowed",
               canGenerate && "hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] text-white"
@@ -1736,16 +1736,16 @@ export default function CataloguePage() {
         </div>
 
         {/* Search - Compact */}
-        <div className="flex-shrink-0 px-5 py-3 border-b border-neutral-100 dark:border-neutral-800">
+        <div className="flex-shrink-0 px-4 py-2 border-b border-neutral-100 dark:border-neutral-800">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 z-10" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 z-10" />
             <input
               type="search"
               placeholder="Recherche rapide par code article..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={cn(
-                "w-full h-11 pl-12 pr-4 rounded-xl text-sm font-medium",
+                "w-full h-10 pl-10 pr-4 rounded-xl text-sm font-medium",
                 "bg-neutral-100 dark:bg-neutral-800",
                 "border-2 border-transparent focus:border-current",
                 "outline-none transition-all duration-300",
@@ -1790,34 +1790,34 @@ export default function CataloguePage() {
         </div>
 
         {/* Form - 2 columns x 2 rows layout that fits on iPad screen */}
-        <div className="flex-1 flex flex-col px-5 py-4 min-h-0">
+        <div className="flex-1 flex flex-col px-4 py-3 min-h-0">
           {/* Row 1: Liste de prix + Catégorie */}
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-2 gap-3 mb-3">
             {/* 1. Liste de prix */}
             <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black text-white flex-shrink-0" style={{ backgroundColor: accentColor }}>1</span>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="w-4 h-4 rounded flex items-center justify-center text-[9px] font-black text-white flex-shrink-0" style={{ backgroundColor: accentColor }}>1</span>
                 <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider truncate">Liste de prix</span>
               </div>
               <div className="relative">
                 <select
                   value={selectedPriceList?.priceId || ""}
                   onChange={(e) => handlePriceListChange(e.target.value)}
-                  className="w-full h-12 pl-3 pr-10 rounded-xl text-sm font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all"
+                  className="w-full h-10 pl-3 pr-8 rounded-lg text-sm font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all"
                   style={{ ["--tw-ring-color" as string]: accentColor }}
                 >
                   {priceLists.map((pl) => (
                     <option key={pl.priceId} value={pl.priceId}>{abbreviateColumnName(pl.code)} - {pl.name}</option>
                   ))}
                 </select>
-                <FileText className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: accentColor }} />
+                <FileText className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: accentColor }} />
               </div>
             </div>
 
             {/* 2. Catégorie */}
             <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <span className={cn("w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black flex-shrink-0", selectedPriceList ? "text-white" : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400")} style={selectedPriceList ? { backgroundColor: accentColor } : undefined}>2</span>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className={cn("w-4 h-4 rounded flex items-center justify-center text-[9px] font-black flex-shrink-0", selectedPriceList ? "text-white" : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400")} style={selectedPriceList ? { backgroundColor: accentColor } : undefined}>2</span>
                 <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider truncate">Catégorie</span>
               </div>
               <div className="relative">
@@ -1825,7 +1825,7 @@ export default function CataloguePage() {
                   value={selectedProduct?.prodId || ""}
                   onChange={(e) => handleProductChange(e.target.value)}
                   disabled={!selectedPriceList}
-                  className="w-full h-12 pl-3 pr-10 rounded-xl text-sm font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full h-10 pl-3 pr-8 rounded-lg text-sm font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{ ["--tw-ring-color" as string]: accentColor }}
                 >
                   <option value="">Sélectionner...</option>
@@ -1833,17 +1833,17 @@ export default function CataloguePage() {
                     <option key={p.prodId} value={p.prodId}>{p.name} ({p.itemCount})</option>
                   ))}
                 </select>
-                <Layers className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+                <Layers className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
               </div>
             </div>
           </div>
 
           {/* Row 2: Classe + Article */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             {/* 3. Classe */}
             <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <span className={cn("w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black flex-shrink-0", selectedProduct ? "text-white" : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400")} style={selectedProduct ? { backgroundColor: accentColor } : undefined}>3</span>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className={cn("w-4 h-4 rounded flex items-center justify-center text-[9px] font-black flex-shrink-0", selectedProduct ? "text-white" : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400")} style={selectedProduct ? { backgroundColor: accentColor } : undefined}>3</span>
                 <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider truncate">Classe (optionnel)</span>
               </div>
               <div className="relative">
@@ -1851,7 +1851,7 @@ export default function CataloguePage() {
                   value={selectedType?.itemTypeId || ""}
                   onChange={(e) => handleTypeChange(e.target.value)}
                   disabled={!selectedProduct || loadingTypes}
-                  className="w-full h-12 pl-3 pr-10 rounded-xl text-sm font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full h-10 pl-3 pr-8 rounded-lg text-sm font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{ ["--tw-ring-color" as string]: accentColor }}
                 >
                   <option value="">{loadingTypes ? "Chargement..." : "Toutes les classes"}</option>
@@ -1859,14 +1859,14 @@ export default function CataloguePage() {
                     <option key={t.itemTypeId} value={t.itemTypeId}>{t.description} ({t.itemCount})</option>
                   ))}
                 </select>
-                {loadingTypes ? <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 animate-spin pointer-events-none" /> : <Package className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />}
+                {loadingTypes ? <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 animate-spin pointer-events-none" /> : <Package className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />}
               </div>
             </div>
 
             {/* 4. Article */}
             <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <span className={cn("w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black flex-shrink-0", selectedType ? "text-white" : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400")} style={selectedType ? { backgroundColor: accentColor } : undefined}>4</span>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className={cn("w-4 h-4 rounded flex items-center justify-center text-[9px] font-black flex-shrink-0", selectedType ? "text-white" : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400")} style={selectedType ? { backgroundColor: accentColor } : undefined}>4</span>
                 <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider truncate">Article (optionnel)</span>
               </div>
               <div className="relative">
@@ -1874,7 +1874,7 @@ export default function CataloguePage() {
                   value={selectedItem?.itemId || ""}
                   onChange={(e) => handleItemChange(e.target.value)}
                   disabled={!selectedType || loadingItems}
-                  className="w-full h-12 pl-3 pr-10 rounded-xl text-sm font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full h-10 pl-3 pr-8 rounded-lg text-sm font-semibold appearance-none cursor-pointer bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{ ["--tw-ring-color" as string]: accentColor }}
                 >
                   <option value="">{loadingItems ? "Chargement..." : "Tous les articles"}</option>
@@ -1882,28 +1882,28 @@ export default function CataloguePage() {
                     <option key={i.itemId} value={i.itemId}>{i.itemCode}</option>
                   ))}
                 </select>
-                {loadingItems ? <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 animate-spin pointer-events-none" /> : <Tag className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />}
+                {loadingItems ? <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 animate-spin pointer-events-none" /> : <Tag className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />}
               </div>
             </div>
           </div>
 
           {/* Selected Item - Compact */}
           {selectedItem && (
-            <div className="mt-4 p-3 rounded-xl border-2 animate-in fade-in slide-in-from-bottom-2 duration-300 flex items-center gap-3" style={{ backgroundColor: `${accentColor}08`, borderColor: `${accentColor}30` }}>
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}20` }}>
-                <Check className="w-5 h-5" style={{ color: accentColor }} />
+            <div className="mt-3 p-2.5 rounded-lg border-2 animate-in fade-in slide-in-from-bottom-2 duration-300 flex items-center gap-2" style={{ backgroundColor: `${accentColor}08`, borderColor: `${accentColor}30` }}>
+              <div className="w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}20` }}>
+                <Check className="w-4 h-4" style={{ color: accentColor }} />
               </div>
               <div className="min-w-0 flex-1">
-                <span className="font-mono font-black text-base" style={{ color: accentColor }}>{selectedItem.itemCode}</span>
-                <span className="text-sm text-neutral-500 ml-2">{selectedItem.description}</span>
+                <span className="font-mono font-black text-sm" style={{ color: accentColor }}>{selectedItem.itemCode}</span>
+                <span className="text-xs text-neutral-500 ml-2">{selectedItem.description}</span>
               </div>
             </div>
           )}
         </div>
 
         {/* Footer - Compact */}
-        <div className="flex-shrink-0 px-5 py-3 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50">
-          <p className="text-center text-neutral-400 text-xs">
+        <div className="flex-shrink-0 px-4 py-2 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50">
+          <p className="text-center text-neutral-400 text-[10px]">
             Sélectionnez une liste de prix et une catégorie, puis appuyez sur <span className="font-bold">Générer</span>
           </p>
         </div>
