@@ -30,14 +30,14 @@ import {
   AlertCircle,
   RefreshCw,
   Inbox,
+  ChevronUp,
   Check,
   Trash2,
   SlidersHorizontal,
-  ChevronUp
 } from "lucide-react";
 
 /* =========================
-   Types
+   Types (Unchanged)
 ========================= */
 interface Product {
   prodId: number;
@@ -89,7 +89,7 @@ interface ItemPriceData {
 }
 
 /* =========================
-   Utilities
+   Utilities & Sub-Components
 ========================= */
 function useMediaQuery(query: string) {
   const [matches, setMatches] = useState(false);
@@ -134,11 +134,39 @@ function abbreviateColumnName(name: string): string {
   return result;
 }
 
+function AnimatedPrice({ value, duration = 500 }: { value: number; duration?: number }) {
+  const [displayValue, setDisplayValue] = useState(0);
+  const previousValue = useRef(0);
+  const animationRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    const startValue = previousValue.current;
+    const endValue = value;
+    const startTime = performance.now();
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easeOut = 1 - Math.pow(1 - progress, 4);
+      const current = startValue + (endValue - startValue) * easeOut;
+      setDisplayValue(current);
+      if (progress < 1) animationRef.current = requestAnimationFrame(animate);
+      else previousValue.current = endValue;
+    };
+    animationRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
+  }, [value, duration]);
+
+  return <span className="tabular-nums">{displayValue.toFixed(2)}</span>;
+}
+
 /* =========================
-   UI Components
+   NEW UI Components
 ========================= */
 
-// Toggle Switch Component (for Voir détails)
+// Toggle Switch Component (iOS-style for "Voir détails")
 const ToggleSwitch = ({ 
   enabled, 
   onToggle, 
@@ -154,30 +182,31 @@ const ToggleSwitch = ({
     onClick={onToggle}
     disabled={loading}
     className={cn(
-      "flex items-center gap-2.5 text-sm transition-all px-2 py-1 rounded-lg hover:bg-slate-800/50",
+      "flex items-center gap-2.5 text-sm transition-all px-2 py-1 rounded-lg hover:bg-white/10",
       loading && "opacity-70 cursor-wait"
     )}
   >
     {loading ? (
-      <Loader2 className="w-4 h-4 animate-spin text-red-500" />
+      <Loader2 className="w-4 h-4 animate-spin text-white/70" />
     ) : (
-      <span className={cn("transition-colors", enabled ? "text-white" : "text-slate-500")}>
+      <span className={cn("transition-colors", enabled ? "text-white" : "text-white/50")}>
         {enabled ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
       </span>
     )}
-    <span className={cn("font-medium hidden sm:inline", enabled ? "text-white" : "text-slate-500")}>{label}</span>
+    <span className={cn("font-medium hidden sm:inline", enabled ? "text-white" : "text-white/70")}>{label}</span>
     <div className={cn(
       "w-11 h-6 rounded-full p-0.5 transition-colors flex-shrink-0",
-      enabled ? "bg-red-600" : "bg-slate-700"
+      enabled ? "bg-white" : "bg-white/30"
     )}>
       <div className={cn(
-        "w-5 h-5 rounded-full bg-white shadow-md transition-transform",
-        enabled ? "translate-x-5" : "translate-x-0"
+        "w-5 h-5 rounded-full shadow-md transition-transform",
+        enabled ? "translate-x-5 bg-neutral-900" : "translate-x-0 bg-white"
       )} />
     </div>
   </button>
 );
 
+// Icon Toggle Button
 const ToggleButton = ({ 
   active, 
   onClick, 
@@ -198,8 +227,8 @@ const ToggleButton = ({
     className={cn(
       "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
       active 
-        ? "bg-red-600 text-white shadow-md shadow-red-900/20" 
-        : "bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600",
+        ? "bg-white text-neutral-900 shadow-lg" 
+        : "bg-white/10 border border-white/20 text-white hover:bg-white/20",
       loading && "opacity-70 cursor-wait"
     )}
   >
@@ -207,6 +236,7 @@ const ToggleButton = ({
   </button>
 );
 
+// Action Button
 const ActionButton = ({ 
   onClick, 
   disabled, 
@@ -232,8 +262,8 @@ const ActionButton = ({
       "h-10 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed",
       label ? "px-5" : "w-10",
       primary 
-        ? "bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/20" 
-        : "bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700"
+        ? "bg-white text-neutral-900 shadow-lg hover:bg-white/90" 
+        : "bg-white/10 border border-white/20 text-white hover:bg-white/20"
     )}
   >
     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Icon className="w-5 h-5" />}
@@ -241,7 +271,8 @@ const ActionButton = ({
   </button>
 );
 
-const Dropdown = ({ 
+// Filter Dropdown
+const FilterDropdown = ({ 
   id, 
   label, 
   icon: Icon, 
@@ -265,25 +296,25 @@ const Dropdown = ({
   setOpenDropdown: (val: string | null) => void;
 }) => (
   <div className="relative flex-1 min-w-0">
-    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block ml-1">{label}</label>
+    <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider mb-1.5 block ml-1">{label}</label>
     <button 
       onClick={() => !disabled && setOpenDropdown(openDropdown === id ? null : id)}
       disabled={disabled}
       className={cn(
-        "w-full h-11 px-3 rounded-xl bg-slate-800 border border-slate-700 hover:border-red-500/50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-left flex items-center gap-2 text-sm",
-        openDropdown === id && "border-red-500 ring-1 ring-red-500/20"
+        "w-full h-12 px-4 rounded-xl bg-white/10 border border-white/20 hover:border-white/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-left flex items-center gap-3 text-sm",
+        openDropdown === id && "border-white/50 bg-white/15"
       )}
     >
-      <Icon className="w-4 h-4 text-slate-500 flex-shrink-0" />
-      <span className={cn("truncate flex-1 font-medium", value ? "text-white" : "text-slate-500")}>
+      <Icon className="w-4 h-4 text-white/50 flex-shrink-0" />
+      <span className={cn("truncate flex-1 font-medium", value ? "text-white" : "text-white/50")}>
         {value || placeholder}
       </span>
-      <ChevronDown className={cn("w-4 h-4 text-slate-500 flex-shrink-0 transition-transform", openDropdown === id && "rotate-180")} />
+      <ChevronDown className={cn("w-4 h-4 text-white/50 flex-shrink-0 transition-transform", openDropdown === id && "rotate-180")} />
     </button>
     {openDropdown === id && (
       <>
         <div className="fixed inset-0 z-20" onClick={() => setOpenDropdown(null)} />
-        <div className="absolute z-30 top-full left-0 right-0 mt-2 bg-slate-900 rounded-xl border border-slate-700 shadow-2xl shadow-black/50 overflow-hidden max-h-64 overflow-y-auto">
+        <div className="absolute z-30 top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-2xl overflow-hidden max-h-64 overflow-y-auto">
           {options.map(opt => renderOption(opt))}
         </div>
       </>
@@ -291,7 +322,7 @@ const Dropdown = ({
   </div>
 );
 
-const QuickAddPanel = ({
+function QuickAddPanel({
   onAddItems,
   onClose,
   accentColor,
@@ -299,7 +330,7 @@ const QuickAddPanel = ({
   onAddItems: (itemIds: number[]) => void;
   onClose: () => void;
   accentColor: string;
-}) => {
+}) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Item[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -338,26 +369,32 @@ const QuickAddPanel = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[999999] flex items-end sm:items-center justify-center p-0 sm:p-4 font-['DM_Sans',system-ui,sans-serif]">
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full sm:max-w-xl bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-800 overflow-hidden animate-in slide-in-from-bottom duration-300 sm:animate-in sm:zoom-in-95">
-        
-        {/* Mobile Handle */}
+    <div className="fixed inset-0 z-[999999] flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
+      <div className="relative w-full sm:max-w-lg bg-white dark:bg-neutral-900 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 sm:animate-in sm:zoom-in-95">
         <div className="sm:hidden flex justify-center pt-3 pb-1">
-          <div className="w-12 h-1.5 rounded-full bg-slate-700" />
+          <div className="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-700" />
         </div>
 
-        <div className="p-6 border-b border-slate-800">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center flex-shrink-0">
-              <Search className="w-6 h-6 text-red-500" />
+        <div className="p-4 sm:p-6">
+          <div className="flex items-center gap-4 mb-4">
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: `${accentColor}15` }}
+            >
+              <Search className="w-6 h-6" style={{ color: accentColor }} />
             </div>
             <div className="flex-1">
-              <h3 className="text-xl font-bold text-white">Recherche rapide</h3>
-              <p className="text-sm text-slate-400">Ajoutez des articles par code ou description</p>
+              <h3 className="text-lg font-bold text-neutral-900 dark:text-white">
+                Recherche rapide
+              </h3>
+              <p className="text-sm text-neutral-500">Ajoutez des articles à votre liste</p>
             </div>
-            <button onClick={onClose} className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-slate-800 transition-colors text-slate-400 hover:text-white">
-              <X className="w-6 h-6" />
+            <button
+              onClick={onClose}
+              className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            >
+              <X className="w-5 h-5 text-neutral-400" />
             </button>
           </div>
 
@@ -365,20 +402,29 @@ const QuickAddPanel = ({
             <input
               ref={inputRef}
               type="search"
-              className="w-full h-14 pl-12 pr-4 rounded-xl text-base font-medium bg-slate-950 border border-slate-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none text-white placeholder:text-slate-500 transition-all"
-              placeholder="Ex: SYN-5W30..."
+              className={cn(
+                "w-full h-14 pl-5 pr-12 rounded-2xl text-base font-medium",
+                "bg-neutral-100 dark:bg-neutral-800",
+                "border-2 border-transparent focus:border-current",
+                "outline-none transition-all duration-300",
+                "placeholder:text-neutral-400"
+              )}
+              style={{ borderColor: query ? accentColor : "transparent" }}
+              placeholder="Code article ou description..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            <div className="absolute left-4 top-1/2 -translate-y-1/2">
-              {searching ? <Loader2 className="w-5 h-5 animate-spin text-red-500" /> : <Search className="w-5 h-5 text-slate-500" />}
-            </div>
+            {searching && (
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                <Loader2 className="w-5 h-5 animate-spin" style={{ color: accentColor }} />
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="max-h-[50vh] overflow-y-auto px-2 py-2 bg-slate-950/50">
+        <div className="max-h-[50vh] overflow-y-auto px-4 sm:px-6">
           {results.length > 0 ? (
-            <div className="space-y-1">
+            <div className="space-y-2 pb-4">
               {results.map((item) => {
                 const isSelected = selectedIds.has(item.itemId);
                 return (
@@ -386,22 +432,32 @@ const QuickAddPanel = ({
                     key={item.itemId}
                     onClick={() => toggleSelect(item.itemId)}
                     className={cn(
-                      "w-full flex items-center gap-4 p-3 rounded-xl transition-all duration-200 text-left group",
-                      isSelected ? "bg-red-500/10 border border-red-500/30" : "hover:bg-slate-800 border border-transparent"
+                      "w-full flex items-center gap-4 p-4 rounded-2xl transition-all duration-200",
+                      "text-left active:scale-[0.99]",
+                      isSelected
+                        ? "bg-neutral-100 dark:bg-neutral-800 ring-2"
+                        : "hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
                     )}
+                    style={isSelected ? { ["--tw-ring-color" as string]: accentColor } : undefined}
                   >
-                    <div className={cn(
-                      "w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all",
-                      isSelected ? "bg-red-500 border-red-500" : "border-slate-600 group-hover:border-slate-500"
-                    )}>
+                    <div
+                      className={cn(
+                        "w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200"
+                      )}
+                      style={{
+                        backgroundColor: isSelected ? accentColor : "transparent",
+                        borderColor: isSelected ? accentColor : "currentColor",
+                      }}
+                    >
                       {isSelected && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono font-bold text-sm text-red-400">{item.itemCode}</span>
-                        <span className="text-[10px] text-slate-600 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{item.itemId}</span>
+                      <div className="font-mono font-bold text-sm" style={{ color: accentColor }}>
+                        {item.itemCode}
                       </div>
-                      <div className="text-xs text-slate-300 truncate mt-0.5">{item.description}</div>
+                      <div className="text-sm text-neutral-600 dark:text-neutral-400 truncate">
+                        {item.description}
+                      </div>
                     </div>
                   </button>
                 );
@@ -409,21 +465,23 @@ const QuickAddPanel = ({
             </div>
           ) : query.length > 1 && !searching ? (
             <div className="py-12 text-center">
-              <Inbox className="w-16 h-16 text-slate-800 mx-auto mb-4" />
-              <p className="text-slate-500 font-medium">Aucun résultat trouvé</p>
+              <Inbox className="w-12 h-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" />
+              <p className="text-neutral-500">Aucun résultat trouvé</p>
             </div>
-          ) : (
-            <div className="py-12 text-center">
-              <p className="text-slate-600 text-sm">Commencez à taper pour rechercher...</p>
-            </div>
-          )}
+          ) : null}
         </div>
 
-        <div className="p-6 border-t border-slate-800 bg-slate-900">
+        <div className="p-4 sm:p-6 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/80">
           <button
             onClick={handleAdd}
             disabled={selectedIds.size === 0}
-            className="w-full h-14 rounded-2xl font-bold text-white bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-900/20 active:scale-[0.98]"
+            className={cn(
+              "w-full h-14 rounded-2xl font-bold text-white transition-all duration-300",
+              "flex items-center justify-center gap-3",
+              "active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed",
+              "hover:shadow-lg"
+            )}
+            style={{ backgroundColor: accentColor }}
           >
             <Plus className="w-5 h-5" />
             Ajouter {selectedIds.size > 0 && `(${selectedIds.size})`}
@@ -432,9 +490,155 @@ const QuickAddPanel = ({
       </div>
     </div>
   );
-};
+}
 
-const EmailModal = ({
+function ItemMultiSelect({
+  items,
+  selectedIds,
+  onChange,
+  disabled,
+  accentColor,
+}: {
+  items: Item[];
+  selectedIds: Set<number>;
+  onChange: (ids: Set<number>) => void;
+  disabled?: boolean;
+  accentColor: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      const clickedTrigger = triggerRef.current && triggerRef.current.contains(target);
+      const clickedDropdown = dropdownRef.current && dropdownRef.current.contains(target);
+
+      if (!clickedTrigger && !clickedDropdown) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
+
+  const filteredItems = items.filter(
+    (i) =>
+      i.itemCode.toLowerCase().includes(search.toLowerCase()) ||
+      i.description.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const toggleSelection = (id: number) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onChange(next);
+  };
+
+  return (
+    <div ref={triggerRef} className="relative flex-1 min-w-0">
+      <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider mb-1.5 block ml-1">Articles (Opt.)</label>
+      <button
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        className={cn(
+          "w-full h-12 px-4 rounded-xl font-medium text-left transition-all duration-300",
+          "flex items-center gap-3",
+          "bg-white/10 border border-white/20 hover:border-white/40",
+          "disabled:opacity-40 disabled:cursor-not-allowed",
+          isOpen && "bg-white/15 border-white/50"
+        )}
+      >
+        <Tag className="w-4 h-4 text-white/50 flex-shrink-0" />
+        <span className={cn("flex-1 truncate text-sm", selectedIds.size > 0 ? "text-white" : "text-white/50")}>
+          {selectedIds.size > 0 ? `${selectedIds.size} article(s)` : "Sélectionner..."}
+        </span>
+        <ChevronDown
+          className={cn(
+            "w-4 h-4 text-white/50 transition-transform duration-300 flex-shrink-0",
+            isOpen && "rotate-180"
+          )}
+        />
+      </button>
+
+      {isOpen && (
+        <Portal>
+          <div
+            ref={dropdownRef}
+            className="fixed z-[999999] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            style={{
+              top: triggerRef.current ? triggerRef.current.getBoundingClientRect().bottom + 8 : 0,
+              left: triggerRef.current ? triggerRef.current.getBoundingClientRect().left : 0,
+              width: triggerRef.current ? Math.max(triggerRef.current.offsetWidth, 300) : 300,
+              maxWidth: "calc(100vw - 32px)",
+            }}
+          >
+            <div className="p-3 border-b border-neutral-100 dark:border-neutral-800">
+              <div className="flex items-center gap-2 bg-neutral-100 dark:bg-neutral-800 rounded-xl px-4">
+                <Filter className="w-4 h-4 text-neutral-400" />
+                <input
+                  autoFocus
+                  className="flex-1 py-3 bg-transparent text-sm outline-none text-neutral-900 dark:text-white placeholder:text-neutral-400"
+                  placeholder="Filtrer les articles..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="max-h-72 overflow-y-auto p-2">
+              {filteredItems.length > 0 ? (
+                filteredItems.map((item) => (
+                  <button
+                    key={item.itemId}
+                    onClick={() => toggleSelection(item.itemId)}
+                    className={cn(
+                      "w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200",
+                      "text-left hover:bg-neutral-50 dark:hover:bg-neutral-800",
+                      selectedIds.has(item.itemId) && "bg-neutral-100 dark:bg-neutral-800"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "w-5 h-5 rounded-lg border-2 flex items-center justify-center flex-shrink-0"
+                      )}
+                      style={{
+                        backgroundColor: selectedIds.has(item.itemId) ? accentColor : "transparent",
+                        borderColor: selectedIds.has(item.itemId) ? accentColor : "rgb(209 213 219)",
+                      }}
+                    >
+                      {selectedIds.has(item.itemId) && (
+                        <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-mono font-bold text-sm" style={{ color: accentColor }}>
+                        {item.itemCode}
+                      </div>
+                      <div className="text-xs text-neutral-500 truncate">{item.description}</div>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className="py-8 text-center">
+                  <Inbox className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
+                  <span className="text-sm text-neutral-400">Aucun article</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </Portal>
+      )}
+    </div>
+  );
+}
+
+function EmailModal({
   isOpen,
   onClose,
   onSend,
@@ -446,55 +650,95 @@ const EmailModal = ({
   onSend: (email: string) => void;
   sending: boolean;
   accentColor: string;
-}) => {
+}) {
   const [email, setEmail] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (isOpen) setTimeout(() => inputRef.current?.focus(), 100);
+    if (isOpen) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[999999] flex items-end sm:items-center justify-center p-0 sm:p-4 font-['DM_Sans',system-ui,sans-serif]">
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
-      <div className="relative w-full sm:max-w-md bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-800 overflow-hidden animate-in slide-in-from-bottom duration-300 sm:animate-in sm:zoom-in-95">
+    <div className="fixed inset-0 z-[999999] flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
+      <div className="relative w-full sm:max-w-md bg-white dark:bg-neutral-900 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 sm:animate-in sm:zoom-in-95">
+        <div className="sm:hidden flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-700" />
+        </div>
+
         <div className="p-6">
           <div className="flex items-center gap-4 mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center">
-              <Mail className="w-6 h-6 text-red-500" />
+            <div
+              className="w-14 h-14 rounded-2xl flex items-center justify-center"
+              style={{ backgroundColor: `${accentColor}15` }}
+            >
+              <Mail className="w-7 h-7" style={{ color: accentColor }} />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-white">Envoyer par courriel</h3>
-              <p className="text-sm text-slate-400">La liste sera jointe en PDF</p>
+              <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
+                Envoyer par courriel
+              </h3>
+              <p className="text-sm text-neutral-500">La liste sera jointe en PDF</p>
             </div>
           </div>
+
           <input
             ref={inputRef}
             type="email"
-            className="w-full h-12 px-4 rounded-xl text-sm font-medium bg-slate-950 border border-slate-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none text-white placeholder:text-slate-500 transition-all"
+            className={cn(
+              "w-full h-14 px-5 rounded-2xl text-base font-medium",
+              "bg-neutral-100 dark:bg-neutral-800",
+              "border-2 border-transparent focus:border-current",
+              "outline-none transition-all duration-300",
+              "placeholder:text-neutral-400"
+            )}
+            style={{ borderColor: email ? accentColor : "transparent" }}
             placeholder="nom@exemple.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
         </div>
+
         <div className="p-6 pt-0 flex gap-3">
-          <button onClick={onClose} disabled={sending} className="flex-1 h-12 rounded-xl font-bold bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white transition-all disabled:opacity-50">
+          <button
+            onClick={onClose}
+            disabled={sending}
+            className="flex-1 h-14 rounded-2xl font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition-all hover:bg-neutral-200 dark:hover:bg-neutral-700 disabled:opacity-50"
+          >
             Annuler
           </button>
-          <button 
-            onClick={() => onSend(email)} 
-            disabled={!email || sending} 
-            className="flex-1 h-12 rounded-xl font-bold text-white bg-red-600 hover:bg-red-500 disabled:opacity-50 flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-900/20 active:scale-[0.98]"
+          <button
+            onClick={() => onSend(email)}
+            disabled={!email || sending}
+            className={cn(
+              "flex-1 h-14 rounded-2xl font-bold text-white transition-all duration-300",
+              "flex items-center justify-center gap-2",
+              "active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed",
+              "hover:shadow-lg"
+            )}
+            style={{ backgroundColor: accentColor }}
           >
-            {sending ? <><Loader2 className="w-4 h-4 animate-spin" /> Envoi...</> : <><Send className="w-4 h-4" /> Envoyer</>}
+            {sending ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Envoi...
+              </>
+            ) : (
+              <>
+                <Send className="w-5 h-5" />
+                Envoyer
+              </>
+            )}
           </button>
         </div>
       </div>
     </div>
   );
-};
+}
 
 /* =========================
    Main Full Screen Page
@@ -521,11 +765,9 @@ export default function CataloguePage() {
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
-  
-  // UI State
-  const [showFilters, setShowFilters] = useState(true);
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [filtersExpanded, setFiltersExpanded] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [loadingTypes, setLoadingTypes] = useState(false);
@@ -571,13 +813,7 @@ export default function CataloguePage() {
     }
   };
 
-  const handleProductChange = async (prodId: string) => {
-    const prod = products.find((p) => p.prodId === parseInt(prodId));
-    if (!prod) {
-      setSelectedProduct(null);
-      return;
-    }
-    
+  const handleProductChange = async (prod: Product) => {
     setSelectedProduct(prod);
     setSelectedType(null);
     setSelectedItemIds(new Set());
@@ -593,16 +829,7 @@ export default function CataloguePage() {
     }
   };
 
-  const handleTypeChange = async (typeId: string) => {
-    if (!typeId) {
-      setSelectedType(null);
-      setSelectedItemIds(new Set());
-      setItems([]);
-      return;
-    }
-    const type = itemTypes.find((t) => t.itemTypeId === parseInt(typeId));
-    if (!type) return;
-    
+  const handleTypeChange = async (type: ItemType) => {
     setSelectedType(type);
     setSelectedItemIds(new Set());
     setOpenDropdown(null);
@@ -961,394 +1188,478 @@ export default function CataloguePage() {
     return acc;
   }, {} as Record<string, ItemPriceData[]>);
 
-  // Check if add button should be enabled
   const canAddSelection = selectedProduct || selectedItemIds.size > 0;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-['DM_Sans',system-ui,sans-serif]">
-      {/* ===================== HEADER ===================== */}
-      <header className="border-b border-slate-800 bg-slate-900 sticky top-0 z-50">
-        <div className="max-w-[1600px] mx-auto px-4 py-3 flex items-center justify-between gap-2 sm:gap-4">
-          
-          {/* ===== LEFT SECTION: Logo + Price List + Details Toggle + Filters Toggle ===== */}
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            {/* Logo */}
-            <div className="flex-shrink-0 bg-white p-1.5 rounded-lg shadow-sm">
-              <Image
-                src="/sinto-logo.svg"
-                alt="SINTO"
-                width={80}
-                height={28}
-                className="h-6 sm:h-7 w-auto object-contain"
-              />
-            </div>
-
-            <div className="w-px h-8 bg-slate-700 hidden sm:block" />
-
-            {/* Price List Dropdown - Wider */}
-            <div className="relative">
-              <button 
-                onClick={() => setOpenDropdown(openDropdown === 'pricelist' ? null : 'pricelist')}
-                className={cn(
-                  "h-10 px-3 sm:px-4 rounded-xl bg-slate-800 border border-slate-700 hover:border-red-500/50 transition-all flex items-center gap-2 text-sm w-[140px] sm:w-[280px]",
-                  openDropdown === 'pricelist' && "border-red-500 ring-1 ring-red-500/20"
-                )}
-              >
-                <span className="truncate flex-1 text-left">
-                  {selectedPriceList ? (
-                    <>
-                      <span className="text-white font-bold">{selectedPriceList.code}</span>
-                      <span className="text-slate-400 ml-1.5 hidden sm:inline">- {selectedPriceList.name}</span>
-                    </>
-                  ) : <span className="text-slate-500">Sélectionner...</span>}
-                </span>
-                <ChevronDown className={cn("w-4 h-4 text-slate-500 transition-transform flex-shrink-0", openDropdown === 'pricelist' && "rotate-180")} />
-              </button>
-              {openDropdown === 'pricelist' && (
-                <>
-                  <div className="fixed inset-0 z-20" onClick={() => setOpenDropdown(null)} />
-                  <div className="absolute z-40 top-full left-0 mt-2 bg-slate-900 rounded-xl border border-slate-700 shadow-2xl overflow-hidden w-80 max-h-96 overflow-y-auto">
-                    {priceLists.map(list => (
-                      <button
-                        key={list.priceId}
-                        onClick={() => handlePriceListChange(list)}
-                        className={cn(
-                          "w-full px-4 py-3 text-left text-sm hover:bg-slate-800 transition-colors flex items-center justify-between",
-                          selectedPriceList?.priceId === list.priceId && "bg-red-600/20 text-red-400"
-                        )}
-                      >
-                        <span className="truncate">{list.code} - {list.name}</span>
-                        {selectedPriceList?.priceId === list.priceId && <Check className="w-4 h-4 flex-shrink-0" />}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Details Toggle Switch */}
-            <ToggleSwitch 
-              enabled={showDetails} 
-              onToggle={handleToggleDetails} 
-              label="Voir détails"
-              loading={isAuthenticating}
-            />
-
-            {/* Filters Toggle */}
-            <ToggleButton 
-              active={showFilters} 
-              onClick={() => setShowFilters(!showFilters)} 
-              icon={SlidersHorizontal} 
-              title="Afficher/Masquer les filtres"
-            />
-          </div>
-
-          {/* ===== RIGHT SECTION: Actions + Logo + Close ===== */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Search Button */}
-            <ActionButton 
-              onClick={() => setShowQuickAdd(true)} 
-              icon={Search} 
-              title="Recherche rapide par code"
-            />
-            
-            {/* Add Button */}
-            <ActionButton 
-              onClick={handleLoadSelection} 
-              disabled={!canAddSelection}
-              icon={Plus} 
-              title="Ajouter la sélection à la liste"
-              primary 
-              label={!isMobile ? "Ajouter" : undefined}
-              loading={loadingPrices}
-            />
-
-            {/* Clear/Trash Button */}
-            <ActionButton 
-              onClick={() => setPriceData([])} 
-              disabled={priceData.length === 0} 
-              icon={Trash2} 
-              title="Effacer tout" 
-            />
-
-            {/* Email Button with Label */}
-            <ActionButton 
-              onClick={() => setShowEmailModal(true)} 
-              disabled={priceData.length === 0}
-              icon={Mail} 
-              title="Envoyer par courriel"
-              primary 
-              label={!isMobile ? "Envoyer" : undefined}
-            />
-
-            <div className="w-px h-8 bg-slate-700 mx-1 hidden sm:block" />
-
-            {/* SINTO Logo (Right side) */}
-            <div className="flex-shrink-0 hidden md:block">
-              <Image
-                src="/sinto-logo.svg"
-                alt="SINTO"
-                width={100}
-                height={35}
-                className="h-9 w-auto object-contain"
-              />
-            </div>
-
-            {/* Close Button */}
-            <ActionButton 
-              onClick={() => router.back()} 
-              icon={X} 
-              title="Fermer" 
-            />
-          </div>
-        </div>
-      </header>
-
-      {/* ===================== MAIN CONTENT ===================== */}
-      <main className="max-w-[1600px] mx-auto px-4 py-4 space-y-4">
+    <div className="fixed inset-0 z-[99990] flex bg-neutral-900">
+      <div className="relative w-full h-full flex flex-col animate-in fade-in duration-300">
         
-        {/* ===== COLLAPSIBLE FILTERS PANEL ===== */}
-        {showFilters && (
-          <div className="bg-slate-900 rounded-xl border border-slate-800 p-4 animate-in slide-in-from-top-2 duration-200">
-            <div className="flex flex-col sm:flex-row gap-4 items-end">
-              {/* Category Dropdown */}
-              <Dropdown
-                id="category"
-                label="Catégorie"
-                icon={Layers}
-                value={selectedProduct?.name}
-                placeholder="Sélectionner..."
-                options={products}
-                disabled={loadingTypes}
-                openDropdown={openDropdown}
-                setOpenDropdown={setOpenDropdown}
-                renderOption={(prod: Product) => (
-                  <button
-                    key={prod.prodId}
-                    onClick={() => handleProductChange(prod.prodId.toString())}
-                    className={cn(
-                      "w-full px-4 py-2.5 text-left text-sm hover:bg-slate-800 transition-colors flex items-center justify-between",
-                      selectedProduct?.prodId === prod.prodId && "bg-red-600/20 text-red-400"
-                    )}
-                  >
-                    <span>{prod.name}</span>
-                    <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded">{prod.itemCount}</span>
-                  </button>
-                )}
-              />
+        {/* ===================== HEADER - NEW STREAMLINED LAYOUT ===================== */}
+        <header
+          className="flex-shrink-0 relative overflow-hidden shadow-2xl z-20"
+          style={{ backgroundColor: accentColor }}
+        >
+          {/* Decorative background elements */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            <div className="absolute -top-32 -right-32 w-64 h-64 rounded-full bg-white/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 w-48 h-48 rounded-full bg-black/10 blur-2xl" />
+          </div>
 
-              {/* Class Dropdown */}
-              <Dropdown
-                id="class"
-                label="Classe (Opt.)"
-                icon={Package}
-                value={selectedType?.description}
-                placeholder="Toutes"
-                options={itemTypes}
-                disabled={!selectedProduct || loadingItems}
-                openDropdown={openDropdown}
-                setOpenDropdown={setOpenDropdown}
-                renderOption={(type: ItemType) => (
-                  <button
-                    key={type.itemTypeId}
-                    onClick={() => handleTypeChange(type.itemTypeId.toString())}
+          <div className="relative px-4 py-4 sm:px-6">
+            {/* ===== TOP ROW: All buttons in one line ===== */}
+            <div className="flex items-center justify-between gap-2 sm:gap-4">
+              
+              {/* LEFT SECTION: Logo + Price List + Details Toggle + Filters Toggle */}
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                {/* SINTO Logo */}
+                <div className="flex-shrink-0 bg-white p-1.5 rounded-lg shadow-sm">
+                  <Image
+                    src="/sinto-logo.svg"
+                    alt="SINTO"
+                    width={80}
+                    height={28}
+                    className="h-6 sm:h-7 w-auto object-contain"
+                  />
+                </div>
+
+                <div className="w-px h-8 bg-white/20 hidden sm:block" />
+
+                {/* Price List Dropdown */}
+                <div className="relative">
+                  <button 
+                    onClick={() => setOpenDropdown(openDropdown === 'pricelist' ? null : 'pricelist')}
                     className={cn(
-                      "w-full px-4 py-2.5 text-left text-sm hover:bg-slate-800 transition-colors flex items-center justify-between",
-                      selectedType?.itemTypeId === type.itemTypeId && "bg-red-600/20 text-red-400"
+                      "h-10 px-3 sm:px-4 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition-all flex items-center gap-2 text-sm w-[120px] sm:w-[260px]",
+                      openDropdown === 'pricelist' && "bg-white/20 border-white/40"
                     )}
                   >
-                    <span>{type.description}</span>
-                    <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded">{type.itemCount}</span>
+                    <span className="truncate flex-1 text-left">
+                      {selectedPriceList ? (
+                        <>
+                          <span className="text-white font-bold">{abbreviateColumnName(selectedPriceList.code)}</span>
+                          <span className="text-white/70 ml-1.5 hidden sm:inline">- {selectedPriceList.name}</span>
+                        </>
+                      ) : <span className="text-white/50">Sélectionner...</span>}
+                    </span>
+                    <ChevronDown className={cn("w-4 h-4 text-white/50 transition-transform flex-shrink-0", openDropdown === 'pricelist' && "rotate-180")} />
                   </button>
-                )}
-              />
-              
-              {/* Items MultiSelect Dropdown */}
-              <div className="relative flex-1 min-w-0 w-full">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block ml-1">Articles (Opt.)</label>
-                <button 
-                  onClick={() => !(!selectedType && !selectedProduct) && setOpenDropdown(openDropdown === 'items' ? null : 'items')}
-                  disabled={!selectedType && !selectedProduct}
-                  className={cn(
-                    "w-full h-11 px-3 rounded-xl bg-slate-800 border border-slate-700 hover:border-red-500/50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-left flex items-center gap-2 text-sm",
-                    openDropdown === 'items' && "border-red-500 ring-1 ring-red-500/20"
-                  )}
-                >
-                  <Tag className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                  <span className={cn("truncate flex-1 font-medium", selectedItemIds.size > 0 ? "text-white" : "text-slate-500")}>
-                    {selectedItemIds.size > 0 ? `${selectedItemIds.size} article(s) sélectionné(s)` : "Sélectionner..."}
-                  </span>
-                  <ChevronDown className={cn("w-4 h-4 text-slate-500 flex-shrink-0 transition-transform", openDropdown === 'items' && "rotate-180")} />
-                </button>
-                {openDropdown === 'items' && (
-                  <>
-                    <div className="fixed inset-0 z-20" onClick={() => setOpenDropdown(null)} />
-                    <div className="absolute z-30 top-full left-0 right-0 mt-2 bg-slate-900 rounded-xl border border-slate-700 shadow-2xl shadow-black/50 overflow-hidden max-h-80 flex flex-col">
-                      <div className="p-3 border-b border-slate-800 bg-slate-900 sticky top-0">
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                          <input 
-                            autoFocus
-                            placeholder="Filtrer..." 
-                            className="w-full bg-slate-950 text-sm pl-9 pr-3 py-2.5 rounded-lg border border-slate-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none text-white placeholder:text-slate-500"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
-                      </div>
-                      <div className="overflow-y-auto p-1">
-                        {items.length > 0 ? items.map(item => (
+                  {openDropdown === 'pricelist' && (
+                    <>
+                      <div className="fixed inset-0 z-20" onClick={() => setOpenDropdown(null)} />
+                      <div className="absolute z-40 top-full left-0 mt-2 bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-2xl overflow-hidden w-80 max-h-96 overflow-y-auto">
+                        {priceLists.map(list => (
                           <button
-                            key={item.itemId}
-                            onClick={() => {
-                              const next = new Set(selectedItemIds);
-                              if (next.has(item.itemId)) next.delete(item.itemId);
-                              else next.add(item.itemId);
-                              setSelectedItemIds(next);
-                            }}
+                            key={list.priceId}
+                            onClick={() => handlePriceListChange(list)}
                             className={cn(
-                              "w-full px-3 py-2.5 text-left text-sm hover:bg-slate-800 transition-colors flex items-center justify-between rounded-lg group",
-                              selectedItemIds.has(item.itemId) && "bg-red-900/20"
+                              "w-full px-4 py-3 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors flex items-center justify-between",
+                              selectedPriceList?.priceId === list.priceId && "bg-neutral-100 dark:bg-neutral-800"
                             )}
                           >
-                            <div className="truncate pr-2 flex-1">
-                              <span className={cn("font-mono font-bold mr-2", selectedItemIds.has(item.itemId) ? "text-red-400" : "text-slate-400 group-hover:text-white")}>{item.itemCode}</span>
-                              <span className="text-slate-400 group-hover:text-slate-300 text-xs">{item.description}</span>
-                            </div>
-                            {selectedItemIds.has(item.itemId) && <Check className="w-4 h-4 text-red-500 flex-shrink-0" />}
+                            <span className="truncate text-neutral-900 dark:text-white">{abbreviateColumnName(list.code)} - {list.name}</span>
+                            {selectedPriceList?.priceId === list.priceId && <Check className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} />}
                           </button>
-                        )) : (
-                          <div className="p-8 text-center text-sm text-slate-500">Aucun article disponible</div>
-                        )}
+                        ))}
                       </div>
-                    </div>
-                  </>
-                )}
+                    </>
+                  )}
+                </div>
+
+                {/* Details Toggle Switch */}
+                <ToggleSwitch 
+                  enabled={showDetails} 
+                  onToggle={handleToggleDetails} 
+                  label="Voir détails"
+                  loading={isAuthenticating}
+                />
+
+                {/* Filters Toggle Button */}
+                <ToggleButton 
+                  active={filtersExpanded} 
+                  onClick={() => setFiltersExpanded(!filtersExpanded)} 
+                  icon={SlidersHorizontal} 
+                  title="Afficher/Masquer les filtres"
+                />
+              </div>
+
+              {/* RIGHT SECTION: Search + Add + Clear + Email + Logo + Close */}
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                {/* Search Button */}
+                <ActionButton 
+                  onClick={() => setShowQuickAdd(true)} 
+                  icon={Search} 
+                  title="Recherche rapide par code"
+                />
+                
+                {/* Add Button */}
+                <ActionButton 
+                  onClick={handleLoadSelection} 
+                  disabled={!canAddSelection}
+                  icon={Plus} 
+                  title="Ajouter la sélection à la liste"
+                  primary 
+                  label={!isMobile ? "Ajouter" : undefined}
+                  loading={loadingPrices}
+                />
+
+                {/* Clear/Trash Button */}
+                <ActionButton 
+                  onClick={() => setPriceData([])} 
+                  disabled={priceData.length === 0} 
+                  icon={Trash2} 
+                  title="Effacer tout" 
+                />
+
+                {/* Email Button with Label */}
+                <ActionButton 
+                  onClick={() => setShowEmailModal(true)} 
+                  disabled={priceData.length === 0}
+                  icon={Mail} 
+                  title="Envoyer par courriel"
+                  primary 
+                  label={!isMobile ? "Envoyer" : undefined}
+                />
+
+                <div className="w-px h-8 bg-white/20 mx-1 hidden sm:block" />
+
+                {/* SINTO Logo (Right side) */}
+                <div className="flex-shrink-0 hidden md:block">
+                  <Image
+                    src="/sinto-logo.svg"
+                    alt="SINTO"
+                    width={100}
+                    height={35}
+                    className="h-9 w-auto object-contain"
+                  />
+                </div>
+
+                {/* Close Button */}
+                <ActionButton 
+                  onClick={() => router.back()} 
+                  icon={X} 
+                  title="Fermer" 
+                />
               </div>
             </div>
-          </div>
-        )}
 
-        {/* ===== RESULTS / LIST PREVIEW AREA ===== */}
-        <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden min-h-[400px] flex flex-col shadow-xl">
-          <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
-            <h2 className="font-semibold text-slate-300 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-slate-500" />
-              Aperçu de la liste
-            </h2>
-            {itemsWithPrices.length > 0 && (
-              <span className="px-2.5 py-1 rounded-full bg-red-900/30 text-red-400 text-xs font-bold border border-red-900/50">
-                {itemsWithPrices.length}
-              </span>
+            {/* ===== COLLAPSIBLE FILTERS PANEL ===== */}
+            {filtersExpanded && (
+              <div className="mt-4 p-4 bg-black/20 backdrop-blur-sm rounded-2xl border border-white/10 animate-in slide-in-from-top-2 duration-200">
+                <div className="flex flex-col sm:flex-row gap-3 items-end">
+                  {/* Category Dropdown */}
+                  <FilterDropdown
+                    id="category"
+                    label="Catégorie"
+                    icon={Layers}
+                    value={selectedProduct?.name}
+                    placeholder="Sélectionner..."
+                    options={products}
+                    disabled={loadingTypes}
+                    openDropdown={openDropdown}
+                    setOpenDropdown={setOpenDropdown}
+                    renderOption={(prod: Product) => (
+                      <button
+                        key={prod.prodId}
+                        onClick={() => handleProductChange(prod)}
+                        className={cn(
+                          "w-full px-4 py-3 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors flex items-center justify-between",
+                          selectedProduct?.prodId === prod.prodId && "bg-neutral-100 dark:bg-neutral-800"
+                        )}
+                      >
+                        <span className="text-neutral-900 dark:text-white">{prod.name}</span>
+                        <span className="text-xs text-neutral-500 bg-neutral-200 dark:bg-neutral-700 px-2 py-0.5 rounded">{prod.itemCount}</span>
+                      </button>
+                    )}
+                  />
+
+                  {/* Class Dropdown */}
+                  <FilterDropdown
+                    id="class"
+                    label="Classe (Opt.)"
+                    icon={Package}
+                    value={selectedType?.description}
+                    placeholder="Toutes"
+                    options={itemTypes}
+                    disabled={!selectedProduct || loadingItems}
+                    openDropdown={openDropdown}
+                    setOpenDropdown={setOpenDropdown}
+                    renderOption={(type: ItemType) => (
+                      <button
+                        key={type.itemTypeId}
+                        onClick={() => handleTypeChange(type)}
+                        className={cn(
+                          "w-full px-4 py-3 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors flex items-center justify-between",
+                          selectedType?.itemTypeId === type.itemTypeId && "bg-neutral-100 dark:bg-neutral-800"
+                        )}
+                      >
+                        <span className="text-neutral-900 dark:text-white">{type.description}</span>
+                        <span className="text-xs text-neutral-500 bg-neutral-200 dark:bg-neutral-700 px-2 py-0.5 rounded">{type.itemCount}</span>
+                      </button>
+                    )}
+                  />
+                  
+                  {/* Items MultiSelect */}
+                  <ItemMultiSelect
+                    items={items}
+                    selectedIds={selectedItemIds}
+                    onChange={setSelectedItemIds}
+                    disabled={!selectedType && !selectedProduct}
+                    accentColor={accentColor}
+                  />
+                </div>
+              </div>
             )}
           </div>
+        </header>
 
+        {/* ===================== CONTENT - ORIGINAL TABLE FORMAT ===================== */}
+        <main className="flex-1 overflow-auto bg-neutral-100 dark:bg-neutral-950">
           {loadingPrices ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-12">
-              <Loader2 className="w-10 h-10 text-red-600 animate-spin mb-4" />
-              <p className="text-slate-400 font-medium">Chargement des prix...</p>
-            </div>
-          ) : itemsWithPrices.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-              <div className="w-20 h-20 bg-slate-800/50 rounded-3xl flex items-center justify-center mb-6">
-                <Inbox className="w-10 h-10 text-slate-600" />
+            <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
+              <div className="relative">
+                <div
+                  className="w-20 h-20 border-4 border-t-transparent rounded-full animate-spin"
+                  style={{ borderColor: `${accentColor}30`, borderTopColor: "transparent" }}
+                />
+                <div
+                  className="absolute inset-3 w-14 h-14 border-4 border-b-transparent rounded-full animate-spin"
+                  style={{ borderColor: accentColor, borderBottomColor: "transparent", animationDirection: "reverse", animationDuration: "0.8s" }}
+                />
               </div>
-              <p className="text-slate-300 text-lg font-bold">La liste est vide</p>
-              <p className="text-slate-500 text-sm mt-2 max-w-sm">
-                Utilisez les filtres ci-dessus ou la recherche rapide pour commencer à ajouter des produits.
-              </p>
-              {!showFilters && (
-                <button 
-                  onClick={() => setShowFilters(true)}
-                  className="mt-4 text-sm text-red-400 hover:text-red-300 transition-colors font-medium"
-                >
-                  Afficher les filtres
-                </button>
-              )}
+              <div className="text-center">
+                <p className="text-xl font-bold text-neutral-700 dark:text-neutral-200">Chargement des prix</p>
+                <p className="text-neutral-500 mt-1">Veuillez patienter...</p>
+              </div>
             </div>
-          ) : (
-            <div className="flex-1 overflow-x-auto">
-              {Object.entries(groupedItems).map(([className, classItems]) => (
-                <div key={className} className="border-b border-slate-800 last:border-0">
-                  <div className="bg-slate-950/30 px-6 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider flex justify-between items-center border-l-4 border-red-600/50">
-                    <span>{className}</span>
-                    <span className="bg-slate-800 text-slate-500 px-2 py-0.5 rounded text-[10px]">{classItems.length} items</span>
-                  </div>
-                  <div className="divide-y divide-slate-800/50">
-                    {classItems.map(item => (
-                      <div key={item.itemId} className="p-4 sm:p-6 hover:bg-slate-800/20 transition-colors group">
-                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
-                          <div>
-                            <div className="flex items-center gap-3 mb-1.5">
-                              <span className="font-mono font-bold text-lg text-white group-hover:text-red-400 transition-colors">{item.itemCode}</span>
-                              {item.format && <span className="px-2 py-0.5 rounded-md bg-slate-800 text-xs font-medium text-slate-400 border border-slate-700">{item.format}</span>}
-                              {item.caisse && <span className="px-2 py-0.5 rounded-md bg-slate-800 text-xs font-medium text-slate-400 border border-slate-700">{Math.round(item.caisse)}/Cs</span>}
-                            </div>
-                            <div className="text-sm text-slate-400 font-medium">{item.description}</div>
-                          </div>
-                          <button 
-                            onClick={() => setPriceData(prev => prev.filter(i => i.itemId !== item.itemId))}
-                            className="text-slate-600 hover:text-red-500 hover:bg-red-500/10 rounded-lg p-2 transition-all self-start sm:self-center"
-                            title="Retirer de la liste"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        </div>
+          ) : priceError ? (
+            <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
+              <div className="w-24 h-24 rounded-3xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}15` }}>
+                <AlertCircle className="w-12 h-12" style={{ color: accentColor }} />
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold" style={{ color: accentColor }}>Erreur</p>
+                <p className="text-neutral-500 mt-2 max-w-md">{priceError}</p>
+                <button onClick={() => handleLoadSelection()} className="mt-6 px-6 py-3 rounded-2xl text-sm font-bold border-2 transition-all hover:scale-105 active:scale-95" style={{ borderColor: accentColor, color: accentColor }}>
+                  <RefreshCw className="w-4 h-4 inline mr-2" />Réessayer
+                </button>
+              </div>
+            </div>
+          ) : Object.keys(groupedItems).length > 0 ? (
+            <div className="p-4 sm:p-6 space-y-6">
+              {Object.entries(groupedItems).map(([className, classItems]) => {
+                const firstItem = classItems[0];
+                let priceColumns = firstItem.ranges[0]?.columns
+                  ? Object.keys(firstItem.ranges[0].columns).sort()
+                  : [selectedPriceList?.code || "Prix"];
+                if (!showDetails && selectedPriceList?.code !== "01-EXP")
+                  priceColumns = priceColumns.filter((c) => c.trim() !== "01-EXP");
+                const standardColumns = priceColumns.filter((c) => c.trim() !== "08-PDS");
+                const hasPDS = priceColumns.some((c) => c.trim() === "08-PDS");
 
-                        {/* Pricing Grid */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
-                          {item.ranges.map(range => {
-                            const price = range.unitPrice; 
-                            return (
-                              <div key={range.id} className="bg-slate-950 rounded-xl border border-slate-800 p-3 text-center group/card hover:border-slate-600 transition-all">
-                                <div className="text-[10px] font-bold text-slate-500 uppercase mb-1 tracking-wide">
-                                  Qté {range.qtyMin}+
-                                </div>
-                                <div className="text-lg font-bold text-white group-hover/card:text-red-400 transition-colors">
-                                  {price.toFixed(2)}$
-                                </div>
-                                {showDetails && (
-                                  <div className="mt-2 pt-2 border-t border-slate-800 grid grid-cols-2 gap-1 text-[10px]">
-                                    <div className="text-blue-400 font-medium" title="Prix au litre">
-                                      {calcPricePerLitre(price, item.volume)?.toFixed(2) || '-'}/L
-                                    </div>
-                                    <div className={cn("font-bold", (calcMargin(price, range.expBasePrice || null) || 0) < 0 ? "text-red-500" : "text-emerald-500")} title="Marge">
-                                      {calcMargin(price, range.expBasePrice || null)?.toFixed(0)}%
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
+                return (
+                  <section key={className} className="bg-white dark:bg-neutral-900 rounded-3xl overflow-hidden shadow-xl border border-neutral-200/50 dark:border-neutral-800">
+                    <div className="relative px-5 py-4 sm:px-6 sm:py-5" style={{ backgroundColor: accentColor }}>
+                      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+                      </div>
+                      <div className="relative flex items-center justify-between">
+                        <div>
+                          <h2 className="text-lg sm:text-xl font-black text-white uppercase tracking-wide">{className}</h2>
+                          <p className="text-white/70 text-sm mt-0.5">{classItems.length} article(s)</p>
+                        </div>
+                        <div className="flex items-center gap-2 px-3 py-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                          <Sparkles className="w-4 h-4 text-white" />
+                          <span className="text-white text-sm font-bold">{abbreviateColumnName(selectedPriceList?.code || "")}</span>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className={cn("w-full border-collapse", isCompact ? "text-xs" : "text-sm")}>
+                        <thead>
+                          <tr className="bg-neutral-50 dark:bg-neutral-800/50">
+                            <th className={cn("text-left font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700 sticky left-0 bg-neutral-50 dark:bg-neutral-800/50 z-10", isCompact ? "p-3" : "p-4")}>
+                              <div className="flex items-center gap-2">
+                                <Package className={cn(isCompact ? "w-4 h-4" : "w-5 h-5", "opacity-50")} />Article
+                              </div>
+                            </th>
+                            <th className={cn("text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-3" : "p-4")}>Cs</th>
+                            <th className={cn("text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-3" : "p-4")}>Fmt</th>
+                            <th className={cn("text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-3" : "p-4")}>Qty</th>
+                            {standardColumns.map((colCode) => {
+                              const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
+                              const displayName = abbreviateColumnName(colCode);
+                              return (
+                                <Fragment key={colCode}>
+                                  <th className={cn("text-right font-black border-b-2 border-neutral-200 dark:border-neutral-700 whitespace-nowrap", isCompact ? "p-3" : "p-4", isSelectedList ? "text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/20" : "text-neutral-600 dark:text-neutral-300")}>{displayName}</th>
+                                  {showDetails && isSelectedList && !isCompact && (
+                                    <>
+                                      <th className="text-right p-4 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/20 whitespace-nowrap">$/Cs</th>
+                                      <th className="text-right p-4 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/20 whitespace-nowrap">$/L</th>
+                                      <th className="text-right p-4 font-black text-violet-700 dark:text-violet-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-violet-50/50 dark:bg-violet-900/20 whitespace-nowrap">%Exp</th>
+                                    </>
+                                  )}
+                                  {showDetails && isSelectedList && isCompact && (
+                                    <th className="text-right p-3 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/20 whitespace-nowrap">Détails</th>
+                                  )}
+                                </Fragment>
+                              );
+                            })}
+                            {hasPDS && <th className={cn("text-right font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700 whitespace-nowrap", isCompact ? "p-3" : "p-4")}>{abbreviateColumnName("08-PDS")}</th>}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {classItems.map((item, itemIndex) => (
+                            <Fragment key={item.itemId}>
+                              {item.ranges.map((range, rIdx) => {
+                                const isFirstRowOfItem = rIdx === 0;
+                                const rowBg = itemIndex % 2 === 0 ? "bg-white dark:bg-neutral-900" : "bg-neutral-50/70 dark:bg-neutral-800/30";
+
+                                return (
+                                  <tr key={range.id} className={cn("transition-colors duration-200 group", rowBg, "hover:bg-amber-50/50 dark:hover:bg-amber-900/10")}>
+                                    <td className={cn("border-b border-neutral-100 dark:border-neutral-800 align-top sticky left-0 z-10", isCompact ? "p-3" : "p-4", rowBg, "group-hover:bg-amber-50/50 dark:group-hover:bg-amber-900/10")}>
+                                      {isFirstRowOfItem && (
+                                        <div className="flex flex-col gap-0.5">
+                                          <span className={cn("font-mono font-black tracking-tight", isCompact ? "text-sm" : "text-base")} style={{ color: accentColor }}>{item.itemCode}</span>
+                                          <span className={cn("text-neutral-500 truncate max-w-[200px]", isCompact ? "text-[10px]" : "text-xs")} title={item.description}>{item.description}</span>
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className={cn("text-center border-b border-neutral-100 dark:border-neutral-800 align-top", isCompact ? "p-3" : "p-4")}>
+                                      {isFirstRowOfItem && <span className="font-bold text-neutral-900 dark:text-white">{item.caisse ? Math.round(item.caisse) : "-"}</span>}
+                                    </td>
+                                    <td className={cn("text-center border-b border-neutral-100 dark:border-neutral-800 align-top", isCompact ? "p-3" : "p-4")}>
+                                      {isFirstRowOfItem && <span className="font-medium text-neutral-700 dark:text-neutral-300 px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg inline-block text-xs">{item.format || "-"}</span>}
+                                    </td>
+                                    <td className={cn("text-center border-b border-neutral-100 dark:border-neutral-800", isCompact ? "p-3" : "p-4")}>
+                                      <span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span>
+                                    </td>
+                                    {standardColumns.map((colCode) => {
+                                      const priceVal = range.columns ? range.columns[colCode] : colCode === selectedPriceList?.code ? range.unitPrice : null;
+                                      const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
+                                      return (
+                                        <Fragment key={colCode}>
+                                          <td className={cn("text-right border-b border-neutral-100 dark:border-neutral-800", isCompact ? "p-3" : "p-4", isSelectedList && "bg-amber-50/30 dark:bg-amber-900/10")}>
+                                            <span className={cn("font-mono font-bold whitespace-nowrap", isSelectedList ? "text-amber-700 dark:text-amber-400" : "text-neutral-700 dark:text-neutral-300")}>
+                                              {priceVal !== null && priceVal !== undefined ? <AnimatedPrice value={priceVal} /> : "-"}
+                                            </span>
+                                          </td>
+                                          {showDetails && isSelectedList && !isCompact && (() => {
+                                            const selectedPriceVal = priceVal ?? 0;
+                                            const ppc = calcPricePerCaisse(selectedPriceVal, item.caisse);
+                                            const ppl = calcPricePerLitre(selectedPriceVal, item.volume);
+                                            const expBaseVal = range.columns?.["01-EXP"] ?? null;
+                                            const percentExp = calcMargin(selectedPriceVal, expBaseVal);
+                                            return (
+                                              <>
+                                                <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/10">
+                                                  <span className="font-mono text-sky-700 dark:text-sky-400">{ppc ? ppc.toFixed(2) : "-"}</span>
+                                                </td>
+                                                <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/10">
+                                                  <span className="font-mono text-sky-700 dark:text-sky-400">{ppl ? ppl.toFixed(2) : "-"}</span>
+                                                </td>
+                                                <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-violet-50/30 dark:bg-violet-900/10">
+                                                  <span className={cn("font-mono font-bold", percentExp && percentExp < 0 ? "text-red-600 dark:text-red-400" : "text-violet-700 dark:text-violet-400")}>
+                                                    {percentExp !== null ? `${percentExp.toFixed(1)}%` : "-"}
+                                                  </span>
+                                                </td>
+                                              </>
+                                            );
+                                          })()}
+                                          {showDetails && isSelectedList && isCompact && (() => {
+                                            const selectedPriceVal = priceVal ?? 0;
+                                            const ppc = calcPricePerCaisse(selectedPriceVal, item.caisse);
+                                            const ppl = calcPricePerLitre(selectedPriceVal, item.volume);
+                                            const expBaseVal = range.columns?.["01-EXP"] ?? null;
+                                            const percentExp = calcMargin(selectedPriceVal, expBaseVal);
+                                            return (
+                                              <td className="p-3 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/10">
+                                                <div className="space-y-1 text-[10px]">
+                                                  <div className="flex justify-end gap-2 text-sky-700 dark:text-sky-400">
+                                                    <span className="opacity-60">$/Cs</span>
+                                                    <span className="font-mono font-bold">{ppc ? ppc.toFixed(2) : "-"}</span>
+                                                  </div>
+                                                  <div className="flex justify-end gap-2 text-sky-700 dark:text-sky-400">
+                                                    <span className="opacity-60">$/L</span>
+                                                    <span className="font-mono font-bold">{ppl ? ppl.toFixed(2) : "-"}</span>
+                                                  </div>
+                                                  <div className="flex justify-end gap-2 text-violet-700 dark:text-violet-400">
+                                                    <span className="opacity-60">%Exp</span>
+                                                    <span className="font-mono font-bold">{percentExp !== null ? `${percentExp.toFixed(1)}%` : "-"}</span>
+                                                  </div>
+                                                </div>
+                                              </td>
+                                            );
+                                          })()}
+                                        </Fragment>
+                                      );
+                                    })}
+                                    {hasPDS && (() => {
+                                      const p = range.columns?.["08-PDS"] ?? null;
+                                      return (
+                                        <td className={cn("text-right border-b border-neutral-100 dark:border-neutral-800", isCompact ? "p-3" : "p-4")}>
+                                          <span className="font-mono font-bold text-neutral-700 dark:text-neutral-300">{p !== null ? <AnimatedPrice value={p} /> : "-"}</span>
+                                        </td>
+                                      );
+                                    })()}
+                                  </tr>
+                                );
+                              })}
+                              {itemIndex < classItems.length - 1 && (
+                                <tr className="h-2">
+                                  <td colSpan={100} className="bg-neutral-200 dark:bg-neutral-800 border-none" />
+                                </tr>
+                              )}
+                            </Fragment>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
+              <div className="w-28 h-28 rounded-3xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}10` }}>
+                <Inbox className="w-14 h-14" style={{ color: `${accentColor}40` }} />
+              </div>
+              <div className="text-center max-w-md">
+                <p className="text-2xl font-bold text-neutral-700 dark:text-neutral-200">Aucun prix sélectionné</p>
+                <p className="text-neutral-500 mt-3">
+                  Utilisez le bouton <span className="inline-flex items-center gap-1 px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg"><Plus className="w-4 h-4" /> Ajouter</span> pour sélectionner des catégories ou utilisez la <span className="inline-flex items-center gap-1 px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg"><Search className="w-4 h-4" /> Recherche</span> pour ajouter des articles individuels.
+                </p>
+              </div>
             </div>
           )}
-        </div>
-      </main>
+        </main>
+
+        {/* ===================== FOOTER ===================== */}
+        {!loadingPrices && itemsWithPrices.length > 0 && (
+          <footer className="flex-shrink-0 bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-800 px-4 py-3 sm:px-6 z-20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="px-4 py-2 rounded-xl font-bold text-sm" style={{ backgroundColor: `${accentColor}15`, color: accentColor }}>
+                  {itemsWithPrices.length} article(s)
+                </div>
+                {showDetails && (
+                  <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-semibold text-sm">
+                    <Eye className="w-4 h-4" />Mode détaillé
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2 text-sm text-neutral-500">
+                <span className="hidden sm:inline">Liste:</span>
+                <span className="font-bold text-neutral-700 dark:text-neutral-300">{abbreviateColumnName(selectedPriceList?.code || "")}</span>
+              </div>
+            </div>
+          </footer>
+        )}
+      </div>
 
       {/* ===================== MODALS ===================== */}
-      
-      {/* Quick Add / Search Modal */}
-      {showQuickAdd && (
-        <QuickAddPanel 
-          accentColor={accentColor} 
-          onClose={() => setShowQuickAdd(false)} 
-          onAddItems={handleAddItems} 
-        />
-      )}
-
-      {/* Email Modal */}
-      <EmailModal 
-        isOpen={showEmailModal} 
-        onClose={() => setShowEmailModal(false)} 
-        onSend={handleEmailPDF} 
-        sending={isSendingEmail} 
-        accentColor={accentColor} 
-      />
+      {showQuickAdd && <QuickAddPanel accentColor={accentColor} onClose={() => setShowQuickAdd(false)} onAddItems={handleAddItems} />}
+      <EmailModal isOpen={showEmailModal} onClose={() => setShowEmailModal(false)} onSend={handleEmailPDF} sending={isSendingEmail} accentColor={accentColor} />
     </div>
   );
 }
