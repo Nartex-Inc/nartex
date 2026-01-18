@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, Fragment } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation"; // 1. Import router
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useCurrentAccent } from "@/components/accent-color-provider";
@@ -87,7 +87,7 @@ interface ItemPriceData {
 }
 
 /* =========================
-   Utilities & Sub-Components (Unchanged)
+   Utilities & Sub-Components
 ========================= */
 function useMediaQuery(query: string) {
   const [matches, setMatches] = useState(false);
@@ -436,9 +436,6 @@ function QuickAddPanel({
   );
 }
 
-/* =========================
-   Item Multi-Select (FIXED)
-========================= */
 function ItemMultiSelect({
   items,
   selectedIds,
@@ -454,19 +451,16 @@ function ItemMultiSelect({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
-  // 1. Create refs for both the trigger and the dropdown content
+  const ref = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node;
-      
-      // 2. Check if click is inside trigger OR inside dropdown
       const clickedTrigger = triggerRef.current && triggerRef.current.contains(target);
       const clickedDropdown = dropdownRef.current && dropdownRef.current.contains(target);
 
-      // Only close if clicked OUTSIDE both
       if (!clickedTrigger && !clickedDropdown) {
         setIsOpen(false);
       }
@@ -492,7 +486,7 @@ function ItemMultiSelect({
   };
 
   return (
-    <div ref={triggerRef} className="relative">
+    <div ref={triggerRef} className="relative w-full">
       <button
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
@@ -519,13 +513,12 @@ function ItemMultiSelect({
       {isOpen && (
         <Portal>
           <div
-            ref={dropdownRef} // 3. Attach ref to the portal content
+            ref={dropdownRef}
             className="fixed z-[999999] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
             style={{
-              // Position relative to the trigger ref
               top: triggerRef.current ? triggerRef.current.getBoundingClientRect().bottom + 8 : 0,
               left: triggerRef.current ? triggerRef.current.getBoundingClientRect().left : 0,
-              width: triggerRef.current ? Math.max(triggerRef.current.offsetWidth, 400) : 400,
+              width: triggerRef.current ? Math.max(triggerRef.current.offsetWidth, 300) : 300,
               maxWidth: "calc(100vw - 32px)",
             }}
           >
@@ -695,34 +688,30 @@ function EmailModal({
    Main Full Screen Page
 ========================= */
 export default function CataloguePage() {
-  const router = useRouter(); // 2. Initialize router
+  const router = useRouter();
   const { color: accentColor } = useCurrentAccent();
   const isCompact = useMediaQuery("(max-width: 1024px)");
   const isMobile = useMediaQuery("(max-width: 640px)");
 
   // --- STATE ---
-  // Data
   const [products, setProducts] = useState<Product[]>([]);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [priceLists, setPriceLists] = useState<PriceList[]>([]);
   const [priceData, setPriceData] = useState<ItemPriceData[]>([]);
 
-  // Selection
   const [selectedPriceList, setSelectedPriceList] = useState<PriceList | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedType, setSelectedType] = useState<ItemType | null>(null);
   const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(new Set());
 
-  // UI / Logic
   const [showDetails, setShowDetails] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [filtersExpanded, setFiltersExpanded] = useState(true); // Default open in full screen
+  const [filtersExpanded, setFiltersExpanded] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   
-  // Loading states
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [loadingTypes, setLoadingTypes] = useState(false);
   const [loadingItems, setLoadingItems] = useState(false);
@@ -750,7 +739,6 @@ export default function CataloguePage() {
   }, []);
 
   // --- HANDLERS ---
-
   const handlePriceListChange = async (priceId: string) => {
     const id = parseInt(priceId);
     const pl = priceLists.find((p) => p.priceId === id);
@@ -758,7 +746,6 @@ export default function CataloguePage() {
     
     setSelectedPriceList(pl);
     
-    // If we already have items displayed, re-fetch prices for the new list
     if (priceData.length > 0) {
       setLoadingPrices(true);
       const allIds = Array.from(new Set(priceData.map((i) => i.itemId))).join(",");
@@ -812,17 +799,14 @@ export default function CataloguePage() {
     }
   };
 
-  // Primary action: Load based on filters (Add button)
   const handleLoadSelection = async () => {
     if (!selectedPriceList) return;
     
-    // If specific items are selected in the MultiSelect, load those
     if (selectedItemIds.size > 0) {
       await handleAddItems(Array.from(selectedItemIds));
       return;
     }
 
-    // Otherwise load based on Product/Type selection
     setLoadingPrices(true);
     setPriceError(null);
     try {
@@ -834,7 +818,6 @@ export default function CataloguePage() {
       if (!res.ok) throw new Error("Erreur lors du chargement des prix");
       
       const newItems: ItemPriceData[] = await res.json();
-      // Merge logic: Append new items if they aren't already there
       setPriceData((prev) => {
         const existingIds = new Set(prev.map((i) => i.itemId));
         const filteredNew = newItems.filter((i) => !existingIds.has(i.itemId));
@@ -847,7 +830,6 @@ export default function CataloguePage() {
     }
   };
 
-  // Secondary action: Quick Add from search panel
   const handleAddItems = async (itemIds: number[]) => {
     if (!selectedPriceList || itemIds.length === 0) return;
     setLoadingPrices(true);
@@ -869,7 +851,6 @@ export default function CataloguePage() {
     }
   };
 
-  // Auth for detailed view
   const handleToggleDetails = async (newValue: boolean) => {
     if (!newValue) {
       setShowDetails(false);
@@ -901,7 +882,6 @@ export default function CataloguePage() {
     }
   };
 
-  // PDF Logic
   const handleEmailPDF = async (recipientEmail: string) => {
     setIsSendingEmail(true);
     try {
@@ -916,7 +896,6 @@ export default function CataloguePage() {
       const borderGray: [number, number, number] = [200, 200, 200];
       const white: [number, number, number] = [255, 255, 255];
 
-      // Logo
       const logoData = await getDataUri("/sinto-logo.svg");
       if (logoData) {
         const tempImg = new window.Image();
@@ -960,7 +939,6 @@ export default function CataloguePage() {
 
       let finalY = 62;
 
-      // Grouping for PDF
       const groupedForPdf = priceData.reduce((acc, item) => {
         const key = item.className || "Articles Ajoutés";
         if (!acc[key]) acc[key] = [];
@@ -1149,7 +1127,6 @@ export default function CataloguePage() {
     }
   };
 
-  // --- RENDER HELPERS ---
   const calcPricePerCaisse = (price: number, caisse: number | null) => caisse ? price * caisse : null;
   const calcPricePerLitre = (price: number, volume: number | null) => volume ? price / volume : null;
   const calcMargin = (sell: number | null, cost: number | null) => {
@@ -1165,7 +1142,6 @@ export default function CataloguePage() {
     return acc;
   }, {} as Record<string, ItemPriceData[]>);
 
-  // --- VIEW ---
   return (
     <div className="fixed inset-0 z-[99990] flex bg-neutral-900">
       <div className="relative w-full h-full flex flex-col animate-in fade-in duration-300">
@@ -1197,14 +1173,25 @@ export default function CataloguePage() {
                 </div>
               </div>
 
-              {/* 3. ADDED: Close button calling router.back() */}
-              <button
-                onClick={() => router.back()}
-                className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all active:scale-95 flex-shrink-0"
-                aria-label="Fermer"
-              >
-                <X className="w-6 h-6 text-white" />
-              </button>
+              {/* Added: SINTO Logo + X Button on the Right */}
+              <div className="flex items-center gap-4">
+                {/* 1. Added SINTO Logo */}
+                <Image
+                  src="/sinto-logo.svg"
+                  alt="SINTO"
+                  width={100}
+                  height={35}
+                  className="h-8 w-auto object-contain brightness-0 invert opacity-90"
+                />
+                
+                <button
+                  onClick={() => router.back()}
+                  className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all active:scale-95 flex-shrink-0"
+                  aria-label="Fermer"
+                >
+                  <X className="w-6 h-6 text-white" />
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
@@ -1222,7 +1209,7 @@ export default function CataloguePage() {
               <ActionButton onClick={() => setShowEmailModal(true)} icon={Mail} label={isMobile ? undefined : "Email"} variant="ghost" />
               <ActionButton onClick={() => setPriceData([])} icon={RotateCcw} label={isMobile ? undefined : "Réinitialiser"} variant="ghost" />
               <ActionButton onClick={() => setFiltersExpanded(!filtersExpanded)} icon={filtersExpanded ? ChevronUp : Filter} label={isMobile ? undefined : "Filtres"} variant={filtersExpanded ? "solid" : "ghost"} />
-              <ActionButton onClick={handleLoadSelection} icon={Plus} label={isMobile ? undefined : "Ajouter"} variant="ghost" />
+              {/* Removed: Add Button from this row */}
               <ActionButton onClick={() => setShowQuickAdd(true)} icon={Search} label={isMobile ? undefined : "Recherche"} variant="ghost" />
             </div>
 
@@ -1274,13 +1261,25 @@ export default function CataloguePage() {
                   </div>
                 </div>
 
-                <ItemMultiSelect
-                  items={items}
-                  selectedIds={selectedItemIds}
-                  onChange={setSelectedItemIds}
-                  disabled={!selectedType && !selectedProduct}
-                  accentColor={accentColor}
-                />
+                {/* 2. Modified: ItemMultiSelect + 'Ajouter' Button Row */}
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <ItemMultiSelect
+                      items={items}
+                      selectedIds={selectedItemIds}
+                      onChange={setSelectedItemIds}
+                      disabled={!selectedType && !selectedProduct}
+                      accentColor={accentColor}
+                    />
+                  </div>
+                  <button
+                    onClick={handleLoadSelection}
+                    className="h-14 px-6 rounded-2xl font-bold text-sm bg-white text-neutral-900 hover:bg-white/90 active:scale-95 transition-all shadow-lg flex items-center gap-2 whitespace-nowrap"
+                  >
+                    <Plus className="w-5 h-5" strokeWidth={3} />
+                    Ajouter
+                  </button>
+                </div>
               </div>
             )}
           </div>
