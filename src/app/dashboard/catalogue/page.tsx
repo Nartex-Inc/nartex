@@ -1175,14 +1175,16 @@ export default function CataloguePage() {
 
               {/* Added: SINTO Logo + X Button on the Right */}
               <div className="flex items-center gap-4">
-                {/* 1. Added SINTO Logo */}
-                <Image
-                  src="/sinto-logo.svg"
-                  alt="SINTO"
-                  width={100}
-                  height={35}
-                  className="h-8 w-auto object-contain brightness-0 invert opacity-90"
-                />
+                {/* 1. Added SINTO Logo with border and removed filters */}
+                <div className="border-2 border-black mr-6">
+                  <Image
+                    src="/sinto-logo.svg"
+                    alt="SINTO"
+                    width={100}
+                    height={35}
+                    className="h-12 w-auto object-contain"
+                  />
+                </div>
                 
                 <button
                   onClick={() => router.back()}
