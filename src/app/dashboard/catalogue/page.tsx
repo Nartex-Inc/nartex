@@ -313,8 +313,8 @@ const FilterDropdown = ({
     </button>
     {openDropdown === id && (
       <>
-        <div className="fixed inset-0 z-20" onClick={() => setOpenDropdown(null)} />
-        <div className="absolute z-30 top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-2xl overflow-hidden max-h-64 overflow-y-auto">
+        <div className="fixed inset-0 z-[999998]" onClick={() => setOpenDropdown(null)} />
+        <div className="absolute z-[999999] top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-2xl overflow-hidden max-h-64 overflow-y-auto">
           {options.map(opt => renderOption(opt))}
         </div>
       </>
@@ -1196,7 +1196,7 @@ export default function CataloguePage() {
         
         {/* ===================== HEADER - NEW STREAMLINED LAYOUT ===================== */}
         <header
-          className="flex-shrink-0 relative overflow-hidden shadow-2xl z-20"
+          className="flex-shrink-0 relative shadow-2xl z-50 overflow-visible"
           style={{ backgroundColor: accentColor }}
         >
           {/* Decorative background elements */}
@@ -1245,8 +1245,8 @@ export default function CataloguePage() {
                   </button>
                   {openDropdown === 'pricelist' && (
                     <>
-                      <div className="fixed inset-0 z-20" onClick={() => setOpenDropdown(null)} />
-                      <div className="absolute z-40 top-full left-0 mt-2 bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-2xl overflow-hidden w-80 max-h-96 overflow-y-auto">
+                      <div className="fixed inset-0 z-[999998]" onClick={() => setOpenDropdown(null)} />
+                      <div className="absolute z-[999999] top-full left-0 mt-2 bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-2xl overflow-hidden w-80 max-h-96 overflow-y-auto">
                         {priceLists.map(list => (
                           <button
                             key={list.priceId}
@@ -1321,17 +1321,6 @@ export default function CataloguePage() {
                 />
 
                 <div className="w-px h-8 bg-white/20 mx-1 hidden sm:block" />
-
-                {/* SINTO Logo (Right side) */}
-                <div className="flex-shrink-0 hidden md:block">
-                  <Image
-                    src="/sinto-logo.svg"
-                    alt="SINTO"
-                    width={100}
-                    height={35}
-                    className="h-9 w-auto object-contain"
-                  />
-                </div>
 
                 {/* Close Button */}
                 <ActionButton 
