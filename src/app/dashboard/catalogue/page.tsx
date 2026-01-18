@@ -32,11 +32,12 @@ import {
   Inbox,
   Check,
   Trash2,
-  SlidersHorizontal
+  SlidersHorizontal,
+  ChevronUp
 } from "lucide-react";
 
 /* =========================
-   Types (Unchanged)
+   Types
 ========================= */
 interface Product {
   prodId: number;
@@ -88,7 +89,7 @@ interface ItemPriceData {
 }
 
 /* =========================
-   Utilities & Sub-Components
+   Utilities
 ========================= */
 function useMediaQuery(query: string) {
   const [matches, setMatches] = useState(false);
@@ -133,35 +134,9 @@ function abbreviateColumnName(name: string): string {
   return result;
 }
 
-function AnimatedPrice({ value, duration = 500 }: { value: number; duration?: number }) {
-  const [displayValue, setDisplayValue] = useState(0);
-  const previousValue = useRef(0);
-  const animationRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (animationRef.current) cancelAnimationFrame(animationRef.current);
-    const startValue = previousValue.current;
-    const endValue = value;
-    const startTime = performance.now();
-    const animate = (currentTime: number) => {
-      const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const easeOut = 1 - Math.pow(1 - progress, 4);
-      const current = startValue + (endValue - startValue) * easeOut;
-      setDisplayValue(current);
-      if (progress < 1) animationRef.current = requestAnimationFrame(animate);
-      else previousValue.current = endValue;
-    };
-    animationRef.current = requestAnimationFrame(animate);
-    return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-    };
-  }, [value, duration]);
-
-  return <span className="tabular-nums">{displayValue.toFixed(2)}</span>;
-}
-
-// Reusable Components matching the new design
+/* =========================
+   UI Components
+========================================================= */
 
 const ToggleButton = ({ active, onClick, icon: Icon, title, loading }: { active: boolean; onClick: () => void; icon: any; title?: string; loading?: boolean }) => (
   <button 
@@ -169,14 +144,14 @@ const ToggleButton = ({ active, onClick, icon: Icon, title, loading }: { active:
     title={title}
     disabled={loading}
     className={cn(
-      "w-9 h-9 rounded-lg flex items-center justify-center transition-all",
+      "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
       active 
         ? "bg-red-600 text-white shadow-md shadow-red-900/20" 
         : "bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600",
       loading && "opacity-70 cursor-wait"
     )}
   >
-    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Icon className="w-4 h-4" />}
+    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Icon className="w-5 h-5" />}
   </button>
 );
 
@@ -186,16 +161,66 @@ const ActionButton = ({ onClick, disabled, icon: Icon, title, primary, label, lo
     disabled={disabled || loading}
     title={title}
     className={cn(
-      "h-9 rounded-lg flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed",
-      label ? "px-4" : "w-9",
+      "h-10 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed",
+      label ? "px-5" : "w-10",
       primary 
         ? "bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/20" 
         : "bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700"
     )}
   >
-    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Icon className="w-4 h-4" />}
-    {label && <span className="text-sm font-medium">{label}</span>}
+    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Icon className="w-5 h-5" />}
+    {label && <span className="text-sm font-bold">{label}</span>}
   </button>
+);
+
+const Dropdown = ({ 
+    id, 
+    label, 
+    icon: Icon, 
+    value, 
+    placeholder, 
+    options, 
+    disabled, 
+    renderOption,
+    openDropdown,
+    setOpenDropdown
+  }: {
+    id: string;
+    label: string;
+    icon: any;
+    value: string | undefined | null;
+    placeholder: string;
+    options: any[];
+    disabled?: boolean;
+    renderOption: (opt: any) => ReactNode;
+    openDropdown: string | null;
+    setOpenDropdown: (val: string | null) => void;
+  }) => (
+    <div className="relative flex-1 min-w-0">
+      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block ml-1">{label}</label>
+      <button 
+        onClick={() => !disabled && setOpenDropdown(openDropdown === id ? null : id)}
+        disabled={disabled}
+        className={cn(
+          "w-full h-11 px-3 rounded-xl bg-slate-800 border border-slate-700 hover:border-red-500/50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-left flex items-center gap-2 text-sm",
+          openDropdown === id && "border-red-500 ring-1 ring-red-500/20"
+        )}
+      >
+        <Icon className="w-4 h-4 text-slate-500 flex-shrink-0" />
+        <span className={cn("truncate flex-1 font-medium", value ? "text-white" : "text-slate-500")}>
+          {value || placeholder}
+        </span>
+        <ChevronDown className={cn("w-4 h-4 text-slate-500 flex-shrink-0 transition-transform", openDropdown === id && "rotate-180")} />
+      </button>
+      {openDropdown === id && (
+        <>
+        <div className="fixed inset-0 z-20" onClick={() => setOpenDropdown(null)} />
+        <div className="absolute z-30 top-full left-0 right-0 mt-2 bg-slate-900 rounded-xl border border-slate-700 shadow-2xl shadow-black/50 overflow-hidden max-h-64 overflow-y-auto">
+          {options.map(opt => renderOption(opt))}
+        </div>
+        </>
+      )}
+    </div>
 );
 
 const QuickAddPanel = ({
@@ -246,23 +271,25 @@ const QuickAddPanel = ({
 
   return (
     <div className="fixed inset-0 z-[999999] flex items-end sm:items-center justify-center p-0 sm:p-4 font-['DM_Sans',system-ui,sans-serif]">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
-      <div className="relative w-full sm:max-w-lg bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-800 overflow-hidden animate-in slide-in-from-bottom duration-300 sm:animate-in sm:zoom-in-95">
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full sm:max-w-xl bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-800 overflow-hidden animate-in slide-in-from-bottom duration-300 sm:animate-in sm:zoom-in-95">
+        
+        {/* Mobile Handle */}
         <div className="sm:hidden flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-slate-700" />
+          <div className="w-12 h-1.5 rounded-full bg-slate-700" />
         </div>
 
-        <div className="p-4 sm:p-6 border-b border-slate-800">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 rounded-2xl bg-red-900/20 flex items-center justify-center flex-shrink-0">
+        <div className="p-6 border-b border-slate-800">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center flex-shrink-0">
               <Search className="w-6 h-6 text-red-500" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-bold text-white">Recherche rapide</h3>
-              <p className="text-sm text-slate-400">Ajoutez des articles à votre liste</p>
+              <h3 className="text-xl font-bold text-white">Recherche rapide</h3>
+              <p className="text-sm text-slate-400">Ajoutez des articles par code ou description</p>
             </div>
-            <button onClick={onClose} className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-slate-800 transition-colors">
-              <X className="w-5 h-5 text-slate-400" />
+            <button onClick={onClose} className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-slate-800 transition-colors text-slate-400 hover:text-white">
+              <X className="w-6 h-6" />
             </button>
           </div>
 
@@ -270,20 +297,18 @@ const QuickAddPanel = ({
             <input
               ref={inputRef}
               type="search"
-              className="w-full h-12 pl-5 pr-12 rounded-xl text-sm font-medium bg-slate-800 border border-slate-700 focus:border-red-500 focus:outline-none text-white placeholder:text-slate-500 transition-all"
-              placeholder="Code article ou description..."
+              className="w-full h-14 pl-12 pr-4 rounded-xl text-base font-medium bg-slate-950 border border-slate-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none text-white placeholder:text-slate-500 transition-all"
+              placeholder="Ex: SYN-5W30..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            {searching && (
-              <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                <Loader2 className="w-5 h-5 animate-spin text-red-500" />
-              </div>
-            )}
+            <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                {searching ? <Loader2 className="w-5 h-5 animate-spin text-red-500" /> : <Search className="w-5 h-5 text-slate-500" />}
+            </div>
           </div>
         </div>
 
-        <div className="max-h-[50vh] overflow-y-auto px-2 py-2">
+        <div className="max-h-[50vh] overflow-y-auto px-2 py-2 bg-slate-950/50">
           {results.length > 0 ? (
             <div className="space-y-1">
               {results.map((item) => {
@@ -294,18 +319,21 @@ const QuickAddPanel = ({
                     onClick={() => toggleSelect(item.itemId)}
                     className={cn(
                       "w-full flex items-center gap-4 p-3 rounded-xl transition-all duration-200 text-left group",
-                      isSelected ? "bg-red-900/10 border border-red-500/30" : "hover:bg-slate-800 border border-transparent"
+                      isSelected ? "bg-red-500/10 border border-red-500/30" : "hover:bg-slate-800 border border-transparent"
                     )}
                   >
                     <div className={cn(
-                      "w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-all",
-                      isSelected ? "bg-red-600 border-red-600" : "border-slate-600 group-hover:border-slate-500"
+                      "w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all",
+                      isSelected ? "bg-red-500 border-red-500" : "border-slate-600 group-hover:border-slate-500"
                     )}>
-                      {isSelected && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
+                      {isSelected && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-mono font-bold text-sm text-red-400">{item.itemCode}</div>
-                      <div className="text-xs text-slate-400 truncate">{item.description}</div>
+                      <div className="flex items-center justify-between">
+                         <span className="font-mono font-bold text-sm text-red-400">{item.itemCode}</span>
+                         <span className="text-[10px] text-slate-600 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{item.itemId}</span>
+                      </div>
+                      <div className="text-xs text-slate-300 truncate mt-0.5">{item.description}</div>
                     </div>
                   </button>
                 );
@@ -313,17 +341,21 @@ const QuickAddPanel = ({
             </div>
           ) : query.length > 1 && !searching ? (
             <div className="py-12 text-center">
-              <Inbox className="w-12 h-12 text-slate-700 mx-auto mb-3" />
-              <p className="text-slate-500">Aucun résultat trouvé</p>
+              <Inbox className="w-16 h-16 text-slate-800 mx-auto mb-4" />
+              <p className="text-slate-500 font-medium">Aucun résultat trouvé</p>
             </div>
-          ) : null}
+          ) : (
+            <div className="py-12 text-center">
+                <p className="text-slate-600 text-sm">Commencez à taper pour rechercher...</p>
+            </div>
+          )}
         </div>
 
-        <div className="p-4 border-t border-slate-800 bg-slate-900">
+        <div className="p-6 border-t border-slate-800 bg-slate-900">
           <button
             onClick={handleAdd}
             disabled={selectedIds.size === 0}
-            className="w-full h-12 rounded-xl font-bold text-white bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-900/20"
+            className="w-full h-14 rounded-2xl font-bold text-white bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-900/20 active:scale-[0.98]"
           >
             <Plus className="w-5 h-5" />
             Ajouter {selectedIds.size > 0 && `(${selectedIds.size})`}
@@ -358,11 +390,11 @@ const EmailModal = ({
 
   return (
     <div className="fixed inset-0 z-[999999] flex items-end sm:items-center justify-center p-0 sm:p-4 font-['DM_Sans',system-ui,sans-serif]">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
       <div className="relative w-full sm:max-w-md bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-800 overflow-hidden animate-in slide-in-from-bottom duration-300 sm:animate-in sm:zoom-in-95">
         <div className="p-6">
           <div className="flex items-center gap-4 mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-red-900/20 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center">
               <Mail className="w-6 h-6 text-red-500" />
             </div>
             <div>
@@ -373,20 +405,20 @@ const EmailModal = ({
           <input
             ref={inputRef}
             type="email"
-            className="w-full h-12 px-4 rounded-xl text-sm font-medium bg-slate-800 border border-slate-700 focus:border-red-500 focus:outline-none text-white placeholder:text-slate-500 transition-all"
+            className="w-full h-12 px-4 rounded-xl text-sm font-medium bg-slate-950 border border-slate-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none text-white placeholder:text-slate-500 transition-all"
             placeholder="nom@exemple.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
         </div>
         <div className="p-6 pt-0 flex gap-3">
-          <button onClick={onClose} disabled={sending} className="flex-1 h-12 rounded-xl font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-all disabled:opacity-50">
+          <button onClick={onClose} disabled={sending} className="flex-1 h-12 rounded-xl font-bold bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white transition-all disabled:opacity-50">
             Annuler
           </button>
           <button 
             onClick={() => onSend(email)} 
             disabled={!email || sending} 
-            className="flex-1 h-12 rounded-xl font-bold text-white bg-red-600 hover:bg-red-500 disabled:opacity-50 flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-900/20"
+            className="flex-1 h-12 rounded-xl font-bold text-white bg-red-600 hover:bg-red-500 disabled:opacity-50 flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-900/20 active:scale-[0.98]"
           >
             {sending ? <><Loader2 className="w-4 h-4 animate-spin" /> Envoi...</> : <><Send className="w-4 h-4" /> Envoyer</>}
           </button>
@@ -859,50 +891,6 @@ export default function CataloguePage() {
     return acc;
   }, {} as Record<string, ItemPriceData[]>);
 
-  // Dropdown Component Helper
-  const Dropdown = ({ 
-    id, 
-    label, 
-    icon: Icon, 
-    value, 
-    placeholder, 
-    options, 
-    disabled, 
-    renderOption 
-  }: {
-    id: string;
-    label: string;
-    icon: any;
-    value: string | undefined | null;
-    placeholder: string;
-    options: any[];
-    disabled?: boolean;
-    renderOption: (opt: any) => ReactNode;
-  }) => (
-    <div className="relative flex-1 min-w-0">
-      <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 block">{label}</label>
-      <button 
-        onClick={() => !disabled && setOpenDropdown(openDropdown === id ? null : id)}
-        disabled={disabled}
-        className={cn(
-          "w-full h-10 px-3 rounded-lg bg-slate-800 border border-slate-700 hover:border-red-500/50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-left flex items-center gap-2 text-sm",
-          openDropdown === id && "border-red-500"
-        )}
-      >
-        <Icon className="w-4 h-4 text-slate-500 flex-shrink-0" />
-        <span className={cn("truncate flex-1", value ? "text-white" : "text-slate-500")}>
-          {value || placeholder}
-        </span>
-        <ChevronDown className={cn("w-4 h-4 text-slate-500 flex-shrink-0 transition-transform", openDropdown === id && "rotate-180")} />
-      </button>
-      {openDropdown === id && (
-        <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-slate-800 rounded-lg border border-slate-700 shadow-xl overflow-hidden max-h-48 overflow-y-auto">
-          {options.map(opt => renderOption(opt))}
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-slate-950 text-white font-['DM_Sans',system-ui,sans-serif]">
       {/* Header */}
@@ -944,6 +932,8 @@ export default function CataloguePage() {
                 <ChevronDown className={cn("w-4 h-4 text-slate-500 transition-transform", openDropdown === 'pricelist' && "rotate-180")} />
               </button>
               {openDropdown === 'pricelist' && (
+                <>
+                <div className="fixed inset-0 z-20" onClick={() => setOpenDropdown(null)} />
                 <div className="absolute z-40 top-full left-0 mt-1 bg-slate-800 rounded-lg border border-slate-700 shadow-xl overflow-hidden w-80 max-h-96 overflow-y-auto">
                   {priceLists.map(list => (
                     <button
@@ -959,6 +949,7 @@ export default function CataloguePage() {
                     </button>
                   ))}
                 </div>
+                </>
               )}
             </div>
 
@@ -1041,6 +1032,8 @@ export default function CataloguePage() {
                     placeholder="Sélectionner..."
                     options={products}
                     disabled={loadingTypes}
+                    openDropdown={openDropdown}
+                    setOpenDropdown={setOpenDropdown}
                     renderOption={(prod: Product) => (
                         <button
                             key={prod.prodId}
@@ -1065,6 +1058,8 @@ export default function CataloguePage() {
                     placeholder="Toutes"
                     options={itemTypes}
                     disabled={!selectedProduct || loadingItems}
+                    openDropdown={openDropdown}
+                    setOpenDropdown={setOpenDropdown}
                     renderOption={(type: ItemType) => (
                         <button
                             key={type.itemTypeId}
@@ -1080,32 +1075,37 @@ export default function CataloguePage() {
                     )}
                 />
                 
-                {/* Items MultiSelect Dropdown Logic moved inline here for simplicity in this specific layout */}
+                {/* Items MultiSelect Dropdown */}
                 <div className="relative flex-1 min-w-0 w-full">
-                    <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 block">Articles (Opt.)</label>
+                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block ml-1">Articles (Opt.)</label>
                     <button 
                         onClick={() => !(!selectedType && !selectedProduct) && setOpenDropdown(openDropdown === 'items' ? null : 'items')}
                         disabled={!selectedType && !selectedProduct}
                         className={cn(
-                        "w-full h-10 px-3 rounded-lg bg-slate-800 border border-slate-700 hover:border-red-500/50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-left flex items-center gap-2 text-sm",
-                        openDropdown === 'items' && "border-red-500"
+                        "w-full h-11 px-3 rounded-xl bg-slate-800 border border-slate-700 hover:border-red-500/50 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-left flex items-center gap-2 text-sm",
+                        openDropdown === 'items' && "border-red-500 ring-1 ring-red-500/20"
                         )}
                     >
                         <Tag className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                        <span className={cn("truncate flex-1", selectedItemIds.size > 0 ? "text-white" : "text-slate-500")}>
+                        <span className={cn("truncate flex-1 font-medium", selectedItemIds.size > 0 ? "text-white" : "text-slate-500")}>
                         {selectedItemIds.size > 0 ? `${selectedItemIds.size} article(s) sélectionné(s)` : "Sélectionner..."}
                         </span>
                         <ChevronDown className={cn("w-4 h-4 text-slate-500 flex-shrink-0 transition-transform", openDropdown === 'items' && "rotate-180")} />
                     </button>
                     {openDropdown === 'items' && (
-                        <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-slate-800 rounded-lg border border-slate-700 shadow-xl overflow-hidden max-h-64 flex flex-col">
-                            <div className="p-2 border-b border-slate-700">
-                                <input 
-                                    autoFocus
-                                    placeholder="Filtrer..." 
-                                    className="w-full bg-slate-900 text-sm px-3 py-1.5 rounded border border-slate-600 focus:border-red-500 outline-none text-white"
-                                    onClick={(e) => e.stopPropagation()}
-                                />
+                        <>
+                        <div className="fixed inset-0 z-20" onClick={() => setOpenDropdown(null)} />
+                        <div className="absolute z-30 top-full left-0 right-0 mt-2 bg-slate-900 rounded-xl border border-slate-700 shadow-2xl shadow-black/50 overflow-hidden max-h-80 flex flex-col">
+                            <div className="p-3 border-b border-slate-700 bg-slate-900 sticky top-0">
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                                    <input 
+                                        autoFocus
+                                        placeholder="Filtrer..." 
+                                        className="w-full bg-slate-950 text-sm pl-9 pr-3 py-2 rounded-lg border border-slate-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none text-white placeholder:text-slate-500"
+                                        onClick={(e) => e.stopPropagation()}
+                                    />
+                                </div>
                             </div>
                             <div className="overflow-y-auto p-1">
                                 {items.length > 0 ? items.map(item => (
@@ -1118,21 +1118,22 @@ export default function CataloguePage() {
                                             setSelectedItemIds(next);
                                         }}
                                         className={cn(
-                                            "w-full px-3 py-2 text-left text-sm hover:bg-slate-700 transition-colors flex items-center justify-between rounded",
-                                            selectedItemIds.has(item.itemId) && "bg-red-600/10"
+                                            "w-full px-3 py-2 text-left text-sm hover:bg-slate-700 transition-colors flex items-center justify-between rounded-lg group",
+                                            selectedItemIds.has(item.itemId) && "bg-red-900/10"
                                         )}
                                     >
-                                        <div className="truncate pr-2">
-                                            <span className={cn("font-mono mr-2", selectedItemIds.has(item.itemId) ? "text-red-400" : "text-slate-400")}>{item.itemCode}</span>
-                                            <span className="text-slate-300">{item.description}</span>
+                                        <div className="truncate pr-2 flex-1">
+                                            <span className={cn("font-mono font-bold mr-2", selectedItemIds.has(item.itemId) ? "text-red-400" : "text-slate-400 group-hover:text-white")}>{item.itemCode}</span>
+                                            <span className="text-slate-400 group-hover:text-slate-300 text-xs">{item.description}</span>
                                         </div>
-                                        {selectedItemIds.has(item.itemId) && <Check className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />}
+                                        {selectedItemIds.has(item.itemId) && <Check className="w-4 h-4 text-red-500 flex-shrink-0" />}
                                     </button>
                                 )) : (
-                                    <div className="p-4 text-center text-xs text-slate-500">Aucun article disponible</div>
+                                    <div className="p-8 text-center text-sm text-slate-500">Aucun article disponible</div>
                                 )}
                             </div>
                         </div>
+                        </>
                     )}
                 </div>
             </div>
@@ -1140,11 +1141,14 @@ export default function CataloguePage() {
         )}
 
         {/* Results Area */}
-        <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden min-h-[400px] flex flex-col">
-            <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
-                <h2 className="font-medium text-sm text-slate-300">Aperçu de la liste</h2>
+        <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden min-h-[400px] flex flex-col shadow-xl">
+            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+                <h2 className="font-semibold text-slate-300 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-slate-500" />
+                    Aperçu de la liste
+                </h2>
                 {itemsWithPrices.length > 0 && (
-                    <span className="px-2 py-0.5 rounded-full bg-red-600/20 text-red-400 text-xs font-bold">
+                    <span className="px-2.5 py-1 rounded-full bg-red-900/30 text-red-400 text-xs font-bold border border-red-900/50">
                     {itemsWithPrices.length}
                     </span>
                 )}
@@ -1153,54 +1157,63 @@ export default function CataloguePage() {
             {loadingPrices ? (
                 <div className="flex-1 flex flex-col items-center justify-center p-12">
                     <Loader2 className="w-10 h-10 text-red-600 animate-spin mb-4" />
-                    <p className="text-slate-400">Chargement des prix...</p>
+                    <p className="text-slate-400 font-medium">Chargement des prix...</p>
                 </div>
             ) : itemsWithPrices.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-                    <Package className="w-16 h-16 text-slate-800 mb-4" />
-                    <p className="text-slate-500 text-lg font-medium">Aucun article dans la liste</p>
-                    <p className="text-slate-600 text-sm mt-1 max-w-md">Utilisez les filtres ci-dessus ou la recherche rapide pour ajouter des produits.</p>
+                    <div className="w-20 h-20 bg-slate-800/50 rounded-3xl flex items-center justify-center mb-6">
+                        <Inbox className="w-10 h-10 text-slate-600" />
+                    </div>
+                    <p className="text-slate-300 text-lg font-bold">La liste est vide</p>
+                    <p className="text-slate-500 text-sm mt-2 max-w-sm">Utilisez les filtres ci-dessus ou la recherche rapide pour commencer à ajouter des produits.</p>
                 </div>
             ) : (
                 <div className="flex-1 overflow-x-auto">
                     {Object.entries(groupedItems).map(([className, classItems]) => (
                         <div key={className} className="border-b border-slate-800 last:border-0">
-                            <div className="bg-slate-800/50 px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider flex justify-between">
+                            <div className="bg-slate-950/30 px-6 py-3 text-xs font-bold text-slate-400 uppercase tracking-wider flex justify-between items-center border-l-4 border-red-600/50">
                                 <span>{className}</span>
-                                <span>{classItems.length} articles</span>
+                                <span className="bg-slate-800 text-slate-500 px-2 py-0.5 rounded text-[10px]">{classItems.length} items</span>
                             </div>
                             <div className="divide-y divide-slate-800/50">
                                 {classItems.map(item => (
-                                    <div key={item.itemId} className="p-4 hover:bg-slate-800/30 transition-colors">
-                                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-3">
+                                    <div key={item.itemId} className="p-4 sm:p-6 hover:bg-slate-800/20 transition-colors group">
+                                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
                                             <div>
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className="font-mono font-bold text-red-400">{item.itemCode}</span>
-                                                    <span className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-400 border border-slate-700">{item.format || '-'}</span>
+                                                <div className="flex items-center gap-3 mb-1.5">
+                                                    <span className="font-mono font-bold text-lg text-white group-hover:text-red-400 transition-colors">{item.itemCode}</span>
+                                                    {item.format && <span className="px-2 py-0.5 rounded-md bg-slate-800 text-xs font-medium text-slate-400 border border-slate-700">{item.format}</span>}
+                                                    {item.caisse && <span className="px-2 py-0.5 rounded-md bg-slate-800 text-xs font-medium text-slate-400 border border-slate-700">{Math.round(item.caisse)}/Cs</span>}
                                                 </div>
-                                                <div className="text-sm text-slate-300 font-medium">{item.description}</div>
+                                                <div className="text-sm text-slate-400 font-medium">{item.description}</div>
                                             </div>
                                             <button 
                                                 onClick={() => setPriceData(prev => prev.filter(i => i.itemId !== item.itemId))}
-                                                className="text-slate-600 hover:text-red-400 transition-colors self-start p-1"
+                                                className="text-slate-600 hover:text-red-500 hover:bg-red-500/10 rounded-lg p-2 transition-all self-start sm:self-center"
                                                 title="Retirer de la liste"
                                             >
-                                                <X className="w-4 h-4" />
+                                                <Trash2 className="w-5 h-5" />
                                             </button>
                                         </div>
 
                                         {/* Pricing Grid */}
-                                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
                                             {item.ranges.map(range => {
-                                                const price = range.unitPrice; // Simplified logic for demo
+                                                const price = range.unitPrice; 
                                                 return (
-                                                    <div key={range.id} className="bg-slate-950 rounded border border-slate-800 p-2 text-center">
-                                                        <div className="text-[10px] text-slate-500 uppercase mb-0.5">Qté {range.qtyMin}+</div>
-                                                        <div className="text-sm font-bold text-white">{price.toFixed(2)}$</div>
+                                                    <div key={range.id} className="bg-slate-950 rounded-xl border border-slate-800 p-3 text-center group/card hover:border-slate-600 transition-all">
+                                                        <div className="text-[10px] font-bold text-slate-500 uppercase mb-1 tracking-wide">
+                                                            Qté {range.qtyMin}+
+                                                        </div>
+                                                        <div className="text-lg font-bold text-white group-hover/card:text-red-400 transition-colors">
+                                                            {price.toFixed(2)}$
+                                                        </div>
                                                         {showDetails && (
-                                                            <div className="mt-1 pt-1 border-t border-slate-800 grid grid-cols-2 gap-1 text-[9px]">
-                                                                <div className="text-blue-400">{calcPricePerLitre(price, item.volume)?.toFixed(2) || '-'}/L</div>
-                                                                <div className="text-emerald-400">
+                                                            <div className="mt-2 pt-2 border-t border-slate-800 grid grid-cols-2 gap-1 text-[10px]">
+                                                                <div className="text-blue-400 font-medium" title="Prix au litre">
+                                                                    {calcPricePerLitre(price, item.volume)?.toFixed(2) || '-'}/L
+                                                                </div>
+                                                                <div className={cn("font-bold", (calcMargin(price, range.expBasePrice || null) || 0) < 0 ? "text-red-500" : "text-emerald-500")} title="Marge">
                                                                     {calcMargin(price, range.expBasePrice || null)?.toFixed(0)}%
                                                                 </div>
                                                             </div>
