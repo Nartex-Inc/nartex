@@ -1176,7 +1176,7 @@ export default function CataloguePage() {
               {/* Added: SINTO Logo + X Button on the Right */}
               <div className="flex items-center gap-4">
                 {/* 1. Added SINTO Logo with border and removed filters */}
-                <div className="border-2 border-black mr-6">
+                <div className="mr-6">
                   <Image
                     src="/sinto-logo.svg"
                     alt="SINTO"
