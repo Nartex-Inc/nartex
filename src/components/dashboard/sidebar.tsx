@@ -73,7 +73,7 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Général",
     items: [
       { href: "/dashboard", title: "Dashboard", icon: LayoutDashboard },
-      { href: "/dashboard/catalogue", title: "Catalogue de produits", icon: PackageSearch },
+      { href: "/dashboard/pricelist", title: "Générateur de liste de prix", icon: PackageSearch },
     ],
   },
   {
