@@ -134,25 +134,43 @@ function abbreviateColumnName(name: string): string {
   return result;
 }
 
-function parseFormat(format: string | null): { quantity: number | null; unit: string } {
-  if (!format) return { quantity: null, unit: "Unit" };
+function parseFormat(format: string | null): { quantity: number | null; unit: string; normalizedUnit: string } {
+  if (!format) return { quantity: null, unit: "unité", normalizedUnit: "unité" };
+  
   // Match optional leading number (including decimals) followed by text
-  const match = format.match(/^(\d+(?:[.,]\d+)?)\s*(.+)$/);
+  const match = format.match(/^(\d+(?:[.,]\d+)?)\s*(.+)$/i);
+  
   if (match) {
-    const quantity = parseFloat(match[1].replace(",", "."));
-    const unit = match[2].trim() || "Unit";
-    return { quantity, unit };
+    let quantity = parseFloat(match[1].replace(",", "."));
+    const rawUnit = match[2].trim().toUpperCase();
+    
+    // Normalize units
+    if (rawUnit === "ML") {
+      // Convert ML to L
+      return { quantity: quantity / 1000, unit: rawUnit, normalizedUnit: "L" };
+    } else if (rawUnit === "G") {
+      // Convert G to KG
+      return { quantity: quantity / 1000, unit: rawUnit, normalizedUnit: "KG" };
+    } else if (rawUnit === "L") {
+      return { quantity, unit: rawUnit, normalizedUnit: "L" };
+    } else if (rawUnit === "KG") {
+      return { quantity, unit: rawUnit, normalizedUnit: "KG" };
+    } else {
+      // Everything else is "unité"
+      return { quantity: 1, unit: rawUnit, normalizedUnit: "unité" };
+    }
   }
-  // No leading number - the whole thing is the unit (e.g., "AERO")
-  return { quantity: 1, unit: format };
+  
+  // No leading number - treat as 1 unit (e.g., "AERO")
+  return { quantity: 1, unit: format, normalizedUnit: "unité" };
 }
 
 function getCommonUnit(items: ItemPriceData[]): string {
-  if (items.length === 0) return "Unit";
-  const units = items.map(item => parseFormat(item.format).unit);
+  if (items.length === 0) return "unité";
+  const units = items.map(item => parseFormat(item.format).normalizedUnit);
   const firstUnit = units[0];
   const allSame = units.every(u => u === firstUnit);
-  return allSame ? firstUnit : "Unit";
+  return allSame ? firstUnit : "unité";
 }
 
 function AnimatedPrice({ value, duration = 500 }: { value: number; duration?: number }) {
@@ -1054,14 +1072,43 @@ export default function CataloguePage() {
 
       let finalY = 62;
 
+      // Group by category then class for PDF
       const groupedForPdf = priceData.reduce((acc, item) => {
-        const key = item.className || "Articles Ajoutés";
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(item);
+        const categoryKey = item.categoryName || "Articles Ajoutés";
+        const classKey = item.className || "Sans classe";
+        if (!acc[categoryKey]) acc[categoryKey] = {};
+        if (!acc[categoryKey][classKey]) acc[categoryKey][classKey] = [];
+        acc[categoryKey][classKey].push(item);
         return acc;
-      }, {} as Record<string, ItemPriceData[]>);
+      }, {} as Record<string, Record<string, ItemPriceData[]>>);
 
-      for (const [className, classItems] of Object.entries(groupedForPdf)) {
+      for (const [categoryName, classesByCategory] of Object.entries(groupedForPdf)) {
+        // Category header
+        if (finalY > 240) {
+          doc.addPage();
+          doc.setFillColor(...black);
+          doc.rect(15, 10, pageWidth - 30, 8, "F");
+          doc.setTextColor(...white);
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "bold");
+          doc.text(priceListTitle, pageWidth / 2, 15.5, { align: "center" });
+          finalY = 25;
+        }
+        
+        // Draw category header
+        doc.setFillColor(40, 40, 40);
+        doc.rect(15, finalY, pageWidth - 30, 10, "F");
+        doc.setTextColor(...white);
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.text(categoryName.toUpperCase(), 18, finalY + 7);
+        const totalInCategory = Object.values(classesByCategory).reduce((sum, items) => sum + items.length, 0);
+        doc.setTextColor(...corporateRed);
+        doc.setFontSize(8);
+        doc.text(`${Object.keys(classesByCategory).length} classe(s) • ${totalInCategory} article(s)`, pageWidth - 18, finalY + 7, { align: "right" });
+        finalY += 14;
+
+        for (const [className, classItems] of Object.entries(classesByCategory)) {
         if (finalY > 250) {
           doc.addPage();
           doc.setFillColor(...black);
@@ -1074,16 +1121,16 @@ export default function CataloguePage() {
         }
         
         doc.setFillColor(...black);
-        doc.rect(15, finalY, pageWidth - 30, 8, "F");
+        doc.rect(15, finalY, pageWidth - 30, 7, "F");
         doc.setTextColor(...white);
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "bold");
-        doc.text(className.toUpperCase(), 18, finalY + 5.5);
-        doc.setTextColor(...corporateRed);
         doc.setFontSize(8);
-        doc.text(`${classItems.length} article(s)`, pageWidth - 18, finalY + 5.5, { align: "right" });
+        doc.setFont("helvetica", "bold");
+        doc.text(className.toUpperCase(), 18, finalY + 5);
+        doc.setTextColor(...corporateRed);
+        doc.setFontSize(7);
+        doc.text(`${classItems.length} article(s)`, pageWidth - 18, finalY + 5, { align: "right" });
         
-        finalY += 12;
+        finalY += 10;
 
         const firstItem = classItems[0];
         let priceColumns = firstItem.ranges[0]?.columns
@@ -1214,7 +1261,10 @@ export default function CataloguePage() {
             }
           },
         });
-        finalY = (doc as any).lastAutoTable.finalY + 10;
+        finalY = (doc as any).lastAutoTable.finalY + 8;
+        }
+        
+        finalY += 6; // Extra spacing after each category
       }
 
       const totalPages = doc.getNumberOfPages();
@@ -1262,12 +1312,18 @@ export default function CataloguePage() {
   };
 
   const itemsWithPrices = priceData.filter((item) => item.ranges && item.ranges.length > 0);
-  const groupedItems = itemsWithPrices.reduce((acc, item) => {
-    const key = item.className || "Articles Ajoutés";
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(item);
+  
+  // Group items by Category, then by Class
+  const groupedByCategory = itemsWithPrices.reduce((acc, item) => {
+    const categoryKey = item.categoryName || "Articles Ajoutés";
+    const classKey = item.className || "Sans classe";
+    
+    if (!acc[categoryKey]) acc[categoryKey] = {};
+    if (!acc[categoryKey][classKey]) acc[categoryKey][classKey] = [];
+    acc[categoryKey][classKey].push(item);
+    
     return acc;
-  }, {} as Record<string, ItemPriceData[]>);
+  }, {} as Record<string, Record<string, ItemPriceData[]>>);
 
   const canAddSelection = selectedProduct || selectedItemIds.size > 0;
 
@@ -1518,9 +1574,40 @@ export default function CataloguePage() {
                 </button>
               </div>
             </div>
-          ) : Object.keys(groupedItems).length > 0 ? (
-            <div className="p-4 sm:p-6 space-y-6">
-              {Object.entries(groupedItems).map(([className, classItems]) => {
+          ) : Object.keys(groupedByCategory).length > 0 ? (
+            <div className="p-4 sm:p-6 space-y-8">
+              {Object.entries(groupedByCategory).map(([categoryName, classesByCategory]) => {
+                // Count total items in this category
+                const totalItemsInCategory = Object.values(classesByCategory).reduce((sum, items) => sum + items.length, 0);
+                
+                return (
+                  <div key={categoryName} className="space-y-4">
+                    {/* ===== CATEGORY HEADER ===== */}
+                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-neutral-900 to-neutral-800 dark:from-neutral-800 dark:to-neutral-700 shadow-xl">
+                      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                        <div className="absolute -top-20 -right-20 w-40 h-40 rounded-full blur-3xl" style={{ backgroundColor: `${accentColor}30` }} />
+                        <div className="absolute -bottom-10 -left-10 w-32 h-32 rounded-full bg-white/5 blur-2xl" />
+                      </div>
+                      <div className="relative px-6 py-5 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: accentColor }}>
+                            <Layers className="w-6 h-6 text-white" />
+                          </div>
+                          <div>
+                            <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-wide">{categoryName}</h2>
+                            <p className="text-white/50 text-sm mt-0.5">{Object.keys(classesByCategory).length} classe(s) • {totalItemsInCategory} article(s)</p>
+                          </div>
+                        </div>
+                        <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white/10 rounded-xl backdrop-blur-sm border border-white/10">
+                          <FileText className="w-4 h-4 text-white/70" />
+                          <span className="text-white/70 text-sm font-medium">{abbreviateColumnName(selectedPriceList?.code || "")}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* ===== CLASS SECTIONS UNDER THIS CATEGORY ===== */}
+                    <div className="space-y-4 pl-0 sm:pl-4">
+                      {Object.entries(classesByCategory).map(([className, classItems]) => {
                 const firstItem = classItems[0];
                 let priceColumns = firstItem.ranges[0]?.columns
                   ? Object.keys(firstItem.ranges[0].columns).sort()
@@ -1532,19 +1619,22 @@ export default function CataloguePage() {
                 const commonUnit = getCommonUnit(classItems);
 
                 return (
-                  <section key={className} className="bg-white dark:bg-neutral-900 rounded-3xl overflow-hidden shadow-xl border border-neutral-200/50 dark:border-neutral-800">
-                    <div className="relative px-5 py-4 sm:px-6 sm:py-5" style={{ backgroundColor: accentColor }}>
+                  <section key={className} className="bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden shadow-lg border border-neutral-200/50 dark:border-neutral-800">
+                    <div className="relative px-5 py-3 sm:px-6 sm:py-4" style={{ backgroundColor: accentColor }}>
                       <div className="absolute inset-0 overflow-hidden pointer-events-none">
                         <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
                       </div>
                       <div className="relative flex items-center justify-between">
-                        <div>
-                          <h2 className="text-lg sm:text-xl font-black text-white uppercase tracking-wide">{className}</h2>
-                          <p className="text-white/70 text-sm mt-0.5">{classItems.length} article(s)</p>
+                        <div className="flex items-center gap-3">
+                          <Package className="w-5 h-5 text-white/70" />
+                          <div>
+                            <h3 className="text-base sm:text-lg font-bold text-white uppercase tracking-wide">{className}</h3>
+                            <p className="text-white/60 text-xs mt-0.5">{classItems.length} article(s)</p>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                          <Sparkles className="w-4 h-4 text-white" />
-                          <span className="text-white text-sm font-bold">{abbreviateColumnName(selectedPriceList?.code || "")}</span>
+                        <div className="flex items-center gap-2 px-2.5 py-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
+                          <Sparkles className="w-3.5 h-3.5 text-white" />
+                          <span className="text-white text-xs font-bold">{abbreviateColumnName(selectedPriceList?.code || "")}</span>
                         </div>
                       </div>
                     </div>
@@ -1685,7 +1775,7 @@ export default function CataloguePage() {
                                 );
                               })}
                               {itemIndex < classItems.length - 1 && (
-                                <tr className="h-2">
+                                <tr className="h-1.5">
                                   <td colSpan={100} className="bg-neutral-200 dark:bg-neutral-800 border-none" />
                                 </tr>
                               )}
@@ -1695,6 +1785,10 @@ export default function CataloguePage() {
                       </table>
                     </div>
                   </section>
+                );
+              })}
+                    </div>
+                  </div>
                 );
               })}
             </div>
