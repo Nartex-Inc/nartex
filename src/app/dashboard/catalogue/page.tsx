@@ -134,6 +134,27 @@ function abbreviateColumnName(name: string): string {
   return result;
 }
 
+function parseFormat(format: string | null): { quantity: number | null; unit: string } {
+  if (!format) return { quantity: null, unit: "Unit" };
+  // Match optional leading number (including decimals) followed by text
+  const match = format.match(/^(\d+(?:[.,]\d+)?)\s*(.+)$/);
+  if (match) {
+    const quantity = parseFloat(match[1].replace(",", "."));
+    const unit = match[2].trim() || "Unit";
+    return { quantity, unit };
+  }
+  // No leading number - the whole thing is the unit (e.g., "AERO")
+  return { quantity: 1, unit: format };
+}
+
+function getCommonUnit(items: ItemPriceData[]): string {
+  if (items.length === 0) return "Unit";
+  const units = items.map(item => parseFormat(item.format).unit);
+  const firstUnit = units[0];
+  const allSame = units.every(u => u === firstUnit);
+  return allSame ? firstUnit : "Unit";
+}
+
 function AnimatedPrice({ value, duration = 500 }: { value: number; duration?: number }) {
   const [displayValue, setDisplayValue] = useState(0);
   const previousValue = useRef(0);
@@ -1095,14 +1116,18 @@ export default function CataloguePage() {
             standardColumns.forEach((col) => {
               const val = range.columns?.[col] ?? null;
               row.push(val ? val.toFixed(2) : "-");
-              if (showDetails && col.trim() === selectedPriceList?.code?.trim()) {
-                const ppc = calcPricePerCaisse(val || 0, item.caisse);
-                const ppl = calcPricePerLitre(val || 0, item.volume);
-                const expVal = range.columns?.["01-EXP"] ?? null;
-                const pExp = calcMargin(val, expVal);
-                row.push(ppc ? ppc.toFixed(2) : "-");
-                row.push(ppl ? ppl.toFixed(2) : "-");
-                row.push(pExp ? `${pExp.toFixed(1)}%` : "-");
+              if (col.trim() === selectedPriceList?.code?.trim()) {
+                // Always add $/Unit column for selected price list
+                const { quantity } = parseFormat(item.format);
+                const ppu = quantity && val ? (val / quantity) : null;
+                row.push(ppu ? ppu.toFixed(2) : "-");
+                if (showDetails) {
+                  const ppc = calcPricePerCaisse(val || 0, item.caisse);
+                  const expVal = range.columns?.["01-EXP"] ?? null;
+                  const pExp = calcMargin(val, expVal);
+                  row.push(ppc ? ppc.toFixed(2) : "-");
+                  row.push(pExp ? `${pExp.toFixed(1)}%` : "-");
+                }
               }
             });
             if (hasPDS) {
@@ -1115,12 +1140,17 @@ export default function CataloguePage() {
         });
 
         const headRow = ["Article", "Cs", "Fmt", "Qty"];
+        // Get common unit for this class
+        const pdfCommonUnit = getCommonUnit(classItems);
         standardColumns.forEach((c) => {
           headRow.push(abbreviateColumnName(c));
-          if (showDetails && c.trim() === selectedPriceList?.code?.trim()) {
-            headRow.push("$/Cs");
-            headRow.push("$/L");
-            headRow.push("%Exp");
+          if (c.trim() === selectedPriceList?.code?.trim()) {
+            // Always add $/Unit header for selected price list
+            headRow.push(`$/${pdfCommonUnit}`);
+            if (showDetails) {
+              headRow.push("$/Cs");
+              headRow.push("%Exp");
+            }
           }
         });
         if (hasPDS) headRow.push(abbreviateColumnName("08-PDS"));
@@ -1222,7 +1252,10 @@ export default function CataloguePage() {
   };
 
   const calcPricePerCaisse = (price: number, caisse: number | null) => caisse ? price * caisse : null;
-  const calcPricePerLitre = (price: number, volume: number | null) => volume ? price / volume : null;
+  const calcPricePerUnit = (price: number, format: string | null) => {
+    const { quantity } = parseFormat(format);
+    return quantity ? price / quantity : null;
+  };
   const calcMargin = (sell: number | null, cost: number | null) => {
     if (!sell || !cost || sell === 0) return null;
     return ((sell - cost) / sell) * 100;
@@ -1496,6 +1529,7 @@ export default function CataloguePage() {
                   priceColumns = priceColumns.filter((c) => c.trim() !== "01-EXP");
                 const standardColumns = priceColumns.filter((c) => c.trim() !== "08-PDS");
                 const hasPDS = priceColumns.some((c) => c.trim() === "08-PDS");
+                const commonUnit = getCommonUnit(classItems);
 
                 return (
                   <section key={className} className="bg-white dark:bg-neutral-900 rounded-3xl overflow-hidden shadow-xl border border-neutral-200/50 dark:border-neutral-800">
@@ -1533,10 +1567,13 @@ export default function CataloguePage() {
                               return (
                                 <Fragment key={colCode}>
                                   <th className={cn("text-right font-black border-b-2 border-neutral-200 dark:border-neutral-700 whitespace-nowrap", isCompact ? "p-3" : "p-4", isSelectedList ? "text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/20" : "text-neutral-600 dark:text-neutral-300")}>{displayName}</th>
+                                  {/* $/Unit column - ALWAYS VISIBLE for selected price list */}
+                                  {isSelectedList && (
+                                    <th className={cn("text-right font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/20 whitespace-nowrap", isCompact ? "p-3" : "p-4")}>$/{commonUnit}</th>
+                                  )}
                                   {showDetails && isSelectedList && !isCompact && (
                                     <>
                                       <th className="text-right p-4 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/20 whitespace-nowrap">$/Cs</th>
-                                      <th className="text-right p-4 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/20 whitespace-nowrap">$/L</th>
                                       <th className="text-right p-4 font-black text-violet-700 dark:text-violet-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-violet-50/50 dark:bg-violet-900/20 whitespace-nowrap">%Exp</th>
                                     </>
                                   )}
@@ -1585,19 +1622,25 @@ export default function CataloguePage() {
                                               {priceVal !== null && priceVal !== undefined ? <AnimatedPrice value={priceVal} /> : "-"}
                                             </span>
                                           </td>
+                                          {/* $/Unit column - ALWAYS VISIBLE for selected price list */}
+                                          {isSelectedList && (() => {
+                                            const selectedPriceVal = priceVal ?? 0;
+                                            const ppu = calcPricePerUnit(selectedPriceVal, item.format);
+                                            return (
+                                              <td className={cn("text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/10", isCompact ? "p-3" : "p-4")}>
+                                                <span className="font-mono font-bold text-sky-700 dark:text-sky-400">{ppu ? ppu.toFixed(2) : "-"}</span>
+                                              </td>
+                                            );
+                                          })()}
                                           {showDetails && isSelectedList && !isCompact && (() => {
                                             const selectedPriceVal = priceVal ?? 0;
                                             const ppc = calcPricePerCaisse(selectedPriceVal, item.caisse);
-                                            const ppl = calcPricePerLitre(selectedPriceVal, item.volume);
                                             const expBaseVal = range.columns?.["01-EXP"] ?? null;
                                             const percentExp = calcMargin(selectedPriceVal, expBaseVal);
                                             return (
                                               <>
                                                 <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/10">
                                                   <span className="font-mono text-sky-700 dark:text-sky-400">{ppc ? ppc.toFixed(2) : "-"}</span>
-                                                </td>
-                                                <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/10">
-                                                  <span className="font-mono text-sky-700 dark:text-sky-400">{ppl ? ppl.toFixed(2) : "-"}</span>
                                                 </td>
                                                 <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-violet-50/30 dark:bg-violet-900/10">
                                                   <span className={cn("font-mono font-bold", percentExp && percentExp < 0 ? "text-red-600 dark:text-red-400" : "text-violet-700 dark:text-violet-400")}>
@@ -1610,7 +1653,6 @@ export default function CataloguePage() {
                                           {showDetails && isSelectedList && isCompact && (() => {
                                             const selectedPriceVal = priceVal ?? 0;
                                             const ppc = calcPricePerCaisse(selectedPriceVal, item.caisse);
-                                            const ppl = calcPricePerLitre(selectedPriceVal, item.volume);
                                             const expBaseVal = range.columns?.["01-EXP"] ?? null;
                                             const percentExp = calcMargin(selectedPriceVal, expBaseVal);
                                             return (
@@ -1619,10 +1661,6 @@ export default function CataloguePage() {
                                                   <div className="flex justify-end gap-2 text-sky-700 dark:text-sky-400">
                                                     <span className="opacity-60">$/Cs</span>
                                                     <span className="font-mono font-bold">{ppc ? ppc.toFixed(2) : "-"}</span>
-                                                  </div>
-                                                  <div className="flex justify-end gap-2 text-sky-700 dark:text-sky-400">
-                                                    <span className="opacity-60">$/L</span>
-                                                    <span className="font-mono font-bold">{ppl ? ppl.toFixed(2) : "-"}</span>
                                                   </div>
                                                   <div className="flex justify-end gap-2 text-violet-700 dark:text-violet-400">
                                                     <span className="opacity-60">%Exp</span>
