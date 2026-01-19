@@ -32,7 +32,7 @@ import {
   Inbox,
   ChevronUp,
   Check,
-  Trash2,
+  Recycle,
   SlidersHorizontal,
 } from "lucide-react";
 
@@ -282,7 +282,9 @@ const FilterDropdown = ({
   disabled, 
   renderOption,
   openDropdown,
-  setOpenDropdown
+  setOpenDropdown,
+  onClear,
+  clearLabel,
 }: {
   id: string;
   label: string;
@@ -294,6 +296,8 @@ const FilterDropdown = ({
   renderOption: (opt: any) => ReactNode;
   openDropdown: string | null;
   setOpenDropdown: (val: string | null) => void;
+  onClear?: () => void;
+  clearLabel?: string;
 }) => (
   <div className="relative flex-1 min-w-0">
     <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider mb-1.5 block ml-1">{label}</label>
@@ -315,6 +319,19 @@ const FilterDropdown = ({
       <>
         <div className="fixed inset-0 z-[999998]" onClick={() => setOpenDropdown(null)} />
         <div className="absolute z-[999999] top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-2xl overflow-hidden max-h-64 overflow-y-auto">
+          {/* Clear option */}
+          {onClear && clearLabel && (
+            <button
+              onClick={() => {
+                onClear();
+                setOpenDropdown(null);
+              }}
+              className="w-full px-4 py-3 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-800 text-neutral-500 dark:text-neutral-400 italic"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              {clearLabel}
+            </button>
+          )}
           {options.map(opt => renderOption(opt))}
         </div>
       </>
@@ -540,6 +557,11 @@ function ItemMultiSelect({
     onChange(next);
   };
 
+  const clearAll = () => {
+    onChange(new Set());
+    setIsOpen(false);
+  };
+
   return (
     <div ref={triggerRef} className="relative flex-1 min-w-0">
       <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider mb-1.5 block ml-1">Articles (Opt.)</label>
@@ -578,6 +600,15 @@ function ItemMultiSelect({
               maxWidth: "calc(100vw - 32px)",
             }}
           >
+            {/* Clear all option */}
+            <button
+              onClick={clearAll}
+              className="w-full px-4 py-3 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-800 text-neutral-500 dark:text-neutral-400 italic"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Tous les articles
+            </button>
+
             <div className="p-3 border-b border-neutral-100 dark:border-neutral-800">
               <div className="flex items-center gap-2 bg-neutral-100 dark:bg-neutral-800 rounded-xl px-4">
                 <Filter className="w-4 h-4 text-neutral-400" />
@@ -765,7 +796,8 @@ export default function CataloguePage() {
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [filtersExpanded, setFiltersExpanded] = useState(true);
+  // CHANGE: Filters collapsed by default
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   
@@ -829,6 +861,15 @@ export default function CataloguePage() {
     }
   };
 
+  // CHANGE: Clear product selection
+  const handleClearProduct = () => {
+    setSelectedProduct(null);
+    setSelectedType(null);
+    setSelectedItemIds(new Set());
+    setItems([]);
+    setItemTypes([]);
+  };
+
   const handleTypeChange = async (type: ItemType) => {
     setSelectedType(type);
     setSelectedItemIds(new Set());
@@ -841,6 +882,13 @@ export default function CataloguePage() {
     } finally {
       setLoadingItems(false);
     }
+  };
+
+  // CHANGE: Clear type selection
+  const handleClearType = () => {
+    setSelectedType(null);
+    setSelectedItemIds(new Set());
+    setItems([]);
   };
 
   const handleLoadSelection = async () => {
@@ -1282,7 +1330,7 @@ export default function CataloguePage() {
                 />
               </div>
 
-              {/* RIGHT SECTION: Search + Add + Clear + Email + Logo + Close */}
+              {/* RIGHT SECTION: Search + Add + Email + Recycle + Close */}
               <div className="flex items-center gap-1.5 sm:gap-2">
                 {/* Search Button */}
                 <ActionButton 
@@ -1302,14 +1350,6 @@ export default function CataloguePage() {
                   loading={loadingPrices}
                 />
 
-                {/* Clear/Trash Button */}
-                <ActionButton 
-                  onClick={() => setPriceData([])} 
-                  disabled={priceData.length === 0} 
-                  icon={Trash2} 
-                  title="Effacer tout" 
-                />
-
                 {/* Email Button with Label */}
                 <ActionButton 
                   onClick={() => setShowEmailModal(true)} 
@@ -1321,6 +1361,14 @@ export default function CataloguePage() {
                 />
 
                 <div className="w-px h-8 bg-white/20 mx-1 hidden sm:block" />
+
+                {/* CHANGE: Recycle Button (moved before Close, changed icon) */}
+                <ActionButton 
+                  onClick={() => setPriceData([])} 
+                  disabled={priceData.length === 0} 
+                  icon={Recycle} 
+                  title="Effacer tout" 
+                />
 
                 {/* Close Button */}
                 <ActionButton 
@@ -1346,6 +1394,8 @@ export default function CataloguePage() {
                     disabled={loadingTypes}
                     openDropdown={openDropdown}
                     setOpenDropdown={setOpenDropdown}
+                    onClear={handleClearProduct}
+                    clearLabel="Toutes les catégories"
                     renderOption={(prod: Product) => (
                       <button
                         key={prod.prodId}
@@ -1372,6 +1422,8 @@ export default function CataloguePage() {
                     disabled={!selectedProduct || loadingItems}
                     openDropdown={openDropdown}
                     setOpenDropdown={setOpenDropdown}
+                    onClear={handleClearType}
+                    clearLabel="Toutes les classes"
                     renderOption={(type: ItemType) => (
                       <button
                         key={type.itemTypeId}
@@ -1387,12 +1439,12 @@ export default function CataloguePage() {
                     )}
                   />
                   
-                  {/* Items MultiSelect */}
+                  {/* CHANGE: Items MultiSelect - now only enabled when selectedType is set */}
                   <ItemMultiSelect
                     items={items}
                     selectedIds={selectedItemIds}
                     onChange={setSelectedItemIds}
-                    disabled={!selectedType && !selectedProduct}
+                    disabled={!selectedType}
                     accentColor={accentColor}
                   />
                 </div>
