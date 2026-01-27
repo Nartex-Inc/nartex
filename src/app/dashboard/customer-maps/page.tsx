@@ -37,7 +37,6 @@ type CustomerMapData = {
   customerName: string;
   address: string;
   city: string;
-  province: string;
   postalCode: string;
   lat: number;
   lng: number;
@@ -528,7 +527,7 @@ function CustomerInfoWindow({
             {customer.address}
           </p>
           <p className="text-xs" style={{ color: t.textTertiary }}>
-            {customer.city}, {customer.province} {customer.postalCode}
+            {customer.city}, {customer.postalCode}
           </p>
         </div>
       </div>
