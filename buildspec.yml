@@ -25,6 +25,8 @@ env:
     GOOGLE_CLIENT_EMAIL:    nartex/prod/env:GOOGLE_CLIENT_EMAIL
     GOOGLE_PRIVATE_KEY:     nartex/prod/env:GOOGLE_PRIVATE_KEY
     RDS_CREDENTIALS:        nartex/prod/rds-credentials
+    # Google Maps API Key for customer maps feature
+    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: nartex/prod/env:GOOGLE_MAPS_API_KEY
 
 phases:
   install:
@@ -40,8 +42,8 @@ phases:
       - npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - npm ci
       
-      # Install dependencies (Auth, PDF, Email, Google)
-      - npm install @simplewebauthn/browser @simplewebauthn/server jspdf jspdf-autotable nodemailer googleapis
+      # Install dependencies (Auth, PDF, Email, Google, Maps)
+      - npm install @simplewebauthn/browser @simplewebauthn/server jspdf jspdf-autotable nodemailer googleapis @react-google-maps/api
       - npm install --save-dev @types/nodemailer
 
       - node -e "console.log('prisma:',require('./node_modules/prisma/package.json').version,'| @prisma/client:',require('./node_modules/@prisma/client/package.json').version)"
@@ -207,6 +209,7 @@ phases:
           --build-arg GOOGLE_CLIENT_EMAIL="$GOOGLE_CLIENT_EMAIL" \
           --build-arg GOOGLE_PRIVATE_KEY="$GOOGLE_PRIVATE_KEY" \
           --build-arg GOOGLE_DRIVE_FOLDER_ID="$GOOGLE_DRIVE_FOLDER_ID" \
+          --build-arg NEXT_PUBLIC_GOOGLE_MAPS_API_KEY="$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY" \
           -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
           -t "$ECR_IMAGE_URI:latest" .
 
