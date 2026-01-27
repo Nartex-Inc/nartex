@@ -553,11 +553,10 @@ export async function GET(req: Request) {
     SELECT
       c."CustId" AS "customerId",
       c."Name" AS "customerName",
-      c."Addr1" AS "address",
+      c."Line1" AS "address",
       c."City" AS "city",
-      c."Prov" AS "province",
       c."ZipCode" AS "postalCode",
-      c."Phone" AS "phone",
+      c."tel" AS "phone",
       sr."Name" AS "salesRepName",
       SUM(d."Amount"::float8) AS "totalSales",
       COUNT(DISTINCT h."invnbr") AS "transactionCount",
@@ -577,8 +576,8 @@ export async function GET(req: Request) {
       AND c."ZipCode" <> ''
       ${whereClause}
     GROUP BY 
-      c."CustId", c."Name", c."Addr1", c."City", c."Prov", c."ZipCode",
-      c."Phone", sr."Name"
+      c."CustId", c."Name", c."Line1", c."City", c."ZipCode",
+      c."tel", sr."Name"
     HAVING SUM(d."Amount"::float8) >= ${minSales}
     ORDER BY SUM(d."Amount"::float8) DESC;
   `;
@@ -599,7 +598,6 @@ export async function GET(req: Request) {
           customerName: row.customerName,
           address: row.address,
           city: row.city,
-          province: row.province,
           postalCode: row.postalCode,
           phone: row.phone,
           salesRepName: row.salesRepName,
