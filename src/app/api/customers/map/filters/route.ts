@@ -7,6 +7,11 @@ import { pg } from "@/lib/db";
 // Roles allowed to access (case-insensitive)
 const ALLOWED_USER_ROLES = [
   "gestionnaire",
+  "admin",
+  "ventes-exec",
+  "ventes_exec",
+  "facturation",
+  "expert",
 ];
 
 const BYPASS_EMAILS = ["n.labranche@sinto.ca"];
