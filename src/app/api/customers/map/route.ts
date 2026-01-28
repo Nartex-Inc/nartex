@@ -189,23 +189,46 @@ export async function GET(req: Request) {
     
     console.log(`📍 Processing ${rows.length} customers...`);
     
+    // DEBUG: Log first 3 customers to see what data we have
+    const debugInfo: any[] = [];
+    
     // Transform data - use existing geoLocation OR geocode if missing
-    const customersPromises = rows.map(async (row: any) => {
+    const customersPromises = rows.map(async (row: any, index: number) => {
       let lat: number | null = null;
       let lng: number | null = null;
       let wasGeocoded = false;
+      let skipReason = "";
+
+      // DEBUG: Capture first 5 customers' data
+      if (index < 5) {
+        debugInfo.push({
+          name: row.customerName,
+          address: row.address,
+          city: row.city,
+          geoLocation: row.geoLocation,
+          geoLocationType: typeof row.geoLocation,
+          geoLocationLength: row.geoLocation?.length,
+        });
+      }
 
       // 1. First check existing geoLocation in database
       if (row.geoLocation && row.geoLocation.trim() !== "") {
-        const parts = row.geoLocation.split(",");
+        const geoStr = String(row.geoLocation).trim();
+        const parts = geoStr.split(",");
         if (parts.length === 2) {
           const parsedLat = parseFloat(parts[0].trim());
           const parsedLng = parseFloat(parts[1].trim());
           if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
             lat = parsedLat;
             lng = parsedLng;
+          } else {
+            skipReason = `Invalid lat/lng: ${parts[0]}, ${parts[1]}`;
           }
+        } else {
+          skipReason = `geoLocation not in lat,lng format: "${geoStr}"`;
         }
+      } else {
+        skipReason = `No geoLocation (value: "${row.geoLocation}")`;
       }
 
       // 2. If no valid geoLocation, try to geocode
@@ -216,8 +239,13 @@ export async function GET(req: Request) {
           lat = parseFloat(parts[0]);
           lng = parseFloat(parts[1]);
           wasGeocoded = true;
+          skipReason = "";
           // Save to database for future use
           saveGeoLocation(row.customerId, geoResult);
+        } else {
+          if (index < 5) {
+            console.log(`❌ Skipping ${row.customerName}: ${skipReason}, geocoding also failed`);
+          }
         }
       }
       
@@ -252,12 +280,14 @@ export async function GET(req: Request) {
     const customers = customersResolved.filter(Boolean);
 
     console.log(`✅ Geocoded ${geocodeCount} customers, ${rows.length - customers.length} skipped`);
+    console.log(`🔍 Debug sample:`, JSON.stringify(debugInfo, null, 2));
 
     return NextResponse.json({
       customers,
       total: customers.length,
       geocodedThisRequest: geocodeCount,
       skipped: rows.length - customers.length,
+      debug: debugInfo, // Include debug info in response
       filters: {
         salesRep,
         products,
