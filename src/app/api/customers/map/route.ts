@@ -153,6 +153,7 @@ export async function GET(req: Request) {
       c."City" AS "city",
       c."ZipCode" AS "postalCode",
       c."tel" AS "phone",
+      c."geoLocation" AS "geoLocation",
       sr."Name" AS "salesRepName",
       SUM(d."Amount"::float8) AS "totalSales",
       COUNT(DISTINCT h."invnbr") AS "transactionCount",
@@ -175,7 +176,7 @@ export async function GET(req: Request) {
       ${whereClause}
     GROUP BY 
       c."CustId", c."Name", c."Line1", c."City", c."ZipCode",
-      c."tel", sr."Name"
+      c."tel", c."geoLocation", sr."Name"
     HAVING SUM(d."Amount"::float8) >= ${minSales}
     ORDER BY SUM(d."Amount"::float8) DESC;
   `;
@@ -186,23 +187,44 @@ export async function GET(req: Request) {
     
     const { rows } = await pg.query(SQL_QUERY, params);
     
-    console.log(`📍 Processing ${rows.length} customers for geocoding...`);
+    console.log(`📍 Processing ${rows.length} customers...`);
     
-    // Transform data - ALWAYS geocode fresh
+    // Transform data - use existing geoLocation OR geocode if missing
     const customersPromises = rows.map(async (row: any) => {
-      // Always geocode fresh (ignore existing geoLocation)
-      const geoResult = await geocodeAddress(row.address, row.city, row.postalCode);
-      
-      if (!geoResult) {
-        return null; // Skip if geocoding failed
+      let lat: number | null = null;
+      let lng: number | null = null;
+      let wasGeocoded = false;
+
+      // 1. First check existing geoLocation in database
+      if (row.geoLocation && row.geoLocation.trim() !== "") {
+        const parts = row.geoLocation.split(",");
+        if (parts.length === 2) {
+          const parsedLat = parseFloat(parts[0].trim());
+          const parsedLng = parseFloat(parts[1].trim());
+          if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+            lat = parsedLat;
+            lng = parsedLng;
+          }
+        }
+      }
+
+      // 2. If no valid geoLocation, try to geocode
+      if (lat === null || lng === null) {
+        const geoResult = await geocodeAddress(row.address, row.city, row.postalCode);
+        if (geoResult) {
+          const parts = geoResult.split(",");
+          lat = parseFloat(parts[0]);
+          lng = parseFloat(parts[1]);
+          wasGeocoded = true;
+          // Save to database for future use
+          saveGeoLocation(row.customerId, geoResult);
+        }
       }
       
-      const parts = geoResult.split(",");
-      const lat = parseFloat(parts[0]);
-      const lng = parseFloat(parts[1]);
-      
-      // Save to database for future use
-      saveGeoLocation(row.customerId, geoResult);
+      // Skip if no location data at all
+      if (lat === null || lng === null) {
+        return null;
+      }
 
       const totalSales = parseFloat(row.totalSales);
 
