@@ -1,14 +1,18 @@
 // src/app/api/returns/route.ts
+// Main returns API with role-based filtering
+
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
-import { formatReturnCode, getReturnStatus, REPORTER_LABELS } from "@/types/returns";
+import { formatReturnCode, getReturnStatus } from "@/types/returns";
 import type { ReturnRow, Reporter, Cause } from "@/types/returns";
 import { Prisma } from "@prisma/client";
 
+// User roles
+export type UserRole = "Gestionnaire" | "Vérificateur" | "Facturation" | "Expert" | "Analyste";
+
 // MAPPING: Legacy Name -> New Email
-// Used to resolve old records where initiatedBy stored names instead of emails
 const LEGACY_USER_MAP: Record<string, string> = {
   'Suzie Boutin': 's.boutin@sinto.ca',
   'Hugo Fortin': 'h.fortin@sinto.ca',
@@ -16,7 +20,6 @@ const LEGACY_USER_MAP: Record<string, string> = {
   'Jessica Lessard': 'j.lessard@sinto.ca',
   'Stéphanie Veilleux': 's.veilleux@sinto.ca',
   'Nicolas Labranche': 'n.labranche@sinto.ca',
-  // Lowercase fallbacks for safety
   'suzie boutin': 's.boutin@sinto.ca',
   'hugo fortin': 'h.fortin@sinto.ca',
   'anick poulin': 'a.poulin@sinto.ca',
@@ -35,6 +38,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get("mode");
 
+    // Get next available ID
     if (mode === "next_id") {
       const lastReturn = await prisma.return.findFirst({
         select: { id: true },
@@ -49,27 +53,100 @@ export async function GET(request: NextRequest) {
     const reporter = searchParams.get("reporter");
     const dateFrom = searchParams.get("dateFrom");
     const dateTo = searchParams.get("dateTo");
-    const status = searchParams.get("status");
-    const history = searchParams.get("history") === "true";
+    const history = searchParams.get("history") === "true"; // Archive/History toggle
     const take = parseInt(searchParams.get("take") || "200", 10);
 
-    const userRole = (session.user as { role?: string }).role;
+    const userRole = (session.user as { role?: string }).role as UserRole | undefined;
     const userName = session.user.name || "";
 
     const where: Prisma.ReturnWhereInput = {};
     const AND: Prisma.ReturnWhereInput[] = [];
 
-    // Safety: Hide corrupted rows (Draft & Final)
+    // =======================================================================
+    // ROLE-BASED FILTERING LOGIC
+    // =======================================================================
+
+    if (history) {
+      // HISTORY MODE: Show only finalized returns (for all roles that can see history)
+      AND.push({ isFinal: true, isStandby: false });
+    } else {
+      // ACTIVE MODE: Role-specific filtering
+      switch (userRole) {
+        case "Gestionnaire":
+          // Gestionnaire sees ALL active returns including drafts
+          // Filter out finalized returns unless in history mode
+          AND.push({ isFinal: false });
+          // Can see drafts (no additional filter needed)
+          break;
+
+        case "Vérificateur":
+          // Vérificateur ONLY sees returns where:
+          // - physicalReturn == TRUE AND isVerified == FALSE
+          // - NOT drafts, NOT finalized
+          AND.push({
+            returnPhysical: true,
+            isVerified: false,
+            isDraft: false,
+            isFinal: false,
+          });
+          break;
+
+        case "Facturation":
+          // Facturation ONLY sees returns where EITHER:
+          // - physicalReturn == TRUE AND isVerified == TRUE, OR
+          // - physicalReturn == FALSE
+          // - NOT drafts, NOT finalized
+          AND.push({
+            isDraft: false,
+            isFinal: false,
+            OR: [
+              { returnPhysical: true, isVerified: true },
+              { returnPhysical: false },
+            ],
+          });
+          break;
+
+        case "Expert":
+          // Expert only sees their own returns (non-finalized)
+          AND.push({
+            expert: { contains: userName, mode: "insensitive" },
+            isFinal: false,
+            isDraft: false, // Experts don't see drafts
+          });
+          break;
+
+        case "Analyste":
+          // Analyste sees same as Facturation but read-only
+          AND.push({
+            isDraft: false,
+            isFinal: false,
+            OR: [
+              { returnPhysical: true, isVerified: true },
+              { returnPhysical: false },
+            ],
+          });
+          break;
+
+        default:
+          // Unknown role - show nothing for safety
+          AND.push({ id: -1 }); // This will match nothing
+          break;
+      }
+    }
+
+    // Exclude standby unless specifically requested
+    if (!history) {
+      AND.push({ isStandby: false });
+    }
+
+    // Safety: Never show corrupted rows (Draft AND Final)
     AND.push({
       NOT: {
-        AND: [{ isDraft: true }, { isFinal: true }]
+        AND: [{ isDraft: true }, { isFinal: true }, { isStandby: false }]
       }
     });
 
-    if (userRole === "Expert") {
-      AND.push({ expert: { contains: userName, mode: "insensitive" } });
-    }
-
+    // Search filter
     if (q) {
       AND.push({
         OR: [
@@ -82,36 +159,11 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Additional filters
     if (cause && cause !== "all") AND.push({ cause: cause as Cause });
     if (reporter && reporter !== "all") AND.push({ reporter: reporter as Reporter });
     if (dateFrom) AND.push({ reportedAt: { gte: new Date(dateFrom) } });
     if (dateTo) AND.push({ reportedAt: { lte: new Date(dateTo) } });
-
-    if (status === "draft") {
-      AND.push({ isDraft: true });
-    } else if (status === "awaiting_physical") {
-      AND.push({ returnPhysical: true, isVerified: false, isDraft: false, isFinal: false });
-    } else if (status === "received_or_no_physical") {
-      AND.push({
-        isDraft: false,
-        isFinal: false,
-        OR: [
-          { returnPhysical: false },
-          { returnPhysical: true, isVerified: true },
-        ],
-      });
-    } else if (status === "standby") {
-      AND.push({ isStandby: true });
-    } else if (status === "finalized") {
-      AND.push({ isFinal: true });
-    }
-
-    if (!status) {
-      AND.push({ isStandby: false });
-      if (!history) {
-        AND.push({ isFinal: false });
-      }
-    }
 
     if (AND.length > 0) where.AND = AND;
 
@@ -125,86 +177,53 @@ export async function GET(request: NextRequest) {
       take,
     });
 
-    // =========================================================================
-    // USER AVATAR LOOKUP LOGIC
-    // =========================================================================
-    // Key concepts:
-    // - `reporter` (enum): Type of person who reported (expert, transporteur, client, etc.)
-    // - `expert`: Sales rep assigned to the client (NOT the creator)
-    // - `initiatedBy`: The actual user who created the return in the system
-    // =========================================================================
+    // =======================================================================
+    // USER AVATAR LOOKUP
+    // =======================================================================
 
     const emailsToFetch = new Set<string>();
 
-    /**
-     * Resolve the email of the user who CREATED the return.
-     * Always uses `initiatedBy` field, NOT `expert` (which is client data).
-     */
     const resolveCreatorEmail = (ret: any): string | null => {
       if (ret.initiatedBy) {
         const initiator = ret.initiatedBy.trim();
-        
-        // Check legacy name -> email map
-        if (LEGACY_USER_MAP[initiator]) {
-          return LEGACY_USER_MAP[initiator];
-        }
-        
-        // Case-insensitive check
+        if (LEGACY_USER_MAP[initiator]) return LEGACY_USER_MAP[initiator];
         const lowerInitiator = initiator.toLowerCase();
-        if (LEGACY_USER_MAP[lowerInitiator]) {
-          return LEGACY_USER_MAP[lowerInitiator];
-        }
-        
-        // If initiatedBy is already an email
-        if (initiator.includes("@")) {
-          return initiator;
-        }
+        if (LEGACY_USER_MAP[lowerInitiator]) return LEGACY_USER_MAP[lowerInitiator];
+        if (initiator.includes("@")) return initiator;
       }
-      
       return null;
     };
 
-    // Collect all emails we need to fetch
     returns.forEach(r => {
       const email = resolveCreatorEmail(r);
       if (email) emailsToFetch.add(email);
     });
 
-    // Batch fetch all User objects
     const users = await prisma.user.findMany({
       where: { email: { in: Array.from(emailsToFetch) } },
       select: { email: true, image: true, name: true }
     });
 
-    // Build a lookup map: email -> { image, name }
     const userMap = new Map<string, { image: string | null, name: string | null }>();
     users.forEach(u => {
-      if (u.email) {
-        userMap.set(u.email, { image: u.image, name: u.name });
-      }
+      if (u.email) userMap.set(u.email, { image: u.image, name: u.name });
     });
 
-    // =========================================================================
-    // BUILD RESPONSE DATA
-    // =========================================================================
+    // =======================================================================
+    // BUILD RESPONSE
+    // =======================================================================
 
     const data: ReturnRow[] = returns.map((ret) => {
-      // FIXED: Always use initiatedBy for the creator name
-      // `expert` is the sales rep assigned to the client, NOT who created the return
       const creatorNameRaw = ret.initiatedBy || "Système";
       const creatorEmail = resolveCreatorEmail(ret);
       
       let avatarUrl: string | null = null;
       let displayName = creatorNameRaw;
 
-      // If we found a matching user, use their avatar and clean name
       if (creatorEmail && userMap.has(creatorEmail)) {
         const userData = userMap.get(creatorEmail);
         avatarUrl = userData?.image || null;
-        // Override with cleaner name from user record if available
-        if (userData?.name) {
-          displayName = userData.name;
-        }
+        if (userData?.name) displayName = userData.name;
       }
 
       return {
@@ -237,7 +256,28 @@ export async function GET(request: NextRequest) {
         noBonCommande: ret.noBonCommande,
         noReclamation: ret.noReclamation,
 
-        // FIXED: createdBy now correctly shows who created the return
+        // Verification fields (visible after verification)
+        verifiedBy: ret.verifiedBy
+          ? { name: ret.verifiedBy, at: ret.verifiedAt?.toISOString() || null }
+          : null,
+
+        // Finalization fields (visible after finalization)
+        warehouseOrigin: ret.warehouseOrigin,
+        warehouseDestination: ret.warehouseDestination,
+        noCredit: ret.noCredit,
+        noCredit2: ret.noCredit2,
+        noCredit3: ret.noCredit3,
+        creditedTo: ret.creditedTo,
+        creditedTo2: ret.creditedTo2,
+        creditedTo3: ret.creditedTo3,
+        villeShipto: ret.villeShipto,
+        totalWeight: ret.totalWeight ? Number(ret.totalWeight) : null,
+        transportAmount: ret.transportAmount ? Number(ret.transportAmount) : null,
+        restockingAmount: ret.restockingAmount ? Number(ret.restockingAmount) : null,
+        finalizedBy: ret.finalizedBy
+          ? { name: ret.finalizedBy, at: ret.finalizedAt?.toISOString() || null }
+          : null,
+
         createdBy: {
           name: displayName,
           avatar: avatarUrl,
@@ -254,6 +294,8 @@ export async function GET(request: NextRequest) {
           qteInventaire: p.qteInventaire,
           qteDetruite: p.qteDetruite,
           tauxRestock: p.tauxRestock ? Number(p.tauxRestock) : null,
+          poidsUnitaire: p.weightProduit ? Number(p.weightProduit) : null,
+          poidsTotal: p.poids ? Number(p.poids) : null,
         })),
         attachments: ret.attachments.map((a) => ({
           id: a.fileId,
@@ -264,7 +306,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({ ok: true, data });
+    return NextResponse.json({ ok: true, data, userRole });
   } catch (error) {
     console.error("GET /api/returns error:", error);
     return NextResponse.json(
@@ -279,6 +321,15 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
+    }
+
+    // Only Gestionnaire can create returns
+    const userRole = (session.user as { role?: string }).role;
+    if (userRole !== "Gestionnaire") {
+      return NextResponse.json(
+        { ok: false, error: "Seul un gestionnaire peut créer un retour" },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -329,7 +380,6 @@ export async function POST(request: NextRequest) {
         isFinal: false,
         isVerified: false,
         isStandby: false,
-        // Store the actual user who created this return
         initiatedBy: session.user.name || session.user.email || "Système",
         initializedAt: new Date(),
         noCommandeCheckbox: body.noCommandeCheckbox ?? false,
@@ -344,9 +394,7 @@ export async function POST(request: NextRequest) {
             : []
         }
       },
-      include: {
-        products: true
-      }
+      include: { products: true }
     });
 
     return NextResponse.json({
