@@ -51,6 +51,7 @@ type CustomerMapData = {
   productsPurchased: string;
   pinColor: string;
   pinSize: string;
+  locationSource?: string;
 };
 
 type FilterOptions = {
@@ -719,6 +720,23 @@ function CustomerInfoWindow({
           </p>
           <p className="text-xs" style={{ color: t.textTertiary }}>
             {customer.city}, {customer.postalCode}
+            {customer.locationSource && (
+              <span 
+                className="ml-2 px-1.5 py-0.5 rounded text-[10px]"
+                style={{ 
+                  background: customer.locationSource === "geocoded" ? t.success + "20" : 
+                              customer.locationSource === "database" ? t.accent + "20" : 
+                              t.warning + "20",
+                  color: customer.locationSource === "geocoded" ? t.success : 
+                         customer.locationSource === "database" ? t.accent : 
+                         t.warning,
+                }}
+              >
+                {customer.locationSource === "geocoded" ? "📍 Géocodé" : 
+                 customer.locationSource === "database" ? "💾 BD" : 
+                 "📮 Code postal"}
+              </span>
+            )}
           </p>
         </div>
       </div>
