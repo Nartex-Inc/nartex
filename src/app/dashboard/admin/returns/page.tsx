@@ -26,14 +26,26 @@ import {
   UploadCloud,
   Truck,
   DollarSign,
-  ChevronDown,
   Filter,
-  MoreHorizontal,
+  Archive,
+  History,
+  Shield,
+  AlertCircle,
+  Warehouse,
+  CreditCard,
+  Scale,
+  BadgeCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AttachmentsSection } from "@/components/returns/AttachmentsSection";
 
-import type { ReturnRow, Reporter, Cause, Attachment, ProductLine, ReturnStatus, ItemSuggestion } from "@/types/returns";
+import type { ReturnRow, Reporter, Cause, Attachment, ProductLine, ItemSuggestion } from "@/types/returns";
+
+// =============================================================================
+//   TYPES
+// =============================================================================
+
+type UserRole = "Gestionnaire" | "Vérificateur" | "Facturation" | "Expert" | "Analyste";
 
 // =============================================================================
 //   CONSTANTS & LABELS
@@ -77,8 +89,18 @@ const CAUSES_IN_ORDER: Cause[] = [
   "autre",
 ];
 
+const RESTOCK_RATES = ["0%", "5%", "10%", "20%", "100%"];
+
+const WAREHOUSES = [
+  "Entrepôt Principal",
+  "Entrepôt B",
+  "Entrepôt C",
+  "Retour fournisseur",
+  "Déchets",
+];
+
 // =============================================================================
-//   API UTILS (unchanged)
+//   API UTILS
 // =============================================================================
 
 async function fetchReturns(params: {
@@ -87,14 +109,16 @@ async function fetchReturns(params: {
   reporter?: string;
   dateFrom?: string;
   dateTo?: string;
+  history?: boolean;
   take?: number;
-}): Promise<ReturnRow[]> {
+}): Promise<{ rows: ReturnRow[]; userRole?: UserRole }> {
   const usp = new URLSearchParams();
   if (params.q) usp.set("q", params.q);
   if (params.cause && params.cause !== "all") usp.set("cause", params.cause);
   if (params.reporter && params.reporter !== "all") usp.set("reporter", params.reporter);
   if (params.dateFrom) usp.set("dateFrom", params.dateFrom);
   if (params.dateTo) usp.set("dateTo", params.dateTo);
+  if (params.history) usp.set("history", "true");
   usp.set("take", String(params.take ?? 200));
 
   try {
@@ -103,15 +127,15 @@ async function fetchReturns(params: {
       cache: "no-store",
     });
 
-    if (!res.ok) return [];
+    if (!res.ok) return { rows: [] };
 
     const json = await res.json();
     if (json.ok && Array.isArray(json.data)) {
-      return json.data as ReturnRow[];
+      return { rows: json.data as ReturnRow[], userRole: json.userRole };
     }
-    return [];
+    return { rows: [] };
   } catch (error) {
-    return [];
+    return { rows: [] };
   }
 }
 
@@ -123,7 +147,43 @@ async function createReturn(payload: any) {
     body: JSON.stringify(payload),
   });
   const json = await res.json();
-  if (!json.ok) throw new Error("Création échouée");
+  if (!json.ok) throw new Error(json.error || "Création échouée");
+  return json.data;
+}
+
+async function updateReturn(code: string, payload: any) {
+  const res = await fetch(`/api/returns/${encodeURIComponent(code)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || "Mise à jour échouée");
+  return json.data;
+}
+
+async function verifyReturn(code: string, products: any[]) {
+  const res = await fetch(`/api/returns/${encodeURIComponent(code)}/verify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ products }),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || "Vérification échouée");
+  return json.data;
+}
+
+async function finalizeReturn(code: string, payload: any) {
+  const res = await fetch(`/api/returns/${encodeURIComponent(code)}/finalize`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || "Finalisation échouée");
   return json.data;
 }
 
@@ -154,18 +214,7 @@ async function uploadAttachment(returnId: string, file: File): Promise<Attachmen
   return json.attachments[0];
 }
 
-type OrderLookup = {
-  sonbr: string | number;
-  orderDate?: string | null;
-  totalamt: number | null;
-  customerName?: string | null;
-  carrierName?: string | null;
-  salesrepName?: string | null;
-  tracking?: string | null;
-  noClient?: string | null;
-};
-
-async function lookupOrder(noCommande: string): Promise<OrderLookup | null> {
+async function lookupOrder(noCommande: string): Promise<any | null> {
   if (!noCommande.trim()) return null;
   const res = await fetch(
     `/api/prextra/order?no_commande=${encodeURIComponent(noCommande.trim())}`,
@@ -174,19 +223,7 @@ async function lookupOrder(noCommande: string): Promise<OrderLookup | null> {
   if (!res.ok) return null;
   const json = await res.json();
   if (!json || json.exists === false) return null;
-
-  const normalizedNoClient = json.noClient ?? json.custCode ?? json.CustCode ?? json.customerCode ?? null;
-
-  return {
-    sonbr: json.sonbr ?? json.sonNbr ?? noCommande,
-    orderDate: json.orderDate ?? json.OrderDate ?? null,
-    totalamt: json.totalamt ?? json.totalAmt ?? null,
-    customerName: json.customerName ?? json.CustomerName ?? null,
-    carrierName: json.carrierName ?? json.CarrierName ?? null,
-    salesrepName: json.salesrepName ?? json.SalesrepName ?? null,
-    tracking: json.tracking ?? json.TrackingNumber ?? null,
-    noClient: normalizedNoClient,
-  };
+  return json;
 }
 
 async function searchItems(q: string): Promise<ItemSuggestion[]> {
@@ -213,19 +250,26 @@ function useDebounced<T>(value: T, delay = 300) {
 //   SHARED UI COMPONENTS
 // =============================================================================
 
-function Switch({ checked, onCheckedChange, label }: { checked: boolean; onCheckedChange: (c: boolean) => void; label?: string }) {
+function Switch({ checked, onCheckedChange, label, disabled }: { 
+  checked: boolean; 
+  onCheckedChange: (c: boolean) => void; 
+  label?: string;
+  disabled?: boolean;
+}) {
   return (
     <div className="flex items-center gap-3">
       <button
         type="button"
         role="switch"
         aria-checked={checked}
-        onClick={() => onCheckedChange(!checked)}
+        disabled={disabled}
+        onClick={() => !disabled && onCheckedChange(!checked)}
         className={cn(
           "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
           checked 
             ? "bg-neutral-900 dark:bg-white" 
-            : "bg-neutral-200 dark:bg-neutral-700"
+            : "bg-neutral-200 dark:bg-neutral-700",
+          disabled && "opacity-50 cursor-not-allowed"
         )}
       >
         <span
@@ -237,12 +281,19 @@ function Switch({ checked, onCheckedChange, label }: { checked: boolean; onCheck
           )}
         />
       </button>
-      {label && <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">{label}</span>}
+      {label && <span className={cn(
+        "text-sm font-medium",
+        disabled ? "text-neutral-400" : "text-neutral-700 dark:text-neutral-300"
+      )}>{label}</span>}
     </div>
   );
 }
 
-function Badge({ children, variant = "default", className }: { children: React.ReactNode; variant?: "default" | "success" | "warning" | "muted"; className?: string }) {
+function Badge({ children, variant = "default", className }: { 
+  children: React.ReactNode; 
+  variant?: "default" | "success" | "warning" | "muted" | "info"; 
+  className?: string 
+}) {
   return (
     <span className={cn(
       "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
@@ -250,6 +301,7 @@ function Badge({ children, variant = "default", className }: { children: React.R
       variant === "success" && "bg-lime-100 text-lime-800 dark:bg-lime-900/30 dark:text-lime-400",
       variant === "warning" && "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
       variant === "muted" && "bg-neutral-50 text-neutral-500 dark:bg-neutral-900 dark:text-neutral-500",
+      variant === "info" && "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
       className
     )}>
       {children}
@@ -265,9 +317,16 @@ type SortKey = "id" | "reportedAt" | "reporter" | "cause" | "client" | "noComman
 type SortDir = "asc" | "desc";
 
 export default function ReturnsPage() {
+  const { data: session } = useSession();
   const { resolvedTheme } = useTheme();
 
-  // filters
+  // User role from session
+  const userRole = (session?.user as { role?: string })?.role as UserRole | undefined;
+
+  // History/Archive toggle
+  const [showHistory, setShowHistory] = React.useState(false);
+
+  // Filters
   const [query, setQuery] = React.useState("");
   const [cause, setCause] = React.useState<"all" | Cause>("all");
   const [reporter, setReporter] = React.useState<"all" | Reporter>("all");
@@ -275,32 +334,33 @@ export default function ReturnsPage() {
   const [dateTo, setDateTo] = React.useState<string>("");
   const [showFilters, setShowFilters] = React.useState(false);
 
-  // data
+  // Data
   const [rows, setRows] = React.useState<ReturnRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  // selection
+  // Selection
   const [openId, setOpenId] = React.useState<string | null>(null);
   const selected = React.useMemo(() => rows.find((r) => r.id === openId) ?? null, [rows, openId]);
 
-  // sort
+  // Sort
   const [sortKey, setSortKey] = React.useState<SortKey>("reportedAt");
   const [sortDir, setSortDir] = React.useState<SortDir>("desc");
 
-  // new return modal
+  // New return modal
   const [openNew, setOpenNew] = React.useState(false);
 
   const load = React.useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchReturns({
+      const { rows: data } = await fetchReturns({
         q: query,
         cause,
         reporter,
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
+        history: showHistory,
         take: 200,
       });
       setRows(data);
@@ -310,18 +370,13 @@ export default function ReturnsPage() {
     } finally {
       setLoading(false);
     }
-  }, [query, cause, reporter, dateFrom, dateTo]);
+  }, [query, cause, reporter, dateFrom, dateTo, showHistory]);
 
   React.useEffect(() => {
     load();
   }, [load]);
 
   const sorted = React.useMemo(() => {
-    const validRows = rows.filter(r => {
-      if (r.isDraft && r.finalized) return false;
-      return true;
-    });
-
     const get = (r: ReturnRow) => {
       switch (sortKey) {
         case "id": return r.id;
@@ -334,7 +389,7 @@ export default function ReturnsPage() {
         case "attachments": return r.attachments?.length ?? 0;
       }
     };
-    const copy = [...validRows];
+    const copy = [...rows];
     copy.sort((a, b) => {
       const va = get(a);
       const vb = get(b);
@@ -349,15 +404,27 @@ export default function ReturnsPage() {
     return copy;
   }, [rows, sortKey, sortDir]);
 
-  const stats = React.useMemo(
-    () => ({
+  const stats = React.useMemo(() => {
+    // Stats depend on role
+    if (userRole === "Vérificateur") {
+      return {
+        total: rows.length,
+        awaitingVerification: rows.length, // All rows for this role are awaiting verification
+      };
+    }
+    if (userRole === "Facturation") {
+      return {
+        total: rows.length,
+        readyForFinalization: rows.length, // All rows for this role are ready
+      };
+    }
+    return {
       total: rows.length,
-      draft: rows.filter((r) => r.status === "draft" || r.isDraft).length,
-      awaiting: rows.filter((r) => r.physicalReturn && !r.verified && !r.finalized).length,
+      draft: rows.filter((r) => r.isDraft).length,
+      awaiting: rows.filter((r) => r.physicalReturn && !r.verified && !r.finalized && !r.isDraft).length,
       ready: rows.filter((r) => (!r.physicalReturn || r.verified) && !r.finalized && !r.isDraft).length,
-    }),
-    [rows]
-  );
+    };
+  }, [rows, userRole]);
 
   const onDelete = async (code: string) => {
     if (!confirm(`Supprimer le retour ${code} ?`)) return;
@@ -392,20 +459,46 @@ export default function ReturnsPage() {
 
   const hasActiveFilters = cause !== "all" || reporter !== "all" || dateFrom || dateTo;
 
-  // -------------------------------------------------------------------------
-  //  ROW STATUS & STYLING
-  //  - Green (lime): Ready for finalization (verified or no physical needed)
-  //  - Black/Dark: Awaiting physical reception
-  //  - White/Light: Draft
-  //  - Muted: Finalized/Archived
-  // -------------------------------------------------------------------------
+  // =======================================================================
+  // ROW STATUS & STYLING
+  // =======================================================================
   type RowStatus = "draft" | "awaiting_physical" | "ready" | "finalized";
   
   const getRowStatus = (row: ReturnRow): RowStatus => {
     if (row.finalized) return "finalized";
-    if (row.isDraft || row.status === "draft") return "draft";
+    if (row.isDraft) return "draft";
     if (row.physicalReturn && !row.verified) return "awaiting_physical";
     return "ready";
+  };
+
+  // =======================================================================
+  // ROLE-BASED UI HELPERS
+  // =======================================================================
+  
+  const canCreateReturn = userRole === "Gestionnaire";
+  const canDeleteReturn = userRole === "Gestionnaire";
+  const canVerifyReturn = userRole === "Vérificateur";
+  const canFinalizeReturn = userRole === "Facturation";
+  const canEditReturn = userRole === "Gestionnaire";
+  const isReadOnly = userRole === "Analyste" || userRole === "Expert";
+
+  // Get page title based on role
+  const getPageTitle = () => {
+    switch (userRole) {
+      case "Vérificateur": return "Vérification des retours";
+      case "Facturation": return "Finalisation des retours";
+      default: return showHistory ? "Historique des retours" : "Retours";
+    }
+  };
+
+  // Get page subtitle based on role
+  const getPageSubtitle = () => {
+    switch (userRole) {
+      case "Vérificateur": return "Retours physiques en attente de vérification";
+      case "Facturation": return "Retours prêts à être finalisés";
+      case "Expert": return "Vos retours en cours";
+      default: return showHistory ? "Retours archivés et finalisés" : "Gérez les demandes de retours";
+    }
   };
 
   return (
@@ -416,28 +509,68 @@ export default function ReturnsPage() {
         <header className="mb-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-white">
-                Retours
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-white">
+                  {getPageTitle()}
+                </h1>
+                {userRole && (
+                  <Badge variant="info" className="capitalize">
+                    <Shield className="h-3 w-3 mr-1" />
+                    {userRole}
+                  </Badge>
+                )}
+              </div>
               <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-                Gérez les demandes de retours et les réceptions
+                {getPageSubtitle()}
               </p>
             </div>
-            <button
-              onClick={() => setOpenNew(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium shadow-sm hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              Nouveau retour
-            </button>
+            
+            <div className="flex items-center gap-3">
+              {/* Archive/History Toggle - Only for Gestionnaire, Facturation, Analyste */}
+              {(userRole === "Gestionnaire" || userRole === "Facturation" || userRole === "Analyste") && (
+                <button
+                  onClick={() => setShowHistory(!showHistory)}
+                  className={cn(
+                    "inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                    showHistory
+                      ? "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
+                      : "bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                  )}
+                >
+                  {showHistory ? <Archive className="h-4 w-4" /> : <History className="h-4 w-4" />}
+                  {showHistory ? "Historique actif" : "Voir l'historique"}
+                </button>
+              )}
+
+              {/* New Return Button - Only for Gestionnaire */}
+              {canCreateReturn && !showHistory && (
+                <button
+                  onClick={() => setOpenNew(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium shadow-sm hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                  Nouveau retour
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Stats */}
           <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
             <StatCard label="Total" value={stats.total} />
-            <StatCard label="Brouillons" value={stats.draft} variant="muted" />
-            <StatCard label="En attente" value={stats.awaiting} variant="warning" />
-            <StatCard label="Prêts" value={stats.ready} variant="success" />
+            {userRole === "Gestionnaire" && (
+              <>
+                <StatCard label="Brouillons" value={(stats as any).draft ?? 0} variant="muted" />
+                <StatCard label="En attente" value={(stats as any).awaiting ?? 0} variant="warning" />
+                <StatCard label="Prêts" value={(stats as any).ready ?? 0} variant="success" />
+              </>
+            )}
+            {userRole === "Vérificateur" && (
+              <StatCard label="À vérifier" value={(stats as any).awaitingVerification ?? stats.total} variant="warning" />
+            )}
+            {userRole === "Facturation" && (
+              <StatCard label="À finaliser" value={(stats as any).readyForFinalization ?? stats.total} variant="success" />
+            )}
           </div>
         </header>
 
@@ -563,6 +696,7 @@ export default function ReturnsPage() {
 
           {error && (
             <div className="flex flex-col items-center justify-center py-24 text-red-600 dark:text-red-400">
+              <AlertCircle className="h-8 w-8 mb-3" />
               <p className="text-sm">{error}</p>
             </div>
           )}
@@ -594,7 +728,7 @@ export default function ReturnsPage() {
                           onClick={() => setOpenId(row.id)}
                           className={cn(
                             "group cursor-pointer transition-colors",
-                            // Draft: White/Light background
+                            // Draft: White/Light background - ONLY visible to Gestionnaire
                             status === "draft" && "bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800",
                             // Awaiting physical: Black/Dark background
                             status === "awaiting_physical" && "bg-neutral-900 dark:bg-neutral-950 text-white hover:bg-neutral-800 dark:hover:bg-neutral-900",
@@ -665,6 +799,7 @@ export default function ReturnsPage() {
                           </td>
                           <td className="px-4 py-3 text-right">
                             <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              {/* View/Edit Button */}
                               <button
                                 onClick={(e) => { e.stopPropagation(); setOpenId(row.id); }}
                                 className={cn(
@@ -673,22 +808,26 @@ export default function ReturnsPage() {
                                   status === "ready" && "hover:bg-neutral-900/10 text-neutral-900",
                                   (status === "draft" || status === "finalized") && "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500"
                                 )}
-                                title="Voir"
+                                title={canVerifyReturn ? "Vérifier" : canFinalizeReturn ? "Finaliser" : "Consulter"}
                               >
                                 <Eye className="h-4 w-4" />
                               </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); onDelete(row.id); }}
-                                className={cn(
-                                  "p-1.5 rounded-md transition-colors",
-                                  status === "awaiting_physical" && "hover:bg-red-500/30 text-white hover:text-red-200",
-                                  status === "ready" && "hover:bg-red-500/20 text-neutral-900 hover:text-red-600",
-                                  (status === "draft" || status === "finalized") && "hover:bg-red-50 dark:hover:bg-red-950 text-neutral-500 hover:text-red-600 dark:hover:text-red-400"
-                                )}
-                                title="Supprimer"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
+                              
+                              {/* Delete Button - Only for Gestionnaire on non-verified/non-finalized */}
+                              {canDeleteReturn && !row.verified && !row.finalized && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); onDelete(row.id); }}
+                                  className={cn(
+                                    "p-1.5 rounded-md transition-colors",
+                                    status === "awaiting_physical" && "hover:bg-red-500/30 text-white hover:text-red-200",
+                                    status === "ready" && "hover:bg-red-500/20 text-neutral-900 hover:text-red-600",
+                                    (status === "draft" || status === "finalized") && "hover:bg-red-50 dark:hover:bg-red-950 text-neutral-500 hover:text-red-600 dark:hover:text-red-400"
+                                  )}
+                                  title="Supprimer"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -700,7 +839,9 @@ export default function ReturnsPage() {
                 {sorted.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-24 text-neutral-400">
                     <Package className="h-10 w-10 mb-3 opacity-50" />
-                    <p className="text-sm">Aucun résultat</p>
+                    <p className="text-sm">
+                      {showHistory ? "Aucun retour archivé" : "Aucun retour à traiter"}
+                    </p>
                   </div>
                 )}
               </div>
@@ -708,39 +849,43 @@ export default function ReturnsPage() {
               {/* Footer Legend */}
               <div className="px-4 py-3 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50 flex items-center justify-between text-xs text-neutral-500">
                 <span>{sorted.length} retour{sorted.length !== 1 ? "s" : ""}</span>
-                <div className="flex items-center gap-4">
-                  <span className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded bg-lime-400 dark:bg-lime-500" />
-                    Prêt
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded bg-neutral-900 dark:bg-neutral-950" />
-                    En attente
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900" />
-                    Brouillon
-                  </span>
-                </div>
+                {userRole === "Gestionnaire" && !showHistory && (
+                  <div className="flex items-center gap-4">
+                    <span className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded bg-lime-400 dark:bg-lime-500" />
+                      Prêt
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded bg-neutral-900 dark:bg-neutral-950" />
+                      En attente
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900" />
+                      Brouillon
+                    </span>
+                  </div>
+                )}
               </div>
             </>
           )}
         </div>
       </div>
 
-      {/* Detail Modal */}
+      {/* Detail/Edit/Verify/Finalize Modal */}
       {selected && (
         <DetailModal
           row={selected}
+          userRole={userRole}
           onClose={() => setOpenId(null)}
           onPatched={(patch) =>
             setRows((prev) => prev.map((r) => (r.id === selected.id ? { ...r, ...patch } : r)))
           }
+          onRefresh={load}
         />
       )}
 
-      {/* New Return Modal */}
-      {openNew && (
+      {/* New Return Modal - Only for Gestionnaire */}
+      {openNew && canCreateReturn && (
         <NewReturnModal
           onClose={() => setOpenNew(false)}
           onCreated={async () => {
@@ -812,29 +957,48 @@ function SortTh({
 }
 
 // =============================================================================
-//   DETAIL MODAL
+//   DETAIL MODAL - Handles View/Edit/Verify/Finalize based on role
 // =============================================================================
 
 function DetailModal({
   row,
+  userRole,
   onClose,
   onPatched,
+  onRefresh,
 }: {
   row: ReturnRow;
+  userRole?: UserRole;
   onClose: () => void;
   onPatched: (patch: Partial<ReturnRow>) => void;
+  onRefresh: () => Promise<void>;
 }) {
   const { data: session } = useSession();
   const [draft, setDraft] = React.useState<ReturnRow>(row);
+  const [busy, setBusy] = React.useState(false);
 
   React.useEffect(() => setDraft(row), [row]);
 
+  // =======================================================================
+  // ROLE-BASED PERMISSIONS
+  // =======================================================================
+  const canEdit = userRole === "Gestionnaire" && !row.verified && !row.finalized;
+  const canVerify = userRole === "Vérificateur" && row.physicalReturn && !row.verified && !row.finalized;
+  const canFinalize = userRole === "Facturation" && !row.finalized && (!row.physicalReturn || row.verified);
+  const isReadOnly = row.finalized || (userRole !== "Gestionnaire" && userRole !== "Vérificateur" && userRole !== "Facturation");
+
+  // Show verification fields if:
+  // - User is Vérificateur and can verify, OR
+  // - Return is already verified (readonly)
+  const showVerificationFields = canVerify || row.verified;
+
+  // Show finalization fields if:
+  // - User is Facturation and can finalize, OR
+  // - Return is already finalized (readonly)
+  const showFinalizationFields = canFinalize || row.finalized;
+
   const creatorName = draft.createdBy?.name ?? session?.user?.name ?? REPORTER_LABEL[draft.reporter];
   const creatorDate = draft.createdBy?.at ? new Date(draft.createdBy.at) : new Date(draft.reportedAt);
-
-  const isPhysical = !!draft.physicalReturn;
-  const isVerified = !!draft.verified;
-  const isFinalized = !!draft.finalized;
 
   // Prevent scrolling background
   React.useEffect(() => {
@@ -842,6 +1006,109 @@ function DetailModal({
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
   }, []);
+
+  // =======================================================================
+  // HANDLERS
+  // =======================================================================
+
+  const handleSave = async () => {
+    if (!canEdit) return;
+    setBusy(true);
+    try {
+      await updateReturn(draft.id, {
+        reporter: draft.reporter,
+        cause: draft.cause,
+        expert: draft.expert,
+        client: draft.client,
+        noClient: draft.noClient,
+        noCommande: draft.noCommande,
+        tracking: draft.tracking,
+        amount: draft.amount,
+        dateCommande: draft.dateCommande,
+        transport: draft.transport,
+        description: draft.description,
+        physicalReturn: draft.physicalReturn,
+        isPickup: draft.isPickup,
+        isCommande: draft.isCommande,
+        isReclamation: draft.isReclamation,
+        noBill: draft.noBill,
+        noBonCommande: draft.noBonCommande,
+        noReclamation: draft.noReclamation,
+        products: draft.products,
+      });
+      onPatched(draft);
+      onClose();
+    } catch (e: any) {
+      alert(e.message || "Erreur lors de la sauvegarde");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleVerify = async () => {
+    if (!canVerify) return;
+    
+    // Validate all products have quantiteRecue
+    const missingQty = (draft.products ?? []).some(p => p.quantiteRecue === null || p.quantiteRecue === undefined);
+    if (missingQty) {
+      alert("Veuillez entrer la quantité reçue pour tous les produits");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await verifyReturn(draft.id, (draft.products ?? []).map(p => ({
+        codeProduit: p.codeProduit,
+        quantiteRecue: p.quantiteRecue ?? 0,
+        qteDetruite: p.qteDetruite ?? 0,
+        qteInventaire: (p.quantiteRecue ?? 0) - (p.qteDetruite ?? 0),
+      })));
+      await onRefresh();
+      onClose();
+    } catch (e: any) {
+      alert(e.message || "Erreur lors de la vérification");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleFinalize = async () => {
+    if (!canFinalize) return;
+    setBusy(true);
+    try {
+      await finalizeReturn(draft.id, {
+        products: (draft.products ?? []).map(p => ({
+          codeProduit: p.codeProduit,
+          quantiteRecue: p.quantiteRecue ?? 0,
+          qteInventaire: p.qteInventaire ?? 0,
+          qteDetruite: p.qteDetruite ?? 0,
+          tauxRestock: p.tauxRestock ?? 0,
+        })),
+        warehouseOrigin: draft.warehouseOrigin,
+        warehouseDestination: draft.warehouseDestination,
+        noCredit: draft.noCredit,
+        noCredit2: draft.noCredit2,
+        noCredit3: draft.noCredit3,
+        creditedTo: draft.creditedTo,
+        creditedTo2: draft.creditedTo2,
+        creditedTo3: draft.creditedTo3,
+        transportAmount: draft.transportAmount,
+        restockingAmount: draft.restockingAmount,
+        chargeTransport: !!draft.transportAmount,
+        villeShipto: draft.villeShipto,
+      });
+      await onRefresh();
+      onClose();
+    } catch (e: any) {
+      alert(e.message || "Erreur lors de la finalisation");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // =======================================================================
+  // RENDER
+  // =======================================================================
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -857,8 +1124,10 @@ function DetailModal({
             </div>
             <div>
               <h2 className="text-lg font-semibold text-neutral-900 dark:text-white flex items-center gap-3">
-                Retour {draft.id}
+                {canVerify ? "Vérification" : canFinalize ? "Finalisation" : row.finalized ? "Consultation" : "Retour"} {draft.id}
                 <Badge>{CAUSE_LABEL[draft.cause]}</Badge>
+                {row.verified && <Badge variant="success"><CheckCircle className="h-3 w-3 mr-1" />Vérifié</Badge>}
+                {row.finalized && <Badge variant="muted"><Archive className="h-3 w-3 mr-1" />Archivé</Badge>}
               </h2>
               <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
                 Par {creatorName} · {creatorDate.toLocaleDateString("fr-CA")}
@@ -876,94 +1145,67 @@ function DetailModal({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
-          {/* Status Controls */}
-          <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <Switch
-                label="Retour physique requis"
-                checked={isPhysical}
-                onCheckedChange={(c) => setDraft({ ...draft, physicalReturn: c })}
-              />
-              
-              <div className="flex items-center gap-3">
-                {isPhysical && (
-                  <>
-                    <Badge variant={isVerified ? "success" : "warning"}>
-                      {isVerified ? (
-                        <span className="flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Vérifié</span>
-                      ) : (
-                        <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> En attente</span>
-                      )}
-                    </Badge>
-                    <button
-                      onClick={() => setDraft({ ...draft, verified: !isVerified })}
-                      className={cn(
-                        "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-                        isVerified
-                          ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700"
-                          : "bg-lime-500 text-white hover:bg-lime-600"
-                      )}
-                    >
-                      {isVerified ? "Annuler" : "Valider"}
-                    </button>
-                  </>
-                )}
-                <button
-                  onClick={() => setDraft({ ...draft, finalized: !isFinalized })}
-                  className={cn(
-                    "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-                    isFinalized
-                      ? "bg-neutral-900 dark:bg-white text-white dark:text-neutral-900"
-                      : "bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
-                  )}
-                >
-                  {isFinalized ? "Clos" : "Archiver"}
-                </button>
-              </div>
+          {/* Status Info */}
+          {(row.verified || row.finalized) && (
+            <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 space-y-2">
+              {row.verifiedBy && (
+                <div className="flex items-center gap-2 text-sm">
+                  <BadgeCheck className="h-4 w-4 text-lime-600" />
+                  <span className="text-neutral-600 dark:text-neutral-400">
+                    Vérifié par <strong>{row.verifiedBy.name}</strong>
+                    {row.verifiedBy.at && ` le ${new Date(row.verifiedBy.at).toLocaleDateString("fr-CA")}`}
+                  </span>
+                </div>
+              )}
+              {row.finalizedBy && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Archive className="h-4 w-4 text-neutral-500" />
+                  <span className="text-neutral-600 dark:text-neutral-400">
+                    Finalisé par <strong>{row.finalizedBy.name}</strong>
+                    {row.finalizedBy.at && ` le ${new Date(row.finalizedBy.at).toLocaleDateString("fr-CA")}`}
+                  </span>
+                </div>
+              )}
             </div>
+          )}
 
-            {/* Option Toggles */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-neutral-200 dark:border-neutral-800">
-              <OptionToggle
-                label="Pickup"
-                checked={!!draft.isPickup}
-                onToggle={() => setDraft({ ...draft, isPickup: !draft.isPickup })}
-                inputValue={draft.noBill ?? ""}
-                onInputChange={(v) => setDraft({ ...draft, noBill: v })}
-                inputPlaceholder="No. Bill"
-                disabled={!draft.isPickup}
-              />
-              <OptionToggle
-                label="Commande"
-                checked={!!draft.isCommande}
-                onToggle={() => setDraft({ ...draft, isCommande: !draft.isCommande })}
-                inputValue={draft.noBonCommande ?? ""}
-                onInputChange={(v) => setDraft({ ...draft, noBonCommande: v })}
-                inputPlaceholder="No. Bon"
-                disabled={!draft.isCommande}
-              />
-              <OptionToggle
-                label="Réclamation"
-                checked={!!draft.isReclamation}
-                onToggle={() => setDraft({ ...draft, isReclamation: !draft.isReclamation })}
-                inputValue={draft.noReclamation ?? ""}
-                onInputChange={(v) => setDraft({ ...draft, noReclamation: v })}
-                inputPlaceholder="No. Récl."
-                disabled={!draft.isReclamation}
+          {/* Physical Return Toggle - Only editable by Gestionnaire before verification */}
+          <div className={cn(
+            "p-4 rounded-lg border",
+            draft.physicalReturn
+              ? "border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30"
+              : "border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950"
+          )}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Package className={cn("h-5 w-5", draft.physicalReturn ? "text-amber-600" : "text-neutral-400")} />
+                <div>
+                  <div className="text-sm font-medium text-neutral-900 dark:text-white">
+                    Retour physique
+                  </div>
+                  <div className="text-xs text-neutral-500">
+                    {draft.physicalReturn ? "La marchandise doit être vérifiée" : "Retour administratif uniquement"}
+                  </div>
+                </div>
+              </div>
+              <Switch
+                checked={!!draft.physicalReturn}
+                onCheckedChange={(c) => canEdit && setDraft({ ...draft, physicalReturn: c })}
+                disabled={!canEdit}
               />
             </div>
           </div>
 
-          {/* Info Fields */}
+          {/* Basic Info Fields */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <Field label="Expert" value={draft.expert || ""} onChange={(v) => setDraft({ ...draft, expert: v })} />
-            <Field label="Client" value={draft.client || ""} onChange={(v) => setDraft({ ...draft, client: v })} />
-            <Field label="No. Client" value={draft.noClient ?? ""} onChange={(v) => setDraft({ ...draft, noClient: v })} />
-            <Field label="No. Commande" value={draft.noCommande ?? ""} onChange={(v) => setDraft({ ...draft, noCommande: v })} />
-            <Field label="Tracking" value={draft.tracking ?? ""} onChange={(v) => setDraft({ ...draft, tracking: v })} icon={<Truck className="h-4 w-4" />} />
-            <Field label="Transporteur" value={draft.transport ?? ""} onChange={(v) => setDraft({ ...draft, transport: v })} />
-            <Field label="Montant" value={draft.amount?.toString() ?? ""} onChange={(v) => setDraft({ ...draft, amount: v ? Number(v) : null })} type="number" icon={<DollarSign className="h-4 w-4" />} />
-            <Field label="Date Commande" value={draft.dateCommande ?? ""} onChange={(v) => setDraft({ ...draft, dateCommande: v })} type="date" />
+            <Field label="Expert" value={draft.expert || ""} onChange={(v) => canEdit && setDraft({ ...draft, expert: v })} disabled={!canEdit} />
+            <Field label="Client" value={draft.client || ""} onChange={(v) => canEdit && setDraft({ ...draft, client: v })} disabled={!canEdit} />
+            <Field label="No. Client" value={draft.noClient ?? ""} onChange={(v) => canEdit && setDraft({ ...draft, noClient: v })} disabled={!canEdit} />
+            <Field label="No. Commande" value={draft.noCommande ?? ""} onChange={(v) => canEdit && setDraft({ ...draft, noCommande: v })} disabled={!canEdit} />
+            <Field label="Tracking" value={draft.tracking ?? ""} onChange={(v) => canEdit && setDraft({ ...draft, tracking: v })} icon={<Truck className="h-4 w-4" />} disabled={!canEdit} />
+            <Field label="Transporteur" value={draft.transport ?? ""} onChange={(v) => canEdit && setDraft({ ...draft, transport: v })} disabled={!canEdit} />
+            <Field label="Montant" value={draft.amount?.toString() ?? ""} onChange={(v) => canEdit && setDraft({ ...draft, amount: v ? Number(v) : null })} type="number" icon={<DollarSign className="h-4 w-4" />} disabled={!canEdit} />
+            <Field label="Date Commande" value={draft.dateCommande ?? ""} onChange={(v) => canEdit && setDraft({ ...draft, dateCommande: v })} type="date" disabled={!canEdit} />
           </div>
 
           {/* Attachments */}
@@ -980,28 +1222,29 @@ function DetailModal({
                 setDraft(prev => ({ ...prev, attachments: typedAttachments }));
                 onPatched({ attachments: typedAttachments });
               }}
-              readOnly={draft.finalized}
+              readOnly={isReadOnly}
             />
           </section>
 
-          {/* Products */}
+          {/* Products Section */}
           <section>
             <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-3 flex items-center gap-2">
               <Package className="h-4 w-4 text-neutral-400" />
               Produits (RMA)
             </h3>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {(draft.products ?? []).map((p, idx) => (
-                <ProductRow
+                <ProductDetailRow
                   key={p.id}
                   product={p}
+                  showVerificationFields={showVerificationFields}
+                  showFinalizationFields={showFinalizationFields}
+                  canEditBase={canEdit}
+                  canEditVerification={canVerify}
+                  canEditFinalization={canFinalize}
                   onChange={(updatedProduct) => {
                     const arr = (draft.products ?? []).slice();
                     arr[idx] = updatedProduct;
-                    setDraft({ ...draft, products: arr });
-                  }}
-                  onRemove={() => {
-                    const arr = (draft.products ?? []).filter((x) => x.id !== p.id);
                     setDraft({ ...draft, products: arr });
                   }}
                 />
@@ -1014,6 +1257,244 @@ function DetailModal({
             </div>
           </section>
 
+          {/* ================================================================
+              VERIFICATION SECTION - Only visible during/after verification
+          ================================================================ */}
+          {showVerificationFields && (
+            <section className={cn(
+              "p-4 rounded-lg border",
+              canVerify
+                ? "border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30"
+                : "border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950"
+            )}>
+              <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-amber-600" />
+                Vérification à l'entrepôt
+                {!canVerify && row.verified && (
+                  <Badge variant="success" className="ml-2">Complété</Badge>
+                )}
+              </h3>
+              
+              <div className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+                {canVerify 
+                  ? "Entrez les quantités reçues et détruites pour chaque produit ci-dessus."
+                  : "Les quantités ont été vérifiées et enregistrées."}
+              </div>
+            </section>
+          )}
+
+          {/* ================================================================
+              FINALIZATION SECTION - Only visible during/after finalization
+          ================================================================ */}
+          {showFinalizationFields && (
+            <>
+              {/* Inventory Transfer */}
+              <section className={cn(
+                "p-4 rounded-lg border",
+                canFinalize
+                  ? "border-lime-300 dark:border-lime-800 bg-lime-50 dark:bg-lime-950/30"
+                  : "border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950"
+              )}>
+                <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
+                  <Warehouse className="h-4 w-4 text-lime-600" />
+                  Transfert d'inventaire
+                  {!canFinalize && row.finalized && (
+                    <Badge variant="muted" className="ml-2">Complété</Badge>
+                  )}
+                </h3>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1.5 block">
+                      Entrepôt de départ
+                    </label>
+                    <select
+                      value={draft.warehouseOrigin || ""}
+                      onChange={(e) => canFinalize && setDraft({ ...draft, warehouseOrigin: e.target.value })}
+                      disabled={!canFinalize}
+                      className={cn(
+                        "w-full h-10 px-3 rounded-lg border text-sm focus:outline-none focus:ring-2",
+                        !canFinalize
+                          ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed"
+                          : "bg-white dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white"
+                      )}
+                    >
+                      <option value="">Sélectionner...</option>
+                      {WAREHOUSES.map(w => <option key={w} value={w}>{w}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1.5 block">
+                      Entrepôt de destination
+                    </label>
+                    <select
+                      value={draft.warehouseDestination || ""}
+                      onChange={(e) => canFinalize && setDraft({ ...draft, warehouseDestination: e.target.value })}
+                      disabled={!canFinalize}
+                      className={cn(
+                        "w-full h-10 px-3 rounded-lg border text-sm focus:outline-none focus:ring-2",
+                        !canFinalize
+                          ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed"
+                          : "bg-white dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white"
+                      )}
+                    >
+                      <option value="">Sélectionner...</option>
+                      {WAREHOUSES.map(w => <option key={w} value={w}>{w}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </section>
+
+              {/* Credits */}
+              <section className={cn(
+                "p-4 rounded-lg border",
+                canFinalize
+                  ? "border-lime-300 dark:border-lime-800 bg-lime-50 dark:bg-lime-950/30"
+                  : "border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950"
+              )}>
+                <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-lime-600" />
+                  Crédits
+                </h3>
+                
+                <div className="space-y-4">
+                  {/* Credit 1 */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1.5 block">
+                        Personne créditée
+                      </label>
+                      <select
+                        value={draft.creditedTo || ""}
+                        onChange={(e) => canFinalize && setDraft({ ...draft, creditedTo: e.target.value })}
+                        disabled={!canFinalize}
+                        className={cn(
+                          "w-full h-10 px-3 rounded-lg border text-sm focus:outline-none focus:ring-2",
+                          !canFinalize
+                            ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed"
+                            : "bg-white dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white"
+                        )}
+                      >
+                        <option value="">Sélectionner...</option>
+                        <option value="Expert">Expert</option>
+                        <option value="Client">Client</option>
+                      </select>
+                    </div>
+                    <Field 
+                      label="Numéro de crédit" 
+                      value={draft.noCredit ?? ""} 
+                      onChange={(v) => canFinalize && setDraft({ ...draft, noCredit: v })} 
+                      disabled={!canFinalize} 
+                    />
+                  </div>
+
+                  {/* Credit 2 */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1.5 block">
+                        Personne créditée 2
+                      </label>
+                      <select
+                        value={draft.creditedTo2 || ""}
+                        onChange={(e) => canFinalize && setDraft({ ...draft, creditedTo2: e.target.value })}
+                        disabled={!canFinalize}
+                        className={cn(
+                          "w-full h-10 px-3 rounded-lg border text-sm focus:outline-none focus:ring-2",
+                          !canFinalize
+                            ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed"
+                            : "bg-white dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white"
+                        )}
+                      >
+                        <option value="">Sélectionner...</option>
+                        <option value="Expert">Expert</option>
+                        <option value="Client">Client</option>
+                      </select>
+                    </div>
+                    <Field 
+                      label="Numéro de crédit 2" 
+                      value={draft.noCredit2 ?? ""} 
+                      onChange={(v) => canFinalize && setDraft({ ...draft, noCredit2: v })} 
+                      disabled={!canFinalize} 
+                    />
+                  </div>
+
+                  {/* Credit 3 */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-1.5 block">
+                        Personne créditée 3
+                      </label>
+                      <select
+                        value={draft.creditedTo3 || ""}
+                        onChange={(e) => canFinalize && setDraft({ ...draft, creditedTo3: e.target.value })}
+                        disabled={!canFinalize}
+                        className={cn(
+                          "w-full h-10 px-3 rounded-lg border text-sm focus:outline-none focus:ring-2",
+                          !canFinalize
+                            ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed"
+                            : "bg-white dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white"
+                        )}
+                      >
+                        <option value="">Sélectionner...</option>
+                        <option value="Expert">Expert</option>
+                        <option value="Client">Client</option>
+                      </select>
+                    </div>
+                    <Field 
+                      label="Numéro de crédit 3" 
+                      value={draft.noCredit3 ?? ""} 
+                      onChange={(v) => canFinalize && setDraft({ ...draft, noCredit3: v })} 
+                      disabled={!canFinalize} 
+                    />
+                  </div>
+                </div>
+              </section>
+
+              {/* Transport & Restocking */}
+              <section className={cn(
+                "p-4 rounded-lg border",
+                canFinalize
+                  ? "border-lime-300 dark:border-lime-800 bg-lime-50 dark:bg-lime-950/30"
+                  : "border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950"
+              )}>
+                <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
+                  <Scale className="h-4 w-4 text-lime-600" />
+                  Transport & Restocking
+                </h3>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <Field 
+                    label="Ville de livraison" 
+                    value={draft.villeShipto ?? ""} 
+                    onChange={(v) => canFinalize && setDraft({ ...draft, villeShipto: v })} 
+                    disabled={!canFinalize} 
+                  />
+                  <Field 
+                    label="Poids total (lb)" 
+                    value={draft.totalWeight?.toString() ?? ""} 
+                    onChange={(v) => canFinalize && setDraft({ ...draft, totalWeight: v ? Number(v) : null })} 
+                    type="number"
+                    disabled={!canFinalize} 
+                  />
+                  <Field 
+                    label="Montant transport ($)" 
+                    value={draft.transportAmount?.toString() ?? ""} 
+                    onChange={(v) => canFinalize && setDraft({ ...draft, transportAmount: v ? Number(v) : null })} 
+                    type="number"
+                    disabled={!canFinalize} 
+                  />
+                  <Field 
+                    label="Montant restocking ($)" 
+                    value={draft.restockingAmount?.toString() ?? ""} 
+                    onChange={(v) => canFinalize && setDraft({ ...draft, restockingAmount: v ? Number(v) : null })} 
+                    type="number"
+                    disabled={!canFinalize} 
+                  />
+                </div>
+              </section>
+            </>
+          )}
+
           {/* Notes */}
           <section>
             <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-3 flex items-center gap-2">
@@ -1021,11 +1502,17 @@ function DetailModal({
               Notes
             </h3>
             <textarea
-              className="w-full px-3 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white resize-none"
+              className={cn(
+                "w-full px-3 py-2.5 rounded-lg border text-sm resize-none focus:outline-none focus:ring-2",
+                !canEdit
+                  ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed"
+                  : "bg-white dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:ring-neutral-900 dark:focus:ring-white"
+              )}
               rows={3}
               placeholder="Notes internes..."
               value={draft.description ?? ""}
-              onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+              onChange={(e) => canEdit && setDraft({ ...draft, description: e.target.value })}
+              disabled={!canEdit}
             />
           </section>
         </div>
@@ -1036,67 +1523,248 @@ function DetailModal({
             onClick={onClose}
             className="px-4 py-2 rounded-lg text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
           >
-            Annuler
+            {isReadOnly ? "Fermer" : "Annuler"}
           </button>
-          <button
-            onClick={() => onPatched(draft)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
-          >
-            <Save className="h-4 w-4" />
-            Enregistrer
-          </button>
+          
+          {/* Save Button - Only for Gestionnaire editing */}
+          {canEdit && (
+            <button
+              disabled={busy}
+              onClick={handleSave}
+              className={cn(
+                "inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors",
+                busy && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Enregistrer
+            </button>
+          )}
+
+          {/* Verify Button - Only for Vérificateur */}
+          {canVerify && (
+            <button
+              disabled={busy}
+              onClick={handleVerify}
+              className={cn(
+                "inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 transition-colors",
+                busy && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+              Vérifier
+            </button>
+          )}
+
+          {/* Finalize Button - Only for Facturation */}
+          {canFinalize && (
+            <button
+              disabled={busy}
+              onClick={handleFinalize}
+              className={cn(
+                "inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-lime-500 text-white text-sm font-medium hover:bg-lime-600 transition-colors",
+                busy && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
+              Finaliser
+            </button>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function OptionToggle({
-  label,
-  checked,
-  onToggle,
-  inputValue,
-  onInputChange,
-  inputPlaceholder,
-  disabled,
+// =============================================================================
+//   PRODUCT DETAIL ROW - With verification and finalization fields
+// =============================================================================
+
+function ProductDetailRow({
+  product,
+  showVerificationFields,
+  showFinalizationFields,
+  canEditBase,
+  canEditVerification,
+  canEditFinalization,
+  onChange,
 }: {
-  label: string;
-  checked: boolean;
-  onToggle: () => void;
-  inputValue: string;
-  onInputChange: (v: string) => void;
-  inputPlaceholder: string;
-  disabled: boolean;
+  product: ProductLine;
+  showVerificationFields: boolean;
+  showFinalizationFields: boolean;
+  canEditBase: boolean;
+  canEditVerification: boolean;
+  canEditFinalization: boolean;
+  onChange: (p: ProductLine) => void;
 }) {
   return (
-    <div className={cn(
-      "p-3 rounded-lg border transition-colors",
-      checked
-        ? "border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900"
-        : "border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 opacity-60"
-    )}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-neutral-900 dark:text-white">{label}</span>
-        <button
-          onClick={onToggle}
-          className={cn(
-            "relative h-5 w-9 rounded-full transition-colors",
-            checked ? "bg-neutral-900 dark:bg-white" : "bg-neutral-200 dark:bg-neutral-700"
-          )}
-        >
-          <span className={cn(
-            "absolute top-0.5 left-0.5 h-4 w-4 rounded-full transition-transform shadow-sm",
-            checked ? "translate-x-4 bg-white dark:bg-neutral-900" : "bg-white dark:bg-neutral-400"
-          )} />
-        </button>
+    <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 space-y-3">
+      {/* Base Product Info */}
+      <div className="flex items-center gap-3">
+        <div className="flex-shrink-0 w-28">
+          <label className="text-xs font-medium text-neutral-500 uppercase tracking-wide block mb-1">Code</label>
+          <input
+            className={cn(
+              "w-full h-9 px-2.5 rounded-md text-sm font-mono border focus:outline-none focus:ring-1",
+              !canEditBase
+                ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed"
+                : "bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white"
+            )}
+            value={product.codeProduit}
+            onChange={(e) => canEditBase && onChange({ ...product, codeProduit: e.target.value })}
+            disabled={!canEditBase}
+          />
+        </div>
+        <div className="flex-1">
+          <label className="text-xs font-medium text-neutral-500 uppercase tracking-wide block mb-1">Description</label>
+          <input
+            className={cn(
+              "w-full h-9 px-2.5 rounded-md text-sm border focus:outline-none focus:ring-1",
+              !canEditBase
+                ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed"
+                : "bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white"
+            )}
+            value={product.descriptionProduit || ""}
+            onChange={(e) => canEditBase && onChange({ ...product, descriptionProduit: e.target.value })}
+            disabled={!canEditBase}
+          />
+        </div>
+        <div className="w-20">
+          <label className="text-xs font-medium text-neutral-500 uppercase tracking-wide block mb-1">Qté</label>
+          <input
+            type="number"
+            min={0}
+            className={cn(
+              "w-full h-9 px-2.5 rounded-md text-sm text-center border focus:outline-none focus:ring-1",
+              !canEditBase
+                ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed"
+                : "bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white"
+            )}
+            value={product.quantite}
+            onChange={(e) => canEditBase && onChange({ ...product, quantite: Number(e.target.value || 0) })}
+            disabled={!canEditBase}
+          />
+        </div>
       </div>
-      <input
-        disabled={disabled}
-        value={inputValue}
-        onChange={(e) => onInputChange(e.target.value)}
-        className="w-full h-8 px-2.5 rounded-md text-sm border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white placeholder:text-neutral-400 disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white"
-        placeholder={inputPlaceholder}
-      />
+
+      {/* Verification Fields - Quantity received, destroyed, inventory */}
+      {showVerificationFields && (
+        <div className={cn(
+          "pt-3 border-t border-neutral-100 dark:border-neutral-800",
+          canEditVerification && "border-amber-200 dark:border-amber-800"
+        )}>
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle className={cn("h-3.5 w-3.5", canEditVerification ? "text-amber-500" : "text-neutral-400")} />
+            <span className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Vérification</span>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs text-neutral-500 block mb-1">Qté reçue</label>
+              <input
+                type="number"
+                min={0}
+                className={cn(
+                  "w-full h-9 px-2.5 rounded-md text-sm text-center border focus:outline-none focus:ring-1",
+                  !canEditVerification
+                    ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed"
+                    : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-neutral-900 dark:text-white focus:ring-amber-500"
+                )}
+                value={product.quantiteRecue ?? ""}
+                onChange={(e) => {
+                  if (!canEditVerification) return;
+                  const qteRecue = Number(e.target.value || 0);
+                  const qteDetruite = product.qteDetruite ?? 0;
+                  onChange({ 
+                    ...product, 
+                    quantiteRecue: qteRecue,
+                    qteInventaire: qteRecue - qteDetruite 
+                  });
+                }}
+                disabled={!canEditVerification}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-neutral-500 block mb-1">Qté détruite</label>
+              <input
+                type="number"
+                min={0}
+                max={product.quantiteRecue ?? 0}
+                className={cn(
+                  "w-full h-9 px-2.5 rounded-md text-sm text-center border focus:outline-none focus:ring-1",
+                  !canEditVerification
+                    ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed"
+                    : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-neutral-900 dark:text-white focus:ring-amber-500"
+                )}
+                value={product.qteDetruite ?? ""}
+                onChange={(e) => {
+                  if (!canEditVerification) return;
+                  const qteDetruite = Math.min(Number(e.target.value || 0), product.quantiteRecue ?? 0);
+                  const qteRecue = product.quantiteRecue ?? 0;
+                  onChange({ 
+                    ...product, 
+                    qteDetruite: qteDetruite,
+                    qteInventaire: qteRecue - qteDetruite 
+                  });
+                }}
+                disabled={!canEditVerification}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-neutral-500 block mb-1">Qté inventaire</label>
+              <input
+                type="number"
+                className="w-full h-9 px-2.5 rounded-md text-sm text-center border bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed"
+                value={product.qteInventaire ?? ((product.quantiteRecue ?? 0) - (product.qteDetruite ?? 0))}
+                disabled
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Finalization Fields - Restocking rate */}
+      {showFinalizationFields && (
+        <div className={cn(
+          "pt-3 border-t border-neutral-100 dark:border-neutral-800",
+          canEditFinalization && "border-lime-200 dark:border-lime-800"
+        )}>
+          <div className="flex items-center gap-2 mb-2">
+            <Scale className={cn("h-3.5 w-3.5", canEditFinalization ? "text-lime-500" : "text-neutral-400")} />
+            <span className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Restocking</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-neutral-500 block mb-1">Taux restocking</label>
+              <select
+                className={cn(
+                  "w-full h-9 px-2.5 rounded-md text-sm border focus:outline-none focus:ring-1",
+                  !canEditFinalization
+                    ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed"
+                    : "bg-lime-50 dark:bg-lime-950/30 border-lime-200 dark:border-lime-800 text-neutral-900 dark:text-white focus:ring-lime-500"
+                )}
+                value={`${(product.tauxRestock ?? 0)}%`}
+                onChange={(e) => {
+                  if (!canEditFinalization) return;
+                  const rate = parseFloat(e.target.value.replace('%', ''));
+                  onChange({ ...product, tauxRestock: rate });
+                }}
+                disabled={!canEditFinalization}
+              >
+                {RESTOCK_RATES.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-neutral-500 block mb-1">Poids total</label>
+              <input
+                type="text"
+                className="w-full h-9 px-2.5 rounded-md text-sm border bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed"
+                value={product.poidsTotal ? `${product.poidsTotal} lb` : "—"}
+                disabled
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1107,12 +1775,14 @@ function Field({
   onChange,
   type = "text",
   icon,
+  disabled,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   type?: string;
   icon?: React.ReactNode;
+  disabled?: boolean;
 }) {
   return (
     <label className="block">
@@ -1125,9 +1795,13 @@ function Field({
           type={type}
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
           className={cn(
-            "w-full h-10 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white [color-scheme:light] dark:[color-scheme:dark]",
-            icon ? "pl-9 pr-3" : "px-3"
+            "w-full h-10 rounded-lg border text-sm focus:outline-none focus:ring-2 [color-scheme:light] dark:[color-scheme:dark]",
+            icon ? "pl-9 pr-3" : "px-3",
+            disabled
+              ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed"
+              : "bg-white dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:ring-neutral-900 dark:focus:ring-white"
           )}
         />
       </div>
@@ -1135,100 +1809,8 @@ function Field({
   );
 }
 
-function ProductRow({
-  product,
-  onChange,
-  onRemove,
-}: {
-  product: ProductLine;
-  onChange: (p: ProductLine) => void;
-  onRemove: () => void;
-}) {
-  const [suggestions, setSuggestions] = React.useState<ItemSuggestion[]>([]);
-  const [showSuggestions, setShowSuggestions] = React.useState(false);
-  const debouncedCode = useDebounced(product.codeProduit, 300);
-
-  React.useEffect(() => {
-    let active = true;
-    const fetchSuggestions = async () => {
-      if (!showSuggestions || debouncedCode.trim().length < 2) {
-        setSuggestions([]);
-        return;
-      }
-      try {
-        const results = await searchItems(debouncedCode);
-        if (active) setSuggestions(results);
-      } catch (error) {
-        console.error(error);
-      }
-    };
-    fetchSuggestions();
-    return () => { active = false; };
-  }, [debouncedCode, showSuggestions]);
-
-  return (
-    <div className="flex items-center gap-3 p-3 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 group">
-      <div className="relative flex-shrink-0 w-32">
-        <input
-          className="w-full h-9 px-2.5 rounded-md text-sm font-mono border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white"
-          placeholder="Code"
-          value={product.codeProduit}
-          onChange={(e) => {
-            onChange({ ...product, codeProduit: e.target.value });
-            setShowSuggestions(true);
-          }}
-          onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-        />
-        {showSuggestions && suggestions.length > 0 && (
-          <div className="absolute z-50 top-full left-0 mt-1 w-64 max-h-48 overflow-y-auto rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-lg">
-            {suggestions.map((s) => (
-              <button
-                key={s.code}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 border-b border-neutral-100 dark:border-neutral-800 last:border-0"
-                onClick={() => {
-                  onChange({ ...product, codeProduit: s.code, descriptionProduit: s.descr || product.descriptionProduit });
-                  setShowSuggestions(false);
-                }}
-              >
-                <div className="font-mono font-medium text-neutral-900 dark:text-white">{s.code}</div>
-                <div className="text-xs text-neutral-500 truncate">{s.descr}</div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-      <input
-        className="flex-1 h-9 px-2.5 rounded-md text-sm border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white"
-        placeholder="Description"
-        value={product.descriptionProduit || ""}
-        onChange={(e) => onChange({ ...product, descriptionProduit: e.target.value })}
-      />
-      <input
-        className="flex-1 h-9 px-2.5 rounded-md text-sm border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white"
-        placeholder="Raison"
-        value={product.descriptionRetour ?? ""}
-        onChange={(e) => onChange({ ...product, descriptionRetour: e.target.value })}
-      />
-      <input
-        type="number"
-        min={0}
-        className="w-20 h-9 px-2.5 rounded-md text-sm text-center border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white"
-        placeholder="Qté"
-        value={product.quantite}
-        onChange={(e) => onChange({ ...product, quantite: Number(e.target.value || 0) })}
-      />
-      <button
-        onClick={onRemove}
-        className="p-2 rounded-md text-neutral-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 opacity-0 group-hover:opacity-100 transition-all"
-      >
-        <Trash2 className="h-4 w-4" />
-      </button>
-    </div>
-  );
-}
-
 // =============================================================================
-//   NEW RETURN MODAL
+//   NEW RETURN MODAL - Only for Gestionnaire
 // =============================================================================
 
 function NewReturnModal({
@@ -1295,13 +1877,13 @@ function NewReturnModal({
     try {
       const data = await lookupOrder(noCommande);
       if (!data) return;
-      if (data.customerName) setClient(data.customerName);
-      if (data.salesrepName) setExpert(data.salesrepName);
-      if (data.carrierName) setTransport(data.carrierName);
-      if (data.tracking) setTracking(data.tracking);
-      if (data.orderDate) setDateCommande(String(data.orderDate).slice(0, 10));
+      if (data.customerName || data.CustomerName) setClient(data.customerName || data.CustomerName);
+      if (data.salesrepName || data.SalesrepName) setExpert(data.salesrepName || data.SalesrepName);
+      if (data.carrierName || data.CarrierName) setTransport(data.carrierName || data.CarrierName);
+      if (data.tracking || data.TrackingNumber) setTracking(data.tracking || data.TrackingNumber);
+      if (data.orderDate || data.OrderDate) setDateCommande(String(data.orderDate || data.OrderDate).slice(0, 10));
       if (data.totalamt != null) setAmount(String(data.totalamt));
-      const customerCode = (data.noClient ?? "") as string | number;
+      const customerCode = data.noClient ?? data.custCode ?? data.CustCode ?? "";
       setNoClient(String(customerCode));
     } finally {
       setOrderLookupLoading(false);
@@ -1418,15 +2000,15 @@ function NewReturnModal({
             className={cn(
               "p-4 rounded-lg border cursor-pointer transition-colors",
               physicalReturn
-                ? "border-lime-300 dark:border-lime-800 bg-lime-50 dark:bg-lime-950/30"
+                ? "border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30"
                 : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:bg-neutral-50 dark:hover:bg-neutral-900"
             )}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Package className={cn("h-5 w-5", physicalReturn ? "text-lime-600 dark:text-lime-400" : "text-neutral-400")} />
+                <Package className={cn("h-5 w-5", physicalReturn ? "text-amber-600" : "text-neutral-400")} />
                 <div>
-                  <div className={cn("text-sm font-medium", physicalReturn ? "text-lime-900 dark:text-lime-100" : "text-neutral-900 dark:text-white")}>
+                  <div className={cn("text-sm font-medium", physicalReturn ? "text-amber-900 dark:text-amber-100" : "text-neutral-900 dark:text-white")}>
                     Retour physique
                   </div>
                   <div className="text-xs text-neutral-500">
@@ -1556,7 +2138,7 @@ function NewReturnModal({
             ) : (
               <div className="space-y-2">
                 {products.map((p, idx) => (
-                  <ProductRow
+                  <NewProductRow
                     key={p.id}
                     product={p}
                     onChange={(updatedProduct) => {
@@ -1698,5 +2280,147 @@ function FormField({ label, required, children }: { label: string; required?: bo
       </span>
       {children}
     </label>
+  );
+}
+
+function OptionToggle({
+  label,
+  checked,
+  onToggle,
+  inputValue,
+  onInputChange,
+  inputPlaceholder,
+  disabled,
+}: {
+  label: string;
+  checked: boolean;
+  onToggle: () => void;
+  inputValue: string;
+  onInputChange: (v: string) => void;
+  inputPlaceholder: string;
+  disabled: boolean;
+}) {
+  return (
+    <div className={cn(
+      "p-3 rounded-lg border transition-colors",
+      checked
+        ? "border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900"
+        : "border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 opacity-60"
+    )}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium text-neutral-900 dark:text-white">{label}</span>
+        <button
+          onClick={onToggle}
+          className={cn(
+            "relative h-5 w-9 rounded-full transition-colors",
+            checked ? "bg-neutral-900 dark:bg-white" : "bg-neutral-200 dark:bg-neutral-700"
+          )}
+        >
+          <span className={cn(
+            "absolute top-0.5 left-0.5 h-4 w-4 rounded-full transition-transform shadow-sm",
+            checked ? "translate-x-4 bg-white dark:bg-neutral-900" : "bg-white dark:bg-neutral-400"
+          )} />
+        </button>
+      </div>
+      <input
+        disabled={disabled}
+        value={inputValue}
+        onChange={(e) => onInputChange(e.target.value)}
+        className="w-full h-8 px-2.5 rounded-md text-sm border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white placeholder:text-neutral-400 disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white"
+        placeholder={inputPlaceholder}
+      />
+    </div>
+  );
+}
+
+function NewProductRow({
+  product,
+  onChange,
+  onRemove,
+}: {
+  product: ProductLine;
+  onChange: (p: ProductLine) => void;
+  onRemove: () => void;
+}) {
+  const [suggestions, setSuggestions] = React.useState<ItemSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = React.useState(false);
+  const debouncedCode = useDebounced(product.codeProduit, 300);
+
+  React.useEffect(() => {
+    let active = true;
+    const fetchSuggestions = async () => {
+      if (!showSuggestions || debouncedCode.trim().length < 2) {
+        setSuggestions([]);
+        return;
+      }
+      try {
+        const results = await searchItems(debouncedCode);
+        if (active) setSuggestions(results);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+    fetchSuggestions();
+    return () => { active = false; };
+  }, [debouncedCode, showSuggestions]);
+
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 group">
+      <div className="relative flex-shrink-0 w-32">
+        <input
+          className="w-full h-9 px-2.5 rounded-md text-sm font-mono border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white"
+          placeholder="Code"
+          value={product.codeProduit}
+          onChange={(e) => {
+            onChange({ ...product, codeProduit: e.target.value });
+            setShowSuggestions(true);
+          }}
+          onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+        />
+        {showSuggestions && suggestions.length > 0 && (
+          <div className="absolute z-50 top-full left-0 mt-1 w-64 max-h-48 overflow-y-auto rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-lg">
+            {suggestions.map((s) => (
+              <button
+                key={s.code}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 border-b border-neutral-100 dark:border-neutral-800 last:border-0"
+                onClick={() => {
+                  onChange({ ...product, codeProduit: s.code, descriptionProduit: s.descr || product.descriptionProduit });
+                  setShowSuggestions(false);
+                }}
+              >
+                <div className="font-mono font-medium text-neutral-900 dark:text-white">{s.code}</div>
+                <div className="text-xs text-neutral-500 truncate">{s.descr}</div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <input
+        className="flex-1 h-9 px-2.5 rounded-md text-sm border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white"
+        placeholder="Description"
+        value={product.descriptionProduit || ""}
+        onChange={(e) => onChange({ ...product, descriptionProduit: e.target.value })}
+      />
+      <input
+        className="flex-1 h-9 px-2.5 rounded-md text-sm border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white"
+        placeholder="Raison"
+        value={product.descriptionRetour ?? ""}
+        onChange={(e) => onChange({ ...product, descriptionRetour: e.target.value })}
+      />
+      <input
+        type="number"
+        min={0}
+        className="w-20 h-9 px-2.5 rounded-md text-sm text-center border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white"
+        placeholder="Qté"
+        value={product.quantite}
+        onChange={(e) => onChange({ ...product, quantite: Number(e.target.value || 0) })}
+      />
+      <button
+        onClick={onRemove}
+        className="p-2 rounded-md text-neutral-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 opacity-0 group-hover:opacity-100 transition-all"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </div>
   );
 }
