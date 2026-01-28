@@ -572,7 +572,8 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const gcieid = Number(searchParams.get("gcieid") ?? 2);
   const salesRep = searchParams.get("salesRep") || null;
-  const product = searchParams.get("product") || null;
+  const productsParam = searchParams.get("products") || null;
+  const products = productsParam ? productsParam.split(",").filter(Boolean) : [];
   const minSales = Number(searchParams.get("minSales") ?? 0);
   
   const endDate = searchParams.get("endDate") ?? new Date().toISOString().slice(0, 10);
@@ -601,10 +602,12 @@ export async function GET(req: Request) {
     paramIndex++;
   }
 
-  if (product) {
-    conditions.push(`i."ItemCode" = $${paramIndex}`);
-    params.push(product);
-    paramIndex++;
+  // Handle multiple products with IN clause
+  if (products.length > 0) {
+    const placeholders = products.map((_, idx) => `$${paramIndex + idx}`).join(", ");
+    conditions.push(`i."ItemCode" IN (${placeholders})`);
+    params.push(...products);
+    paramIndex += products.length;
   }
 
   const whereClause = conditions.length > 0 ? `AND ${conditions.join(" AND ")}` : "";
@@ -723,7 +726,7 @@ export async function GET(req: Request) {
       geocodedThisRequest: geocodeCount,
       filters: {
         salesRep,
-        product,
+        products,
         minSales,
         startDate,
         endDate,
