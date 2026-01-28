@@ -450,6 +450,66 @@ const REGIONAL_FALLBACKS: Record<string, { lat: number; lng: number }> = {
 };
 
 /**
+ * Geocode an address using Google Geocoding API
+ * Rate limited to prevent runaway costs
+ */
+const GEOCODE_BATCH_LIMIT = 50; // Max geocodes per request
+let geocodeCount = 0;
+
+async function geocodeAddress(
+  address: string,
+  city: string,
+  postalCode: string
+): Promise<string | null> {
+  // Rate limit: max 50 geocodes per API request
+  if (geocodeCount >= GEOCODE_BATCH_LIMIT) {
+    return null;
+  }
+  
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey) {
+    console.warn("GOOGLE_MAPS_API_KEY not set, skipping geocoding");
+    return null;
+  }
+
+  const fullAddress = [address, city, "QC", postalCode, "Canada"]
+    .filter(Boolean)
+    .join(", ");
+
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${apiKey}`;
+
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === "OK" && data.results.length > 0) {
+      geocodeCount++;
+      const loc = data.results[0].geometry.location;
+      return `${loc.lat},${loc.lng}`;
+    }
+    console.warn(`Geocoding failed for: ${fullAddress} (${data.status})`);
+    return null;
+  } catch (error) {
+    console.error("Geocoding error:", error);
+    return null;
+  }
+}
+
+/**
+ * Save geoLocation to database (fire and forget)
+ */
+async function saveGeoLocation(custId: number, geoLocation: string): Promise<void> {
+  try {
+    await pg.query(
+      `UPDATE public."Customers" SET "geoLocation" = $1 WHERE "CustId" = $2`,
+      [geoLocation, custId]
+    );
+  } catch (error) {
+    console.error(`Failed to save geoLocation for customer ${custId}:`, error);
+  }
+}
+
+/**
  * Estimate lat/lng from postal code using ZipCode column
  */
 function estimateLocation(postalCode: string | null): { lat: number; lng: number } | null {
@@ -557,6 +617,7 @@ export async function GET(req: Request) {
       c."City" AS "city",
       c."ZipCode" AS "postalCode",
       c."tel" AS "phone",
+      c."geoLocation" AS "geoLocation",
       sr."Name" AS "salesRepName",
       SUM(d."Amount"::float8) AS "totalSales",
       COUNT(DISTINCT h."invnbr") AS "transactionCount",
@@ -572,51 +633,94 @@ export async function GET(req: Request) {
     WHERE h."cieid" = $1
       AND h."InvDate" BETWEEN $2 AND $3
       AND sr."Name" <> 'OTOPROTEC (004)'
-      AND c."ZipCode" IS NOT NULL
-      AND c."ZipCode" <> ''
       ${whereClause}
     GROUP BY 
       c."CustId", c."Name", c."Line1", c."City", c."ZipCode",
-      c."tel", sr."Name"
+      c."tel", c."geoLocation", sr."Name"
     HAVING SUM(d."Amount"::float8) >= ${minSales}
     ORDER BY SUM(d."Amount"::float8) DESC;
   `;
 
   try {
+    // Reset geocode counter for this request
+    geocodeCount = 0;
+    
     const { rows } = await pg.query(SQL_QUERY, params);
     
-    // Transform data with estimated locations from postal codes
-    const customers = rows
-      .map((row: any) => {
+    // Transform data - use geoLocation if available, geocode if not, fallback to postal code
+    const customersPromises = rows.map(async (row: any) => {
+      let lat: number | null = null;
+      let lng: number | null = null;
+      let wasGeocoded = false;
+
+      // 1. Try to parse existing geoLocation first (format: "lat,lng")
+      if (row.geoLocation && row.geoLocation.trim() !== "") {
+        const parts = row.geoLocation.split(",");
+        if (parts.length === 2) {
+          const parsedLat = parseFloat(parts[0].trim());
+          const parsedLng = parseFloat(parts[1].trim());
+          if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+            lat = parsedLat;
+            lng = parsedLng;
+          }
+        }
+      }
+
+      // 2. If no geoLocation, try to geocode (and save for future)
+      if (lat === null && row.address && row.city) {
+        const geoResult = await geocodeAddress(row.address, row.city, row.postalCode);
+        if (geoResult) {
+          const parts = geoResult.split(",");
+          lat = parseFloat(parts[0]);
+          lng = parseFloat(parts[1]);
+          wasGeocoded = true;
+          // Save to database in background (don't await)
+          saveGeoLocation(row.customerId, geoResult);
+        }
+      }
+
+      // 3. Fallback to postal code estimation if geocoding failed
+      if (lat === null || lng === null) {
         const location = estimateLocation(row.postalCode);
-        if (!location) return null; // Skip customers without valid postal codes
-        
-        const totalSales = parseFloat(row.totalSales);
-        
-        return {
-          customerId: row.customerId,
-          customerName: row.customerName,
-          address: row.address,
-          city: row.city,
-          postalCode: row.postalCode,
-          phone: row.phone,
-          salesRepName: row.salesRepName,
-          totalSales,
-          transactionCount: parseInt(row.transactionCount, 10),
-          firstInvoice: row.firstInvoice,
-          lastInvoice: row.lastInvoice,
-          productsPurchased: row.productsPurchased,
-          lat: location.lat,
-          lng: location.lng,
-          pinColor: getPinColor(totalSales),
-          pinSize: getPinSize(totalSales),
-        };
-      })
-      .filter(Boolean); // Remove null entries
+        if (location) {
+          lat = location.lat;
+          lng = location.lng;
+        }
+      }
+
+      // Skip customers without any location data
+      if (lat === null || lng === null) return null;
+
+      const totalSales = parseFloat(row.totalSales);
+
+      return {
+        customerId: row.customerId,
+        customerName: row.customerName,
+        address: row.address,
+        city: row.city,
+        postalCode: row.postalCode,
+        phone: row.phone,
+        salesRepName: row.salesRepName,
+        totalSales,
+        transactionCount: parseInt(row.transactionCount, 10),
+        firstInvoice: row.firstInvoice,
+        lastInvoice: row.lastInvoice,
+        productsPurchased: row.productsPurchased,
+        lat,
+        lng,
+        pinColor: getPinColor(totalSales),
+        pinSize: getPinSize(totalSales),
+        wasGeocoded, // useful for debugging
+      };
+    });
+
+    const customersResolved = await Promise.all(customersPromises);
+    const customers = customersResolved.filter(Boolean);
 
     return NextResponse.json({
       customers,
       total: customers.length,
+      geocodedThisRequest: geocodeCount,
       filters: {
         salesRep,
         product,
