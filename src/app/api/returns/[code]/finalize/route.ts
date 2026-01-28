@@ -1,5 +1,6 @@
 // src/app/api/returns/[code]/finalize/route.ts
 // Finalize return - POST
+// ONLY Facturation role can finalize returns
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -16,11 +17,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
-    // Role check
+    // CRITICAL: Only Facturation can finalize returns
     const userRole = (session.user as { role?: string }).role;
-    if (!["Gestionnaire", "Facturation"].includes(userRole || "")) {
+    if (userRole !== "Facturation") {
       return NextResponse.json(
-        { ok: false, error: "Vous n'êtes pas autorisé à finaliser les retours" },
+        { ok: false, error: "Seul le rôle Facturation peut finaliser les retours" },
         { status: 403 }
       );
     }
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Retour non trouvé" }, { status: 404 });
     }
 
-    // Validation
+    // Validation: If physical return, must be verified first
     if (ret.returnPhysical && !ret.isVerified) {
       return NextResponse.json(
         { ok: false, error: "Un retour physique doit être vérifié avant la finalisation" },
@@ -49,9 +50,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Validation: Cannot be already finalized (unless standby)
     if (ret.isFinal && !ret.isStandby) {
       return NextResponse.json(
         { ok: false, error: "Ce retour est déjà finalisé" },
+        { status: 400 }
+      );
+    }
+
+    // Validation: Cannot be a draft
+    if (ret.isDraft) {
+      return NextResponse.json(
+        { ok: false, error: "Ce retour est encore un brouillon" },
         { status: 400 }
       );
     }
@@ -70,15 +80,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       transportAmount,
       restockingAmount,
       chargeTransport,
+      villeShipto,
     } = body;
 
-    // Calculate total weight
+    // Calculate total weight and update products with finalization data
     let totalWeight = 0;
     
     if (products && Array.isArray(products)) {
       for (const p of products) {
-        // Update product with finalization data
-        const tauxRestock = p.tauxRestock !== undefined ? p.tauxRestock / 100 : null; // Convert percentage to decimal
+        const tauxRestock = p.tauxRestock !== undefined ? p.tauxRestock / 100 : null;
         
         await prisma.returnProduct.updateMany({
           where: { returnId: ret.id, codeProduit: p.codeProduit },
@@ -90,7 +100,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           },
         });
 
-        // Add to total weight
+        // Calculate total weight
         const product = ret.products.find(pr => pr.codeProduit === p.codeProduit);
         if (product) {
           const qty = p.quantiteRecue ?? product.quantiteRecue ?? product.quantite ?? 0;
@@ -107,7 +117,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         isFinal: true,
         isStandby: false,
         isDraft: false,
-        finalizedBy: session.user.name || "Système",
+        finalizedBy: session.user.name || "Facturation",
         finalizedAt: new Date(),
         warehouseOrigin: warehouseOrigin ?? ret.warehouseOrigin,
         warehouseDestination: warehouseDestination ?? ret.warehouseDestination,
@@ -117,6 +127,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         creditedTo: creditedTo ?? ret.creditedTo,
         creditedTo2: creditedTo2 ?? ret.creditedTo2,
         creditedTo3: creditedTo3 ?? ret.creditedTo3,
+        villeShipto: villeShipto ?? ret.villeShipto,
         totalWeight: totalWeight > 0 ? totalWeight : ret.totalWeight,
         transportAmount: chargeTransport ? transportAmount : null,
         restockingAmount: restockingAmount ?? ret.restockingAmount,
