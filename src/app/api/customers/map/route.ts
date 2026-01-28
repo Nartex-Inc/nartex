@@ -466,7 +466,7 @@ async function geocodeAddress(
     return null;
   }
   
-  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   if (!apiKey) {
     console.warn("GOOGLE_MAPS_API_KEY not set, skipping geocoding");
     return null;
@@ -485,9 +485,10 @@ async function geocodeAddress(
     if (data.status === "OK" && data.results.length > 0) {
       geocodeCount++;
       const loc = data.results[0].geometry.location;
+      console.log(`✅ Geocoded: ${fullAddress} → ${loc.lat},${loc.lng}`);
       return `${loc.lat},${loc.lng}`;
     }
-    console.warn(`Geocoding failed for: ${fullAddress} (${data.status})`);
+    console.warn(`❌ Geocoding failed for: ${fullAddress} (${data.status})`);
     return null;
   } catch (error) {
     console.error("Geocoding error:", error);
@@ -654,7 +655,7 @@ export async function GET(req: Request) {
     const customersPromises = rows.map(async (row: any) => {
       let lat: number | null = null;
       let lng: number | null = null;
-      let wasGeocoded = false;
+      let locationSource = "none";
 
       // 1. Try to parse existing geoLocation first (format: "lat,lng")
       if (row.geoLocation && row.geoLocation.trim() !== "") {
@@ -665,6 +666,7 @@ export async function GET(req: Request) {
           if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
             lat = parsedLat;
             lng = parsedLng;
+            locationSource = "database";
           }
         }
       }
@@ -676,7 +678,7 @@ export async function GET(req: Request) {
           const parts = geoResult.split(",");
           lat = parseFloat(parts[0]);
           lng = parseFloat(parts[1]);
-          wasGeocoded = true;
+          locationSource = "geocoded";
           // Save to database in background (don't await)
           saveGeoLocation(row.customerId, geoResult);
         }
@@ -688,6 +690,7 @@ export async function GET(req: Request) {
         if (location) {
           lat = location.lat;
           lng = location.lng;
+          locationSource = "postal_estimate";
         }
       }
 
@@ -713,7 +716,7 @@ export async function GET(req: Request) {
         lng,
         pinColor: getPinColor(totalSales),
         pinSize: getPinSize(totalSales),
-        wasGeocoded, // useful for debugging
+        locationSource, // Shows where coordinates came from
       };
     });
 
