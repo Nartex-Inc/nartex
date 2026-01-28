@@ -298,7 +298,7 @@ export default function ReturnsPage() {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(r =>
-        r.codeRetour.toLowerCase().includes(q) ||
+        String(r.codeRetour).toLowerCase().includes(q) ||
         r.client.toLowerCase().includes(q) ||
         r.expert.toLowerCase().includes(q) ||
         r.noCommande?.toLowerCase().includes(q) ||
@@ -435,7 +435,7 @@ export default function ReturnsPage() {
               <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
                 {filteredReturns.map((row) => (
                   <ReturnTableRow
-                    key={row.codeRetour}
+                    key={String(row.codeRetour)}
                     row={row}
                     userRole={userRole}
                     onView={() => setSelectedReturn(row)}
@@ -534,7 +534,7 @@ function ReturnTableRow({
     <tr className={cn("hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors", getRowBg())}>
       <td className="px-4 py-3">
         <span className="font-mono text-sm font-medium text-neutral-900 dark:text-white">
-          {row.codeRetour}
+          {String(row.codeRetour)}
         </span>
       </td>
       <td className="px-4 py-3">
@@ -653,11 +653,11 @@ function DetailModal({
     if (!canEdit) return;
     setBusy(true);
     try {
-      await updateReturn(row.codeRetour, draft);
+      await updateReturn(String(row.codeRetour), draft);
       
       if (filesToUpload.length > 0) {
         for (const file of filesToUpload) {
-          await uploadAttachment(row.codeRetour, file);
+          await uploadAttachment(String(row.codeRetour), file);
         }
       }
       
@@ -674,7 +674,7 @@ function DetailModal({
     if (!canVerify) return;
     setBusy(true);
     try {
-      await verifyReturn(row.codeRetour, { products: draft.products });
+      await verifyReturn(String(row.codeRetour), { products: draft.products });
       await onUpdate();
       onClose();
     } catch (e) {
@@ -688,7 +688,7 @@ function DetailModal({
     if (!canFinalize) return;
     setBusy(true);
     try {
-      await finalizeReturn(row.codeRetour, {
+      await finalizeReturn(String(row.codeRetour), {
         products: draft.products,
         warehouseOrigin: draft.warehouseOrigin,
         warehouseDestination: draft.warehouseDestination,
@@ -716,7 +716,7 @@ function DetailModal({
     if (!confirm("Supprimer ce retour?")) return;
     setBusy(true);
     try {
-      await deleteReturn(row.codeRetour);
+      await deleteReturn(String(row.codeRetour));
       await onUpdate();
       onClose();
     } catch (e) {
@@ -752,11 +752,11 @@ function DetailModal({
                 ? "bg-amber-200 dark:bg-amber-900 text-amber-700 dark:text-amber-300"
                 : "bg-blue-200 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
             )}>
-              {row.codeRetour.replace("R", "")}
+              {String(row.codeRetour).replace("R", "")}
             </div>
             <div>
               <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
-                Retour {row.codeRetour}
+                Retour {String(row.codeRetour)}
               </h2>
               <p className="text-sm text-neutral-500">{row.client}</p>
             </div>
