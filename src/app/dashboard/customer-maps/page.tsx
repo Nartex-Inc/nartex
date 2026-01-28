@@ -25,6 +25,8 @@ import {
   X,
   TrendingUp,
   Building2,
+  Plus,
+  Minus,
 } from "lucide-react";
 import { THEME, ThemeTokens } from "@/lib/theme-tokens";
 import { useCurrentAccent } from "@/components/accent-color-provider";
@@ -58,7 +60,7 @@ type FilterOptions = {
 
 type Filters = {
   salesRep: string;
-  product: string;
+  products: string[]; // Changed to array for multiple products
   minSales: number;
   startDate: string;
   endDate: string;
@@ -171,6 +173,198 @@ const MapSkeleton = ({ accentColor }: { accentColor: string }) => (
 );
 
 /* ═══════════════════════════════════════════════════════════════════════════════
+   Product Search Component with Autocomplete
+   ═══════════════════════════════════════════════════════════════════════════════ */
+type ProductItem = {
+  itemCode: string;
+  description: string;
+};
+
+function ProductSearch({
+  selectedProducts,
+  onAddProduct,
+  onRemoveProduct,
+  t,
+}: {
+  selectedProducts: string[];
+  onAddProduct: (productCode: string) => void;
+  onRemoveProduct: (productCode: string) => void;
+  t: ThemeTokens;
+}) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<ProductItem[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedResult, setSelectedResult] = useState<ProductItem | null>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Search products as user types
+  useEffect(() => {
+    const searchProducts = async () => {
+      if (searchTerm.length < 2) {
+        setSearchResults([]);
+        setShowDropdown(false);
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        const res = await fetch(`/api/catalogue/items?search=${encodeURIComponent(searchTerm)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setSearchResults(data.map((item: any) => ({
+            itemCode: item.itemCode,
+            description: item.description,
+          })));
+          setShowDropdown(true);
+        }
+      } catch (err) {
+        console.error("Product search failed:", err);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    const debounce = setTimeout(searchProducts, 300);
+    return () => clearTimeout(debounce);
+  }, [searchTerm]);
+
+  const handleSelectProduct = (product: ProductItem) => {
+    setSelectedResult(product);
+    setSearchTerm(product.itemCode);
+    setShowDropdown(false);
+  };
+
+  const handleAddProduct = () => {
+    if (selectedResult && !selectedProducts.includes(selectedResult.itemCode)) {
+      onAddProduct(selectedResult.itemCode);
+      setSearchTerm("");
+      setSelectedResult(null);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-medium" style={{ color: t.textSecondary }}>
+        <Package className="h-4 w-4 inline mr-2" />
+        Produits
+      </label>
+      
+      {/* Search Input with Add Button */}
+      <div className="flex gap-2" ref={searchRef}>
+        <div className="relative flex-1">
+          <Search 
+            className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" 
+            style={{ color: t.textTertiary }} 
+          />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setSelectedResult(null);
+            }}
+            onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
+            placeholder="Rechercher un produit..."
+            className="w-full rounded-lg pl-9 pr-3 py-2.5 text-sm transition-all focus:outline-none focus:ring-2"
+            style={{
+              background: t.surface2,
+              border: `1px solid ${t.borderSubtle}`,
+              color: t.textPrimary,
+            }}
+          />
+          {isSearching && (
+            <Loader2 
+              className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin" 
+              style={{ color: t.accent }} 
+            />
+          )}
+          
+          {/* Dropdown Results */}
+          {showDropdown && searchResults.length > 0 && (
+            <div
+              className="absolute z-50 w-full mt-1 max-h-48 overflow-y-auto rounded-lg shadow-lg"
+              style={{
+                background: t.surface1,
+                border: `1px solid ${t.borderSubtle}`,
+              }}
+            >
+              {searchResults.map((product) => (
+                <button
+                  key={product.itemCode}
+                  onClick={() => handleSelectProduct(product)}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-opacity-50 transition-colors"
+                  style={{
+                    color: t.textPrimary,
+                    background: selectedResult?.itemCode === product.itemCode ? t.accentMuted : "transparent",
+                  }}
+                >
+                  <span className="font-medium">{product.itemCode}</span>
+                  <span className="text-xs ml-2" style={{ color: t.textTertiary }}>
+                    {product.description?.slice(0, 30)}
+                    {product.description?.length > 30 ? "..." : ""}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        {/* Add Button */}
+        <button
+          onClick={handleAddProduct}
+          disabled={!selectedResult || selectedProducts.includes(selectedResult.itemCode)}
+          className="p-2.5 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+          style={{
+            background: selectedResult ? t.accent : t.surface2,
+            color: selectedResult ? t.void : t.textTertiary,
+          }}
+          title="Ajouter le produit"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Selected Products List */}
+      {selectedProducts.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-2">
+          {selectedProducts.map((productCode) => (
+            <div
+              key={productCode}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium"
+              style={{
+                background: t.accentMuted,
+                color: t.accent,
+              }}
+            >
+              <span>{productCode}</span>
+              <button
+                onClick={() => onRemoveProduct(productCode)}
+                className="hover:opacity-70 transition-opacity"
+                title="Retirer"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
    Filter Panel Component
    ═══════════════════════════════════════════════════════════════════════════════ */
 function FilterPanel({
@@ -240,10 +434,11 @@ function FilterPanel({
           className="w-full rounded-lg px-3 py-2.5 text-sm transition-all focus:outline-none focus:ring-2"
           style={{
             background: t.surface2,
-            border: `1px solid ${t.borderSubtle}`,
+            border: `1px solid ${stagedFilters.salesRep === "__NONE__" ? t.accent : t.borderSubtle}`,
             color: t.textPrimary,
           }}
         >
+          <option value="__NONE__">-- Sélectionner un expert --</option>
           <option value="">Tous les experts</option>
           {filterOptions?.salesReps.map((rep) => (
             <option key={rep} value={rep}>
@@ -251,34 +446,30 @@ function FilterPanel({
             </option>
           ))}
         </select>
+        {stagedFilters.salesRep === "__NONE__" && (
+          <p className="text-xs" style={{ color: t.accent }}>
+            ⚠️ Sélectionnez un expert pour afficher les clients
+          </p>
+        )}
       </div>
 
-      {/* Product Filter */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium" style={{ color: t.textSecondary }}>
-          <Package className="h-4 w-4 inline mr-2" />
-          Produit
-        </label>
-        <select
-          value={stagedFilters.product}
-          onChange={(e) =>
-            setStagedFilters((prev) => ({ ...prev, product: e.target.value }))
-          }
-          className="w-full rounded-lg px-3 py-2.5 text-sm transition-all focus:outline-none focus:ring-2"
-          style={{
-            background: t.surface2,
-            border: `1px solid ${t.borderSubtle}`,
-            color: t.textPrimary,
-          }}
-        >
-          <option value="">Tous les produits</option>
-          {filterOptions?.products.map((p) => (
-            <option key={p.code} value={p.code}>
-              {p.code} - {p.description}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Product Search */}
+      <ProductSearch
+        selectedProducts={stagedFilters.products}
+        onAddProduct={(code) => 
+          setStagedFilters((prev) => ({
+            ...prev,
+            products: [...prev.products, code],
+          }))
+        }
+        onRemoveProduct={(code) =>
+          setStagedFilters((prev) => ({
+            ...prev,
+            products: prev.products.filter((p) => p !== code),
+          }))
+        }
+        t={t}
+      />
 
       {/* Minimum Sales Filter */}
       <div className="space-y-2">
@@ -637,14 +828,14 @@ function CustomerMapContent() {
     libraries: ["places"],
   });
 
-  // Default date range (last 12 months)
+  // Default date range (last 12 months) - no expert selected by default
   const defaultFilters = useMemo(() => {
     const end = new Date();
     const start = new Date();
     start.setFullYear(start.getFullYear() - 1);
     return {
-      salesRep: "",
-      product: "",
+      salesRep: "__NONE__", // Special value to show no customers until expert is selected
+      products: [] as string[],
       minSales: 300,
       startDate: start.toISOString().slice(0, 10),
       endDate: end.toISOString().slice(0, 10),
@@ -680,13 +871,23 @@ function CustomerMapContent() {
 
   // Fetch customers based on filters
   const fetchCustomers = useCallback(async (currentFilters: Filters) => {
+    // Don't fetch if no expert selected (show empty map)
+    if (currentFilters.salesRep === "__NONE__") {
+      setCustomers([]);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
       const params = new URLSearchParams();
       if (currentFilters.salesRep) params.set("salesRep", currentFilters.salesRep);
-      if (currentFilters.product) params.set("product", currentFilters.product);
+      // Send products as comma-separated list
+      if (currentFilters.products.length > 0) {
+        params.set("products", currentFilters.products.join(","));
+      }
       params.set("minSales", String(currentFilters.minSales));
       params.set("startDate", currentFilters.startDate);
       params.set("endDate", currentFilters.endDate);
@@ -841,22 +1042,7 @@ function CustomerMapContent() {
 
   return (
     <div className="h-[calc(100vh-64px)] flex">
-      {/* Filter Panel - Left Side */}
-      <div className="w-80 flex-shrink-0 p-4 overflow-y-auto">
-        <FilterPanel
-          filters={filters}
-          stagedFilters={stagedFilters}
-          setStagedFilters={setStagedFilters}
-          filterOptions={filterOptions}
-          onApply={handleApplyFilters}
-          onReset={handleResetFilters}
-          isLoading={isLoading}
-          totalCustomers={customers.length}
-          t={t}
-        />
-      </div>
-
-      {/* Map Container - Right Side */}
+      {/* Map Container - Left Side */}
       <div className="flex-1 relative">
         {!mapsLoaded ? (
           <MapSkeleton accentColor={t.accent} />
@@ -958,6 +1144,21 @@ function CustomerMapContent() {
             {filters.startDate} → {filters.endDate}
           </div>
         </div>
+      </div>
+
+      {/* Filter Panel - Right Side */}
+      <div className="w-[340px] flex-shrink-0 p-4 overflow-y-auto">
+        <FilterPanel
+          filters={filters}
+          stagedFilters={stagedFilters}
+          setStagedFilters={setStagedFilters}
+          filterOptions={filterOptions}
+          onApply={handleApplyFilters}
+          onReset={handleResetFilters}
+          isLoading={isLoading}
+          totalCustomers={customers.length}
+          t={t}
+        />
       </div>
     </div>
   );
