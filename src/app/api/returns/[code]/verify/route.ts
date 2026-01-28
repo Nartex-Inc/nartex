@@ -1,5 +1,6 @@
 // src/app/api/returns/[code]/verify/route.ts
 // Verify physical return - POST
+// ONLY Vérificateur role can verify returns
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -16,11 +17,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
-    // Role check
+    // CRITICAL: Only Vérificateur can verify returns
     const userRole = (session.user as { role?: string }).role;
-    if (!["Verificateur", "Gestionnaire", "Facturation"].includes(userRole || "")) {
+    if (userRole !== "Vérificateur") {
       return NextResponse.json(
-        { ok: false, error: "Vous n'êtes pas autorisé à vérifier les retours" },
+        { ok: false, error: "Seul un vérificateur peut vérifier les retours" },
         { status: 403 }
       );
     }
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Retour non trouvé" }, { status: 404 });
     }
 
-    // Validation
+    // Validation: Must require physical return
     if (!ret.returnPhysical) {
       return NextResponse.json(
         { ok: false, error: "Ce retour ne nécessite pas de vérification physique" },
@@ -49,6 +50,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Validation: Cannot be already verified
     if (ret.isVerified) {
       return NextResponse.json(
         { ok: false, error: "Ce retour a déjà été vérifié" },
@@ -56,9 +58,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Validation: Cannot be finalized
     if (ret.isFinal) {
       return NextResponse.json(
         { ok: false, error: "Ce retour est déjà finalisé" },
+        { status: 400 }
+      );
+    }
+
+    // Validation: Cannot be a draft
+    if (ret.isDraft) {
+      return NextResponse.json(
+        { ok: false, error: "Ce retour est encore un brouillon" },
         { status: 400 }
       );
     }
@@ -68,19 +79,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     if (!products || !Array.isArray(products)) {
       return NextResponse.json(
-        { ok: false, error: "Liste des produits requise" },
+        { ok: false, error: "Liste des produits requise avec quantités reçues" },
         { status: 400 }
       );
     }
 
     // Update each product with verification data
     for (const p of products) {
+      // Validate: qteInventaire = quantiteRecue - qteDetruite
+      const quantiteRecue = p.quantiteRecue ?? 0;
+      const qteDetruite = p.qteDetruite ?? 0;
+      const qteInventaire = quantiteRecue - qteDetruite;
+
       await prisma.returnProduct.updateMany({
         where: { returnId: ret.id, codeProduit: p.codeProduit },
         data: {
-          quantiteRecue: p.quantiteRecue ?? 0,
-          qteInventaire: p.qteInventaire ?? 0,
-          qteDetruite: p.qteDetruite ?? 0,
+          quantiteRecue: quantiteRecue,
+          qteInventaire: qteInventaire,
+          qteDetruite: qteDetruite,
         },
       });
     }
@@ -90,7 +106,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       where: { id: returnId },
       data: {
         isVerified: true,
-        verifiedBy: session.user.name || "Système",
+        verifiedBy: session.user.name || "Vérificateur",
         verifiedAt: new Date(),
       },
     });
