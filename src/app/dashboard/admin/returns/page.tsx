@@ -216,14 +216,32 @@ function useDebounced<T>(value: T, delay = 300) {
 
 function filterReturnsByRole(returns: ReturnRow[], role: UserRole, showHistory: boolean): ReturnRow[] {
   if (showHistory) return returns.filter(r => r.finalized);
+  
   switch (role) {
     case "Gestionnaire":
+      // Gestionnaire sees ALL non-finalized: white (draft), black (awaiting physical), green (ready)
       return returns.filter(r => !r.finalized);
+    
     case "Vérificateur":
-      return returns.filter(r => !r.finalized && r.physicalReturn === true && r.verified === false && !r.isDraft);
+      // Vérificateur sees ONLY BLACK rows: physical return required, not yet verified
+      return returns.filter(r => 
+        !r.finalized && 
+        !r.isDraft && 
+        r.physicalReturn === true && 
+        r.verified === false
+      );
+    
     case "Facturation":
-      return returns.filter(r => !r.finalized && !r.isDraft && ((r.physicalReturn === true && r.verified === true) || r.physicalReturn === false));
+      // Facturation sees ONLY GREEN rows: ready for finalization
+      // Either: no physical return needed, OR physical return already verified
+      return returns.filter(r => 
+        !r.finalized && 
+        !r.isDraft && 
+        (r.physicalReturn === false || (r.physicalReturn === true && r.verified === true))
+      );
+    
     default:
+      // Other roles (Expert, Analyste) see non-draft, non-finalized
       return returns.filter(r => !r.finalized && !r.isDraft);
   }
 }
@@ -807,7 +825,42 @@ function DetailModal({
             </div>
           </section>
 
-          {/* Verification Info */}
+          {/* Verification Section - Only for Vérificateur on physical returns awaiting verification */}
+          {showVerificationFields && (
+            <section className={cn(
+              "p-4 rounded-lg border",
+              canVerify ? "border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30" : "border-lime-200 dark:border-lime-800 bg-lime-50 dark:bg-lime-950/30"
+            )}>
+              <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
+                <CheckCircle className="h-4 w-4" />
+                Vérification physique
+                {canVerify && <Badge variant="warning">À compléter</Badge>}
+                {isVerified && <Badge variant="success">Complété</Badge>}
+              </h3>
+              
+              {/* Verification fields are shown in ProductRow component */}
+              <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+                Remplissez les quantités reçues et détruites pour chaque produit ci-dessus.
+              </p>
+
+              {/* Vérifier Button - Only for Vérificateur */}
+              {canVerify && (
+                <button 
+                  disabled={busy} 
+                  onClick={handleVerify} 
+                  className={cn(
+                    "w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 transition-colors",
+                    busy && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                  Vérifier ce retour
+                </button>
+              )}
+            </section>
+          )}
+
+          {/* Verification Info - Show after verification */}
           {isVerified && draft.verifiedBy && (
             <div className="p-4 rounded-lg border border-lime-200 dark:border-lime-800 bg-lime-50 dark:bg-lime-950/30">
               <div className="flex items-center gap-2 text-sm text-lime-700 dark:text-lime-300">
@@ -848,11 +901,26 @@ function DetailModal({
               </div>
 
               {/* Transport & Restocking */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                 <Field label="Ville Ship-to" value={draft.villeShipto ?? ""} onChange={(v) => setDraft({ ...draft, villeShipto: v })} disabled={!canFinalize} />
                 <Field label="Frais transport" value={draft.transportAmount?.toString() ?? ""} onChange={(v) => setDraft({ ...draft, transportAmount: v ? Number(v) : null })} type="number" icon={<DollarSign className="h-4 w-4" />} disabled={!canFinalize} />
                 <Field label="Frais restocking" value={draft.restockingAmount?.toString() ?? ""} onChange={(v) => setDraft({ ...draft, restockingAmount: v ? Number(v) : null })} type="number" icon={<DollarSign className="h-4 w-4" />} disabled={!canFinalize} />
               </div>
+
+              {/* Finaliser Button - Only for Facturation */}
+              {canFinalize && (
+                <button 
+                  disabled={busy} 
+                  onClick={handleFinalize} 
+                  className={cn(
+                    "w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors mt-4",
+                    busy && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  Finaliser ce retour
+                </button>
+              )}
             </section>
           )}
 
@@ -898,20 +966,6 @@ function DetailModal({
             <button disabled={busy} onClick={handleSave} className={cn("inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors", busy && "opacity-50 cursor-not-allowed")}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Enregistrer
-            </button>
-          )}
-
-          {canVerify && (
-            <button disabled={busy} onClick={handleVerify} className={cn("inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-lime-500 text-white text-sm font-medium hover:bg-lime-600 transition-colors", busy && "opacity-50 cursor-not-allowed")}>
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
-              Vérifier
-            </button>
-          )}
-
-          {canFinalize && (
-            <button disabled={busy} onClick={handleFinalize} className={cn("inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors", busy && "opacity-50 cursor-not-allowed")}>
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              Finaliser
             </button>
           )}
         </div>
