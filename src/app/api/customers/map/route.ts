@@ -12,7 +12,7 @@ const ALLOWED_USER_ROLES = ["gestionnaire", "admin", "ventes-exec", "ventes_exec
 const BYPASS_EMAILS = ["n.labranche@sinto.ca"];
 
 let geocodeCount = 0;
-const GEOCODE_LIMIT = 50;
+const GEOCODE_LIMIT = 100; // Max new geocodes per request
 const geocodeErrors: string[] = [];
 
 async function geocode(address: string, city: string, postalCode: string): Promise<{ lat: number; lng: number } | null> {
@@ -44,13 +44,18 @@ async function geocode(address: string, city: string, postalCode: string): Promi
   }
 }
 
-async function saveGeo(custId: number, lat: number, lng: number) {
+async function saveGeo(custId: number, lat: number, lng: number): Promise<boolean> {
   try {
     await pg.query(
       `UPDATE public."Customers" SET "geoLocation" = $1 WHERE "CustId" = $2`,
       [`${lat},${lng}`, custId]
     );
-  } catch (e) {}
+    console.log(`💾 Saved to DB: customer ${custId}`);
+    return true;
+  } catch (e: any) {
+    console.log(`❌ DB Save failed: ${custId} - ${e.message}`);
+    return false;
+  }
 }
 
 function getPinColor(sales: number): string {
@@ -138,8 +143,7 @@ export async function GET(req: Request) {
       ${where}
     GROUP BY c."CustId", c."Name", c."Line1", c."City", c."ZipCode", c."tel", c."geoLocation", sr."Name"
     HAVING SUM(d."Amount"::float8) >= ${minSales}
-    ORDER BY SUM(d."Amount"::float8) DESC
-    LIMIT 200;
+    ORDER BY SUM(d."Amount"::float8) DESC;
   `;
 
   try {
@@ -148,16 +152,18 @@ export async function GET(req: Request) {
     const { rows } = await pg.query(SQL, params);
     
     console.log(`\n🗺️ MAP API: Processing ${rows.length} customers`);
-    console.log(`🔑 API Key: ${GOOGLE_MAPS_API_KEY.slice(0, 10)}...`);
 
     const customers: any[] = [];
     const errors: string[] = [];
+    let cachedCount = 0;
+    let savedCount = 0;
 
     for (const row of rows) {
       let lat: number | null = null;
       let lng: number | null = null;
+      let fromCache = false;
 
-      // Try existing geoLocation first
+      // Try existing geoLocation first (CACHE HIT)
       if (row.geo && row.geo.includes(",")) {
         const [latStr, lngStr] = row.geo.split(",");
         const parsedLat = parseFloat(latStr);
@@ -165,16 +171,20 @@ export async function GET(req: Request) {
         if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
           lat = parsedLat;
           lng = parsedLng;
+          fromCache = true;
+          cachedCount++;
         }
       }
 
-      // If no geo, geocode it
+      // If no geo, geocode it (CACHE MISS)
       if (lat === null) {
         const result = await geocode(row.address, row.city, row.postal || "");
         if (result) {
           lat = result.lat;
           lng = result.lng;
-          saveGeo(row.id, lat, lng); // Save for next time
+          // Save for next time
+          const saved = await saveGeo(row.id, lat, lng);
+          if (saved) savedCount++;
         } else {
           errors.push(row.name);
           continue;
@@ -200,15 +210,15 @@ export async function GET(req: Request) {
       });
     }
 
-    console.log(`✅ Done: ${customers.length} customers, ${geocodeCount} geocoded, ${errors.length} failed\n`);
+    console.log(`✅ Done: ${customers.length} total | ${cachedCount} cached | ${geocodeCount} geocoded | ${savedCount} saved | ${errors.length} failed\n`);
 
     return NextResponse.json({
       customers,
       total: customers.length,
+      fromCache: cachedCount,
       geocodedThisRequest: geocodeCount,
+      savedToDb: savedCount,
       skipped: errors.length,
-      apiKeyUsed: GOOGLE_MAPS_API_KEY.slice(0, 15) + "...",
-      geocodeErrors: geocodeErrors.slice(0, 10), // First 10 errors for debugging
       filters: { salesRep, products, minSales, startDate, endDate },
     });
 
