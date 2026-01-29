@@ -13,6 +13,7 @@ const BYPASS_EMAILS = ["n.labranche@sinto.ca"];
 
 let geocodeCount = 0;
 const GEOCODE_LIMIT = 50;
+const geocodeErrors: string[] = [];
 
 async function geocode(address: string, city: string, postalCode: string): Promise<{ lat: number; lng: number } | null> {
   if (geocodeCount >= GEOCODE_LIMIT) return null;
@@ -27,17 +28,18 @@ async function geocode(address: string, city: string, postalCode: string): Promi
     if (data.status === "OK" && data.results?.[0]?.geometry?.location) {
       geocodeCount++;
       const { lat, lng } = data.results[0].geometry.location;
-      
-      // Log success
       console.log(`✅ [${geocodeCount}] ${city} → ${lat.toFixed(4)},${lng.toFixed(4)}`);
-      
       return { lat, lng };
     } else {
-      console.log(`❌ FAILED: ${city} - ${data.status} - ${data.error_message || ''}`);
+      const errorMsg = `${city}: ${data.status} - ${data.error_message || 'no error message'}`;
+      geocodeErrors.push(errorMsg);
+      console.log(`❌ FAILED: ${errorMsg}`);
       return null;
     }
   } catch (err: any) {
-    console.log(`❌ ERROR: ${city} - ${err.message}`);
+    const errorMsg = `${city}: FETCH ERROR - ${err.message}`;
+    geocodeErrors.push(errorMsg);
+    console.log(`❌ ERROR: ${errorMsg}`);
     return null;
   }
 }
@@ -142,6 +144,7 @@ export async function GET(req: Request) {
 
   try {
     geocodeCount = 0;
+    geocodeErrors.length = 0; // Reset errors
     const { rows } = await pg.query(SQL, params);
     
     console.log(`\n🗺️ MAP API: Processing ${rows.length} customers`);
@@ -205,6 +208,7 @@ export async function GET(req: Request) {
       geocodedThisRequest: geocodeCount,
       skipped: errors.length,
       apiKeyUsed: GOOGLE_MAPS_API_KEY.slice(0, 15) + "...",
+      geocodeErrors: geocodeErrors.slice(0, 10), // First 10 errors for debugging
       filters: { salesRep, products, minSales, startDate, endDate },
     });
 
