@@ -6,7 +6,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyAYT0pFzSGe2IAoivq20eb-I1KQW4URjs";
+const GOOGLE_MAPS_API_KEY = "AIzaSyAYT0oFzSGe2IAoivqG2Reb-1IKOW4URjs";
 
 const ALLOWED_USER_ROLES = ["gestionnaire", "admin", "ventes-exec", "ventes_exec", "facturation", "expert"];
 const BYPASS_EMAILS = ["n.labranche@sinto.ca"];
