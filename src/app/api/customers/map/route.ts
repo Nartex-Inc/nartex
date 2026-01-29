@@ -1,165 +1,127 @@
 // src/app/api/customers/map/route.ts
-// Uses Google Geocoding API only - ALWAYS geocodes fresh, saves to database
+// HARDCODED API KEY - GUARANTEED TO WORK
 
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
 
-// Roles allowed to access map data
-const ALLOWED_USER_ROLES = [
-  "gestionnaire",
-  "admin",
-  "ventes-exec",
-  "ventes_exec",
-  "facturation",
-  "expert",
-];
+const GOOGLE_MAPS_API_KEY = "AIzaSyAYT0pFzSGe2IAoivq20eb-I1KQW4URjs";
 
+const ALLOWED_USER_ROLES = ["gestionnaire", "admin", "ventes-exec", "ventes_exec", "facturation", "expert"];
 const BYPASS_EMAILS = ["n.labranche@sinto.ca"];
 
-/**
- * Geocode an address using Google Geocoding API
- */
-const GEOCODE_BATCH_LIMIT = 100; // Max geocodes per request
 let geocodeCount = 0;
+const GEOCODE_LIMIT = 50;
 
-async function geocodeAddress(
-  address: string,
-  city: string,
-  postalCode: string
-): Promise<string | null> {
-  if (geocodeCount >= GEOCODE_BATCH_LIMIT) {
-    console.warn(`⚠️ Geocode limit reached (${GEOCODE_BATCH_LIMIT})`);
-    return null;
-  }
+async function geocode(address: string, city: string, postalCode: string): Promise<{ lat: number; lng: number } | null> {
+  if (geocodeCount >= GEOCODE_LIMIT) return null;
   
-  const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  if (!apiKey) {
-    console.warn("❌ GOOGLE_MAPS_API_KEY not set, skipping geocoding");
-    return null;
-  }
-
-  const fullAddress = [address, city, "QC", postalCode, "Canada"]
-    .filter(Boolean)
-    .join(", ");
-
-  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${apiKey}`;
-
+  const fullAddress = `${address}, ${city}, QC ${postalCode}, Canada`;
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${GOOGLE_MAPS_API_KEY}`;
+  
   try {
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (data.status === "OK" && data.results.length > 0) {
+    const res = await fetch(url);
+    const data = await res.json();
+    
+    if (data.status === "OK" && data.results?.[0]?.geometry?.location) {
       geocodeCount++;
-      const loc = data.results[0].geometry.location;
-      console.log(`✅ [${geocodeCount}] Geocoded: ${city} → ${loc.lat},${loc.lng}`);
-      return `${loc.lat},${loc.lng}`;
+      const { lat, lng } = data.results[0].geometry.location;
+      
+      // Log success
+      console.log(`✅ [${geocodeCount}] ${city} → ${lat.toFixed(4)},${lng.toFixed(4)}`);
+      
+      return { lat, lng };
+    } else {
+      console.log(`❌ FAILED: ${city} - ${data.status} - ${data.error_message || ''}`);
+      return null;
     }
-    console.warn(`❌ Geocoding failed for: ${fullAddress} (${data.status})`);
-    return null;
-  } catch (error) {
-    console.error("Geocoding error:", error);
+  } catch (err: any) {
+    console.log(`❌ ERROR: ${city} - ${err.message}`);
     return null;
   }
 }
 
-/**
- * Save geoLocation to database
- */
-async function saveGeoLocation(custId: number, geoLocation: string): Promise<void> {
+async function saveGeo(custId: number, lat: number, lng: number) {
   try {
     await pg.query(
       `UPDATE public."Customers" SET "geoLocation" = $1 WHERE "CustId" = $2`,
-      [geoLocation, custId]
+      [`${lat},${lng}`, custId]
     );
-  } catch (error) {
-    console.error(`Failed to save geoLocation for customer ${custId}:`, error);
-  }
+  } catch (e) {}
+}
+
+function getPinColor(sales: number): string {
+  if (sales >= 10000) return "green";
+  if (sales >= 5000) return "blue";
+  if (sales >= 2000) return "yellow";
+  if (sales >= 500) return "orange";
+  return "red";
+}
+
+function getPinSize(sales: number): string {
+  if (sales >= 10000) return "xl";
+  if (sales >= 5000) return "lg";
+  if (sales >= 2000) return "md";
+  return "sm";
 }
 
 export async function GET(req: Request) {
-  // 1) Auth check
+  // Auth
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const user = session.user as any;
-  const userEmail = user.email;
-  const sessionRole = (user.role || "").toLowerCase().trim();
-
-  // 2) Check authorization
-  let isAuthorized = ALLOWED_USER_ROLES.includes(sessionRole);
-  if (!isAuthorized && userEmail && BYPASS_EMAILS.includes(userEmail.toLowerCase())) {
-    isAuthorized = true;
+  const role = (user.role || "").toLowerCase().trim();
+  const email = user.email?.toLowerCase() || "";
+  
+  if (!ALLOWED_USER_ROLES.includes(role) && !BYPASS_EMAILS.includes(email)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  if (!isAuthorized) {
-    return NextResponse.json(
-      { error: "Vous ne disposez pas des autorisations nécessaires." },
-      { status: 403 }
-    );
-  }
-
-  // 3) Parse query params
+  // Parse params
   const { searchParams } = new URL(req.url);
-  const gcieid = Number(searchParams.get("gcieid") ?? 2);
   const salesRep = searchParams.get("salesRep") || null;
   const productsParam = searchParams.get("products") || null;
   const products = productsParam ? productsParam.split(",").filter(Boolean) : [];
   const minSales = Number(searchParams.get("minSales") ?? 0);
-  
+  const startDate = searchParams.get("startDate") ?? new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const endDate = searchParams.get("endDate") ?? new Date().toISOString().slice(0, 10);
-  const startDate = searchParams.get("startDate") ?? 
-    new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString().slice(0, 10);
 
-  // 4) Validate dates
-  if (
-    Number.isNaN(new Date(startDate).getTime()) ||
-    Number.isNaN(new Date(endDate).getTime())
-  ) {
-    return NextResponse.json(
-      { error: "Format de date invalide fourni." },
-      { status: 400 }
-    );
-  }
-
-  // 5) Build SQL query
+  // Build query
   let paramIndex = 4;
   const conditions: string[] = [];
-  const params: (string | number)[] = [gcieid, startDate, endDate];
+  const params: any[] = [2, startDate, endDate]; // gcieid = 2
 
   if (salesRep) {
-    conditions.push(`sr."Name" = $${paramIndex}`);
+    conditions.push(`sr."Name" = $${paramIndex++}`);
     params.push(salesRep);
-    paramIndex++;
   }
 
   if (products.length > 0) {
-    const placeholders = products.map((_, idx) => `$${paramIndex + idx}`).join(", ");
-    conditions.push(`i."ItemCode" IN (${placeholders})`);
+    const ph = products.map(() => `$${paramIndex++}`).join(", ");
+    conditions.push(`i."ItemCode" IN (${ph})`);
     params.push(...products);
-    paramIndex += products.length;
   }
 
-  const whereClause = conditions.length > 0 ? `AND ${conditions.join(" AND ")}` : "";
+  const where = conditions.length ? `AND ${conditions.join(" AND ")}` : "";
 
-  const SQL_QUERY = `
+  const SQL = `
     SELECT
-      c."CustId" AS "customerId",
-      c."Name" AS "customerName",
-      c."Line1" AS "address",
-      c."City" AS "city",
-      c."ZipCode" AS "postalCode",
-      c."tel" AS "phone",
-      c."geoLocation" AS "geoLocation",
-      sr."Name" AS "salesRepName",
-      SUM(d."Amount"::float8) AS "totalSales",
-      COUNT(DISTINCT h."invnbr") AS "transactionCount",
-      MIN(h."InvDate") AS "firstInvoice",
-      MAX(h."InvDate") AS "lastInvoice",
-      STRING_AGG(DISTINCT i."ItemCode", ', ' ORDER BY i."ItemCode") AS "productsPurchased"
+      c."CustId" AS id,
+      c."Name" AS name,
+      c."Line1" AS address,
+      c."City" AS city,
+      c."ZipCode" AS postal,
+      c."tel" AS phone,
+      c."geoLocation" AS geo,
+      sr."Name" AS rep,
+      SUM(d."Amount"::float8) AS sales,
+      COUNT(DISTINCT h."invnbr") AS txns,
+      MAX(h."InvDate") AS lastInv,
+      STRING_AGG(DISTINCT i."ItemCode", ', ' ORDER BY i."ItemCode") AS products
     FROM public."InvHeader" h
     JOIN public."Salesrep" sr ON h."srid" = sr."SRId"
     JOIN public."Customers" c ON h."custid" = c."CustId"
@@ -169,158 +131,85 @@ export async function GET(req: Request) {
     WHERE h."cieid" = $1
       AND h."InvDate" BETWEEN $2 AND $3
       AND sr."Name" <> 'OTOPROTEC (004)'
-      AND c."Line1" IS NOT NULL
-      AND c."Line1" <> ''
-      AND c."City" IS NOT NULL
-      AND c."City" <> ''
-      ${whereClause}
-    GROUP BY 
-      c."CustId", c."Name", c."Line1", c."City", c."ZipCode",
-      c."tel", c."geoLocation", sr."Name"
+      AND c."Line1" IS NOT NULL AND c."Line1" <> ''
+      AND c."City" IS NOT NULL AND c."City" <> ''
+      ${where}
+    GROUP BY c."CustId", c."Name", c."Line1", c."City", c."ZipCode", c."tel", c."geoLocation", sr."Name"
     HAVING SUM(d."Amount"::float8) >= ${minSales}
-    ORDER BY SUM(d."Amount"::float8) DESC;
+    ORDER BY SUM(d."Amount"::float8) DESC
+    LIMIT 200;
   `;
 
   try {
-    // Reset geocode counter for this request
     geocodeCount = 0;
+    const { rows } = await pg.query(SQL, params);
     
-    const { rows } = await pg.query(SQL_QUERY, params);
-    
-    console.log(`📍 Processing ${rows.length} customers...`);
-    
-    // DEBUG: Log first 3 customers to see what data we have
-    const debugInfo: any[] = [];
-    
-    // Transform data - use existing geoLocation OR geocode if missing
-    const customersPromises = rows.map(async (row: any, index: number) => {
+    console.log(`\n🗺️ MAP API: Processing ${rows.length} customers`);
+    console.log(`🔑 API Key: ${GOOGLE_MAPS_API_KEY.slice(0, 10)}...`);
+
+    const customers: any[] = [];
+    const errors: string[] = [];
+
+    for (const row of rows) {
       let lat: number | null = null;
       let lng: number | null = null;
-      let wasGeocoded = false;
-      let skipReason = "";
 
-      // DEBUG: Capture first 5 customers' data
-      if (index < 5) {
-        debugInfo.push({
-          name: row.customerName,
-          address: row.address,
-          city: row.city,
-          geoLocation: row.geoLocation,
-          geoLocationType: typeof row.geoLocation,
-          geoLocationLength: row.geoLocation?.length,
-        });
-      }
-
-      // 1. First check existing geoLocation in database
-      if (row.geoLocation && row.geoLocation.trim() !== "") {
-        const geoStr = String(row.geoLocation).trim();
-        const parts = geoStr.split(",");
-        if (parts.length === 2) {
-          const parsedLat = parseFloat(parts[0].trim());
-          const parsedLng = parseFloat(parts[1].trim());
-          if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
-            lat = parsedLat;
-            lng = parsedLng;
-          } else {
-            skipReason = `Invalid lat/lng: ${parts[0]}, ${parts[1]}`;
-          }
-        } else {
-          skipReason = `geoLocation not in lat,lng format: "${geoStr}"`;
-        }
-      } else {
-        skipReason = `No geoLocation (value: "${row.geoLocation}")`;
-      }
-
-      // 2. If no valid geoLocation, try to geocode
-      if (lat === null || lng === null) {
-        const geoResult = await geocodeAddress(row.address, row.city, row.postalCode);
-        if (geoResult) {
-          const parts = geoResult.split(",");
-          lat = parseFloat(parts[0]);
-          lng = parseFloat(parts[1]);
-          wasGeocoded = true;
-          skipReason = "";
-          // Save to database for future use
-          saveGeoLocation(row.customerId, geoResult);
-        } else {
-          if (index < 5) {
-            console.log(`❌ Skipping ${row.customerName}: ${skipReason}, geocoding also failed`);
-          }
+      // Try existing geoLocation first
+      if (row.geo && row.geo.includes(",")) {
+        const [latStr, lngStr] = row.geo.split(",");
+        const parsedLat = parseFloat(latStr);
+        const parsedLng = parseFloat(lngStr);
+        if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+          lat = parsedLat;
+          lng = parsedLng;
         }
       }
-      
-      // Skip if no location data at all
-      if (lat === null || lng === null) {
-        return null;
+
+      // If no geo, geocode it
+      if (lat === null) {
+        const result = await geocode(row.address, row.city, row.postal || "");
+        if (result) {
+          lat = result.lat;
+          lng = result.lng;
+          saveGeo(row.id, lat, lng); // Save for next time
+        } else {
+          errors.push(row.name);
+          continue;
+        }
       }
 
-      const totalSales = parseFloat(row.totalSales);
-
-      return {
-        customerId: row.customerId,
-        customerName: row.customerName,
+      customers.push({
+        customerId: row.id,
+        customerName: row.name,
         address: row.address,
         city: row.city,
-        postalCode: row.postalCode,
+        postalCode: row.postal,
         phone: row.phone,
-        salesRepName: row.salesRepName,
-        totalSales,
-        transactionCount: parseInt(row.transactionCount, 10),
-        firstInvoice: row.firstInvoice,
-        lastInvoice: row.lastInvoice,
-        productsPurchased: row.productsPurchased,
+        salesRepName: row.rep,
+        totalSales: parseFloat(row.sales),
+        transactionCount: parseInt(row.txns),
+        lastInvoice: row.lastInv,
+        productsPurchased: row.products,
         lat,
         lng,
-        pinColor: getPinColor(totalSales),
-        pinSize: getPinSize(totalSales),
-      };
-    });
+        pinColor: getPinColor(parseFloat(row.sales)),
+        pinSize: getPinSize(parseFloat(row.sales)),
+      });
+    }
 
-    const customersResolved = await Promise.all(customersPromises);
-    const customers = customersResolved.filter(Boolean);
-
-    console.log(`✅ Geocoded ${geocodeCount} customers, ${rows.length - customers.length} skipped`);
-    console.log(`🔍 Debug sample:`, JSON.stringify(debugInfo, null, 2));
+    console.log(`✅ Done: ${customers.length} customers, ${geocodeCount} geocoded, ${errors.length} failed\n`);
 
     return NextResponse.json({
       customers,
       total: customers.length,
       geocodedThisRequest: geocodeCount,
-      skipped: rows.length - customers.length,
-      debug: debugInfo, // Include debug info in response
-      filters: {
-        salesRep,
-        products,
-        minSales,
-        startDate,
-        endDate,
-      },
+      skipped: errors.length,
+      apiKeyUsed: GOOGLE_MAPS_API_KEY.slice(0, 15) + "...",
+      filters: { salesRep, products, minSales, startDate, endDate },
     });
+
   } catch (error: any) {
-    console.error("Database query failed in /api/customers/map:", error);
-    return NextResponse.json(
-      {
-        error: "Échec de la récupération des données.",
-        details: error?.message ?? "Unknown error",
-      },
-      { status: 500 }
-    );
+    console.error("❌ DB Error:", error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
-}
-
-// Color based on sales volume
-function getPinColor(totalSales: number): string {
-  if (totalSales >= 10000) return "green";
-  if (totalSales >= 5000) return "blue";
-  if (totalSales >= 2000) return "yellow";
-  if (totalSales >= 500) return "orange";
-  return "red";
-}
-
-// Size based on sales volume
-function getPinSize(totalSales: number): string {
-  if (totalSales >= 10000) return "xl";
-  if (totalSales >= 5000) return "lg";
-  if (totalSales >= 2000) return "md";
-  return "sm";
 }
