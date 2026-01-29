@@ -217,33 +217,35 @@ function useDebounced<T>(value: T, delay = 300) {
 function filterReturnsByRole(returns: ReturnRow[], role: UserRole, showHistory: boolean): ReturnRow[] {
   if (showHistory) return returns.filter(r => r.finalized);
   
-  switch (role) {
-    case "Gestionnaire":
-      // Gestionnaire sees ALL non-finalized: white (draft), black (awaiting physical), green (ready)
-      return returns.filter(r => !r.finalized);
-    
-    case "Vérificateur":
-      // Vérificateur sees ONLY BLACK rows: physical return required, not yet verified
-      return returns.filter(r => 
-        !r.finalized && 
-        !r.isDraft && 
-        r.physicalReturn === true && 
-        r.verified === false
-      );
-    
-    case "Facturation":
-      // Facturation sees ONLY GREEN rows: ready for finalization
-      // Either: no physical return needed, OR physical return already verified
-      return returns.filter(r => 
-        !r.finalized && 
-        !r.isDraft && 
-        (r.physicalReturn === false || (r.physicalReturn === true && r.verified === true))
-      );
-    
-    default:
-      // Other roles (Expert, Analyste) see non-draft, non-finalized
-      return returns.filter(r => !r.finalized && !r.isDraft);
+  // Normalize role for comparison (handle accent variations)
+  const normalizedRole = role?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() || "";
+  
+  // Gestionnaire sees ALL non-finalized: white (draft), black (awaiting physical), green (ready)
+  if (normalizedRole === "gestionnaire") {
+    return returns.filter(r => !r.finalized);
   }
+  
+  // Vérificateur sees ONLY BLACK rows: physical return required, not yet verified
+  if (normalizedRole === "verificateur") {
+    return returns.filter(r => 
+      !r.finalized && 
+      !r.isDraft && 
+      r.physicalReturn === true && 
+      r.verified === false
+    );
+  }
+  
+  // Facturation sees ONLY GREEN rows: ready for finalization
+  if (normalizedRole === "facturation") {
+    return returns.filter(r => 
+      !r.finalized && 
+      !r.isDraft && 
+      (r.physicalReturn === false || (r.physicalReturn === true && r.verified === true))
+    );
+  }
+  
+  // Other roles (Expert, Analyste) see non-draft, non-finalized
+  return returns.filter(r => !r.finalized && !r.isDraft);
 }
 
 // =============================================================================
@@ -301,7 +303,10 @@ type RowStatus = "draft" | "awaiting_physical" | "ready" | "finalized";
 export default function ReturnsPage() {
   const { data: session } = useSession();
   const userRole: UserRole = (session?.user as { role?: string })?.role || "Expert";
-  const canCreate = userRole === "Gestionnaire";
+  
+  // Normalize role for permission checks
+  const normalizedUserRole = userRole?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() || "";
+  const canCreate = normalizedUserRole === "gestionnaire";
 
   const [query, setQuery] = React.useState("");
   const [cause, setCause] = React.useState<"all" | Cause>("all");
@@ -613,6 +618,10 @@ function DetailModal({
 
   React.useEffect(() => setDraft({ ...row }), [row]);
 
+  // Normalize role for comparison (handle accent variations)
+  const normalizeRole = (r: string) => r?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() || "";
+  const normalizedRole = normalizeRole(userRole);
+
   // Creator info
   const creatorName = draft.createdBy?.name ?? session?.user?.name ?? REPORTER_LABEL[draft.reporter];
   const creatorDate = draft.createdBy?.at ? new Date(draft.createdBy.at) : new Date(draft.reportedAt);
@@ -623,11 +632,11 @@ function DetailModal({
   const isFinalized = Boolean(draft.finalized);
   const isDraft = Boolean(draft.isDraft);
 
-  // Role-based permissions
-  const canEdit = userRole === "Gestionnaire" && !isFinalized && !isVerified;
-  const canVerify = userRole === "Vérificateur" && isPhysical && !isVerified && !isFinalized && !isDraft;
-  const canFinalize = userRole === "Facturation" && !isFinalized && !isDraft && (!isPhysical || isVerified);
-  const isReadOnly = userRole === "Expert" || userRole === "Analyste" || isFinalized;
+  // Role-based permissions (with normalized comparison)
+  const canEdit = normalizedRole === "gestionnaire" && !isFinalized && !isVerified;
+  const canVerify = normalizedRole === "verificateur" && isPhysical && !isVerified && !isFinalized && !isDraft;
+  const canFinalize = normalizedRole === "facturation" && !isFinalized && !isDraft && (!isPhysical || isVerified);
+  const isReadOnly = normalizedRole === "expert" || normalizedRole === "analyste" || isFinalized;
 
   // Show verification fields for Vérificateur OR after verification (readonly)
   const showVerificationFields = Boolean(canVerify || (isVerified && isPhysical));
