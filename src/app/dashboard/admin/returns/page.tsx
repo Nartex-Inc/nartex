@@ -620,7 +620,7 @@ function DetailModal({
     if (!canEdit) return;
     setBusy(true);
     try {
-      await updateReturn(String(row.id), draft);
+      await updateReturn(String(row.id), { ...draft });
       await onRefresh();
       onClose();
     } catch (e) {
