@@ -58,6 +58,9 @@ export async function GET(request: NextRequest) {
 
     const userRole = (session.user as { role?: string }).role as UserRole | undefined;
     const userName = session.user.name || "";
+    
+    // Normalize role for comparison (handle accent variations)
+    const normalizedRole = userRole?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() || "";
 
     const where: Prisma.ReturnWhereInput = {};
     const AND: Prisma.ReturnWhereInput[] = [];
@@ -70,67 +73,53 @@ export async function GET(request: NextRequest) {
       // HISTORY MODE: Show only finalized returns (for all roles that can see history)
       AND.push({ isFinal: true, isStandby: false });
     } else {
-      // ACTIVE MODE: Role-specific filtering
-      switch (userRole) {
-        case "Gestionnaire":
-          // Gestionnaire sees ALL active returns including drafts
-          // Filter out finalized returns unless in history mode
-          AND.push({ isFinal: false });
-          // Can see drafts (no additional filter needed)
-          break;
-
-        case "Vérificateur":
-          // Vérificateur ONLY sees returns where:
-          // - physicalReturn == TRUE AND isVerified == FALSE
-          // - NOT drafts, NOT finalized
-          AND.push({
-            returnPhysical: true,
-            isVerified: false,
-            isDraft: false,
-            isFinal: false,
-          });
-          break;
-
-        case "Facturation":
-          // Facturation ONLY sees returns where EITHER:
-          // - physicalReturn == TRUE AND isVerified == TRUE, OR
-          // - physicalReturn == FALSE
-          // - NOT drafts, NOT finalized
-          AND.push({
-            isDraft: false,
-            isFinal: false,
-            OR: [
-              { returnPhysical: true, isVerified: true },
-              { returnPhysical: false },
-            ],
-          });
-          break;
-
-        case "Expert":
-          // Expert only sees their own returns (non-finalized)
-          AND.push({
-            expert: { contains: userName, mode: "insensitive" },
-            isFinal: false,
-            isDraft: false, // Experts don't see drafts
-          });
-          break;
-
-        case "Analyste":
-          // Analyste sees same as Facturation but read-only
-          AND.push({
-            isDraft: false,
-            isFinal: false,
-            OR: [
-              { returnPhysical: true, isVerified: true },
-              { returnPhysical: false },
-            ],
-          });
-          break;
-
-        default:
-          // Unknown role - show nothing for safety
-          AND.push({ id: -1 }); // This will match nothing
-          break;
+      // ACTIVE MODE: Role-specific filtering (using normalized role comparison)
+      if (normalizedRole === "gestionnaire") {
+        // Gestionnaire sees ALL active returns including drafts
+        AND.push({ isFinal: false });
+      } else if (normalizedRole === "verificateur") {
+        // Vérificateur ONLY sees returns where:
+        // - returnPhysical == TRUE AND isVerified == FALSE
+        // - NOT drafts, NOT finalized
+        AND.push({
+          returnPhysical: true,
+          isVerified: false,
+          isDraft: false,
+          isFinal: false,
+        });
+      } else if (normalizedRole === "facturation") {
+        // Facturation ONLY sees returns where EITHER:
+        // - returnPhysical == TRUE AND isVerified == TRUE, OR
+        // - returnPhysical == FALSE
+        // - NOT drafts, NOT finalized
+        AND.push({
+          isDraft: false,
+          isFinal: false,
+          OR: [
+            { returnPhysical: true, isVerified: true },
+            { returnPhysical: false },
+          ],
+        });
+      } else if (normalizedRole === "expert") {
+        // Expert only sees their own returns (non-finalized)
+        AND.push({
+          expert: { contains: userName, mode: "insensitive" },
+          isFinal: false,
+          isDraft: false,
+        });
+      } else if (normalizedRole === "analyste") {
+        // Analyste sees same as Facturation but read-only
+        AND.push({
+          isDraft: false,
+          isFinal: false,
+          OR: [
+            { returnPhysical: true, isVerified: true },
+            { returnPhysical: false },
+          ],
+        });
+      } else {
+        // Unknown role - show nothing for safety
+        AND.push({ id: -1 });
       }
     }
 
@@ -325,7 +314,8 @@ export async function POST(request: NextRequest) {
 
     // Only Gestionnaire can create returns
     const userRole = (session.user as { role?: string }).role;
-    if (userRole !== "Gestionnaire") {
+    const normalizedRole = userRole?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() || "";
+    if (normalizedRole !== "gestionnaire") {
       return NextResponse.json(
         { ok: false, error: "Seul un gestionnaire peut créer un retour" },
         { status: 403 }
