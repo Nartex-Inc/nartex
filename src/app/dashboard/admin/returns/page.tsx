@@ -812,7 +812,7 @@ function DetailModal({
             <div className="p-4 rounded-lg border border-lime-200 dark:border-lime-800 bg-lime-50 dark:bg-lime-950/30">
               <div className="flex items-center gap-2 text-sm text-lime-700 dark:text-lime-300">
                 <CheckCircle className="h-4 w-4" />
-                <span>Vérifié par {draft.verifiedBy} le {draft.verifiedAt ? new Date(draft.verifiedAt).toLocaleDateString("fr-CA") : ""}</span>
+                <span>Vérifié par {draft.verifiedBy.name} le {draft.verifiedBy.at ? new Date(draft.verifiedBy.at).toLocaleDateString("fr-CA") : ""}</span>
               </div>
             </div>
           )}
@@ -861,7 +861,7 @@ function DetailModal({
             <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950">
               <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
                 <Check className="h-4 w-4" />
-                <span>Finalisé par {draft.finalizedBy} le {draft.finalizedAt ? new Date(draft.finalizedAt).toLocaleDateString("fr-CA") : ""}</span>
+                <span>Finalisé par {draft.finalizedBy.name} le {draft.finalizedBy.at ? new Date(draft.finalizedBy.at).toLocaleDateString("fr-CA") : ""}</span>
               </div>
             </div>
           )}
