@@ -706,36 +706,42 @@ function DetailModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
 
-      <div className="relative w-full max-w-4xl max-h-[90vh] bg-white dark:bg-neutral-900 rounded-xl shadow-2xl flex flex-col overflow-hidden border border-neutral-200 dark:border-neutral-800">
+      <div className="relative w-[90vw] h-[90vh] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-neutral-200/50 dark:border-neutral-700/50">
 
         {/* Header */}
-        <div className="px-6 py-5 border-b border-neutral-200 dark:border-neutral-800 flex items-start justify-between bg-neutral-50 dark:bg-neutral-900">
-          <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 flex items-center justify-center font-mono text-lg font-semibold">
+        <div className="px-8 py-6 border-b border-neutral-100 dark:border-neutral-800 flex items-start justify-between bg-gradient-to-r from-neutral-50 to-white dark:from-neutral-900 dark:to-neutral-900">
+          <div className="flex items-center gap-5">
+            <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-neutral-800 to-neutral-900 dark:from-white dark:to-neutral-100 text-white dark:text-neutral-900 flex items-center justify-center font-mono text-xl font-bold shadow-lg">
               {String(draft.id).replace('R', '')}
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-neutral-900 dark:text-white flex items-center gap-3">
+              <h2 className="text-xl font-semibold text-neutral-900 dark:text-white flex items-center gap-3">
                 Retour {String(draft.id)}
                 <Badge>{CAUSE_LABEL[draft.cause]}</Badge>
+                {isDraft && <Badge variant="muted">Brouillon</Badge>}
               </h2>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
-                Par {creatorName} · {creatorDate.toLocaleDateString("fr-CA")} à {creatorDate.toLocaleTimeString("fr-CA", { hour: "2-digit", minute: "2-digit" })}
+              <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1 flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {creatorDate.toLocaleDateString("fr-CA")} à {creatorDate.toLocaleTimeString("fr-CA", { hour: "2-digit", minute: "2-digit" })}
+                </span>
+                <span className="text-neutral-300 dark:text-neutral-600">•</span>
+                <span>Par {creatorName}</span>
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors">
+          <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-all duration-200">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-neutral-50/50 dark:bg-neutral-950/50">
 
           {/* Status Controls */}
-          <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 space-y-4">
+          <div className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <Switch
                 label="Retour physique requis"
@@ -748,22 +754,22 @@ function DetailModal({
                 {isPhysical && (
                   <Badge variant={isVerified ? "success" : "warning"}>
                     {isVerified ? (
-                      <span className="flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Vérifié</span>
+                      <span className="flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5" /> Vérifié</span>
                     ) : (
-                      <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> En attente</span>
+                      <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> En attente vérification</span>
                     )}
                   </Badge>
                 )}
                 {isFinalized && (
                   <Badge variant="muted">
-                    <span className="flex items-center gap-1"><Check className="h-3 w-3" /> Finalisé</span>
+                    <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5" /> Finalisé</span>
                   </Badge>
                 )}
               </div>
             </div>
 
             {/* Option Toggles */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-neutral-200 dark:border-neutral-800">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-5 border-t border-neutral-100 dark:border-neutral-800">
               <OptionToggle label="Pickup" checked={!!draft.isPickup} onToggle={() => canEdit && setDraft({ ...draft, isPickup: !draft.isPickup })} inputValue={draft.noBill ?? ""} onInputChange={(v) => setDraft({ ...draft, noBill: v })} inputPlaceholder="No. Bill" disabled={!canEdit || !draft.isPickup} />
               <OptionToggle label="Commande" checked={!!draft.isCommande} onToggle={() => canEdit && setDraft({ ...draft, isCommande: !draft.isCommande })} inputValue={draft.noBonCommande ?? ""} onInputChange={(v) => setDraft({ ...draft, noBonCommande: v })} inputPlaceholder="No. Bon" disabled={!canEdit || !draft.isCommande} />
               <OptionToggle label="Réclamation" checked={!!draft.isReclamation} onToggle={() => canEdit && setDraft({ ...draft, isReclamation: !draft.isReclamation })} inputValue={draft.noReclamation ?? ""} onInputChange={(v) => setDraft({ ...draft, noReclamation: v })} inputPlaceholder="No. Récl." disabled={!canEdit || !draft.isReclamation} />
@@ -771,22 +777,31 @@ function DetailModal({
           </div>
 
           {/* Info Fields */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <Field label="Expert" value={draft.expert || ""} onChange={(v) => setDraft({ ...draft, expert: v })} disabled={!canEdit} />
-            <Field label="Client" value={draft.client || ""} onChange={(v) => setDraft({ ...draft, client: v })} disabled={!canEdit} />
-            <Field label="No. Client" value={draft.noClient ?? ""} onChange={(v) => setDraft({ ...draft, noClient: v })} disabled={!canEdit} />
-            <Field label="No. Commande" value={draft.noCommande ?? ""} onChange={(v) => setDraft({ ...draft, noCommande: v })} disabled={!canEdit} />
-            <Field label="Tracking" value={draft.tracking ?? ""} onChange={(v) => setDraft({ ...draft, tracking: v })} icon={<Truck className="h-4 w-4" />} disabled={!canEdit} />
-            <Field label="Transporteur" value={draft.transport ?? ""} onChange={(v) => setDraft({ ...draft, transport: v })} disabled={!canEdit} />
-            <Field label="Montant" value={draft.amount?.toString() ?? ""} onChange={(v) => setDraft({ ...draft, amount: v ? Number(v) : null })} type="number" icon={<DollarSign className="h-4 w-4" />} disabled={!canEdit} />
-            <Field label="Date Commande" value={draft.dateCommande ?? ""} onChange={(v) => setDraft({ ...draft, dateCommande: v })} type="date" disabled={!canEdit} />
+          <div className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
+            <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
+              <FileText className="h-4 w-4 text-neutral-400" />
+              Informations générales
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <Field label="Expert" value={draft.expert || ""} onChange={(v) => setDraft({ ...draft, expert: v })} disabled={!canEdit} />
+              <Field label="Client" value={draft.client || ""} onChange={(v) => setDraft({ ...draft, client: v })} disabled={!canEdit} />
+              <Field label="No. Client" value={draft.noClient ?? ""} onChange={(v) => setDraft({ ...draft, noClient: v })} disabled={!canEdit} />
+              <Field label="No. Commande" value={draft.noCommande ?? ""} onChange={(v) => setDraft({ ...draft, noCommande: v })} disabled={!canEdit} />
+              <Field label="Tracking" value={draft.tracking ?? ""} onChange={(v) => setDraft({ ...draft, tracking: v })} icon={<Truck className="h-4 w-4" />} disabled={!canEdit} />
+              <Field label="Transporteur" value={draft.transport ?? ""} onChange={(v) => setDraft({ ...draft, transport: v })} disabled={!canEdit} />
+              <Field label="Montant" value={draft.amount?.toString() ?? ""} onChange={(v) => setDraft({ ...draft, amount: v ? Number(v) : null })} type="number" icon={<DollarSign className="h-4 w-4" />} disabled={!canEdit} />
+              <Field label="Date Commande" value={draft.dateCommande ?? ""} onChange={(v) => setDraft({ ...draft, dateCommande: v })} type="date" disabled={!canEdit} />
+            </div>
           </div>
 
           {/* Attachments with Google Drive iFrames */}
-          <section>
-            <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-3 flex items-center gap-2">
+          <section className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
+            <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
               <Paperclip className="h-4 w-4 text-neutral-400" />
               Pièces jointes
+              {(draft.attachments?.length ?? 0) > 0 && (
+                <span className="ml-auto text-xs font-normal text-neutral-500">{draft.attachments?.length} fichier{(draft.attachments?.length ?? 0) > 1 ? 's' : ''}</span>
+              )}
             </h3>
             <AttachmentsSection
               returnCode={String(draft.id)}
@@ -799,12 +814,15 @@ function DetailModal({
           </section>
 
           {/* Products */}
-          <section>
-            <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-3 flex items-center gap-2">
+          <section className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
+            <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
               <Package className="h-4 w-4 text-neutral-400" />
               Produits (RMA)
+              {(draft.products?.length ?? 0) > 0 && (
+                <span className="ml-auto text-xs font-normal text-neutral-500">{draft.products?.length} produit{(draft.products?.length ?? 0) > 1 ? 's' : ''}</span>
+              )}
             </h3>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {(draft.products ?? []).map((p, idx) => (
                 <ProductRow
                   key={p.id}
@@ -827,8 +845,9 @@ function DetailModal({
                 />
               ))}
               {(draft.products?.length ?? 0) === 0 && (
-                <div className="py-8 text-center border border-dashed border-neutral-200 dark:border-neutral-800 rounded-lg text-neutral-400 text-sm">
-                  Aucun produit
+                <div className="py-12 text-center border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl text-neutral-400 text-sm">
+                  <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  Aucun produit ajouté
                 </div>
               )}
             </div>
@@ -837,8 +856,8 @@ function DetailModal({
           {/* Verification Section - Only for Vérificateur on physical returns awaiting verification */}
           {showVerificationFields && (
             <section className={cn(
-              "p-4 rounded-lg border",
-              canVerify ? "border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30" : "border-lime-200 dark:border-lime-800 bg-lime-50 dark:bg-lime-950/30"
+              "p-5 rounded-xl border shadow-sm",
+              canVerify ? "border-amber-200 dark:border-amber-800/50 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30" : "border-lime-200 dark:border-lime-800/50 bg-gradient-to-br from-lime-50 to-emerald-50 dark:from-lime-950/30 dark:to-emerald-950/30"
             )}>
               <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
                 <CheckCircle className="h-4 w-4" />
@@ -848,7 +867,7 @@ function DetailModal({
               </h3>
               
               {/* Verification fields are shown in ProductRow component */}
-              <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+              <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-5">
                 Remplissez les quantités reçues et détruites pour chaque produit ci-dessus.
               </p>
 
@@ -858,7 +877,7 @@ function DetailModal({
                   disabled={busy} 
                   onClick={handleVerify} 
                   className={cn(
-                    "w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 transition-colors",
+                    "w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-semibold hover:from-amber-600 hover:to-orange-600 transition-all duration-200 shadow-lg shadow-amber-500/25",
                     busy && "opacity-50 cursor-not-allowed"
                   )}
                 >
@@ -870,8 +889,8 @@ function DetailModal({
           )}
 
           {/* Verification Info - Show after verification */}
-          {isVerified && draft.verifiedBy && (
-            <div className="p-4 rounded-lg border border-lime-200 dark:border-lime-800 bg-lime-50 dark:bg-lime-950/30">
+          {isVerified && draft.verifiedBy && !showVerificationFields && (
+            <div className="p-4 rounded-xl border border-lime-200 dark:border-lime-800/50 bg-gradient-to-r from-lime-50 to-emerald-50 dark:from-lime-950/30 dark:to-emerald-950/30">
               <div className="flex items-center gap-2 text-sm text-lime-700 dark:text-lime-300">
                 <CheckCircle className="h-4 w-4" />
                 <span>Vérifié par {draft.verifiedBy.name} le {draft.verifiedBy.at ? new Date(draft.verifiedBy.at).toLocaleDateString("fr-CA") : ""}</span>
@@ -882,35 +901,35 @@ function DetailModal({
           {/* Finalization Section - Only for Facturation or after finalization */}
           {showFinalizationFields && (
             <section className={cn(
-              "p-4 rounded-lg border",
-              canFinalize ? "border-lime-300 dark:border-lime-800 bg-lime-50 dark:bg-lime-950/30" : "border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950"
+              "p-5 rounded-xl border shadow-sm",
+              canFinalize ? "border-lime-200 dark:border-lime-800/50 bg-gradient-to-br from-lime-50 to-emerald-50 dark:from-lime-950/30 dark:to-emerald-950/30" : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900"
             )}>
-              <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
+              <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-5 flex items-center gap-2">
                 <CreditCard className="h-4 w-4" />
                 Finalisation
                 {canFinalize && <Badge variant="success">À compléter</Badge>}
               </h3>
               
               {/* Warehouse Transfer */}
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-2 gap-4 mb-5">
                 <Field label="Entrepôt origine" value={draft.warehouseOrigin ?? ""} onChange={(v) => setDraft({ ...draft, warehouseOrigin: v })} icon={<Warehouse className="h-4 w-4" />} disabled={!canFinalize} />
                 <Field label="Entrepôt destination" value={draft.warehouseDestination ?? ""} onChange={(v) => setDraft({ ...draft, warehouseDestination: v })} icon={<Warehouse className="h-4 w-4" />} disabled={!canFinalize} />
               </div>
 
               {/* Credits */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5">
                 <Field label="No. Crédit 1" value={draft.noCredit ?? ""} onChange={(v) => setDraft({ ...draft, noCredit: v })} disabled={!canFinalize} />
                 <Field label="No. Crédit 2" value={draft.noCredit2 ?? ""} onChange={(v) => setDraft({ ...draft, noCredit2: v })} disabled={!canFinalize} />
                 <Field label="No. Crédit 3" value={draft.noCredit3 ?? ""} onChange={(v) => setDraft({ ...draft, noCredit3: v })} disabled={!canFinalize} />
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5">
                 <Field label="Crédité à 1" value={draft.creditedTo ?? ""} onChange={(v) => setDraft({ ...draft, creditedTo: v })} disabled={!canFinalize} />
                 <Field label="Crédité à 2" value={draft.creditedTo2 ?? ""} onChange={(v) => setDraft({ ...draft, creditedTo2: v })} disabled={!canFinalize} />
                 <Field label="Crédité à 3" value={draft.creditedTo3 ?? ""} onChange={(v) => setDraft({ ...draft, creditedTo3: v })} disabled={!canFinalize} />
               </div>
 
               {/* Transport & Restocking */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5">
                 <Field label="Ville Ship-to" value={draft.villeShipto ?? ""} onChange={(v) => setDraft({ ...draft, villeShipto: v })} disabled={!canFinalize} />
                 <Field label="Frais transport" value={draft.transportAmount?.toString() ?? ""} onChange={(v) => setDraft({ ...draft, transportAmount: v ? Number(v) : null })} type="number" icon={<DollarSign className="h-4 w-4" />} disabled={!canFinalize} />
                 <Field label="Frais restocking" value={draft.restockingAmount?.toString() ?? ""} onChange={(v) => setDraft({ ...draft, restockingAmount: v ? Number(v) : null })} type="number" icon={<DollarSign className="h-4 w-4" />} disabled={!canFinalize} />
@@ -922,7 +941,7 @@ function DetailModal({
                   disabled={busy} 
                   onClick={handleFinalize} 
                   className={cn(
-                    "w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors mt-4",
+                    "w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-red-500 to-rose-500 text-white text-sm font-semibold hover:from-red-600 hover:to-rose-600 transition-all duration-200 shadow-lg shadow-red-500/25",
                     busy && "opacity-50 cursor-not-allowed"
                   )}
                 >
@@ -935,7 +954,7 @@ function DetailModal({
 
           {/* Finalization Info */}
           {isFinalized && draft.finalizedBy && (
-            <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950">
+            <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
               <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
                 <Check className="h-4 w-4" />
                 <span>Finalisé par {draft.finalizedBy.name} le {draft.finalizedBy.at ? new Date(draft.finalizedBy.at).toLocaleDateString("fr-CA") : ""}</span>
@@ -944,20 +963,20 @@ function DetailModal({
           )}
 
           {/* Notes */}
-          <section>
-            <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-3 flex items-center gap-2">
+          <section className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
+            <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
               <FileText className="h-4 w-4 text-neutral-400" />
-              Notes
+              Notes internes
             </h3>
             <textarea
               className={cn(
-                "w-full px-3 py-2.5 rounded-lg border text-sm resize-none focus:outline-none focus:ring-2",
+                "w-full px-4 py-3 rounded-xl border text-sm resize-none focus:outline-none focus:ring-2 transition-all duration-200",
                 isReadOnly
-                  ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed"
-                  : "bg-white dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white"
+                  ? "bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed"
+                  : "bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent"
               )}
-              rows={3}
-              placeholder="Notes internes..."
+              rows={4}
+              placeholder="Ajoutez des notes internes..."
               value={draft.description ?? ""}
               onChange={(e) => !isReadOnly && setDraft({ ...draft, description: e.target.value })}
               disabled={isReadOnly}
@@ -966,13 +985,13 @@ function DetailModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex items-center justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
+        <div className="px-8 py-5 border-t border-neutral-100 dark:border-neutral-800 bg-gradient-to-r from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-900 flex items-center justify-end gap-3">
+          <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all duration-200">
             Fermer
           </button>
 
           {canEdit && (
-            <button disabled={busy} onClick={handleSave} className={cn("inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors", busy && "opacity-50 cursor-not-allowed")}>
+            <button disabled={busy} onClick={handleSave} className={cn("inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-semibold hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-all duration-200 shadow-lg shadow-neutral-900/10 dark:shadow-white/10", busy && "opacity-50 cursor-not-allowed")}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Enregistrer
             </button>
@@ -991,14 +1010,14 @@ function OptionToggle({ label, checked, onToggle, inputValue, onInputChange, inp
   label: string; checked: boolean; onToggle: () => void; inputValue: string; onInputChange: (v: string) => void; inputPlaceholder: string; disabled: boolean;
 }) {
   return (
-    <div className={cn("p-3 rounded-lg border transition-colors", checked ? "border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900" : "border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 opacity-60")}>
-      <div className="flex items-center justify-between mb-2">
+    <div className={cn("p-4 rounded-xl border transition-all duration-200 shadow-sm", checked ? "border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900" : "border-neutral-200/80 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 opacity-70")}>
+      <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-medium text-neutral-900 dark:text-white">{label}</span>
-        <button type="button" onClick={onToggle} disabled={disabled} className={cn("relative h-5 w-9 rounded-full transition-colors", checked ? "bg-neutral-900 dark:bg-white" : "bg-neutral-200 dark:bg-neutral-700", disabled && "opacity-50 cursor-not-allowed")}>
-          <span className={cn("absolute top-0.5 left-0.5 h-4 w-4 rounded-full transition-transform shadow-sm", checked ? "translate-x-4 bg-white dark:bg-neutral-900" : "bg-white dark:bg-neutral-400")} />
+        <button type="button" onClick={onToggle} disabled={disabled} className={cn("relative h-5 w-9 rounded-full transition-all duration-200", checked ? "bg-neutral-900 dark:bg-white" : "bg-neutral-200 dark:bg-neutral-700", disabled && "opacity-50 cursor-not-allowed")}>
+          <span className={cn("absolute top-0.5 left-0.5 h-4 w-4 rounded-full transition-transform duration-200 shadow-sm", checked ? "translate-x-4 bg-white dark:bg-neutral-900" : "bg-white dark:bg-neutral-400")} />
         </button>
       </div>
-      <input disabled={disabled} value={inputValue} onChange={(e) => onInputChange(e.target.value)} className="w-full h-8 px-2.5 rounded-md text-sm border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white placeholder:text-neutral-400 disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white" placeholder={inputPlaceholder} />
+      <input disabled={disabled} value={inputValue} onChange={(e) => onInputChange(e.target.value)} className="w-full h-9 px-3 rounded-lg text-sm border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white placeholder:text-neutral-400 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder={inputPlaceholder} />
     </div>
   );
 }
@@ -1006,20 +1025,20 @@ function OptionToggle({ label, checked, onToggle, inputValue, onInputChange, inp
 function Field({ label, value, onChange, type = "text", icon, disabled }: { label: string; value: string; onChange: (v: string) => void; type?: string; icon?: React.ReactNode; disabled?: boolean }) {
   return (
     <label className="block">
-      <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide mb-1.5 block">{label}</span>
+      <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide mb-2 block">{label}</span>
       <div className="relative">
-        {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">{icon}</div>}
+        {icon && <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400">{icon}</div>}
         <input
           type={type}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
           className={cn(
-            "w-full h-10 rounded-lg border text-sm focus:outline-none focus:ring-2 [color-scheme:light] dark:[color-scheme:dark]",
-            icon ? "pl-9 pr-3" : "px-3",
+            "w-full h-11 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all duration-200 [color-scheme:light] dark:[color-scheme:dark]",
+            icon ? "pl-10 pr-4" : "px-4",
             disabled
               ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed"
-              : "bg-white dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white"
+              : "bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent"
           )}
         />
       </div>
@@ -1052,12 +1071,12 @@ function ProductRow({ product, showVerificationFields, showFinalizationFields, c
   }, [debouncedCode, showSuggestions]);
 
   return (
-    <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 space-y-3 group">
+    <div className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 space-y-4 group shadow-sm hover:shadow-md transition-shadow duration-200">
       {/* Base Product Info */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-shrink-0 w-32">
+      <div className="flex items-center gap-4">
+        <div className="relative flex-shrink-0 w-36">
           <input
-            className={cn("w-full h-9 px-2.5 rounded-md text-sm font-mono border focus:outline-none focus:ring-1", !canEditBase ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" : "bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white")}
+            className={cn("w-full h-10 px-3 rounded-lg text-sm font-mono border focus:outline-none focus:ring-2 transition-all duration-200", !canEditBase ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" : "bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent")}
             placeholder="Code"
             value={product.codeProduit}
             onChange={(e) => { if (canEditBase) { onChange({ ...product, codeProduit: e.target.value }); setShowSuggestions(true); } }}
@@ -1065,42 +1084,42 @@ function ProductRow({ product, showVerificationFields, showFinalizationFields, c
             disabled={!canEditBase}
           />
           {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute z-50 top-full left-0 mt-1 w-64 max-h-48 overflow-y-auto rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-lg">
+            <div className="absolute z-50 top-full left-0 mt-2 w-72 max-h-48 overflow-y-auto rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-xl">
               {suggestions.map((s) => (
-                <button key={s.code} className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 border-b border-neutral-100 dark:border-neutral-800 last:border-0" onClick={() => { onChange({ ...product, codeProduit: s.code, descriptionProduit: s.descr || product.descriptionProduit }); setShowSuggestions(false); }}>
+                <button key={s.code} className="w-full text-left px-4 py-3 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 border-b border-neutral-100 dark:border-neutral-800 last:border-0 transition-colors duration-150" onClick={() => { onChange({ ...product, codeProduit: s.code, descriptionProduit: s.descr || product.descriptionProduit }); setShowSuggestions(false); }}>
                   <div className="font-mono font-medium text-neutral-900 dark:text-white">{s.code}</div>
-                  <div className="text-xs text-neutral-500 truncate">{s.descr}</div>
+                  <div className="text-xs text-neutral-500 truncate mt-0.5">{s.descr}</div>
                 </button>
               ))}
             </div>
           )}
         </div>
-        <input className={cn("flex-1 h-9 px-2.5 rounded-md text-sm border focus:outline-none focus:ring-1", !canEditBase ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" : "bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white")} placeholder="Description" value={product.descriptionProduit || ""} onChange={(e) => canEditBase && onChange({ ...product, descriptionProduit: e.target.value })} disabled={!canEditBase} />
-        <input className={cn("flex-1 h-9 px-2.5 rounded-md text-sm border focus:outline-none focus:ring-1", !canEditBase ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" : "bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white")} placeholder="Raison" value={product.descriptionRetour ?? ""} onChange={(e) => canEditBase && onChange({ ...product, descriptionRetour: e.target.value })} disabled={!canEditBase} />
-        <input type="number" min={0} className={cn("w-20 h-9 px-2.5 rounded-md text-sm text-center border focus:outline-none focus:ring-1", !canEditBase ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" : "bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white")} placeholder="Qté" value={product.quantite} onChange={(e) => canEditBase && onChange({ ...product, quantite: Number(e.target.value || 0) })} disabled={!canEditBase} />
-        {canEditBase && <button onClick={onRemove} className="p-2 rounded-md text-neutral-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="h-4 w-4" /></button>}
+        <input className={cn("flex-1 h-10 px-3 rounded-lg text-sm border focus:outline-none focus:ring-2 transition-all duration-200", !canEditBase ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" : "bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent")} placeholder="Description" value={product.descriptionProduit || ""} onChange={(e) => canEditBase && onChange({ ...product, descriptionProduit: e.target.value })} disabled={!canEditBase} />
+        <input className={cn("flex-1 h-10 px-3 rounded-lg text-sm border focus:outline-none focus:ring-2 transition-all duration-200", !canEditBase ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" : "bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent")} placeholder="Raison" value={product.descriptionRetour ?? ""} onChange={(e) => canEditBase && onChange({ ...product, descriptionRetour: e.target.value })} disabled={!canEditBase} />
+        <input type="number" min={0} className={cn("w-24 h-10 px-3 rounded-lg text-sm text-center border focus:outline-none focus:ring-2 transition-all duration-200", !canEditBase ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" : "bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent")} placeholder="Qté" value={product.quantite} onChange={(e) => canEditBase && onChange({ ...product, quantite: Number(e.target.value || 0) })} disabled={!canEditBase} />
+        {canEditBase && <button onClick={onRemove} className="p-2.5 rounded-lg text-neutral-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 opacity-0 group-hover:opacity-100 transition-all duration-200"><Trash2 className="h-4 w-4" /></button>}
       </div>
 
       {/* Verification Fields */}
       {showVerificationFields && (
-        <div className={cn("pt-3 border-t", canEditVerification ? "border-lime-200 dark:border-lime-800" : "border-neutral-100 dark:border-neutral-800")}>
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="w-24">
-              <label className="text-xs text-neutral-500 block mb-1">Qté reçue</label>
-              <input type="number" min={0} className={cn("w-full h-9 px-2.5 rounded-md text-sm text-center border focus:outline-none focus:ring-1", !canEditVerification ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" : "bg-lime-100 dark:bg-lime-950/50 border-lime-300 dark:border-lime-800 text-neutral-900 dark:text-white focus:ring-lime-500")} value={product.quantiteRecue ?? ""} onChange={(e) => { if (!canEditVerification) return; const qteRecue = Number(e.target.value || 0); const qteDetruite = product.qteDetruite ?? 0; onChange({ ...product, quantiteRecue: qteRecue, qteInventaire: qteRecue - qteDetruite }); }} disabled={!canEditVerification} />
+        <div className={cn("pt-4 border-t", canEditVerification ? "border-amber-200 dark:border-amber-800/50" : "border-neutral-100 dark:border-neutral-800")}>
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="w-28">
+              <label className="text-xs font-medium text-neutral-500 block mb-1.5">Qté reçue</label>
+              <input type="number" min={0} className={cn("w-full h-10 px-3 rounded-lg text-sm text-center border focus:outline-none focus:ring-2 transition-all duration-200", !canEditVerification ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-neutral-900 dark:text-white focus:ring-amber-500")} value={product.quantiteRecue ?? ""} onChange={(e) => { if (!canEditVerification) return; const qteRecue = Number(e.target.value || 0); const qteDetruite = product.qteDetruite ?? 0; onChange({ ...product, quantiteRecue: qteRecue, qteInventaire: qteRecue - qteDetruite }); }} disabled={!canEditVerification} />
             </div>
-            <div className="w-24">
-              <label className="text-xs text-neutral-500 block mb-1">Qté inventaire</label>
-              <input type="number" className="w-full h-9 px-2.5 rounded-md text-sm text-center border bg-lime-100 dark:bg-lime-950/50 border-lime-300 dark:border-lime-800 text-neutral-900 dark:text-white cursor-not-allowed" value={product.qteInventaire ?? ((product.quantiteRecue ?? 0) - (product.qteDetruite ?? 0))} disabled />
+            <div className="w-28">
+              <label className="text-xs font-medium text-neutral-500 block mb-1.5">Qté inventaire</label>
+              <input type="number" className="w-full h-10 px-3 rounded-lg text-sm text-center border bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" value={product.qteInventaire ?? ((product.quantiteRecue ?? 0) - (product.qteDetruite ?? 0))} disabled />
             </div>
-            <div className="w-24">
-              <label className="text-xs text-neutral-500 block mb-1">Qté détruite</label>
-              <input type="number" min={0} max={product.quantiteRecue ?? 0} className={cn("w-full h-9 px-2.5 rounded-md text-sm text-center border focus:outline-none focus:ring-1", !canEditVerification ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" : "bg-lime-100 dark:bg-lime-950/50 border-lime-300 dark:border-lime-800 text-neutral-900 dark:text-white focus:ring-lime-500")} value={product.qteDetruite ?? ""} onChange={(e) => { if (!canEditVerification) return; const qteDetruite = Math.min(Number(e.target.value || 0), product.quantiteRecue ?? 0); const qteRecue = product.quantiteRecue ?? 0; onChange({ ...product, qteDetruite: qteDetruite, qteInventaire: qteRecue - qteDetruite }); }} disabled={!canEditVerification} />
+            <div className="w-28">
+              <label className="text-xs font-medium text-neutral-500 block mb-1.5">Qté détruite</label>
+              <input type="number" min={0} max={product.quantiteRecue ?? 0} className={cn("w-full h-10 px-3 rounded-lg text-sm text-center border focus:outline-none focus:ring-2 transition-all duration-200", !canEditVerification ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-neutral-900 dark:text-white focus:ring-amber-500")} value={product.qteDetruite ?? ""} onChange={(e) => { if (!canEditVerification) return; const qteDetruite = Math.min(Number(e.target.value || 0), product.quantiteRecue ?? 0); const qteRecue = product.quantiteRecue ?? 0; onChange({ ...product, qteDetruite: qteDetruite, qteInventaire: qteRecue - qteDetruite }); }} disabled={!canEditVerification} />
             </div>
             {showFinalizationFields && (
-              <div className="w-32">
-                <label className="text-xs text-neutral-500 block mb-1">Taux restocking</label>
-                <select className={cn("w-full h-9 px-2.5 rounded-md text-sm border focus:outline-none focus:ring-1", !canEditFinalization ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" : "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white")} value={`${(product.tauxRestock ?? 0)}%`} onChange={(e) => { if (!canEditFinalization) return; const rate = parseFloat(e.target.value.replace('%', '')); onChange({ ...product, tauxRestock: rate }); }} disabled={!canEditFinalization}>
+              <div className="w-36">
+                <label className="text-xs font-medium text-neutral-500 block mb-1.5">Taux restocking</label>
+                <select className={cn("w-full h-10 px-3 rounded-lg text-sm border focus:outline-none focus:ring-2 transition-all duration-200", !canEditFinalization ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" : "bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent")} value={`${(product.tauxRestock ?? 0)}%`} onChange={(e) => { if (!canEditFinalization) return; const rate = parseFloat(e.target.value.replace('%', '')); onChange({ ...product, tauxRestock: rate }); }} disabled={!canEditFinalization}>
                   {RESTOCK_RATES.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
@@ -1199,42 +1218,44 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-start justify-center p-4 overflow-y-auto">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-3xl my-8 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
+      <div className="relative w-[90vw] h-[90vh] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200/50 dark:border-neutral-700/50 overflow-hidden flex flex-col">
         
         {/* Header */}
-        <div className="px-6 py-5 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between bg-neutral-50 dark:bg-neutral-900">
-          <div className="flex items-center gap-4">
-            <div className="h-10 w-10 rounded-lg bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 flex items-center justify-center font-mono text-sm font-medium">{nextId.replace('R', '')}</div>
+        <div className="px-8 py-6 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-gradient-to-r from-neutral-50 to-white dark:from-neutral-900 dark:to-neutral-900">
+          <div className="flex items-center gap-5">
+            <div className="h-12 w-12 rounded-xl bg-neutral-200 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 flex items-center justify-center font-mono text-lg font-medium">{nextId.replace('R', '')}</div>
             <div>
-              <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Nouveau retour</h2>
-              <p className="text-sm text-neutral-500">{currentUserName}</p>
+              <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">Nouveau retour</h2>
+              <p className="text-sm text-neutral-500 mt-0.5">{currentUserName}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"><X className="h-5 w-5" /></button>
+          <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-all duration-200"><X className="h-5 w-5" /></button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto">
+        <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-neutral-50/50 dark:bg-neutral-950/50">
           {/* Order Lookup */}
-          <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950">
-            <label className="block text-sm font-medium text-neutral-900 dark:text-white mb-2">Recherche par commande</label>
+          <div className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
+            <label className="block text-sm font-medium text-neutral-900 dark:text-white mb-3">Recherche par commande</label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
-              <input type="text" value={noCommande} onChange={(e) => setNoCommande(e.target.value)} onBlur={onFetchFromOrder} onKeyDown={(e) => e.key === "Enter" && onFetchFromOrder()} placeholder="Entrez un numéro de commande" className="w-full h-11 pl-10 pr-4 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm font-mono text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white" />
-              {orderLookupLoading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 animate-spin" />}
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+              <input type="text" value={noCommande} onChange={(e) => setNoCommande(e.target.value)} onBlur={onFetchFromOrder} onKeyDown={(e) => e.key === "Enter" && onFetchFromOrder()} placeholder="Entrez un numéro de commande" className="w-full h-12 pl-11 pr-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm font-mono text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" />
+              {orderLookupLoading && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 animate-spin" />}
             </div>
           </div>
 
           {/* Physical Return Toggle */}
-          <div onClick={() => setPhysicalReturn(!physicalReturn)} className={cn("p-4 rounded-lg border cursor-pointer transition-colors", physicalReturn ? "border-lime-300 dark:border-lime-800 bg-lime-50 dark:bg-lime-950/30" : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 hover:bg-neutral-50 dark:hover:bg-neutral-900")}>
+          <div onClick={() => setPhysicalReturn(!physicalReturn)} className={cn("p-5 rounded-xl border cursor-pointer transition-all duration-200 shadow-sm", physicalReturn ? "border-lime-200 dark:border-lime-800/50 bg-gradient-to-br from-lime-50 to-emerald-50 dark:from-lime-950/30 dark:to-emerald-950/30" : "border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800")}>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Package className={cn("h-5 w-5", physicalReturn ? "text-lime-600 dark:text-lime-400" : "text-neutral-400")} />
+              <div className="flex items-center gap-4">
+                <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center", physicalReturn ? "bg-lime-500/20 text-lime-600 dark:text-lime-400" : "bg-neutral-100 dark:bg-neutral-800 text-neutral-400")}>
+                  <Package className="h-5 w-5" />
+                </div>
                 <div>
                   <div className={cn("text-sm font-medium", physicalReturn ? "text-lime-900 dark:text-lime-100" : "text-neutral-900 dark:text-white")}>Retour physique</div>
-                  <div className="text-xs text-neutral-500">{physicalReturn ? "Requiert vérification à la réception" : "Retour administratif uniquement"}</div>
+                  <div className="text-xs text-neutral-500 mt-0.5">{physicalReturn ? "Requiert vérification à la réception" : "Retour administratif uniquement"}</div>
                 </div>
               </div>
               <Switch checked={physicalReturn} onCheckedChange={setPhysicalReturn} />
@@ -1242,33 +1263,38 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
           </div>
 
           {/* Form Fields */}
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Date" required><input type="date" value={reportedAt} onChange={(e) => setReportedAt(e.target.value)} className="w-full h-10 px-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white [color-scheme:light] dark:[color-scheme:dark]" /></FormField>
-            <FormField label="Signalé par" required><select value={reporter} onChange={(e) => setReporter(e.target.value as Reporter)} className="w-full h-10 px-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white">{Object.entries(REPORTER_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></FormField>
-            <FormField label="Cause" required><select value={cause} onChange={(e) => setCause(e.target.value as Cause)} className="w-full h-10 px-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white">{CAUSES_IN_ORDER.map((c) => <option key={c} value={c}>{CAUSE_LABEL[c]}</option>)}</select></FormField>
-            <FormField label="No. client"><input value={noClient} onChange={(e) => setNoClient(e.target.value)} className="w-full h-10 px-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white" placeholder="12345" /></FormField>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Expert" required><input value={expert} onChange={(e) => setExpert(e.target.value)} className="w-full h-10 px-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white" placeholder="Nom du représentant" /></FormField>
-            <FormField label="Client" required><input value={client} onChange={(e) => setClient(e.target.value)} className="w-full h-10 px-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white" placeholder="Nom du client" /></FormField>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <FormField label="Tracking"><input value={tracking} onChange={(e) => setTracking(e.target.value)} className="w-full h-10 px-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-sm font-mono text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white" placeholder="1Z999..." /></FormField>
-            <FormField label="Transporteur"><input value={transport} onChange={(e) => setTransport(e.target.value)} className="w-full h-10 px-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white" placeholder="Purolator" /></FormField>
-            <FormField label="Montant"><input value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full h-10 px-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white" placeholder="0.00" /></FormField>
-            <FormField label="Date commande"><input type="date" value={dateCommande} onChange={(e) => setDateCommande(e.target.value)} className="w-full h-10 px-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white [color-scheme:light] dark:[color-scheme:dark]" /></FormField>
+          <div className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm space-y-5">
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="Date" required><input type="date" value={reportedAt} onChange={(e) => setReportedAt(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200 [color-scheme:light] dark:[color-scheme:dark]" /></FormField>
+              <FormField label="Signalé par" required><select value={reporter} onChange={(e) => setReporter(e.target.value as Reporter)} className="w-full h-11 px-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200">{Object.entries(REPORTER_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></FormField>
+              <FormField label="Cause" required><select value={cause} onChange={(e) => setCause(e.target.value as Cause)} className="w-full h-11 px-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200">{CAUSES_IN_ORDER.map((c) => <option key={c} value={c}>{CAUSE_LABEL[c]}</option>)}</select></FormField>
+              <FormField label="No. client"><input value={noClient} onChange={(e) => setNoClient(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder="12345" /></FormField>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="Expert" required><input value={expert} onChange={(e) => setExpert(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder="Nom du représentant" /></FormField>
+              <FormField label="Client" required><input value={client} onChange={(e) => setClient(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder="Nom du client" /></FormField>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <FormField label="Tracking"><input value={tracking} onChange={(e) => setTracking(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm font-mono text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder="1Z999..." /></FormField>
+              <FormField label="Transporteur"><input value={transport} onChange={(e) => setTransport(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder="Purolator" /></FormField>
+              <FormField label="Montant"><input value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder="0.00" /></FormField>
+              <FormField label="Date commande"><input type="date" value={dateCommande} onChange={(e) => setDateCommande(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200 [color-scheme:light] dark:[color-scheme:dark]" /></FormField>
+            </div>
           </div>
 
           {/* Products */}
-          <section>
-            <div className="flex items-center justify-between mb-3">
+          <section className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-neutral-900 dark:text-white flex items-center gap-2"><Package className="h-4 w-4 text-neutral-400" />Produits (RMA)</h3>
-              <button onClick={addProduct} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"><Plus className="h-3.5 w-3.5" />Ajouter</button>
+              <button onClick={addProduct} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-all duration-200"><Plus className="h-3.5 w-3.5" />Ajouter</button>
             </div>
             {products.length === 0 ? (
-              <div className="py-8 text-center border border-dashed border-neutral-200 dark:border-neutral-800 rounded-lg text-neutral-400 text-sm">Aucun produit</div>
+              <div className="py-12 text-center border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl text-neutral-400 text-sm">
+                <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                Aucun produit ajouté
+              </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {products.map((p, idx) => (
                   <NewProductRow key={p.id} product={p} onChange={(up) => { const arr = products.slice(); arr[idx] = up; setProducts(arr); }} onRemove={() => removeProduct(p.id)} />
                 ))}
@@ -1277,34 +1303,39 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
           </section>
 
           {/* Attachments */}
-          <section>
-            <div className="flex items-center justify-between mb-3">
+          <section className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-neutral-900 dark:text-white flex items-center gap-2"><Paperclip className="h-4 w-4 text-neutral-400" />Pièces jointes</h3>
-              <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors cursor-pointer">
+              <label className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-all duration-200 cursor-pointer">
                 <UploadCloud className="h-3.5 w-3.5" />Ajouter
                 <input type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) { setFilesToUpload((prev) => [...prev, ...Array.from(e.target.files || [])]); e.target.value = ""; } }} />
               </label>
             </div>
-            {filesToUpload.length > 0 && (
+            {filesToUpload.length > 0 ? (
               <div className="space-y-2">
                 {filesToUpload.map((f, i) => (
-                  <div key={i} className="flex items-center justify-between px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950">
-                    <div className="flex items-center gap-2 min-w-0"><FileText className="h-4 w-4 text-neutral-400 flex-shrink-0" /><span className="text-sm text-neutral-700 dark:text-neutral-300 truncate">{f.name}</span></div>
-                    <button onClick={() => setFilesToUpload((prev) => prev.filter((_, idx) => idx !== i))} className="p-1 rounded text-neutral-400 hover:text-red-600 dark:hover:text-red-400"><X className="h-4 w-4" /></button>
+                  <div key={i} className="flex items-center justify-between px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950">
+                    <div className="flex items-center gap-3 min-w-0"><FileText className="h-4 w-4 text-neutral-400 flex-shrink-0" /><span className="text-sm text-neutral-700 dark:text-neutral-300 truncate">{f.name}</span></div>
+                    <button onClick={() => setFilesToUpload((prev) => prev.filter((_, idx) => idx !== i))} className="p-1.5 rounded-lg text-neutral-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 transition-all duration-200"><X className="h-4 w-4" /></button>
                   </div>
                 ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl text-neutral-400 text-sm">
+                <Paperclip className="h-6 w-6 mx-auto mb-2 opacity-50" />
+                Aucun fichier sélectionné
               </div>
             )}
           </section>
 
           {/* Notes */}
-          <section>
-            <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-3 flex items-center gap-2"><FileText className="h-4 w-4 text-neutral-400" />Notes</h3>
-            <textarea className="w-full px-3 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white resize-none" rows={3} placeholder="Notes internes..." value={description} onChange={(e) => setDescription(e.target.value)} />
+          <section className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
+            <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-4 flex items-center gap-2"><FileText className="h-4 w-4 text-neutral-400" />Notes internes</h3>
+            <textarea className="w-full px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200 resize-none" rows={4} placeholder="Ajoutez des notes internes..." value={description} onChange={(e) => setDescription(e.target.value)} />
           </section>
 
           {/* Options */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <OptionToggle label="Pickup" checked={isPickup} onToggle={() => setIsPickup(!isPickup)} inputValue={noBill} onInputChange={setNoBill} inputPlaceholder="No. Bill" disabled={!isPickup} />
             <OptionToggle label="Commande" checked={isCommande} onToggle={() => setIsCommande(!isCommande)} inputValue={noBonCommande} onInputChange={setNoBonCommande} inputPlaceholder="No. Bon" disabled={!isCommande} />
             <OptionToggle label="Réclamation" checked={isReclamation} onToggle={() => setIsReclamation(!isReclamation)} inputValue={noReclamation} onInputChange={setNoReclamation} inputPlaceholder="No. Récl." disabled={!isReclamation} />
@@ -1312,9 +1343,9 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 flex items-center justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">Annuler</button>
-          <button disabled={busy} onClick={submit} className={cn("inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors", busy && "opacity-50 cursor-not-allowed")}>
+        <div className="px-8 py-5 border-t border-neutral-100 dark:border-neutral-800 bg-gradient-to-r from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-900 flex items-center justify-end gap-3">
+          <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all duration-200">Annuler</button>
+          <button disabled={busy} onClick={submit} className={cn("inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-neutral-800 to-neutral-900 dark:from-white dark:to-neutral-100 text-white dark:text-neutral-900 text-sm font-semibold hover:from-neutral-700 hover:to-neutral-800 dark:hover:from-neutral-100 dark:hover:to-neutral-200 transition-all duration-200 shadow-lg shadow-neutral-900/20 dark:shadow-white/20", busy && "opacity-50 cursor-not-allowed")}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             Créer le retour
           </button>
@@ -1349,24 +1380,24 @@ function NewProductRow({ product, onChange, onRemove }: { product: ProductLine; 
   }, [debouncedCode, showSuggestions]);
 
   return (
-    <div className="flex items-center gap-3 p-3 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 group">
-      <div className="relative flex-shrink-0 w-32">
-        <input className="w-full h-9 px-2.5 rounded-md text-sm font-mono border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white" placeholder="Code" value={product.codeProduit} onChange={(e) => { onChange({ ...product, codeProduit: e.target.value }); setShowSuggestions(true); }} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} />
+    <div className="flex items-center gap-4 p-4 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 group shadow-sm hover:shadow-md transition-shadow duration-200">
+      <div className="relative flex-shrink-0 w-36">
+        <input className="w-full h-10 px-3 rounded-lg text-sm font-mono border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder="Code" value={product.codeProduit} onChange={(e) => { onChange({ ...product, codeProduit: e.target.value }); setShowSuggestions(true); }} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} />
         {showSuggestions && suggestions.length > 0 && (
-          <div className="absolute z-50 top-full left-0 mt-1 w-64 max-h-48 overflow-y-auto rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-lg">
+          <div className="absolute z-50 top-full left-0 mt-2 w-72 max-h-48 overflow-y-auto rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-xl">
             {suggestions.map((s) => (
-              <button key={s.code} className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 border-b border-neutral-100 dark:border-neutral-800 last:border-0" onClick={() => { onChange({ ...product, codeProduit: s.code, descriptionProduit: s.descr || product.descriptionProduit }); setShowSuggestions(false); }}>
+              <button key={s.code} className="w-full text-left px-4 py-3 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 border-b border-neutral-100 dark:border-neutral-800 last:border-0 transition-colors duration-150" onClick={() => { onChange({ ...product, codeProduit: s.code, descriptionProduit: s.descr || product.descriptionProduit }); setShowSuggestions(false); }}>
                 <div className="font-mono font-medium text-neutral-900 dark:text-white">{s.code}</div>
-                <div className="text-xs text-neutral-500 truncate">{s.descr}</div>
+                <div className="text-xs text-neutral-500 truncate mt-0.5">{s.descr}</div>
               </button>
             ))}
           </div>
         )}
       </div>
-      <input className="flex-1 h-9 px-2.5 rounded-md text-sm border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white" placeholder="Description" value={product.descriptionProduit || ""} onChange={(e) => onChange({ ...product, descriptionProduit: e.target.value })} />
-      <input className="flex-1 h-9 px-2.5 rounded-md text-sm border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white" placeholder="Raison" value={product.descriptionRetour ?? ""} onChange={(e) => onChange({ ...product, descriptionRetour: e.target.value })} />
-      <input type="number" min={0} className="w-20 h-9 px-2.5 rounded-md text-sm text-center border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white" placeholder="Qté" value={product.quantite} onChange={(e) => onChange({ ...product, quantite: Number(e.target.value || 0) })} />
-      <button onClick={onRemove} className="p-2 rounded-md text-neutral-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="h-4 w-4" /></button>
+      <input className="flex-1 h-10 px-3 rounded-lg text-sm border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder="Description" value={product.descriptionProduit || ""} onChange={(e) => onChange({ ...product, descriptionProduit: e.target.value })} />
+      <input className="flex-1 h-10 px-3 rounded-lg text-sm border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder="Raison" value={product.descriptionRetour ?? ""} onChange={(e) => onChange({ ...product, descriptionRetour: e.target.value })} />
+      <input type="number" min={0} className="w-24 h-10 px-3 rounded-lg text-sm text-center border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder="Qté" value={product.quantite} onChange={(e) => onChange({ ...product, quantite: Number(e.target.value || 0) })} />
+      <button onClick={onRemove} className="p-2.5 rounded-lg text-neutral-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 opacity-0 group-hover:opacity-100 transition-all duration-200"><Trash2 className="h-4 w-4" /></button>
     </div>
   );
 }
