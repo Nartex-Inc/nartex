@@ -178,7 +178,7 @@ function abbreviateColumnName(name: string): string {
 
 // Custom sort function to put 5-GROS first, then the rest in order
 function sortPriceColumns(columns: string[]): string[] {
-  const priorityOrder = ["05-GROS", "02-DET", "03-IND"];
+  const priorityOrder = ["01-EXP", "05-GROS", "02-DET", "03-IND"];
   
   return columns.sort((a, b) => {
     const aKey = a.trim();
