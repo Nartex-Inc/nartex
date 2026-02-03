@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, Fragment } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useCurrentAccent } from "@/components/accent-color-provider";
@@ -19,6 +20,7 @@ import {
   EyeOff,
   ChevronDown,
   Plus,
+  Minus,
   Filter,
   Sparkles,
   Package,
@@ -34,7 +36,47 @@ import {
   Check,
   Recycle,
   SlidersHorizontal,
+  Lock,
 } from "lucide-react";
+
+/* =========================
+   Role-Based Access Control
+========================= */
+const ALLOWED_ROLES = ["gestionnaire", "expert"];
+const BYPASS_EMAILS = ["n.labranche@sinto.ca"];
+
+function isUserAuthorized(
+  role: string | undefined | null,
+  email: string | undefined | null
+): boolean {
+  if (email && BYPASS_EMAILS.includes(email.toLowerCase())) {
+    return true;
+  }
+  if (role && ALLOWED_ROLES.includes(role.toLowerCase().trim())) {
+    return true;
+  }
+  return false;
+}
+
+const AccessDenied = ({ role, email }: { role: string | undefined; email: string | undefined | null }) => (
+  <div className="fixed inset-0 flex items-center justify-center p-4 bg-neutral-900">
+    <div className="bg-white dark:bg-neutral-800 rounded-2xl p-10 max-w-lg text-center shadow-2xl">
+      <div className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center bg-red-100 dark:bg-red-900/30">
+        <Lock className="w-10 h-10 text-red-500" />
+      </div>
+      <h3 className="text-2xl font-bold text-neutral-900 dark:text-white mb-3">Accès restreint</h3>
+      <p className="text-neutral-600 dark:text-neutral-400 leading-relaxed mb-4">
+        Vous ne disposez pas des autorisations nécessaires pour accéder aux listes de prix.
+        Seuls les rôles <strong>Gestionnaire</strong> et <strong>Expert</strong> peuvent y accéder.
+      </p>
+      <div className="bg-neutral-100 dark:bg-neutral-700 p-4 rounded-lg text-left text-xs font-mono text-neutral-500 dark:text-neutral-400">
+        <p>DEBUG INFO:</p>
+        <p>Email: {email || "Not Found"}</p>
+        <p>Role Detected: {role || "Undefined/Null"}</p>
+      </div>
+    </div>
+  </div>
+);
 
 /* =========================
    Types (Unchanged)
@@ -132,6 +174,30 @@ function abbreviateColumnName(name: string): string {
   if (result === "04-GROSEXP") return "4-GREXP";
   result = result.replace(/^0(\d+-)/, "$1");
   return result;
+}
+
+// Custom sort function to put 5-GROS first, then the rest in order
+function sortPriceColumns(columns: string[]): string[] {
+  const priorityOrder = ["05-GROS", "02-DET", "03-IND"];
+  
+  return columns.sort((a, b) => {
+    const aKey = a.trim();
+    const bKey = b.trim();
+    
+    const aIndex = priorityOrder.findIndex(p => aKey.includes(p) || aKey === p);
+    const bIndex = priorityOrder.findIndex(p => bKey.includes(p) || bKey === p);
+    
+    // If both are in priority list, sort by priority
+    if (aIndex !== -1 && bIndex !== -1) {
+      return aIndex - bIndex;
+    }
+    // If only a is in priority list, a comes first
+    if (aIndex !== -1) return -1;
+    // If only b is in priority list, b comes first
+    if (bIndex !== -1) return 1;
+    // Otherwise, sort alphabetically
+    return aKey.localeCompare(bKey);
+  });
 }
 
 function parseFormat(format: string | null): { quantity: number | null; unit: string; normalizedUnit: string } {
@@ -811,9 +877,9 @@ function EmailModal({
 }
 
 /* =========================
-   Main Full Screen Page
+   Main Content Component
 ========================= */
-export default function CataloguePage() {
+function CataloguePageContent() {
   const router = useRouter();
   const { color: accentColor } = useCurrentAccent();
   const isCompact = useMediaQuery("(max-width: 1024px)");
@@ -984,6 +1050,11 @@ export default function CataloguePage() {
     }
   };
 
+  // NEW: Remove individual item from price list
+  const handleRemoveItem = (itemId: number) => {
+    setPriceData((prev) => prev.filter((item) => item.itemId !== itemId));
+  };
+
   const handleToggleDetails = async () => {
     if (showDetails) {
       setShowDetails(false);
@@ -1134,7 +1205,7 @@ export default function CataloguePage() {
 
         const firstItem = classItems[0];
         let priceColumns = firstItem.ranges[0]?.columns
-          ? Object.keys(firstItem.ranges[0].columns).sort()
+          ? sortPriceColumns(Object.keys(firstItem.ranges[0].columns))
           : [selectedPriceList?.code || "Prix"];
         if (!showDetails && selectedPriceList?.code !== "01-EXP") {
           priceColumns = priceColumns.filter((c) => c.trim() !== "01-EXP");
@@ -1610,7 +1681,7 @@ export default function CataloguePage() {
                       {Object.entries(classesByCategory).map(([className, classItems]) => {
                 const firstItem = classItems[0];
                 let priceColumns = firstItem.ranges[0]?.columns
-                  ? Object.keys(firstItem.ranges[0].columns).sort()
+                  ? sortPriceColumns(Object.keys(firstItem.ranges[0].columns))
                   : [selectedPriceList?.code || "Prix"];
                 if (!showDetails && selectedPriceList?.code !== "01-EXP")
                   priceColumns = priceColumns.filter((c) => c.trim() !== "01-EXP");
@@ -1643,6 +1714,8 @@ export default function CataloguePage() {
                       <table className={cn("w-full border-collapse", isCompact ? "text-xs" : "text-sm")}>
                         <thead>
                           <tr className="bg-neutral-50 dark:bg-neutral-800/50">
+                            {/* Remove column header */}
+                            <th className={cn("w-10 text-center font-black text-neutral-400 dark:text-neutral-500 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-2" : "p-3")}></th>
                             <th className={cn("text-left font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700 sticky left-0 bg-neutral-50 dark:bg-neutral-800/50 z-10", isCompact ? "p-3" : "p-4")}>
                               <div className="flex items-center gap-2">
                                 <Package className={cn(isCompact ? "w-4 h-4" : "w-5 h-5", "opacity-50")} />Article
@@ -1685,6 +1758,18 @@ export default function CataloguePage() {
 
                                 return (
                                   <tr key={range.id} className={cn("transition-colors duration-200 group", rowBg, "hover:bg-amber-50/50 dark:hover:bg-amber-900/10")}>
+                                    {/* Remove button cell */}
+                                    <td className={cn("border-b border-neutral-100 dark:border-neutral-800 align-top text-center", isCompact ? "p-2" : "p-3", rowBg, "group-hover:bg-amber-50/50 dark:group-hover:bg-amber-900/10")}>
+                                      {isFirstRowOfItem && (
+                                        <button
+                                          onClick={() => handleRemoveItem(item.itemId)}
+                                          className="w-6 h-6 rounded-md flex items-center justify-center text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                                          title="Retirer cet article"
+                                        >
+                                          <Minus className="w-4 h-4" />
+                                        </button>
+                                      )}
+                                    </td>
                                     <td className={cn("border-b border-neutral-100 dark:border-neutral-800 align-top sticky left-0 z-10", isCompact ? "p-3" : "p-4", rowBg, "group-hover:bg-amber-50/50 dark:group-hover:bg-amber-900/10")}>
                                       {isFirstRowOfItem && (
                                         <div className="flex flex-col gap-0.5">
@@ -1835,4 +1920,33 @@ export default function CataloguePage() {
       <EmailModal isOpen={showEmailModal} onClose={() => setShowEmailModal(false)} onSend={handleEmailPDF} sending={isSendingEmail} accentColor={accentColor} />
     </div>
   );
+}
+
+/* =========================
+   Page Export with Auth Check
+========================= */
+export default function CataloguePage() {
+  const { data: session, status } = useSession();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  if (!mounted || status === "loading") {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-neutral-900">
+        <Loader2 className="w-8 h-8 animate-spin text-white" />
+      </div>
+    );
+  }
+
+  const userRole = (session as any)?.user?.role;
+  const userEmail = session?.user?.email;
+
+  const isAuthorized = isUserAuthorized(userRole, userEmail);
+
+  if (status === "unauthenticated" || !isAuthorized) {
+    return <AccessDenied role={userRole} email={userEmail} />;
+  }
+
+  return <CataloguePageContent />;
 }
