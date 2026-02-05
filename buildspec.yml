@@ -39,12 +39,11 @@ phases:
 
       - echo "📦 INSTALL – clean cache and prep lockfile"
       - npm cache clean --force
-      - npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-      - npm ci
-      
+      - npm ci --legacy-peer-deps
+
       # Install dependencies (Auth, PDF, Email, Google, Maps)
-      - npm install @simplewebauthn/browser @simplewebauthn/server jspdf jspdf-autotable nodemailer googleapis @react-google-maps/api
-      - npm install --save-dev @types/nodemailer
+      - npm install --legacy-peer-deps @simplewebauthn/browser @simplewebauthn/server jspdf jspdf-autotable googleapis @react-google-maps/api
+      - npm install --legacy-peer-deps --save-dev @types/nodemailer
 
       - node -e "console.log('prisma:',require('./node_modules/prisma/package.json').version,'| @prisma/client:',require('./node_modules/@prisma/client/package.json').version)"
 
