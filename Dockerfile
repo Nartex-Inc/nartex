@@ -126,5 +126,9 @@ COPY --from=builder /app/.next/static ./.next/static
 # Copy public assets like images and fonts
 COPY --from=builder /app/public ./public
 
+# Set Node.js memory limit to prevent OOM kills
+# Adjust based on your ECS task memory allocation (leave ~256MB for OS)
+ENV NODE_OPTIONS="--max-old-space-size=1024"
+
 # Your CMD should then run the standalone server
 CMD ["node", "server.js"]
