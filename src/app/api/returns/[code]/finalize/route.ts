@@ -101,7 +101,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         });
 
         // Calculate total weight
-        const product = ret.products.find(pr => pr.codeProduit === p.codeProduit);
+        const product = ret.products.find((pr: { codeProduit: string | null; quantiteRecue: number | null; quantite: number | null; weightProduit: any }) => pr.codeProduit === p.codeProduit);
         if (product) {
           const qty = p.quantiteRecue ?? product.quantiteRecue ?? product.quantite ?? 0;
           const weight = product.weightProduit ? Number(product.weightProduit) : 0;

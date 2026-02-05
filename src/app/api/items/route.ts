@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
       // --- SMART SORTING LOGIC ---
       const searchUpper = q.toUpperCase();
       
-      items.sort((a, b) => {
+      items.sort((a: { itemcode: string; descr: string | null }, b: { itemcode: string; descr: string | null }) => {
         const codeA = a.itemcode.toUpperCase();
         const codeB = b.itemcode.toUpperCase();
         const descA = (a.descr || "").toUpperCase();
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({
         ok: true,
-        suggestions: topItems.map((i) => ({
+        suggestions: topItems.map((i: { itemcode: string; descr: string | null }) => ({
           code: i.itemcode,
           descr: i.descr,
         })),

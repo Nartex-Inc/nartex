@@ -140,7 +140,17 @@ export async function POST(
         return NextResponse.json({ ok: false, error: "Aucun fichier fourni" }, { status: 400 });
       }
 
-      const uploadedAttachments = [];
+      const uploadedAttachments: Array<{
+        id: string;
+        dbId: number;
+        name: string;
+        mimeType: string;
+        fileSize: number;
+        url: string;
+        previewUrl: string;
+        downloadUrl: string;
+        createdAt: string;
+      }> = [];
       const errors: string[] = [];
 
       for (let i = 0; i < files.length; i++) {

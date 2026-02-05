@@ -71,7 +71,7 @@ export async function GET(req: Request) {
       });
 
       // Check if any tenant role grants access
-      isAuthorized = tenantRoles.some((t) =>
+      isAuthorized = tenantRoles.some((t: { role: string | null }) =>
         t.role && ALLOWED_TENANT_ROLES.includes(t.role.toLowerCase().trim())
       );
     } catch (err) {

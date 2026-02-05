@@ -86,7 +86,7 @@ const drive = google.drive({ version: "v3", auth });
  * Validates drive configuration for diagnostic routes.
  */
 export function checkDriveConfiguration(): { valid: boolean; errors: string[] } {
-  const errors = [];
+  const errors: string[] = [];
   if (!privateKey) errors.push("GOOGLE_PRIVATE_KEY is missing or invalid");
   if (!clientEmail) errors.push("GOOGLE_CLIENT_EMAIL is missing");
   if (!folderId) errors.push("GOOGLE_DRIVE_FOLDER_ID is missing");

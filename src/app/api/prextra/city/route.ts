@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Optionally calculate shipping cost if weight is provided
-    let shippingCost = null;
+    let shippingCost: number | null = null;
     if (weight && result._Code) {
       const weightNum = parseFloat(weight);
       if (!isNaN(weightNum)) {
