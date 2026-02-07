@@ -146,7 +146,7 @@ phases:
         export default function DashboardHeader(){ return <div className="px-4 py-3 text-sm text-muted-foreground">Dashboard Header</div>; }
         TSX
 
-        [ -f src/components/dashboard/sidebar.tsx ] || cat > src/components/dashboard/sidebar.tsx << 'TSX'
+        [ -f src/components/dashboard/Sidebar.tsx ] || cat > src/components/dashboard/Sidebar.tsx << 'TSX'
         export default function DashboardSidebar(){ return <aside className="p-4 text-sm text-muted-foreground">Sidebar</aside>; }
         TSX
 
