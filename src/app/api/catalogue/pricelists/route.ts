@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
+import { getPrextraTables } from "@/lib/prextra";
 
 export async function GET() {
   try {
@@ -10,23 +11,29 @@ export async function GET() {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
 
+    const schema = session.user.prextraSchema;
+    if (!schema) {
+      return NextResponse.json({ error: "Aucune donnée ERP pour ce tenant" }, { status: 403 });
+    }
+
+    const T = getPrextraTables(schema);
+
     // Include Pricecodes '01' through '08'
     // Exclude priceid=17 (PDS) from dropdown - it's shown in separate column
     const query = `
-      SELECT 
+      SELECT
         "priceid" as "priceId",
         "Pricecode" as "code",
         "Descr" as "name",
         COALESCE(
-          CASE WHEN "Currid" = 1 THEN 'CAD' 
-               WHEN "Currid" = 2 THEN 'USD' 
-               ELSE 'CAD' 
-          END, 
+          CASE WHEN "Currid" = 1 THEN 'CAD'
+               WHEN "Currid" = 2 THEN 'USD'
+               ELSE 'CAD'
+          END,
           'CAD'
         ) as "currency"
-      FROM public."PriceList"
+      FROM ${T.PRICE_LIST}
       WHERE "IsActive" = true
-        AND "cieid" = 2
         AND "PriceListType" = 'customer'
         AND "Pricecode" BETWEEN '01' AND '08'
         AND "priceid" != 17

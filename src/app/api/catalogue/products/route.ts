@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
+import { getPrextraTables } from "@/lib/prextra";
 
 export async function GET() {
   try {
@@ -10,13 +11,19 @@ export async function GET() {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
 
+    const schema = session.user.prextraSchema;
+    if (!schema) {
+      return NextResponse.json({ error: "Aucune donnée ERP pour ce tenant" }, { status: 403 });
+    }
+
+    const T = getPrextraTables(schema);
     const query = `
-      SELECT 
+      SELECT
         p."ProdId" as "prodId",
         p."Name" as "name",
         COUNT(i."ItemId")::int as "itemCount"
-      FROM public."Products" p
-      LEFT JOIN public."Items" i ON p."ProdId" = i."ProdId"
+      FROM ${T.PRODUCTS} p
+      LEFT JOIN ${T.ITEMS} i ON p."ProdId" = i."ProdId"
       WHERE p."ProdId" BETWEEN 1 AND 10
       GROUP BY p."ProdId", p."Name"
       HAVING COUNT(i."ItemId") > 0

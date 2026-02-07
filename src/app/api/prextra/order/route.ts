@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
+import { getPrextraTables } from "@/lib/prextra";
 
 /**
  * GET /api/prextra/order?no_commande=XXXXX
@@ -17,6 +18,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { exists: false, error: "Non authentifié" },
         { status: 401 }
+      );
+    }
+
+    const schema = session.user.prextraSchema;
+    if (!schema) {
+      return NextResponse.json(
+        { exists: false, error: "Aucune donnée ERP pour ce tenant" },
+        { status: 403 }
       );
     }
 
@@ -41,8 +50,9 @@ export async function GET(request: NextRequest) {
     }
 
     // 3) Query the database for order info using raw SQL
+    const T = getPrextraTables(schema);
     const query = `
-      SELECT 
+      SELECT
         h."sonbr" as "sonbr",
         h."OrderDate" as "orderDate",
         h."totalamt" as "totalamt",
@@ -51,11 +61,11 @@ export async function GET(request: NextRequest) {
         cr."name" as "carrierName",
         sr."Name" as "salesrepName",
         sh."WayBill" as "tracking"
-      FROM public."SOHeader" h
-      LEFT JOIN public."Customers" c ON h."custid" = c."CustId"
-      LEFT JOIN public."carriers" cr ON h."Carrid" = cr."carrid"
-      LEFT JOIN public."Salesrep" sr ON h."SRId" = sr."SRId"
-      LEFT JOIN public."ShipmentHdr" sh ON h."sonbr" = sh."sonbr"
+      FROM ${T.SO_HEADER} h
+      LEFT JOIN ${T.CUSTOMERS} c ON h."custid" = c."CustId"
+      LEFT JOIN ${T.CARRIERS} cr ON h."Carrid" = cr."carrid"
+      LEFT JOIN ${T.SALESREP} sr ON h."SRId" = sr."SRId"
+      LEFT JOIN ${T.SHIPMENT_HDR} sh ON h."sonbr" = sh."sonbr"
       WHERE h."sonbr" = $1
       LIMIT 1
     `;

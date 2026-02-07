@@ -18,11 +18,46 @@ export const PREXTRA_TABLES = {
   CARRIERS: '"carriers"',
   SHIPMENT_HDR: '"ShipmentHdr"',
   INV_HEADER: '"InvHeader"',
+  INV_DETAIL: '"InvDetail"',
   SHIPTO: '"Shipto"',
   CITY: '"_City"',
   CITY_SETTING: '"_CitySetting"',
   TRANSPORT_CHART: '"_TransportChartDTL"',
+  PRODUCTS: '"Products"',
+  ITEM_TYPE: '"itemtype"',
+  PRICE_LIST: '"PriceList"',
+  ITEM_PRICE_RANGE: '"itempricerange"',
 } as const;
+
+/**
+ * Returns schema-qualified table names for Prextra ERP queries.
+ * For `public` schema, we omit the prefix (backward-compatible).
+ * For other schemas (e.g. `prolab`), we prefix with `"schema".`.
+ */
+export function getPrextraTables(schema: string) {
+  const s = schema === "public" ? "" : `"${schema}".`;
+  return {
+    ITEMS: `${s}"Items"`,
+    CUSTOMERS: `${s}"Customers"`,
+    SO_HEADER: `${s}"SOHeader"`,
+    SALESREP: `${s}"Salesrep"`,
+    SITES: `${s}"Sites"`,
+    CARRIERS: `${s}"carriers"`,
+    SHIPMENT_HDR: `${s}"ShipmentHdr"`,
+    INV_HEADER: `${s}"InvHeader"`,
+    INV_DETAIL: `${s}"InvDetail"`,
+    SHIPTO: `${s}"Shipto"`,
+    CITY: `${s}"_City"`,
+    CITY_SETTING: `${s}"_CitySetting"`,
+    TRANSPORT_CHART: `${s}"_TransportChartDTL"`,
+    PRODUCTS: `${s}"Products"`,
+    ITEM_TYPE: `${s}"itemtype"`,
+    PRICE_LIST: `${s}"PriceList"`,
+    ITEM_PRICE_RANGE: `${s}"itempricerange"`,
+  } as const;
+}
+
+export type PrextraTables = ReturnType<typeof getPrextraTables>;
 
 /* =============================================================================
    Query Helpers
@@ -43,9 +78,10 @@ export async function queryPrextra<T = Record<string, unknown>>(
    Experts (Sales Reps)
 ============================================================================= */
 
-export async function getExperts(): Promise<string[]> {
+export async function getExperts(schema: string): Promise<string[]> {
+  const T = getPrextraTables(schema);
   const result = await queryPrextra<{ Name: string }>(
-    `SELECT DISTINCT "Name" FROM ${PREXTRA_TABLES.SALESREP} 
+    `SELECT DISTINCT "Name" FROM ${T.SALESREP}
      WHERE "Name" IS NOT NULL AND "Name" != ''
      ORDER BY "Name" ASC`
   );
@@ -56,9 +92,10 @@ export async function getExperts(): Promise<string[]> {
    Sites (Warehouses)
 ============================================================================= */
 
-export async function getSites(): Promise<string[]> {
+export async function getSites(schema: string): Promise<string[]> {
+  const T = getPrextraTables(schema);
   const result = await queryPrextra<{ Name: string }>(
-    `SELECT "Name" FROM ${PREXTRA_TABLES.SITES} 
+    `SELECT "Name" FROM ${T.SITES}
      WHERE "Name" IS NOT NULL AND "Name" != ''
      ORDER BY "Name" ASC`
   );
@@ -80,9 +117,10 @@ export interface OrderLookupResult {
   tracking: string | null;
 }
 
-export async function lookupOrder(noCommande: string): Promise<OrderLookupResult | null> {
+export async function lookupOrder(noCommande: string, schema: string): Promise<OrderLookupResult | null> {
+  const T = getPrextraTables(schema);
   const result = await queryPrextra<OrderLookupResult>(
-    `SELECT 
+    `SELECT
       so."sonbr"::text as "sonbr",
       so."OrderDate",
       so."totalamt",
@@ -91,11 +129,11 @@ export async function lookupOrder(noCommande: string): Promise<OrderLookupResult
       ca."name" AS "carrierName",
       sr."Name" AS "salesrepName",
       sh."WayBill" AS "tracking"
-     FROM ${PREXTRA_TABLES.SO_HEADER} so
-     LEFT JOIN ${PREXTRA_TABLES.CUSTOMERS} c ON so."custid" = c."CustId"
-     LEFT JOIN ${PREXTRA_TABLES.CARRIERS} ca ON so."Carrid" = ca."carrid"
-     LEFT JOIN ${PREXTRA_TABLES.SALESREP} sr ON so."SRid" = sr."SRId"
-     LEFT JOIN ${PREXTRA_TABLES.SHIPMENT_HDR} sh ON so."sonbr" = sh."sonbr"
+     FROM ${T.SO_HEADER} so
+     LEFT JOIN ${T.CUSTOMERS} c ON so."custid" = c."CustId"
+     LEFT JOIN ${T.CARRIERS} ca ON so."Carrid" = ca."carrid"
+     LEFT JOIN ${T.SALESREP} sr ON so."SRid" = sr."SRId"
+     LEFT JOIN ${T.SHIPMENT_HDR} sh ON so."sonbr" = sh."sonbr"
      WHERE so."sonbr"::text = $1
      LIMIT 1`,
     [noCommande]
@@ -114,12 +152,13 @@ export interface ItemSearchResult {
   ShipWeight: number | null;
 }
 
-export async function searchItems(query: string, limit = 10): Promise<ItemSearchResult[]> {
+export async function searchItems(query: string, schema: string, limit = 10): Promise<ItemSearchResult[]> {
   if (query.length < 2) return [];
+  const T = getPrextraTables(schema);
 
   return queryPrextra<ItemSearchResult>(
-    `SELECT "ItemCode", "Descr", "ShipWeight" 
-     FROM ${PREXTRA_TABLES.ITEMS}
+    `SELECT "ItemCode", "Descr", "ShipWeight"
+     FROM ${T.ITEMS}
      WHERE "ItemCode" ILIKE $1
      ORDER BY "ItemCode" ASC
      LIMIT $2`,
@@ -127,10 +166,11 @@ export async function searchItems(query: string, limit = 10): Promise<ItemSearch
   );
 }
 
-export async function getItemByCode(code: string): Promise<ItemSearchResult | null> {
+export async function getItemByCode(code: string, schema: string): Promise<ItemSearchResult | null> {
+  const T = getPrextraTables(schema);
   const result = await queryPrextra<ItemSearchResult>(
-    `SELECT "ItemCode", "Descr", "ShipWeight" 
-     FROM ${PREXTRA_TABLES.ITEMS}
+    `SELECT "ItemCode", "Descr", "ShipWeight"
+     FROM ${T.ITEMS}
      WHERE "ItemCode" = $1
      LIMIT 1`,
     [code]
@@ -147,17 +187,18 @@ export interface CityZoneResult {
   _Code: string;
 }
 
-export async function getCityAndZone(sonbr: string): Promise<CityZoneResult | null> {
+export async function getCityAndZone(sonbr: string, schema: string): Promise<CityZoneResult | null> {
+  const T = getPrextraTables(schema);
   try {
     const result = await queryPrextra<CityZoneResult>(
-      `SELECT 
+      `SELECT
         shipto."City",
         tc."_Code"
-       FROM ${PREXTRA_TABLES.INV_HEADER} inv
-       INNER JOIN ${PREXTRA_TABLES.SHIPTO} shipto ON inv."shiptoid" = shipto."ShipToId"
-       INNER JOIN ${PREXTRA_TABLES.CITY} city ON shipto."City" = city."_Name"
-       INNER JOIN ${PREXTRA_TABLES.CITY_SETTING} cs ON city."_cityid" = cs."_CityId"
-       INNER JOIN ${PREXTRA_TABLES.TRANSPORT_CHART} tc ON cs."_ChartDtlId" = tc."_ChartDtlId"
+       FROM ${T.INV_HEADER} inv
+       INNER JOIN ${T.SHIPTO} shipto ON inv."shiptoid" = shipto."ShipToId"
+       INNER JOIN ${T.CITY} city ON shipto."City" = city."_Name"
+       INNER JOIN ${T.CITY_SETTING} cs ON city."_cityid" = cs."_CityId"
+       INNER JOIN ${T.TRANSPORT_CHART} tc ON cs."_ChartDtlId" = tc."_ChartDtlId"
        WHERE inv."sonbr"::text = $1
        LIMIT 1`,
       [sonbr]

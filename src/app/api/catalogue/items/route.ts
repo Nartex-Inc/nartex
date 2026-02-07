@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
+import { getPrextraTables } from "@/lib/prextra";
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,12 +11,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
 
+    const schema = session.user.prextraSchema;
+    if (!schema) {
+      return NextResponse.json({ error: "Aucune donnée ERP pour ce tenant" }, { status: 403 });
+    }
+
+    const T = getPrextraTables(schema);
     const { searchParams } = new URL(request.url);
     const itemTypeId = searchParams.get("itemTypeId");
     const search = searchParams.get("search");
 
     let query = `
-      SELECT 
+      SELECT
         i."ItemId" as "itemId",
         i."ItemCode" as "itemCode",
         i."Descr" as "description",
@@ -23,12 +30,12 @@ export async function GET(request: NextRequest) {
         i."locitemtype" as "itemTypeId",
         t."descr" as "className",
         p."Name" as "categoryName"
-      FROM public."Items" i
-      LEFT JOIN public."itemtype" t ON i."locitemtype" = t."itemtypeid"
-      LEFT JOIN public."Products" p ON i."ProdId" = p."ProdId"
+      FROM ${T.ITEMS} i
+      LEFT JOIN ${T.ITEM_TYPE} t ON i."locitemtype" = t."itemtypeid"
+      LEFT JOIN ${T.PRODUCTS} p ON i."ProdId" = p."ProdId"
       WHERE i."ProdId" BETWEEN 1 AND 10
     `;
-    
+
     const params: (string | number)[] = [];
     let paramIndex = 1;
 
@@ -36,21 +43,21 @@ export async function GET(request: NextRequest) {
       query += ` AND (i."ItemCode" ILIKE $${paramIndex} OR i."Descr" ILIKE $${paramIndex})`;
       params.push(`%${search}%`);
       paramIndex++;
-      
-      query += ` 
-        ORDER BY 
-          CASE 
-            WHEN i."ItemCode" ILIKE $${paramIndex} THEN 1 
-            WHEN i."ItemCode" ILIKE $${paramIndex + 1} THEN 2 
-            WHEN i."Descr" ILIKE $${paramIndex + 1} THEN 3 
-            ELSE 4 
+
+      query += `
+        ORDER BY
+          CASE
+            WHEN i."ItemCode" ILIKE $${paramIndex} THEN 1
+            WHEN i."ItemCode" ILIKE $${paramIndex + 1} THEN 2
+            WHEN i."Descr" ILIKE $${paramIndex + 1} THEN 3
+            ELSE 4
           END,
           i."ItemCode" ASC
         LIMIT 50
       `;
       params.push(search);
       params.push(`${search}%`);
-      
+
     } else if (itemTypeId) {
       query += ` AND i."locitemtype" = $${paramIndex}`;
       params.push(parseInt(itemTypeId, 10));
@@ -58,7 +65,7 @@ export async function GET(request: NextRequest) {
       query += ` ORDER BY i."ItemCode" ASC`;
     } else {
       return NextResponse.json(
-        { error: "Paramètres manquants: itemTypeId ou search requis" }, 
+        { error: "Paramètres manquants: itemTypeId ou search requis" },
         { status: 400 }
       );
     }

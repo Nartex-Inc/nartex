@@ -6,10 +6,10 @@ import { PrismaClient, Tenant } from "@prisma/client";
 const prisma = new PrismaClient();
 
 const TENANTS = [
-  { name: "SINTO", slug: "sinto", plan: "Groupe", logo: "/sinto-logo.svg" },
-  { name: "Prolab", slug: "prolab", plan: "Filiale", logo: "https://www.prolabtechnolub.com/images/site/logo_prolab_2025.png" },
-  { name: "Lubri-Lab", slug: "lubrilab", plan: "Filiale", logo: null },
-  { name: "Otoprotec", slug: "otoprotec", plan: "Filiale", logo: null },
+  { name: "SINTO", slug: "sinto", plan: "Groupe", logo: "/sinto-logo.svg", prextraSchema: "public" },
+  { name: "Prolab", slug: "prolab", plan: "Filiale", logo: "https://www.prolabtechnolub.com/images/site/logo_prolab_2025.png", prextraSchema: "prolab" },
+  { name: "Lubri-Lab", slug: "lubrilab", plan: "Filiale", logo: null, prextraSchema: null },
+  { name: "Otoprotec", slug: "otoprotec", plan: "Filiale", logo: null, prextraSchema: null },
 ];
 
 async function main() {
@@ -20,8 +20,8 @@ async function main() {
   for (const t of TENANTS) {
     const tenant = await prisma.tenant.upsert({
       where: { slug: t.slug },
-      update: { name: t.name, plan: t.plan, logo: t.logo },
-      create: { name: t.name, slug: t.slug, plan: t.plan, logo: t.logo },
+      update: { name: t.name, plan: t.plan, logo: t.logo, prextraSchema: t.prextraSchema },
+      create: { name: t.name, slug: t.slug, plan: t.plan, logo: t.logo, prextraSchema: t.prextraSchema },
     });
     tenantRecords.push(tenant);
     console.log(`  Tenant: ${tenant.name} (${tenant.id})`);

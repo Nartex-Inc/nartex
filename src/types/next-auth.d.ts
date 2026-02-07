@@ -8,6 +8,7 @@ declare module "next-auth" {
       id: string;
       role: string;
       activeTenantId: string | null;
+      prextraSchema: string | null;
       firstName?: string | null;
       lastName?: string | null;
       emailVerified?: Date | null;
@@ -18,6 +19,7 @@ declare module "next-auth" {
     id: string;
     role: string;
     activeTenantId?: string | null;
+    prextraSchema?: string | null;
     firstName?: string | null;
     lastName?: string | null;
     emailVerified?: Date | null;
@@ -29,6 +31,7 @@ declare module "next-auth/jwt" {
     id: string;
     role: string;
     activeTenantId: string | null;
+    prextraSchema: string | null;
     firstName?: string | null;
     lastName?: string | null;
     emailVerified?: Date | null;

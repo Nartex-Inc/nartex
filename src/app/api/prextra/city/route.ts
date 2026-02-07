@@ -20,6 +20,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
+    const schema = session.user.prextraSchema;
+    if (!schema) {
+      return NextResponse.json({ ok: false, error: "Aucune donnée ERP pour ce tenant" }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const sonbr = searchParams.get("sonbr");
     const weight = searchParams.get("weight");
@@ -31,7 +36,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const result = await getCityAndZone(sonbr);
+    const result = await getCityAndZone(sonbr, schema);
 
     if (!result) {
       return NextResponse.json({

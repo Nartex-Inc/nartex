@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
+import { getPrextraTables } from "@/lib/prextra";
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyAYT0oFzSGe2IAoivqG2Reb-1IKOW4URjs";
 
@@ -17,43 +18,43 @@ const geocodeErrors: string[] = [];
 
 async function geocode(address: string, city: string, postalCode: string): Promise<{ lat: number; lng: number } | null> {
   if (geocodeCount >= GEOCODE_LIMIT) return null;
-  
+
   const fullAddress = `${address}, ${city}, QC ${postalCode}, Canada`;
   const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(fullAddress)}&key=${GOOGLE_MAPS_API_KEY}`;
-  
+
   try {
     const res = await fetch(url);
     const data = await res.json();
-    
+
     if (data.status === "OK" && data.results?.[0]?.geometry?.location) {
       geocodeCount++;
       const { lat, lng } = data.results[0].geometry.location;
-      console.log(`✅ [${geocodeCount}] ${city} → ${lat.toFixed(4)},${lng.toFixed(4)}`);
+      console.log(`[${geocodeCount}] ${city} -> ${lat.toFixed(4)},${lng.toFixed(4)}`);
       return { lat, lng };
     } else {
       const errorMsg = `${city}: ${data.status} - ${data.error_message || 'no error message'}`;
       geocodeErrors.push(errorMsg);
-      console.log(`❌ FAILED: ${errorMsg}`);
+      console.log(`FAILED: ${errorMsg}`);
       return null;
     }
   } catch (err: any) {
     const errorMsg = `${city}: FETCH ERROR - ${err.message}`;
     geocodeErrors.push(errorMsg);
-    console.log(`❌ ERROR: ${errorMsg}`);
+    console.log(`ERROR: ${errorMsg}`);
     return null;
   }
 }
 
-async function saveGeo(custId: number, lat: number, lng: number): Promise<boolean> {
+async function saveGeo(custId: number, lat: number, lng: number, T: ReturnType<typeof getPrextraTables>): Promise<boolean> {
   try {
     await pg.query(
-      `UPDATE public."Customers" SET "geoLocation" = $1 WHERE "CustId" = $2`,
+      `UPDATE ${T.CUSTOMERS} SET "geoLocation" = $1 WHERE "CustId" = $2`,
       [`${lat},${lng}`, custId]
     );
-    console.log(`💾 Saved to DB: customer ${custId}`);
+    console.log(`Saved to DB: customer ${custId}`);
     return true;
   } catch (e: any) {
-    console.log(`❌ DB Save failed: ${custId} - ${e.message}`);
+    console.log(`DB Save failed: ${custId} - ${e.message}`);
     return false;
   }
 }
@@ -83,13 +84,21 @@ export async function GET(req: Request) {
   const user = session.user as any;
   const role = (user.role || "").toLowerCase().trim();
   const email = user.email?.toLowerCase() || "";
-  
+
   if (!ALLOWED_USER_ROLES.includes(role) && !BYPASS_EMAILS.includes(email)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const schema = user.prextraSchema;
+  if (!schema) {
+    return NextResponse.json({ error: "Aucune donnée ERP pour ce tenant" }, { status: 403 });
+  }
+
+  const T = getPrextraTables(schema);
+
   // Parse params
   const { searchParams } = new URL(req.url);
+  const gcieid = Number(searchParams.get("gcieid") ?? 2);
   const salesRep = searchParams.get("salesRep") || null;
   const productsParam = searchParams.get("products") || null;
   const products = productsParam ? productsParam.split(",").filter(Boolean) : [];
@@ -100,7 +109,7 @@ export async function GET(req: Request) {
   // Build query
   let paramIndex = 4;
   const conditions: string[] = [];
-  const params: any[] = [2, startDate, endDate]; // gcieid = 2
+  const params: any[] = [gcieid, startDate, endDate];
 
   if (salesRep) {
     conditions.push(`sr."Name" = $${paramIndex++}`);
@@ -129,12 +138,12 @@ export async function GET(req: Request) {
       COUNT(DISTINCT h."invnbr") AS txns,
       MAX(h."InvDate") AS lastInv,
       STRING_AGG(DISTINCT i."ItemCode", ', ' ORDER BY i."ItemCode") AS products
-    FROM public."InvHeader" h
-    JOIN public."Salesrep" sr ON h."srid" = sr."SRId"
-    JOIN public."Customers" c ON h."custid" = c."CustId"
-    JOIN public."InvDetail" d ON h."invnbr" = d."invnbr" AND h."cieid" = d."cieid"
-    JOIN public."Items" i ON d."Itemid" = i."ItemId"
-    JOIN public."Products" p ON i."ProdId" = p."ProdId" AND p."CieID" = h."cieid"
+    FROM ${T.INV_HEADER} h
+    JOIN ${T.SALESREP} sr ON h."srid" = sr."SRId"
+    JOIN ${T.CUSTOMERS} c ON h."custid" = c."CustId"
+    JOIN ${T.INV_DETAIL} d ON h."invnbr" = d."invnbr" AND h."cieid" = d."cieid"
+    JOIN ${T.ITEMS} i ON d."Itemid" = i."ItemId"
+    JOIN ${T.PRODUCTS} p ON i."ProdId" = p."ProdId" AND p."CieID" = h."cieid"
     WHERE h."cieid" = $1
       AND h."InvDate" BETWEEN $2 AND $3
       AND sr."Name" <> 'OTOPROTEC (004)'
@@ -150,8 +159,8 @@ export async function GET(req: Request) {
     geocodeCount = 0;
     geocodeErrors.length = 0; // Reset errors
     const { rows } = await pg.query(SQL, params);
-    
-    console.log(`\n🗺️ MAP API: Processing ${rows.length} customers`);
+
+    console.log(`\nMAP API: Processing ${rows.length} customers`);
 
     const customers: any[] = [];
     const errors: string[] = [];
@@ -183,7 +192,7 @@ export async function GET(req: Request) {
           lat = result.lat;
           lng = result.lng;
           // Save for next time
-          const saved = await saveGeo(row.id, lat, lng);
+          const saved = await saveGeo(row.id, lat, lng, T);
           if (saved) savedCount++;
         } else {
           errors.push(row.name);
@@ -210,7 +219,7 @@ export async function GET(req: Request) {
       });
     }
 
-    console.log(`✅ Done: ${customers.length} total | ${cachedCount} cached | ${geocodeCount} geocoded | ${savedCount} saved | ${errors.length} failed\n`);
+    console.log(`Done: ${customers.length} total | ${cachedCount} cached | ${geocodeCount} geocoded | ${savedCount} saved | ${errors.length} failed\n`);
 
     return NextResponse.json({
       customers,
@@ -223,7 +232,7 @@ export async function GET(req: Request) {
     });
 
   } catch (error: any) {
-    console.error("❌ DB Error:", error.message);
+    console.error("DB Error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

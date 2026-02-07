@@ -4,32 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
 import prisma from "@/lib/prisma";
-
-const SQL_QUERY = `
-SELECT
-  sr."Name"            AS "salesRepName",
-  c."Name"             AS "customerName",
-  i."ItemCode"         AS "itemCode",
-  i."Descr"            AS "itemDescription",
-  h."InvDate"          AS "invoiceDate",
-  d."Amount"::float8   AS "salesValue"
-FROM public."InvHeader" h
-JOIN public."Salesrep"   sr ON h."srid"   = sr."SRId"
-JOIN public."Customers"  c  ON h."custid" = c."CustId"
-JOIN public."InvDetail"  d  ON h."invnbr" = d."invnbr" AND h."cieid" = d."cieid"
-JOIN public."Items"      i  ON d."Itemid" = i."ItemId"
-JOIN public."Products"   p  ON i."ProdId" = p."ProdId" AND p."CieID" = h."cieid"
-WHERE h."cieid" = $1
-  AND h."InvDate" BETWEEN $2 AND $3
-  AND sr."Name" <> 'OTOPROTEC (004)'
-  AND NOT (
-    CASE
-      WHEN btrim(p."ProdCode") ~ '^[0-9]+$'
-        THEN (btrim(p."ProdCode")::int > 499)
-      ELSE FALSE
-    END
-  );
-`;
+import { getPrextraTables } from "@/lib/prextra";
 
 // Roles allowed to access dashboard data (case-insensitive)
 const ALLOWED_USER_ROLES = [
@@ -63,6 +38,12 @@ export async function GET(req: Request) {
   const tenantId = user.activeTenantId;
   if (!tenantId) {
     return NextResponse.json({ error: "Aucun tenant actif sélectionné" }, { status: 403 });
+  }
+
+  // Prextra schema guard
+  const schema = user.prextraSchema;
+  if (!schema) {
+    return NextResponse.json({ error: "Aucune donnée ERP pour ce tenant" }, { status: 403 });
   }
 
   // 2) Check if user's session role is allowed
@@ -126,7 +107,35 @@ export async function GET(req: Request) {
     );
   }
 
-  // 8) Execute query
+  // 8) Build and execute query with schema-qualified tables
+  const T = getPrextraTables(schema);
+
+  const SQL_QUERY = `
+SELECT
+  sr."Name"            AS "salesRepName",
+  c."Name"             AS "customerName",
+  i."ItemCode"         AS "itemCode",
+  i."Descr"            AS "itemDescription",
+  h."InvDate"          AS "invoiceDate",
+  d."Amount"::float8   AS "salesValue"
+FROM ${T.INV_HEADER} h
+JOIN ${T.SALESREP}   sr ON h."srid"   = sr."SRId"
+JOIN ${T.CUSTOMERS}  c  ON h."custid" = c."CustId"
+JOIN ${T.INV_DETAIL} d  ON h."invnbr" = d."invnbr" AND h."cieid" = d."cieid"
+JOIN ${T.ITEMS}      i  ON d."Itemid" = i."ItemId"
+JOIN ${T.PRODUCTS}   p  ON i."ProdId" = p."ProdId" AND p."CieID" = h."cieid"
+WHERE h."cieid" = $1
+  AND h."InvDate" BETWEEN $2 AND $3
+  AND sr."Name" <> 'OTOPROTEC (004)'
+  AND NOT (
+    CASE
+      WHEN btrim(p."ProdCode") ~ '^[0-9]+$'
+        THEN (btrim(p."ProdCode")::int > 499)
+      ELSE FALSE
+    END
+  );
+`;
+
   try {
     const params: [number, string, string] = [gcieid, startDate, endDate];
     const { rows } = await pg.query(SQL_QUERY, params);

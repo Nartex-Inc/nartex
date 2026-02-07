@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
+import { getPrextraTables } from "@/lib/prextra";
 
 // --- Configuration Matrix ---
 const COLUMN_MATRIX: Record<string, string[]> = {
   "01-EXP": ["01-EXP", "02-DET", "03-IND", "05-GROS", "08-PDS"],
   "02-DET": ["02-DET", "08-PDS"],
-  "03-IND": ["03-IND"], 
+  "03-IND": ["03-IND"],
   "04-GROSEXP": ["02-DET", "04-GROSEXP", "05-GROS", "06-INDHZ", "08-PDS"],
   "05-GROS": ["05-GROS"],
   "06-INDHZ": ["06-INDHZ"],
@@ -21,22 +22,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     }
 
+    const schema = session.user.prextraSchema;
+    if (!schema) {
+      return NextResponse.json({ error: "Aucune donnée ERP pour ce tenant" }, { status: 403 });
+    }
+
+    const T = getPrextraTables(schema);
     const { searchParams } = new URL(request.url);
     const priceId = searchParams.get("priceId");
     const prodId = searchParams.get("prodId");
     const typeId = searchParams.get("typeId");
     const itemId = searchParams.get("itemId");
-    const itemIds = searchParams.get("itemIds"); 
+    const itemIds = searchParams.get("itemIds");
 
     if (!priceId || (!prodId && !itemIds)) {
       return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
     }
 
     const selectedPriceId = parseInt(priceId, 10);
-    
+
     // 1. Identify the Selected Price List Code and Company
     const plRes = await pg.query(
-      `SELECT "Pricecode" as code, "cieid" FROM public."PriceList" WHERE "priceid" = $1`,
+      `SELECT "Pricecode" as code, "cieid" FROM ${T.PRICE_LIST} WHERE "priceid" = $1`,
       [selectedPriceId]
     );
 
@@ -49,14 +56,14 @@ export async function GET(request: NextRequest) {
 
     // 2. Determine Target Codes
     const targetCodesSet = new Set(COLUMN_MATRIX[selectedCode] || [selectedCode]);
-    targetCodesSet.add("01-EXP"); 
+    targetCodesSet.add("01-EXP");
     targetCodesSet.add("08-PDS");
     const targetCodes = Array.from(targetCodesSet);
 
     // 3. Resolve Codes to PriceIDs
     const idRes = await pg.query(
-      `SELECT "priceid", TRIM("Pricecode") as code 
-       FROM public."PriceList" 
+      `SELECT "priceid", TRIM("Pricecode") as code
+       FROM ${T.PRICE_LIST}
        WHERE "cieid" = $1 AND TRIM("Pricecode") = ANY($2)`,
       [currentCieId, targetCodes]
     );
@@ -71,7 +78,7 @@ export async function GET(request: NextRequest) {
 
     // 4. Build Query Filters
     let itemFilterSQL = "";
-    const baseParams: any[] = []; 
+    const baseParams: any[] = [];
     let paramIdx = 1;
 
     if (itemIds) {
@@ -100,13 +107,13 @@ export async function GET(request: NextRequest) {
 
     // 5. Fetch Products Info
     const itemsQuery = `
-      SELECT 
+      SELECT
         i."ItemId" as "itemId", i."ItemCode" as "itemCode", i."Descr" as "description",
         i."NetWeight" as "caisse", i."model" as "format", i."volume" as "volume",
         p."Name" as "categoryName", t."descr" as "className"
-      FROM public."Items" i
-      LEFT JOIN public."Products" p ON i."ProdId" = p."ProdId"
-      LEFT JOIN public."itemtype" t ON i."locitemtype" = t."itemtypeid"
+      FROM ${T.ITEMS} i
+      LEFT JOIN ${T.PRODUCTS} p ON i."ProdId" = p."ProdId"
+      LEFT JOIN ${T.ITEM_TYPE} t ON i."locitemtype" = t."itemtypeid"
       WHERE 1=1 ${itemFilterSQL} ${activeFilter}
       ORDER BY i."ItemCode" ASC
     `;
@@ -115,22 +122,22 @@ export async function GET(request: NextRequest) {
     const pricesQuery = `
       WITH LatestDatePerItem AS (
         SELECT ipr."itemid", ipr."priceid", MAX(ipr."itempricedateid") as "latestDateId"
-        FROM public."itempricerange" ipr
-        INNER JOIN public."Items" i ON ipr."itemid" = i."ItemId"
-        WHERE ipr."priceid" = ANY($${paramIdx}) 
+        FROM ${T.ITEM_PRICE_RANGE} ipr
+        INNER JOIN ${T.ITEMS} i ON ipr."itemid" = i."ItemId"
+        WHERE ipr."priceid" = ANY($${paramIdx})
           ${itemFilterSQL} ${activeFilter}
         GROUP BY ipr."itemid", ipr."priceid"
       )
-      SELECT 
+      SELECT
         ipr."itemid" as "itemId",
         ipr."fromqty" as "qtyMin",
         ipr."price" as "price",
         ipr."_discount" as "discount",  -- <--- FETCHING DISCOUNT DIRECTLY
         ipr."priceid" as "priceId",
         ipr."itempricerangeid" as "id"
-      FROM public."itempricerange" ipr
-      INNER JOIN LatestDatePerItem ld 
-        ON ipr."itemid" = ld."itemid" 
+      FROM ${T.ITEM_PRICE_RANGE} ipr
+      INNER JOIN LatestDatePerItem ld
+        ON ipr."itemid" = ld."itemid"
         AND ipr."priceid" = ld."priceid"
         AND ipr."itempricedateid" = ld."latestDateId"
       WHERE ipr."priceid" = ANY($${paramIdx})
@@ -138,8 +145,6 @@ export async function GET(request: NextRequest) {
     `;
 
     const pricesParams = [...baseParams, targetIds];
-
-    // NOTE: Old discountQuery removed.
 
     const [itemsRes, pricesRes] = await Promise.all([
       pg.query(itemsQuery, baseParams),
@@ -150,30 +155,30 @@ export async function GET(request: NextRequest) {
 
     // Map Prices: ItemID -> Qty -> PriceID -> { price, discount }
     const pricesMap: Record<number, Record<number, Record<number, { price: number, discount: number }>>> = {};
-    
+
     for (const row of pricesRes.rows) {
       const iId = row.itemId;
       const qty = parseInt(row.qtyMin);
       const pId = row.priceId;
       const price = parseFloat(row.price);
       // Ensure discount is a number, default to 0 if null
-      const discount = row.discount ? parseFloat(row.discount) : 0; 
+      const discount = row.discount ? parseFloat(row.discount) : 0;
 
       if (!pricesMap[iId]) pricesMap[iId] = {};
       if (!pricesMap[iId][qty]) pricesMap[iId][qty] = {};
-      
+
       pricesMap[iId][qty][pId] = { price, discount };
     }
 
     const result = itemsRes.rows.map((item: any) => {
       const iId = item.itemId;
       const itemPrices = pricesMap[iId] || {};
-      
+
       const quantities = Object.keys(itemPrices).map(Number).sort((a, b) => a - b);
 
       const ranges = quantities.map(qty => {
         const pricesAtQty = itemPrices[qty] || {};
-        
+
         const columns: Record<string, number | null> = {};
         targetCodes.forEach(code => {
            const pId = codeToIdMap[code];
@@ -189,20 +194,20 @@ export async function GET(request: NextRequest) {
         const selectedData = selectedId ? pricesAtQty[selectedId] : null;
 
         const unitPrice = selectedData ? selectedData.price : null;
-        
+
         // Escompte: Comes from the _discount column of the SELECTED price list row
         const costingDiscountAmt = selectedData ? selectedData.discount : 0;
-        
+
         const pdsId = codeToIdMap["08-PDS"];
         const pdsPrice = pdsId && pricesAtQty[pdsId] ? pricesAtQty[pdsId].price : null;
-        
+
         const expId = codeToIdMap["01-EXP"] || codeToIdMap["04-GROSEXP"];
         const expBasePrice = expId && pricesAtQty[expId] ? pricesAtQty[expId].price : null;
 
         return {
           id: `${iId}-${qty}`,
           qtyMin: qty,
-          unitPrice, 
+          unitPrice,
           pdsPrice,
           coutExp: expBasePrice,
           costingDiscountAmt, // Now populated from itempricerange._discount
@@ -223,7 +228,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error("Prices API error:", error);
     return NextResponse.json(
-      { error: error.message || "Erreur lors de la génération des prix" }, 
+      { error: error.message || "Erreur lors de la génération des prix" },
       { status: 500 }
     );
   }

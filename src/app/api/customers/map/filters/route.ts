@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
+import { getPrextraTables } from "@/lib/prextra";
 
 // Roles allowed to access (case-insensitive)
 const ALLOWED_USER_ROLES = [
@@ -39,6 +40,12 @@ export async function GET(req: Request) {
     );
   }
 
+  const schema = user.prextraSchema;
+  if (!schema) {
+    return NextResponse.json({ error: "Aucune donnée ERP pour ce tenant" }, { status: 403 });
+  }
+
+  const T = getPrextraTables(schema);
   const { searchParams } = new URL(req.url);
   const gcieid = Number(searchParams.get("gcieid") ?? 2);
 
@@ -46,8 +53,8 @@ export async function GET(req: Request) {
     // Fetch sales reps
     const salesRepsQuery = `
       SELECT DISTINCT sr."Name" as name
-      FROM public."Salesrep" sr
-      JOIN public."InvHeader" h ON h."srid" = sr."SRId"
+      FROM ${T.SALESREP} sr
+      JOIN ${T.INV_HEADER} h ON h."srid" = sr."SRId"
       WHERE h."cieid" = $1
         AND sr."Name" <> 'OTOPROTEC (004)'
       ORDER BY sr."Name";
@@ -56,8 +63,8 @@ export async function GET(req: Request) {
     // Fetch products/items
     const productsQuery = `
       SELECT DISTINCT i."ItemCode" as code, i."Descr" as description
-      FROM public."Items" i
-      JOIN public."Products" p ON i."ProdId" = p."ProdId"
+      FROM ${T.ITEMS} i
+      JOIN ${T.PRODUCTS} p ON i."ProdId" = p."ProdId"
       WHERE p."CieID" = $1
         AND NOT (
           CASE

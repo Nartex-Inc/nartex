@@ -107,6 +107,20 @@ export const authOptions: NextAuthOptions = {
         if (session.user.role) token.role = session.user.role;
         if (session.user.activeTenantId !== undefined) {
           token.activeTenantId = session.user.activeTenantId;
+          // Re-resolve prextraSchema when tenant changes
+          if (session.user.activeTenantId) {
+            try {
+              const tenant = await prisma.tenant.findUnique({
+                where: { id: session.user.activeTenantId },
+                select: { prextraSchema: true },
+              });
+              token.prextraSchema = tenant?.prextraSchema ?? null;
+            } catch {
+              token.prextraSchema = null;
+            }
+          } else {
+            token.prextraSchema = null;
+          }
         }
       }
 
@@ -152,6 +166,20 @@ export const authOptions: NextAuthOptions = {
       // Ensure activeTenantId is always present on the token
       if (!token.activeTenantId) token.activeTenantId = null;
 
+      // Resolve prextraSchema if we have a tenant but no schema yet
+      if (token.activeTenantId && token.prextraSchema === undefined) {
+        try {
+          const tenant = await prisma.tenant.findUnique({
+            where: { id: token.activeTenantId as string },
+            select: { prextraSchema: true },
+          });
+          token.prextraSchema = tenant?.prextraSchema ?? null;
+        } catch {
+          token.prextraSchema = null;
+        }
+      }
+      if (!token.prextraSchema) token.prextraSchema = null;
+
       return token;
     },
 
@@ -161,6 +189,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
         session.user.activeTenantId = token.activeTenantId as string | null;
+        session.user.prextraSchema = token.prextraSchema as string | null;
         session.user.image = token.picture;
       }
       return session;

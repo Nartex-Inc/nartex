@@ -13,7 +13,12 @@ export async function GET() {
       return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
-    const experts = await getExperts();
+    const schema = session.user.prextraSchema;
+    if (!schema) {
+      return NextResponse.json({ ok: false, error: "Aucune donnée ERP pour ce tenant" }, { status: 403 });
+    }
+
+    const experts = await getExperts(schema);
 
     return NextResponse.json({ ok: true, experts });
   } catch (error) {
