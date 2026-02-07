@@ -172,18 +172,7 @@ phases:
       - npx prisma -v
       - |
         if [ "${NEEDS_MIGRATE:-true}" = "true" ]; then
-          echo "🔧 BUILD – resolving untracked migrations (one-time fix)"
-          npx prisma migrate resolve --applied 20240523120000_add_no_commande_checkbox --schema=prisma/schema.prisma || true
-          npx prisma migrate resolve --applied 20250524224932_initial_auth_setup --schema=prisma/schema.prisma || true
-          npx prisma migrate resolve --applied 20250528223212_add_user_role --schema=prisma/schema.prisma || true
-          npx prisma migrate resolve --applied 20250608194959_add_verification_token_unique --schema=prisma/schema.prisma || true
-          npx prisma migrate resolve --applied 20250826122726_fix_missing_tables --schema=prisma/schema.prisma || true
-          npx prisma migrate resolve --applied 20250907000000_add_returns --schema=prisma/schema.prisma || true
-          npx prisma migrate resolve --applied 20260207050000_add_multitenancy --schema=prisma/schema.prisma || true
-          npx prisma migrate resolve --applied 20260207060000_add_prextra_schema --schema=prisma/schema.prisma || true
-          echo "🔧 BUILD – applying prextra_schema column directly (migration was marked applied but never ran)"
-          echo 'ALTER TABLE "tenants" ADD COLUMN IF NOT EXISTS "prextra_schema" TEXT; UPDATE "tenants" SET "prextra_schema" = '"'"'public'"'"' WHERE "slug" = '"'"'sinto'"'"' AND "prextra_schema" IS NULL; UPDATE "tenants" SET "prextra_schema" = '"'"'prolab'"'"' WHERE "slug" = '"'"'prolab'"'"' AND "prextra_schema" IS NULL;' | npx prisma db execute --schema=prisma/schema.prisma --stdin
-          echo "🚀 BUILD – applying prisma migrations (migrate deploy)"
+          echo "🚀 BUILD – applying prisma migrations"
           npx prisma migrate deploy --schema=prisma/schema.prisma
           /usr/bin/env bash -c 'set -euo pipefail; echo "SELECT 1;" | npx prisma db execute --schema=prisma/schema.prisma --stdin'
           echo "🌱 BUILD – seeding database"
