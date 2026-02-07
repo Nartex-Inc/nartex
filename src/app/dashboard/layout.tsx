@@ -5,7 +5,7 @@ import * as React from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { Header } from "@/components/dashboard/header";
-import { Sidebar } from "@/components/dashboard/sidebar"; // Ensure this path is correct
+import { Sidebar } from "@/components/dashboard/Sidebar";
 import LoadingAnimation from "@/components/LoadingAnimation";
 import { AccentColorProvider } from "@/components/accent-color-provider";
 import { cn } from "@/lib/utils";

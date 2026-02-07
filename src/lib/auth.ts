@@ -100,52 +100,68 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
 
-    // 2. JWT: Fetch the NEW image from the database
+    // 2. JWT: Fetch the NEW image from the database + resolve active tenant
     async jwt({ token, user, trigger, session }) {
+      // Handle session updates (role change, tenant switch)
       if (trigger === "update" && session?.user) {
-        token.role = session.user.role;
+        if (session.user.role) token.role = session.user.role;
+        if (session.user.activeTenantId !== undefined) {
+          token.activeTenantId = session.user.activeTenantId;
+        }
       }
 
       if (user) {
         token.id = user.id;
         token.role = (user as any).role || "user";
-        // If the user object already has an image, use it
         if (user.image) token.picture = user.image;
       }
 
-      // CRITICAL: Refresh from DB to get the updated image
+      // CRITICAL: Refresh from DB to get the updated image + resolve default tenant
       if (token.email) {
          try {
-           const dbUser = await prisma.user.findUnique({ 
+           const dbUser = await prisma.user.findUnique({
               where: { email: token.email },
-              select: { 
-                id: true, 
-                role: true, 
-                image: true // <--- THIS WAS MISSING
-              } 
+              select: {
+                id: true,
+                role: true,
+                image: true,
+                tenants: {
+                  select: { tenantId: true },
+                  take: 1,
+                  orderBy: { createdAt: "asc" },
+                },
+              }
            });
-           
+
            if (dbUser) {
                token.id = dbUser.id;
                token.role = dbUser.role as string;
-               // Force the token to use the database image
                if (dbUser.image) {
                  token.picture = dbUser.image;
+               }
+               // Set default tenant on first sign-in (if not already set)
+               if (!token.activeTenantId && dbUser.tenants.length > 0) {
+                 token.activeTenantId = dbUser.tenants[0].tenantId;
                }
            }
          } catch (error) {
            console.error("Error refreshing user data:", error);
          }
       }
+
+      // Ensure activeTenantId is always present on the token
+      if (!token.activeTenantId) token.activeTenantId = null;
+
       return token;
     },
 
-    // 3. SESSION: Pass the token image to the client
+    // 3. SESSION: Pass the token image + active tenant to the client
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.id as string;
-        (session.user as any).role = token.role as string;
-        session.user.image = token.picture; // Ensure the session gets the image
+        session.user.id = token.id as string;
+        session.user.role = token.role as string;
+        session.user.activeTenantId = token.activeTenantId as string | null;
+        session.user.image = token.picture;
       }
       return session;
     },

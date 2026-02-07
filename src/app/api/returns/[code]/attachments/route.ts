@@ -41,6 +41,11 @@ export async function GET(
       return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
+    const tenantId = session.user.activeTenantId;
+    if (!tenantId) {
+      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
+    }
+
     const { code } = await params;
     const codeRetour = parseCode(code);
 
@@ -48,7 +53,7 @@ export async function GET(
       return NextResponse.json({ ok: false, error: "Code de retour invalide" }, { status: 400 });
     }
 
-    const ret = await prisma.return.findUnique({ where: { id: codeRetour } });
+    const ret = await prisma.return.findFirst({ where: { id: codeRetour, tenantId } });
 
     if (!ret) {
       return NextResponse.json({ ok: false, error: "Retour introuvable" }, { status: 404 });
@@ -99,9 +104,14 @@ export async function POST(
       return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
+    const tenantId = session.user.activeTenantId;
+    if (!tenantId) {
+      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
+    }
+
     const { code } = await params;
     console.log("[Attachments API] Return code:", code);
-    
+
     const codeRetour = parseCode(code);
     console.log("[Attachments API] Parsed code:", codeRetour);
 
@@ -109,7 +119,7 @@ export async function POST(
       return NextResponse.json({ ok: false, error: "Code invalide" }, { status: 400 });
     }
 
-    const ret = await prisma.return.findUnique({ where: { id: codeRetour } });
+    const ret = await prisma.return.findFirst({ where: { id: codeRetour, tenantId } });
     if (!ret) {
       console.log("[Attachments API] Return not found:", codeRetour);
       return NextResponse.json({ ok: false, error: "Retour introuvable" }, { status: 404 });
@@ -347,6 +357,11 @@ export async function DELETE(
       return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
+    const tenantId = session.user.activeTenantId;
+    if (!tenantId) {
+      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
+    }
+
     const { code } = await params;
     const codeRetour = parseCode(code);
 
@@ -361,7 +376,7 @@ export async function DELETE(
       return NextResponse.json({ ok: false, error: "fileId requis" }, { status: 400 });
     }
 
-    const ret = await prisma.return.findUnique({ where: { id: codeRetour } });
+    const ret = await prisma.return.findFirst({ where: { id: codeRetour, tenantId } });
     if (!ret) {
       return NextResponse.json({ ok: false, error: "Retour introuvable" }, { status: 404 });
     }

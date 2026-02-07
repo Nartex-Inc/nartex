@@ -14,13 +14,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
+    const tenantId = session.user.activeTenantId;
+    if (!tenantId) {
+      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
+    }
+
     const userRole = (session.user as { role?: string }).role;
     const userName = session.user.name || "";
 
-    // Expert filter
+    // Base tenant + expert filter
     const expertFilter: Prisma.ReturnWhereInput = userRole === "Expert"
-      ? { expert: { contains: userName, mode: "insensitive" } }
-      : {};
+      ? { tenantId, expert: { contains: userName, mode: "insensitive" } }
+      : { tenantId };
 
     // Get counts
     const [

@@ -35,6 +35,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
+    const tenantId = session.user.activeTenantId;
+    if (!tenantId) {
+      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get("mode");
 
@@ -62,7 +67,7 @@ export async function GET(request: NextRequest) {
     // Normalize role for comparison (handle accent variations)
     const normalizedRole = userRole?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() || "";
 
-    const where: Prisma.ReturnWhereInput = {};
+    const where: Prisma.ReturnWhereInput = { tenantId };
     const AND: Prisma.ReturnWhereInput[] = [];
 
     // =======================================================================
@@ -312,6 +317,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
+    const tenantId = session.user.activeTenantId;
+    if (!tenantId) {
+      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
+    }
+
     // Only Gestionnaire can create returns
     const userRole = (session.user as { role?: string }).role;
     const normalizedRole = userRole?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() || "";
@@ -347,6 +357,7 @@ export async function POST(request: NextRequest) {
     const ret = await prisma.return.create({
       data: {
         id: nextId,
+        tenantId,
         reportedAt: body.reportedAt ? new Date(body.reportedAt) : new Date(),
         reporter: body.reporter || "expert",
         cause: body.cause || "production",

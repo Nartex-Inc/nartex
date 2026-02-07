@@ -6,8 +6,8 @@ declare module "next-auth" {
   interface Session extends DefaultSession {
     user: {
       id: string;
-      // We make 'role' required (string) because auth-options guarantees a fallback
-      role: string; 
+      role: string;
+      activeTenantId: string | null;
       firstName?: string | null;
       lastName?: string | null;
       emailVerified?: Date | null;
@@ -17,6 +17,7 @@ declare module "next-auth" {
   interface User extends DefaultUser {
     id: string;
     role: string;
+    activeTenantId?: string | null;
     firstName?: string | null;
     lastName?: string | null;
     emailVerified?: Date | null;
@@ -27,6 +28,7 @@ declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
     id: string;
     role: string;
+    activeTenantId: string | null;
     firstName?: string | null;
     lastName?: string | null;
     emailVerified?: Date | null;

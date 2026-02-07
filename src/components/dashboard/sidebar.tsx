@@ -3,7 +3,9 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import useSWR from "swr";
 import {
   UserPlus,
   RefreshCcw,
@@ -61,12 +63,16 @@ interface SidebarProps {
   userRole: UserRole; 
 }
 
-const COMPANIES = [
-  { id: "sinto", name: "SINTO", plan: "Groupe" },
-  { id: "prolab", name: "Prolab", plan: "Filiale" },
-  { id: "lubrilab", name: "Lubri-Lab", plan: "Filiale" },
-  { id: "otoprotec", name: "Otoprotec", plan: "Filiale" },
-];
+interface TenantData {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string | null;
+  logo: string | null;
+  role: string | null;
+}
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
@@ -111,7 +117,25 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
    Company Selector Component
    ═══════════════════════════════════════════════════════════════════════════════ */
 function CompanySelector({ expanded }: { expanded: boolean }) {
-  const [selectedCompany, setSelectedCompany] = React.useState(COMPANIES[0]);
+  const { data: session, update } = useSession();
+  const router = useRouter();
+  const { data: tenantsRes } = useSWR<{ ok: boolean; data: TenantData[] }>(
+    "/api/tenants",
+    fetcher
+  );
+
+  const tenants = tenantsRes?.data ?? [];
+  const activeTenantId = session?.user?.activeTenantId;
+  const activeTenant = tenants.find((t) => t.id === activeTenantId) ?? tenants[0];
+
+  const handleSwitch = async (tenant: TenantData) => {
+    if (tenant.id === activeTenantId) return;
+    await update({ user: { activeTenantId: tenant.id } });
+    router.refresh();
+  };
+
+  const displayName = activeTenant?.name ?? "...";
+  const displayLogo = activeTenant?.logo ?? "/sinto-logo.svg";
 
   if (!expanded) {
     return (
@@ -119,8 +143,8 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
         <TooltipTrigger asChild>
           <div className="flex items-center justify-center">
             <Image
-              src="/sinto-logo.svg"
-              alt="SINTO"
+              src={displayLogo}
+              alt={displayName}
               width={48}
               height={48}
               className="h-12 w-12 object-contain"
@@ -128,7 +152,7 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
           </div>
         </TooltipTrigger>
         <TooltipContent side="right" sideOffset={12}>
-          {selectedCompany.name}
+          {displayName}
         </TooltipContent>
       </Tooltip>
     );
@@ -146,8 +170,8 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
         >
           <div className="flex items-center justify-center shrink-0">
             <Image
-              src="/sinto-logo.svg"
-              alt={selectedCompany.name}
+              src={displayLogo}
+              alt={displayName}
               width={64}
               height={64}
               className="h-16 w-16 object-contain"
@@ -156,11 +180,13 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
 
           <div className="flex-1 text-left min-w-0">
             <div className="text-sm font-semibold text-[hsl(var(--text-primary))] truncate">
-              {selectedCompany.name}
+              {displayName}
             </div>
-            <div className="text-[11px] text-[hsl(var(--text-muted))] truncate">
-              {selectedCompany.plan}
-            </div>
+            {activeTenant?.plan && (
+              <div className="text-[11px] text-[hsl(var(--text-muted))] truncate">
+                {activeTenant.plan}
+              </div>
+            )}
           </div>
 
           <ChevronsUpDown className="h-4 w-4 text-[hsl(var(--text-muted))] shrink-0" />
@@ -180,16 +206,16 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
         <DropdownMenuLabel className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-[hsl(var(--text-muted))]">
           Entreprises
         </DropdownMenuLabel>
-        
-        {COMPANIES.map((company) => (
+
+        {tenants.map((tenant) => (
           <DropdownMenuItem
-            key={company.id}
-            onClick={() => setSelectedCompany(company)}
+            key={tenant.id}
+            onClick={() => handleSwitch(tenant)}
             className={cn(
               "flex items-center gap-3 px-2 py-2 rounded-lg cursor-pointer",
               "text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))]",
               "hover:bg-[hsl(var(--bg-elevated))]",
-              selectedCompany.id === company.id && "bg-[hsl(var(--bg-elevated))]"
+              activeTenantId === tenant.id && "bg-[hsl(var(--bg-elevated))]"
             )}
           >
             <div
@@ -198,15 +224,27 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
                 "bg-accent-muted text-accent"
               )}
             >
-              <Building2 className="h-4 w-4" />
+              {tenant.logo ? (
+                <Image
+                  src={tenant.logo}
+                  alt={tenant.name}
+                  width={20}
+                  height={20}
+                  className="h-5 w-5 object-contain"
+                />
+              ) : (
+                <Building2 className="h-4 w-4" />
+              )}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate">{company.name}</div>
-              <div className="text-[11px] text-[hsl(var(--text-muted))] truncate">
-                {company.plan}
-              </div>
+              <div className="text-sm font-medium truncate">{tenant.name}</div>
+              {tenant.plan && (
+                <div className="text-[11px] text-[hsl(var(--text-muted))] truncate">
+                  {tenant.plan}
+                </div>
+              )}
             </div>
-            {selectedCompany.id === company.id && (
+            {activeTenantId === tenant.id && (
               <Check className="h-4 w-4 text-accent shrink-0" />
             )}
           </DropdownMenuItem>

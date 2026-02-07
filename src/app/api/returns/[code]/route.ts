@@ -21,6 +21,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
+    const tenantId = session.user.activeTenantId;
+    if (!tenantId) {
+      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
+    }
+
     const { code } = await params;
     const returnId = parseReturnCode(code);
 
@@ -28,8 +33,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Code retour invalide" }, { status: 400 });
     }
 
-    const ret = await prisma.return.findUnique({
-      where: { id: returnId },
+    const ret = await prisma.return.findFirst({
+      where: { id: returnId, tenantId },
       include: {
         products: { orderBy: { id: "asc" } },
         attachments: { orderBy: { createdAt: "desc" } },
@@ -138,6 +143,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
+    const tenantId = session.user.activeTenantId;
+    if (!tenantId) {
+      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
+    }
+
     const { code } = await params;
     const returnId = parseReturnCode(code);
 
@@ -145,8 +155,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Code retour invalide" }, { status: 400 });
     }
 
-    const ret = await prisma.return.findUnique({
-      where: { id: returnId },
+    const ret = await prisma.return.findFirst({
+      where: { id: returnId, tenantId },
     });
 
     if (!ret) {
@@ -251,6 +261,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
+    const tenantId = session.user.activeTenantId;
+    if (!tenantId) {
+      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
+    }
+
     // Only Gestionnaire can delete
     const userRole = (session.user as { role?: string }).role;
     if (userRole !== "Gestionnaire") {
@@ -267,8 +282,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Code retour invalide" }, { status: 400 });
     }
 
-    const ret = await prisma.return.findUnique({
-      where: { id: returnId },
+    const ret = await prisma.return.findFirst({
+      where: { id: returnId, tenantId },
     });
 
     if (!ret) {

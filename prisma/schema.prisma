@@ -147,12 +147,17 @@ model VerificationToken {
 model Tenant {
   id        String   @id @default(uuid())
   name      String
+  slug      String   @unique
+  plan      String?
+  logo      String?
+  isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt      @map("updated_at")
 
   users            UserTenant[]
   projects         Project[]
   sharePointNodes  SharePointNode[]
+  returns          Return[]
 
   @@map("tenants")
 }
@@ -212,7 +217,8 @@ model SharePointNode {
 
 model Return {
   id                  Int      @id @default(autoincrement())
-  
+  tenantId            String   @map("tenant_id")
+
   // Basic info
   reportedAt          DateTime
   reporter            Reporter @default(expert)
@@ -274,9 +280,12 @@ model Return {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @default(now()) @updatedAt
 
+  tenant      Tenant @relation(fields: [tenantId], references: [id])
   products    ReturnProduct[]
   attachments ReturnAttachment[]
 
+  @@index([tenantId])
+  @@index([tenantId, reportedAt])
   @@index([reportedAt])
   @@index([isDraft, isFinal, isVerified])
   @@index([expert])

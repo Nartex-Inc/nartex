@@ -17,6 +17,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
     }
 
+    const tenantId = session.user.activeTenantId;
+    if (!tenantId) {
+      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
+    }
+
     // CRITICAL: Only Facturation can finalize returns
     const userRole = (session.user as { role?: string }).role;
     if (userRole !== "Facturation") {
@@ -33,8 +38,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Code retour invalide" }, { status: 400 });
     }
 
-    const ret = await prisma.return.findUnique({
-      where: { id: returnId },
+    const ret = await prisma.return.findFirst({
+      where: { id: returnId, tenantId },
       include: { products: true },
     });
 
