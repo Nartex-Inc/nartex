@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 
 const TENANTS = [
   { name: "SINTO", slug: "sinto", plan: "Groupe", logo: "/sinto-logo.svg" },
-  { name: "Prolab", slug: "prolab", plan: "Filiale", logo: null },
+  { name: "Prolab", slug: "prolab", plan: "Filiale", logo: "https://www.prolabtechnolub.com/images/site/logo_prolab_2025.png" },
   { name: "Lubri-Lab", slug: "lubrilab", plan: "Filiale", logo: null },
   { name: "Otoprotec", slug: "otoprotec", plan: "Filiale", logo: null },
 ];

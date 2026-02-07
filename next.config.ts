@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
 
   // Allow your logo/fallback hosts
   images: {
-    domains: ["api.placeholder.com", "localhost", "placehold.co"],
+    domains: ["api.placeholder.com", "localhost", "placehold.co", "www.prolabtechnolub.com"],
   },
 
   // CRITICAL: produce a self-contained server.js + node_modules

@@ -59,6 +59,12 @@ export async function GET(req: Request) {
   const userEmail = user.email;
   const sessionRole = (user.role || "").toLowerCase().trim();
 
+  // Tenant guard
+  const tenantId = user.activeTenantId;
+  if (!tenantId) {
+    return NextResponse.json({ error: "Aucun tenant actif sélectionné" }, { status: 403 });
+  }
+
   // 2) Check if user's session role is allowed
   let isAuthorized = ALLOWED_USER_ROLES.includes(sessionRole);
 
