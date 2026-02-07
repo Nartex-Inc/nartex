@@ -172,7 +172,12 @@ phases:
       - npx prisma -v
       - |
         if [ "${NEEDS_MIGRATE:-true}" = "true" ]; then
-          echo "🔧 BUILD – resolving previously failed migration"
+          echo "🔧 BUILD – resolving untracked migrations (one-time fix)"
+          npx prisma migrate resolve --applied 20240523120000_add_no_commande_checkbox --schema=prisma/schema.prisma || true
+          npx prisma migrate resolve --applied 20250524224932_initial_auth_setup --schema=prisma/schema.prisma || true
+          npx prisma migrate resolve --applied 20250528223212_add_user_role --schema=prisma/schema.prisma || true
+          npx prisma migrate resolve --applied 20250608194959_add_verification_token_unique --schema=prisma/schema.prisma || true
+          npx prisma migrate resolve --applied 20250826122726_fix_missing_tables --schema=prisma/schema.prisma || true
           npx prisma migrate resolve --applied 20250907000000_add_returns --schema=prisma/schema.prisma || true
           echo "🚀 BUILD – applying prisma migrations (migrate deploy)"
           npx prisma migrate deploy --schema=prisma/schema.prisma
