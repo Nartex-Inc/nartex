@@ -2,7 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import prisma from "@/lib/prisma";
+import { pg } from "@/lib/db";
+import { getPrextraTables } from "@/lib/prextra";
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,26 +12,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ok: false, error: "Non autorisé" }, { status: 401 });
     }
 
+    const schema = session.user.prextraSchema;
+    if (!schema) {
+      return NextResponse.json({ ok: false, error: "Aucun schéma Prextra configuré" }, { status: 403 });
+    }
+
+    const T = getPrextraTables(schema);
     const { searchParams } = new URL(request.url);
     const q = (searchParams.get("q") || "").trim();
     const code = (searchParams.get("code") || "").trim();
 
     // 1. Single Item Lookup (Exact code)
     if (code) {
-      const item = await prisma.items.findFirst({
-        where: { itemcode: code },
-        select: { itemcode: true, descr: true },
-      });
+      const { rows } = await pg.query(
+        `SELECT "ItemCode", "Descr" FROM ${T.ITEMS} WHERE "ItemCode" = $1 LIMIT 1`,
+        [code]
+      );
 
-      if (!item) {
+      if (rows.length === 0) {
         return NextResponse.json({ ok: false, error: "Item not found" }, { status: 404 });
       }
 
       return NextResponse.json({
         ok: true,
         item: {
-          code: item.itemcode,
-          descr: item.descr,
+          code: rows[0].ItemCode,
+          descr: rows[0].Descr,
           weight: 0,
         },
       });
@@ -38,26 +45,19 @@ export async function GET(request: NextRequest) {
 
     // 2. Search Suggestions (with Smart Sorting)
     if (q) {
-      // Fetch a slightly larger batch to ensure we capture the exact match even if not alphabetically first
-      const items = await prisma.items.findMany({
-        where: {
-          OR: [
-            { itemcode: { contains: q, mode: "insensitive" } },
-            { descr: { contains: q, mode: "insensitive" } },
-          ],
-        },
-        select: { itemcode: true, descr: true },
-        take: 50, // Increase limit to allow for sorting
-      });
+      const { rows } = await pg.query(
+        `SELECT "ItemCode", "Descr" FROM ${T.ITEMS}
+         WHERE "ItemCode" ILIKE $1 OR "Descr" ILIKE $1
+         LIMIT 50`,
+        [`%${q}%`]
+      );
 
       // --- SMART SORTING LOGIC ---
       const searchUpper = q.toUpperCase();
-      
-      items.sort((a: { itemcode: string; descr: string | null }, b: { itemcode: string; descr: string | null }) => {
-        const codeA = a.itemcode.toUpperCase();
-        const codeB = b.itemcode.toUpperCase();
-        const descA = (a.descr || "").toUpperCase();
-        const descB = (b.descr || "").toUpperCase();
+
+      rows.sort((a: { ItemCode: string; Descr: string | null }, b: { ItemCode: string; Descr: string | null }) => {
+        const codeA = a.ItemCode.toUpperCase();
+        const codeB = b.ItemCode.toUpperCase();
 
         // Priority 1: Exact Code Match
         if (codeA === searchUpper && codeB !== searchUpper) return -1;
@@ -80,13 +80,13 @@ export async function GET(request: NextRequest) {
       });
 
       // Slice to original limit of 20 after sorting
-      const topItems = items.slice(0, 20);
+      const topItems = rows.slice(0, 20);
 
       return NextResponse.json({
         ok: true,
-        suggestions: topItems.map((i: { itemcode: string; descr: string | null }) => ({
-          code: i.itemcode,
-          descr: i.descr,
+        suggestions: topItems.map((i: { ItemCode: string; Descr: string | null }) => ({
+          code: i.ItemCode,
+          descr: i.Descr,
         })),
       });
     }

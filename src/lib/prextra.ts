@@ -6,36 +6,15 @@ import { pg } from "./db";
 
 /* =============================================================================
    Prextra Table References (DMS-replicated with quoted identifiers)
-   These tables are in the default schema but have CamelCase names
+   Each tenant's tables live in a dedicated schema (e.g. "sinto", "prolab").
 ============================================================================= */
-
-export const PREXTRA_TABLES = {
-  ITEMS: '"Items"',
-  CUSTOMERS: '"Customers"',
-  SO_HEADER: '"SOHeader"',
-  SALESREP: '"Salesrep"',
-  SITES: '"Sites"',
-  CARRIERS: '"carriers"',
-  SHIPMENT_HDR: '"ShipmentHdr"',
-  INV_HEADER: '"InvHeader"',
-  INV_DETAIL: '"InvDetail"',
-  SHIPTO: '"Shipto"',
-  CITY: '"_City"',
-  CITY_SETTING: '"_CitySetting"',
-  TRANSPORT_CHART: '"_TransportChartDTL"',
-  PRODUCTS: '"Products"',
-  ITEM_TYPE: '"itemtype"',
-  PRICE_LIST: '"PriceList"',
-  ITEM_PRICE_RANGE: '"itempricerange"',
-} as const;
 
 /**
  * Returns schema-qualified table names for Prextra ERP queries.
- * For `public` schema, we omit the prefix (backward-compatible).
- * For other schemas (e.g. `prolab`), we prefix with `"schema".`.
+ * Every schema gets the `"schema".` prefix uniformly.
  */
 export function getPrextraTables(schema: string) {
-  const s = schema === "public" ? "" : `"${schema}".`;
+  const s = `"${schema}".`;
   return {
     ITEMS: `${s}"Items"`,
     CUSTOMERS: `${s}"Customers"`,

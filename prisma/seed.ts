@@ -6,7 +6,7 @@ import { PrismaClient, Tenant } from "@prisma/client";
 const prisma = new PrismaClient();
 
 const TENANTS = [
-  { name: "SINTO", slug: "sinto", plan: "Groupe", logo: "/sinto-logo.svg", prextraSchema: "public" },
+  { name: "SINTO", slug: "sinto", plan: "Groupe", logo: "/sinto-logo.svg", prextraSchema: "sinto" },
   { name: "Prolab", slug: "prolab", plan: "Filiale", logo: "https://www.prolabtechnolub.com/images/site/logo_prolab_2025.png", prextraSchema: "prolab" },
   { name: "Lubri-Lab", slug: "lubrilab", plan: "Filiale", logo: null, prextraSchema: null },
   { name: "Otoprotec", slug: "otoprotec", plan: "Filiale", logo: null, prextraSchema: null },
