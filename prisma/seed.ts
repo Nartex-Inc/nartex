@@ -6,10 +6,10 @@ import { PrismaClient, Tenant } from "@prisma/client";
 const prisma = new PrismaClient();
 
 const TENANTS = [
-  { name: "SINTO", slug: "sinto", plan: "Groupe", logo: "/sinto-logo.svg", prextraSchema: "sinto" },
-  { name: "Prolab", slug: "prolab", plan: "Filiale", logo: "https://www.prolabtechnolub.com/images/site/logo_prolab_2025.png", prextraSchema: "prolab" },
-  { name: "Lubri-Lab", slug: "lubrilab", plan: "Filiale", logo: null, prextraSchema: null },
-  { name: "Otoprotec", slug: "otoprotec", plan: "Filiale", logo: null, prextraSchema: null },
+  { name: "SINTO", slug: "sinto", plan: "Groupe", logo: "/sinto-logo.svg", prextraSchema: "sinto", address: "3750, 14e Avenue", city: "Saint-Georges", province: "QC", postalCode: "G5Y 8E3", phone: "(418) 227-6442 | 1-800-463-0025" },
+  { name: "Prolab", slug: "prolab", plan: "Filiale", logo: "/prolab-logo.png", prextraSchema: "prolab", address: "4531 Rue Industrielle", city: "Thetford Mines", province: "QC", postalCode: "G6H 1Y6", phone: "(418) 423-3777 | 1-800-795-2777" },
+  { name: "Lubri-Lab", slug: "lubrilab", plan: "Filiale", logo: null, prextraSchema: null, address: null, city: null, province: null, postalCode: null, phone: null },
+  { name: "Otoprotec", slug: "otoprotec", plan: "Filiale", logo: null, prextraSchema: null, address: null, city: null, province: null, postalCode: null, phone: null },
 ];
 
 async function main() {
@@ -20,8 +20,8 @@ async function main() {
   for (const t of TENANTS) {
     const tenant = await prisma.tenant.upsert({
       where: { slug: t.slug },
-      update: { name: t.name, plan: t.plan, logo: t.logo, prextraSchema: t.prextraSchema },
-      create: { name: t.name, slug: t.slug, plan: t.plan, logo: t.logo, prextraSchema: t.prextraSchema },
+      update: { name: t.name, plan: t.plan, logo: t.logo, prextraSchema: t.prextraSchema, address: t.address, city: t.city, province: t.province, postalCode: t.postalCode, phone: t.phone },
+      create: { name: t.name, slug: t.slug, plan: t.plan, logo: t.logo, prextraSchema: t.prextraSchema, address: t.address, city: t.city, province: t.province, postalCode: t.postalCode, phone: t.phone },
     });
     tenantRecords.push(tenant);
     console.log(`  Tenant: ${tenant.name} (${tenant.id})`);

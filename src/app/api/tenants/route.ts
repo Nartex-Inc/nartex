@@ -23,6 +23,11 @@ export async function GET() {
             slug: true,
             plan: true,
             logo: true,
+            address: true,
+            city: true,
+            province: true,
+            postalCode: true,
+            phone: true,
             isActive: true,
           },
         },
@@ -38,6 +43,11 @@ export async function GET() {
         slug: ut.tenant.slug,
         plan: ut.tenant.plan,
         logo: ut.tenant.logo,
+        address: ut.tenant.address,
+        city: ut.tenant.city,
+        province: ut.tenant.province,
+        postalCode: ut.tenant.postalCode,
+        phone: ut.tenant.phone,
         role: ut.role,
       }));
 

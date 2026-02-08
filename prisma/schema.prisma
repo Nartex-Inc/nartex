@@ -150,6 +150,11 @@ model Tenant {
   slug           String   @unique
   plan           String?
   logo           String?
+  address        String?
+  city           String?
+  province       String?
+  postalCode     String?  @map("postal_code")
+  phone          String?
   prextraSchema  String?  @map("prextra_schema")
   isActive       Boolean  @default(true) @map("is_active")
   createdAt      DateTime @default(now()) @map("created_at")

@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import useSWR from "swr";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useCurrentAccent } from "@/components/accent-color-provider";
@@ -879,11 +880,23 @@ function EmailModal({
 /* =========================
    Main Content Component
 ========================= */
+const tenantFetcher = (url: string) => fetch(url).then((r) => r.json());
+
 function CataloguePageContent() {
   const router = useRouter();
+  const { data: session } = useSession();
   const { color: accentColor } = useCurrentAccent();
   const isCompact = useMediaQuery("(max-width: 1024px)");
   const isMobile = useMediaQuery("(max-width: 640px)");
+
+  // --- ACTIVE TENANT ---
+  const { data: tenantsRes } = useSWR<{ ok: boolean; data: { id: string; name: string; slug: string; logo: string | null; address: string | null; city: string | null; province: string | null; postalCode: string | null; phone: string | null }[]; activeTenantId: string | null }>(
+    "/api/tenants",
+    tenantFetcher
+  );
+  const activeTenant = tenantsRes?.data?.find((t) => t.id === tenantsRes.activeTenantId) ?? tenantsRes?.data?.[0];
+  const tenantLogo = activeTenant?.logo ?? "/sinto-logo.svg";
+  const tenantName = activeTenant?.name ?? "SINTO";
 
   // --- STATE ---
   const [products, setProducts] = useState<Product[]>([]);
@@ -1100,7 +1113,7 @@ function CataloguePageContent() {
       const borderGray: [number, number, number] = [200, 200, 200];
       const white: [number, number, number] = [255, 255, 255];
 
-      const logoData = await getDataUri("/sinto-logo.svg");
+      const logoData = await getDataUri(tenantLogo);
       if (logoData) {
         const tempImg = new window.Image();
         tempImg.src = logoData;
@@ -1119,14 +1132,18 @@ function CataloguePageContent() {
       doc.setTextColor(...black);
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
-      doc.text("SINTO", pageWidth - 15, 15, { align: "right" });
+      doc.text(tenantName.toUpperCase(), pageWidth - 15, 15, { align: "right" });
       
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
       doc.setTextColor(...mediumGray);
-      doc.text("3750, 14e Avenue", pageWidth - 15, 21, { align: "right" });
-      doc.text("Saint-Georges (Qc) G5Y 8E3", pageWidth - 15, 26, { align: "right" });
-      doc.text("Tél: (418) 227-6442 | 1-800-463-0025", pageWidth - 15, 31, { align: "right" });
+      if (activeTenant?.address) {
+        doc.text(activeTenant.address, pageWidth - 15, 21, { align: "right" });
+        doc.text(`${activeTenant.city} (${activeTenant.province}) ${activeTenant.postalCode}`, pageWidth - 15, 26, { align: "right" });
+      }
+      if (activeTenant?.phone) {
+        doc.text(`Tél: ${activeTenant.phone}`, pageWidth - 15, 31, { align: "right" });
+      }
       
       doc.setFillColor(...corporateRed);
       doc.rect(15, 38, pageWidth - 30, 10, "F");
@@ -1347,18 +1364,18 @@ function CataloguePageContent() {
         doc.setTextColor(...mediumGray);
         doc.setFontSize(7);
         doc.setFont("helvetica", "normal");
-        doc.text("SINTO - Experts en lubrification | 3750, 14e Avenue, Saint-Georges (Qc) G5Y 8E3 | Tél: (418) 227-6442 | 1-800-463-0025", 15, pageHeight - 10);
+        doc.text(tenantName, 15, pageHeight - 10);
         doc.text(`Page ${i} / ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: "right" });
       }
 
       const pdfBlob = doc.output("blob");
       const formData = new FormData();
-      formData.append("file", pdfBlob, "ListePrix_SINTO.pdf");
+      formData.append("file", pdfBlob, `ListePrix_${tenantName.toUpperCase()}.pdf`);
       formData.append("to", recipientEmail);
-      formData.append("subject", `Liste de prix SINTO : ${selectedPriceList?.name}`);
+      formData.append("subject", `Liste de prix ${tenantName} : ${selectedPriceList?.name}`);
       formData.append(
         "message",
-        "Bonjour,\n\nVeuillez trouver ci-joint la liste de prix que vous avez demandée.\n\nCordialement,\n\nSINTO\nExperts en lubrification\n3750, 14e Avenue\nSaint-Georges (Qc) G5Y 8E3\nTél: (418) 227-6442\n1-800-463-0025"
+        `Bonjour,\n\nVeuillez trouver ci-joint la liste de prix que vous avez demandée.\n\nCordialement,\n\n${tenantName}`
       );
       const res = await fetch("/api/catalogue/email", { method: "POST", body: formData });
       if (!res.ok) throw new Error("Erreur envoi");
@@ -1419,11 +1436,11 @@ function CataloguePageContent() {
               
               {/* LEFT SECTION: Logo + Price List + Details Toggle + Filters Toggle */}
               <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                {/* SINTO Logo */}
+                {/* Tenant Logo */}
                 <div className="flex-shrink-0 bg-white p-1.5 rounded-lg shadow-sm">
                   <Image
-                    src="/sinto-logo.svg"
-                    alt="SINTO"
+                    src={tenantLogo}
+                    alt={tenantName}
                     width={80}
                     height={28}
                     className="h-6 sm:h-7 w-auto object-contain"
