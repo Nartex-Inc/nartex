@@ -5,7 +5,7 @@ import { getToken } from "next-auth/jwt";
 const LANDING_HOSTS = ["nartex.ca", "www.nartex.ca"];
 
 export async function middleware(req: NextRequest) {
-  const host = req.headers.get("host")?.split(":")[0] ?? "";
+  const host = (req.headers.get("x-forwarded-host") || req.headers.get("host"))?.split(":")[0] ?? "";
   const { pathname } = req.nextUrl;
 
   // Landing page: rewrite nartex.ca/* → /landing/*
