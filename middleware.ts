@@ -20,6 +20,14 @@ export async function middleware(req: NextRequest) {
     return res;
   };
 
+  // DEBUG: Direct JSON response from middleware (bypasses all caching)
+  if (pathname === "/mw-debug") {
+    return new NextResponse(
+      JSON.stringify({ host, rawHost, xfh, pathname, match: LANDING_HOSTS.includes(host) }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  }
+
   // Landing page: rewrite nartex.ca/* → /landing/*
   if (LANDING_HOSTS.includes(host)) {
     if (!pathname.startsWith("/landing")) {
