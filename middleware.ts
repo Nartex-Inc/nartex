@@ -5,17 +5,29 @@ import { getToken } from "next-auth/jwt";
 const LANDING_HOSTS = ["nartex.ca", "www.nartex.ca"];
 
 export async function middleware(req: NextRequest) {
-  const host = (req.headers.get("x-forwarded-host") || req.headers.get("host"))?.split(":")[0] ?? "";
+  const xfh = req.headers.get("x-forwarded-host");
+  const rawHost = req.headers.get("host");
+  const host = (xfh || rawHost)?.split(":")[0] ?? "";
   const { pathname } = req.nextUrl;
+
+  // DEBUG: Add headers to every response so we can see what middleware receives
+  const addDebug = (res: NextResponse) => {
+    res.headers.set("x-debug-host", host);
+    res.headers.set("x-debug-raw-host", rawHost ?? "null");
+    res.headers.set("x-debug-xfh", xfh ?? "null");
+    res.headers.set("x-debug-pathname", pathname);
+    res.headers.set("x-debug-match", String(LANDING_HOSTS.includes(host)));
+    return res;
+  };
 
   // Landing page: rewrite nartex.ca/* → /landing/*
   if (LANDING_HOSTS.includes(host)) {
     if (!pathname.startsWith("/landing")) {
       const url = req.nextUrl.clone();
       url.pathname = "/landing" + (pathname === "/" ? "" : pathname);
-      return NextResponse.rewrite(url);
+      return addDebug(NextResponse.rewrite(url));
     }
-    return NextResponse.next();
+    return addDebug(NextResponse.next());
   }
 
   // API routes handle their own auth
@@ -32,7 +44,7 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  return addDebug(NextResponse.next());
 }
 
 export const config = {
