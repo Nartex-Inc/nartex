@@ -1,7 +1,7 @@
 // prisma/schema.prisma
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-3.0.x"]
 }
 
@@ -75,27 +75,28 @@ model User {
   email         String?   @unique
   emailVerified DateTime? @map("email_verified")
   image         String?
-  
+
   // Mapped to `password_hash` concept, though NextAuth usually uses `password`
-  password      String?   @map("password_hash") 
-  
+  password String? @map("password_hash")
+
   // Updated to use the specific Enum from your SQL
-  role          UserRole  @default(Expert) 
-  
+  role UserRole @default(Expert)
+
   verificationToken    String?   @unique @map("verification_token")
   passwordResetToken   String?   @unique @map("password_reset_token")
   passwordResetExpires DateTime? @map("password_reset_expires")
-  
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt      @map("updated_at")
 
-  accounts Account[]
-  sessions Session[]
-  tenants  UserTenant[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@map("users")
+  accounts       Account[]
+  sessions       Session[]
+  tenants        UserTenant[]
+  supportTickets SupportTicket[]
+
   @@index([role])
   @@index([email])
+  @@map("users")
 }
 
 model Account {
@@ -145,25 +146,26 @@ model VerificationToken {
 ////////////////////////////////////////////////////////////////////////////////
 
 model Tenant {
-  id             String   @id @default(uuid())
-  name           String
-  slug           String   @unique
-  plan           String?
-  logo           String?
-  address        String?
-  city           String?
-  province       String?
-  postalCode     String?  @map("postal_code")
-  phone          String?
-  prextraSchema  String?  @map("prextra_schema")
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt      @map("updated_at")
+  id            String   @id @default(uuid())
+  name          String
+  slug          String   @unique
+  plan          String?
+  logo          String?
+  address       String?
+  city          String?
+  province      String?
+  postalCode    String?  @map("postal_code")
+  phone         String?
+  prextraSchema String?  @map("prextra_schema")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
-  users            UserTenant[]
-  projects         Project[]
-  sharePointNodes  SharePointNode[]
-  returns          Return[]
+  users           UserTenant[]
+  projects        Project[]
+  sharePointNodes SharePointNode[]
+  returns         Return[]
+  supportTickets  SupportTicket[]
 
   @@map("tenants")
 }
@@ -187,7 +189,7 @@ model Project {
   stage     ProductLifecycleStage
   tenantId  String
   createdAt DateTime              @default(now()) @map("created_at")
-  updatedAt DateTime              @updatedAt      @map("updated_at")
+  updatedAt DateTime              @updatedAt @map("updated_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -208,8 +210,8 @@ model SharePointNode {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  parent   SharePointNode? @relation("SPChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent   SharePointNode?  @relation("SPChildren", fields: [parentId], references: [id], onDelete: Cascade)
   children SharePointNode[] @relation("SPChildren")
 
   @@index([tenantId])
@@ -222,71 +224,71 @@ model SharePointNode {
 ////////////////////////////////////////////////////////////////////////////////
 
 model Return {
-  id                  Int      @id @default(autoincrement())
-  tenantId            String   @map("tenant_id")
+  id       Int    @id @default(autoincrement())
+  tenantId String @map("tenant_id")
 
   // Basic info
-  reportedAt          DateTime
-  reporter            Reporter @default(expert)
-  cause               Cause    @default(production)
-  expert              String?
-  
+  reportedAt DateTime
+  reporter   Reporter @default(expert)
+  cause      Cause    @default(production)
+  expert     String?
+
   // Financials
-  amount              Decimal? @db.Decimal(10, 2)
-  transportAmount     Decimal? @db.Decimal(10, 2)
-  restockingAmount    Decimal? @db.Decimal(10, 2)
-  
+  amount           Decimal? @db.Decimal(10, 2)
+  transportAmount  Decimal? @db.Decimal(10, 2)
+  restockingAmount Decimal? @db.Decimal(10, 2)
+
   // Client & Order Info
-  client              String?
-  noClient            String?  @db.VarChar(50)
-  noCommande          String?  @db.VarChar(50)
-  noTracking          String?  @db.VarChar(100)
-  dateCommande        String?  @db.VarChar(100)
-  description         String?  @db.Text
-  transporteur        String?
-  
+  client       String?
+  noClient     String? @db.VarChar(50)
+  noCommande   String? @db.VarChar(50)
+  noTracking   String? @db.VarChar(100)
+  dateCommande String? @db.VarChar(100)
+  description  String? @db.Text
+  transporteur String?
+
   // Flags
-  returnPhysical      Boolean  @default(false)
-  isDraft             Boolean  @default(false)
-  isFinal             Boolean  @default(false)
-  isVerified          Boolean  @default(false)
-  isStandby           Boolean  @default(false)
-  isPickup            Boolean  @default(false)
-  isCommande          Boolean  @default(false)
-  isReclamation       Boolean  @default(false)
-  noCommandeCheckbox  Boolean? @default(false) @map("no_commande_checkbox")
+  returnPhysical     Boolean  @default(false)
+  isDraft            Boolean  @default(false)
+  isFinal            Boolean  @default(false)
+  isVerified         Boolean  @default(false)
+  isStandby          Boolean  @default(false)
+  isPickup           Boolean  @default(false)
+  isCommande         Boolean  @default(false)
+  isReclamation      Boolean  @default(false)
+  noCommandeCheckbox Boolean? @default(false) @map("no_commande_checkbox")
 
   // Documents / References
-  noBill              String?  @db.VarChar(50)
-  noBonCommande       String?  @db.VarChar(50)
-  noReclamation       String?  @db.VarChar(50)
-  
+  noBill        String? @db.VarChar(50)
+  noBonCommande String? @db.VarChar(50)
+  noReclamation String? @db.VarChar(50)
+
   // Workflow / People
-  initiatedBy         String?
-  initializedAt       DateTime?
-  verifiedBy          String?
-  verifiedAt          DateTime?
-  finalizedBy         String?
-  finalizedAt         DateTime?
-  
+  initiatedBy   String?
+  initializedAt DateTime?
+  verifiedBy    String?
+  verifiedAt    DateTime?
+  finalizedBy   String?
+  finalizedAt   DateTime?
+
   // Logistics
-  warehouseOrigin     String?
+  warehouseOrigin      String?
   warehouseDestination String?
-  villeShipto         String?
-  totalWeight         Decimal? @db.Decimal(10, 2)
+  villeShipto          String?
+  totalWeight          Decimal? @db.Decimal(10, 2)
 
   // Credits
-  noCredit            String?  @db.VarChar(50)
-  noCredit2           String?  @db.VarChar(50)
-  noCredit3           String?  @db.VarChar(50)
-  creditedTo          String?  @db.VarChar(50)
-  creditedTo2         String?  @db.VarChar(50)
-  creditedTo3         String?  @db.VarChar(50)
+  noCredit    String? @db.VarChar(50)
+  noCredit2   String? @db.VarChar(50)
+  noCredit3   String? @db.VarChar(50)
+  creditedTo  String? @db.VarChar(50)
+  creditedTo2 String? @db.VarChar(50)
+  creditedTo3 String? @db.VarChar(50)
 
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @default(now()) @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
-  tenant      Tenant @relation(fields: [tenantId], references: [id])
+  tenant      Tenant             @relation(fields: [tenantId], references: [id])
   products    ReturnProduct[]
   attachments ReturnAttachment[]
 
@@ -300,24 +302,24 @@ model Return {
 }
 
 model ReturnProduct {
-  id                Int      @id @default(autoincrement())
-  returnId          Int
-  
-  codeProduit       String   @db.VarChar(50)
-  quantite          Int      @default(0)
-  descrProduit      String?  @db.VarChar(500)
-  descriptionRetour String?  @db.Text
-  
+  id       Int @id @default(autoincrement())
+  returnId Int
+
+  codeProduit       String  @db.VarChar(50)
+  quantite          Int     @default(0)
+  descrProduit      String? @db.VarChar(500)
+  descriptionRetour String? @db.Text
+
   // Processing info
-  quantiteRecue     Int?
-  qteInventaire     Int?
-  qteDetruite       Int?
-  tauxRestock       Decimal? @db.Decimal(5, 4)
-  poids             Decimal? @db.Decimal(10, 2)
-  weightProduit     Decimal? @db.Decimal(10, 2)
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @default(now()) @updatedAt
+  quantiteRecue Int?
+  qteInventaire Int?
+  qteDetruite   Int?
+  tauxRestock   Decimal? @db.Decimal(5, 4)
+  poids         Decimal? @db.Decimal(10, 2)
+  weightProduit Decimal? @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   return Return @relation(fields: [returnId], references: [id], onDelete: Cascade)
 
@@ -326,16 +328,16 @@ model ReturnProduct {
 }
 
 model ReturnAttachment {
-  id        Int      @id @default(autoincrement())
-  returnId  Int
-  
+  id       Int @id @default(autoincrement())
+  returnId Int
+
   // 👇 FIXED: Added map to match the actual database column "filePath"
-  fileId    String   @map("filePath") 
-  
-  fileName  String   // Original file name
-  mimeType  String?  // File MIME type (application/pdf, image/jpeg, etc.)
-  fileSize  Int?     // File size in bytes
-  
+  fileId String @map("filePath")
+
+  fileName String // Original file name
+  mimeType String? // File MIME type (application/pdf, image/jpeg, etc.)
+  fileSize Int? // File size in bytes
+
   // This maps the TypeScript field "createdAt" to the DB column "uploadedAt"
   createdAt DateTime @default(now()) @map("uploadedAt")
 
@@ -345,4 +347,97 @@ model ReturnAttachment {
   // Indexes for faster lookups
   @@index([returnId])
   @@index([fileId])
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// 4) SUPPORT TICKETS DOMAIN
+////////////////////////////////////////////////////////////////////////////////
+
+model SupportTicket {
+  id   String @id @default(uuid())
+  code String @unique // Format: TI-YYYYMMDD-XXXX
+
+  // Identification (from session)
+  userId    String  @map("user_id")
+  userEmail String  @map("user_email")
+  userName  String  @map("user_name")
+  userPhone String? @map("user_phone")
+
+  // Tenant context (auto-filled)
+  tenantId             String  @map("tenant_id")
+  tenantName           String  @map("tenant_name") // Denormalized for display
+  entiteOperationnelle String? @map("entite_operationnelle") // Derived mapping for Monday.com
+
+  // Location
+  site        String
+  departement String
+
+  // Categorization
+  categorie     String
+  sousCategorie String? @map("sous_categorie")
+
+  // Priority calculation inputs
+  impact  String // Individuel, Équipe, Département, Organisation
+  portee  String // Un utilisateur, Plusieurs, Département, Critique
+  urgence String // Basse, Moyenne, Haute, Critique
+
+  // Calculated fields
+  priorite  String // P1, P2, P3, P4 (calculated)
+  slaTarget DateTime? @map("sla_target")
+
+  // Ticket content
+  sujet       String
+  description String @db.Text
+
+  // Status & workflow
+  statut   String  @default("nouveau") // nouveau, en_cours, en_attente, resolu, ferme
+  assigneA String? @map("assigne_a")
+
+  // Timestamps
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  resolvedAt DateTime? @map("resolved_at")
+  closedAt   DateTime? @map("closed_at")
+
+  // Relations
+  user        User                      @relation(fields: [userId], references: [id])
+  tenant      Tenant                    @relation(fields: [tenantId], references: [id])
+  attachments SupportTicketAttachment[]
+  comments    SupportTicketComment[]
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([statut])
+  @@index([priorite])
+  @@map("support_tickets")
+}
+
+model SupportTicketAttachment {
+  id         String   @id @default(uuid())
+  ticketId   String   @map("ticket_id")
+  fileName   String   @map("file_name")
+  fileUrl    String   @map("file_url")
+  fileSize   Int      @map("file_size")
+  mimeType   String   @map("mime_type")
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("support_ticket_attachments")
+}
+
+model SupportTicketComment {
+  id         String   @id @default(uuid())
+  ticketId   String   @map("ticket_id")
+  userId     String   @map("user_id")
+  userName   String   @map("user_name")
+  content    String   @db.Text
+  isInternal Boolean  @default(false) @map("is_internal")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("support_ticket_comments")
 }
