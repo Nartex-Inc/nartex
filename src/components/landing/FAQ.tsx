@@ -2,78 +2,63 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown } from "lucide-react";
 import ScrollReveal from "./ScrollReveal";
 
 const faqs = [
   {
-    question: "Combien de temps prend le déploiement ?",
-    answer:
-      "Nartex est opérationnel en 48 heures. Nous connectons votre ERP, configurons vos workflows et formons votre équipe — tout est inclus.",
+    q: "Combien de temps prend le déploiement ?",
+    a: "48 heures. Connexion ERP, configuration et formation incluses.",
   },
   {
-    question: "Est-ce que Nartex fonctionne avec mon ERP existant ?",
-    answer:
-      "Oui. Nartex s'intègre nativement avec Prextra et peut se connecter à d'autres systèmes ERP via notre couche d'intégration. Vos données sont synchronisées en temps réel.",
+    q: "Compatible avec mon ERP ?",
+    a: "Intégration native Prextra. Autres ERP via notre couche d'intégration.",
   },
   {
-    question: "Mes données sont-elles en sécurité ?",
-    answer:
-      "Absolument. Nartex est hébergé sur AWS au Canada (Montréal), avec chiffrement TLS/SSL, authentification multi-facteur et contrôle d'accès basé sur les rôles. Vos données ne quittent jamais le pays.",
+    q: "Mes données sont-elles en sécurité ?",
+    a: "AWS Canada, chiffrement TLS/SSL, authentification MFA, contrôle d'accès par rôles.",
   },
   {
-    question: "Quel est le modèle de tarification ?",
-    answer:
-      "Nous offrons une tarification simple par utilisateur, sans frais cachés. Contactez-nous pour une soumission adaptée à la taille de votre équipe.",
+    q: "Quel modèle de tarification ?",
+    a: "Par utilisateur, sans frais cachés. Contactez-nous pour une soumission.",
   },
 ];
 
 export default function FAQ() {
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [open, setOpen] = useState<number | null>(null);
 
   return (
-    <section className="bg-[hsl(var(--bg-surface))] py-20">
-      <div className="mx-auto max-w-3xl px-6">
+    <section className="py-24">
+      <div className="mx-auto max-w-2xl px-6">
         <ScrollReveal>
-          <div className="mb-12 text-center">
-            <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-[hsl(var(--accent))]">
-              FAQ
-            </p>
-            <h2 className="text-3xl font-bold text-[hsl(var(--text-primary))] sm:text-4xl">
-              Questions fréquentes
-            </h2>
-          </div>
+          <p className="mb-16 text-center text-sm tracking-widest uppercase text-[hsl(var(--text-muted))]">
+            FAQ
+          </p>
         </ScrollReveal>
 
-        <div className="space-y-3">
-          {faqs.map(({ question, answer }, i) => (
-            <ScrollReveal key={question} delay={i * 0.08}>
-              <div className="rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-base))]">
+        <div className="divide-y divide-[hsl(var(--border-subtle))]">
+          {faqs.map(({ q, a }, i) => (
+            <ScrollReveal key={q} delay={i * 0.06}>
+              <div>
                 <button
-                  onClick={() => setOpenIndex(openIndex === i ? null : i)}
-                  className="flex w-full items-center justify-between p-5 text-left"
+                  onClick={() => setOpen(open === i ? null : i)}
+                  className="flex w-full items-center justify-between py-5 text-left"
                 >
-                  <span className="text-base font-semibold text-[hsl(var(--text-primary))]">
-                    {question}
+                  <span className="text-sm font-medium text-[hsl(var(--text-primary))]">{q}</span>
+                  <span className="ml-4 shrink-0 text-xs text-[hsl(var(--text-muted))]">
+                    {open === i ? "−" : "+"}
                   </span>
-                  <motion.span
-                    animate={{ rotate: openIndex === i ? 180 : 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <ChevronDown className="h-5 w-5 shrink-0 text-[hsl(var(--text-muted))]" />
-                  </motion.span>
                 </button>
                 <AnimatePresence initial={false}>
-                  {openIndex === i && (
+                  {open === i && (
                     <motion.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.25, ease: "easeInOut" }}
+                      transition={{ duration: 0.2, ease: "easeInOut" }}
                       className="overflow-hidden"
                     >
-                      <p className="px-5 pb-5 text-sm leading-relaxed text-[hsl(var(--text-secondary))]">
-                        {answer}
+                      <p className="pb-5 text-sm leading-relaxed text-[hsl(var(--text-tertiary))]">
+                        {a}
                       </p>
                     </motion.div>
                   )}

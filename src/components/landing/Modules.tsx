@@ -1,84 +1,41 @@
 "use client";
 
-import {
-  BarChart3,
-  RotateCcw,
-  Package,
-  Users,
-  Map,
-  FileText,
-  Settings,
-} from "lucide-react";
 import ScrollReveal from "./ScrollReveal";
 import { StaggerContainer, StaggerItem } from "./StaggerChildren";
 
 const modules = [
-  {
-    icon: BarChart3,
-    title: "Tableau de bord analytique",
-    description: "KPIs, comparaisons annuelles, rétention client et tendances de ventes en temps réel.",
-  },
-  {
-    icon: RotateCcw,
-    title: "Gestion des retours",
-    description: "Workflow complet : brouillon → vérification → finalisation avec suivi de poids et restockage.",
-  },
-  {
-    icon: Package,
-    title: "Catalogue & tarification",
-    description: "Gestion centralisée des items, produits et listes de prix avec synchronisation ERP.",
-  },
-  {
-    icon: Users,
-    title: "CRM & clients",
-    description: "Fiche client enrichie, historique de commandes et analyse de rétention par représentant.",
-  },
-  {
-    icon: Map,
-    title: "Cartographie clients",
-    description: "Visualisez géographiquement vos clients et identifiez les zones à fort potentiel.",
-  },
-  {
-    icon: FileText,
-    title: "Intégration ERP",
-    description: "Connexion native à Prextra : commandes, inventaire, expéditions et données clients.",
-  },
-  {
-    icon: Settings,
-    title: "Multi-tenant & RBAC",
-    description: "Architecture multi-locataire avec gestion granulaire des rôles et permissions.",
-  },
+  { title: "Analytique", description: "KPIs, comparaisons annuelles, tendances en temps réel." },
+  { title: "Retours", description: "Workflow complet de brouillon à finalisation." },
+  { title: "Catalogue", description: "Items, produits et listes de prix centralisés." },
+  { title: "CRM", description: "Fiche client enrichie et analyse de rétention." },
+  { title: "Cartographie", description: "Visualisation géographique des clients." },
+  { title: "ERP", description: "Connexion native à Prextra." },
+  { title: "RBAC", description: "Rôles et permissions granulaires." },
 ];
 
 export default function Modules() {
   return (
-    <section className="py-20">
-      <div className="mx-auto max-w-7xl px-6">
+    <section className="border-y border-[hsl(var(--border-subtle))] py-24">
+      <div className="mx-auto max-w-6xl px-6">
         <ScrollReveal>
-          <div className="mb-12 text-center">
-            <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-[hsl(var(--accent))]">
+          <div className="mb-16 text-center">
+            <p className="mb-4 text-sm tracking-widest uppercase text-[hsl(var(--text-muted))]">
               La plateforme
             </p>
-            <h2 className="text-3xl font-bold text-[hsl(var(--text-primary))] sm:text-4xl">
-              Tout ce dont vous avez besoin, unifié
+            <h2 className="text-2xl font-bold text-[hsl(var(--text-primary))] sm:text-3xl">
+              Sept modules. Un seul outil.
             </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-[hsl(var(--text-secondary))]">
-              Sept modules intégrés qui remplacent vos outils fragmentés.
-            </p>
           </div>
         </ScrollReveal>
 
-        <StaggerContainer className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {modules.map(({ icon: Icon, title, description }) => (
+        <StaggerContainer className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-[hsl(var(--border-subtle))] sm:grid-cols-3 lg:grid-cols-4">
+          {modules.map(({ title, description }) => (
             <StaggerItem key={title}>
-              <div className="card-hover rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-surface))] p-6">
-                <div className="mb-4 inline-flex rounded-lg bg-[hsl(var(--accent-muted))] p-2.5">
-                  <Icon className="h-5 w-5 text-[hsl(var(--accent))]" />
-                </div>
-                <h3 className="mb-2 text-base font-semibold text-[hsl(var(--text-primary))]">
+              <div className="bg-[hsl(var(--bg-surface))] p-6 h-full transition-colors hover:bg-[hsl(var(--bg-elevated))]">
+                <h3 className="mb-1.5 text-sm font-semibold text-[hsl(var(--text-primary))]">
                   {title}
                 </h3>
-                <p className="text-sm leading-relaxed text-[hsl(var(--text-secondary))]">
+                <p className="text-xs leading-relaxed text-[hsl(var(--text-tertiary))]">
                   {description}
                 </p>
               </div>
