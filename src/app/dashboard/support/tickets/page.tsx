@@ -16,7 +16,6 @@ import {
   MapPin,
   Tag,
   MessageSquare,
-  Paperclip,
   X,
   Loader2,
   AlertTriangle,
@@ -24,6 +23,8 @@ import {
   Circle,
   Pause,
   XCircle,
+  Send,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -56,6 +57,15 @@ interface TicketRow {
   commentsCount: number;
 }
 
+interface TicketComment {
+  id: string;
+  userId: string;
+  userName: string;
+  content: string;
+  isInternal: boolean;
+  createdAt: string;
+}
+
 interface TicketDetail {
   id: string;
   code: string;
@@ -80,6 +90,7 @@ interface TicketDetail {
   resolvedAt: string | null;
   closedAt: string | null;
   slaTarget: string | null;
+  comments: TicketComment[];
 }
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -91,6 +102,8 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 export default function SupportTicketsPage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const userRole = (session?.user as any)?.role;
+  const isGestionnaire = userRole === "Gestionnaire" || userRole === "admin";
 
   // Filters
   const [query, setQuery] = React.useState("");
@@ -102,7 +115,7 @@ export default function SupportTicketsPage() {
   const { data: ticketsRes, isLoading, mutate } = useSWR<{ ok: boolean; data: TicketRow[] }>(
     `/api/support/tickets${statusFilter !== "all" ? `?status=${statusFilter}` : ""}`,
     fetcher,
-    { refreshInterval: 30000 } // Refresh every 30 seconds
+    { refreshInterval: 30000 }
   );
 
   // Detail modal
@@ -114,7 +127,6 @@ export default function SupportTicketsPage() {
   const filteredTickets = React.useMemo(() => {
     let result = tickets;
 
-    // Search filter
     if (query.trim()) {
       const q = query.toLowerCase();
       result = result.filter(
@@ -126,7 +138,6 @@ export default function SupportTicketsPage() {
       );
     }
 
-    // Priority filter
     if (priorityFilter !== "all") {
       result = result.filter((t) => t.priorite === priorityFilter);
     }
@@ -161,7 +172,7 @@ export default function SupportTicketsPage() {
                 Billets de support
               </h1>
               <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-                Gérez les demandes d'assistance technique
+                {isGestionnaire ? "Gérez les demandes d'assistance technique" : "Suivez vos demandes d'assistance"}
               </p>
             </div>
             <button
@@ -299,6 +310,12 @@ export default function SupportTicketsPage() {
                           </td>
                           <td className="px-4 py-3 max-w-[200px]">
                             <div className="font-medium text-neutral-900 dark:text-white truncate">{ticket.sujet}</div>
+                            {ticket.commentsCount > 0 && (
+                              <div className="flex items-center gap-1 mt-0.5 text-xs text-neutral-500">
+                                <MessageSquare className="h-3 w-3" />
+                                {ticket.commentsCount}
+                              </div>
+                            )}
                           </td>
                           <td className="px-4 py-3">
                             <div className="text-neutral-900 dark:text-white">{ticket.userName}</div>
@@ -363,6 +380,8 @@ export default function SupportTicketsPage() {
           ticketId={selectedId}
           onClose={() => setSelectedId(null)}
           onRefresh={() => mutate()}
+          isGestionnaire={isGestionnaire}
+          currentUserId={session?.user?.id}
         />
       )}
     </div>
@@ -421,37 +440,79 @@ function TicketDetailModal({
   ticketId,
   onClose,
   onRefresh,
+  isGestionnaire,
+  currentUserId,
 }: {
   ticketId: string;
   onClose: () => void;
   onRefresh: () => void;
+  isGestionnaire: boolean;
+  currentUserId?: string;
 }) {
-  const { data: ticketRes, isLoading } = useSWR<{ ok: boolean; data: TicketDetail }>(
+  const { data: ticketRes, isLoading, mutate: mutateTicket } = useSWR<{ ok: boolean; data: TicketDetail }>(
     `/api/support/tickets/${ticketId}`,
     fetcher
   );
 
   const ticket = ticketRes?.data;
 
+  // Comment form state
+  const [commentContent, setCommentContent] = React.useState("");
+  const [isInternalComment, setIsInternalComment] = React.useState(false);
+  const [newStatus, setNewStatus] = React.useState<string>("");
+  const [submittingComment, setSubmittingComment] = React.useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = React.useState(false);
+
   // Status update
   const [updating, setUpdating] = React.useState(false);
 
-  const updateStatus = async (newStatus: string) => {
+  const updateStatus = async (status: string) => {
     setUpdating(true);
     try {
       const res = await fetch(`/api/support/tickets/${ticketId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ statut: newStatus }),
+        body: JSON.stringify({ statut: status }),
       });
       const json = await res.json();
       if (json.ok) {
+        mutateTicket();
         onRefresh();
       }
     } catch (err) {
       console.error("Failed to update status:", err);
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const submitComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!commentContent.trim()) return;
+
+    setSubmittingComment(true);
+    try {
+      const res = await fetch(`/api/support/tickets/${ticketId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: commentContent.trim(),
+          isInternal: isGestionnaire && isInternalComment,
+          newStatus: isGestionnaire && newStatus ? newStatus : undefined,
+        }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setCommentContent("");
+        setNewStatus("");
+        setIsInternalComment(false);
+        mutateTicket();
+        onRefresh();
+      }
+    } catch (err) {
+      console.error("Failed to submit comment:", err);
+    } finally {
+      setSubmittingComment(false);
     }
   };
 
@@ -468,10 +529,11 @@ function TicketDetailModal({
   const priorityInfo = getPriorityInfo(ticket.priorite as Priority);
   const statusInfo = TICKET_STATUSES.find((s) => s.value === ticket.statut);
   const categoryLabel = SUPPORT_CATEGORIES[ticket.categorie as CategoryKey]?.label || ticket.categorie;
+  const isOwnTicket = ticket.userId === currentUserId;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-2xl my-8 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800">
+      <div className="relative w-full max-w-3xl my-8 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800">
         {/* Header */}
         <div className="flex items-start justify-between p-6 border-b border-neutral-200 dark:border-neutral-800">
           <div>
@@ -480,10 +542,48 @@ function TicketDetailModal({
               <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold", priorityInfo.bgColor, priorityInfo.color)}>
                 {priorityInfo.priority} - {priorityInfo.label}
               </span>
-              <span className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium", statusInfo?.bgColor, statusInfo?.color)}>
-                <StatusIcon status={ticket.statut} />
-                {statusInfo?.label}
-              </span>
+
+              {/* Status with dropdown for Gestionnaire */}
+              {isGestionnaire ? (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                    disabled={updating}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity",
+                      statusInfo?.bgColor,
+                      statusInfo?.color
+                    )}
+                  >
+                    <StatusIcon status={ticket.statut} />
+                    {statusInfo?.label}
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+
+                  {showStatusDropdown && (
+                    <div className="absolute top-full left-0 mt-1 py-1 bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 z-10 min-w-[160px]">
+                      {TICKET_STATUSES.filter((s) => s.value !== ticket.statut).map((s) => (
+                        <button
+                          key={s.value}
+                          onClick={() => {
+                            updateStatus(s.value);
+                            setShowStatusDropdown(false);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                        >
+                          <StatusIcon status={s.value} />
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <span className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium", statusInfo?.bgColor, statusInfo?.color)}>
+                  <StatusIcon status={ticket.statut} />
+                  {statusInfo?.label}
+                </span>
+              )}
             </div>
             <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">{ticket.sujet}</h2>
           </div>
@@ -496,7 +596,7 @@ function TicketDetailModal({
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
           {/* Info Grid */}
           <div className="grid grid-cols-2 gap-4 text-sm">
             <InfoItem icon={User} label="Demandeur" value={ticket.userName} subvalue={ticket.userEmail} />
@@ -536,26 +636,113 @@ function TicketDetailModal({
             </div>
           </div>
 
-          {/* Status Actions */}
+          {/* Comments Section */}
           <div>
-            <h3 className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Changer le statut</h3>
-            <div className="flex flex-wrap gap-2">
-              {TICKET_STATUSES.filter((s) => s.value !== ticket.statut).map((s) => (
-                <button
-                  key={s.value}
-                  onClick={() => updateStatus(s.value)}
-                  disabled={updating}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
-                    "border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800",
-                    "disabled:opacity-50 disabled:cursor-not-allowed"
-                  )}
-                >
-                  <StatusIcon status={s.value} />
-                  {s.label}
-                </button>
-              ))}
+            <h3 className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-3 flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Conversation ({ticket.comments?.length || 0})
+            </h3>
+
+            {/* Comments List */}
+            <div className="space-y-3 mb-4">
+              {ticket.comments && ticket.comments.length > 0 ? (
+                [...ticket.comments].reverse().map((comment) => {
+                  const isMyComment = comment.userId === currentUserId;
+                  return (
+                    <div
+                      key={comment.id}
+                      className={cn(
+                        "p-4 rounded-lg",
+                        comment.isInternal
+                          ? "bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800"
+                          : isMyComment
+                          ? "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800"
+                          : "bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
+                      )}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm text-neutral-900 dark:text-white">
+                            {comment.userName}
+                          </span>
+                          {comment.isInternal && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200">
+                              Note interne
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-neutral-500">
+                          {new Date(comment.createdAt).toLocaleString("fr-CA")}
+                        </span>
+                      </div>
+                      <p className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">
+                        {comment.content}
+                      </p>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-sm text-neutral-500 italic py-4 text-center">
+                  Aucun commentaire pour le moment
+                </p>
+              )}
             </div>
+
+            {/* Add Comment Form */}
+            <form onSubmit={submitComment} className="space-y-3">
+              <textarea
+                value={commentContent}
+                onChange={(e) => setCommentContent(e.target.value)}
+                placeholder={isGestionnaire ? "Ajouter une réponse ou une note..." : "Ajouter un commentaire..."}
+                rows={3}
+                className="w-full px-3 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors resize-none"
+              />
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  {isGestionnaire && (
+                    <>
+                      <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={isInternalComment}
+                          onChange={(e) => setIsInternalComment(e.target.checked)}
+                          className="w-4 h-4 rounded border-neutral-300 text-amber-600 focus:ring-amber-500"
+                        />
+                        Note interne
+                      </label>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-neutral-500">Changer statut:</span>
+                        <select
+                          value={newStatus}
+                          onChange={(e) => setNewStatus(e.target.value)}
+                          className="h-8 px-2 text-xs rounded border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+                        >
+                          <option value="">Aucun changement</option>
+                          {TICKET_STATUSES.filter((s) => s.value !== ticket.statut).map((s) => (
+                            <option key={s.value} value={s.value}>{s.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submittingComment || !commentContent.trim()}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 text-white rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
+                >
+                  {submittingComment ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  Envoyer
+                </button>
+              </div>
+            </form>
           </div>
         </div>
 

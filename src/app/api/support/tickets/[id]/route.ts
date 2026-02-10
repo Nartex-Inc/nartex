@@ -5,6 +5,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
+import { sendTicketUpdateEmail } from "@/lib/email";
+import { TICKET_STATUSES } from "@/lib/support-constants";
 
 // =============================================================================
 // GET - Get single ticket by ID
@@ -120,14 +122,18 @@ export async function PATCH(
 
     const body = await request.json() as UpdateTicketPayload;
     const updateData: Record<string, unknown> = {};
+    let statusChanged = false;
+    let newStatusLabel: string | undefined;
 
     // Handle status update
-    if (body.statut) {
+    if (body.statut && body.statut !== existingTicket.statut) {
       const validStatuses = ["nouveau", "en_cours", "en_attente", "resolu", "ferme"];
       if (!validStatuses.includes(body.statut)) {
         return NextResponse.json({ ok: false, error: "Statut invalide" }, { status: 400 });
       }
       updateData.statut = body.statut;
+      statusChanged = true;
+      newStatusLabel = TICKET_STATUSES.find((s) => s.value === body.statut)?.label || body.statut;
 
       // Set resolved/closed timestamps
       if (body.statut === "resolu" && !existingTicket.resolvedAt) {
@@ -147,6 +153,20 @@ export async function PATCH(
       where: { id },
       data: updateData,
     });
+
+    // Send notification email if status changed
+    if (statusChanged) {
+      sendTicketUpdateEmail({
+        ticketCode: existingTicket.code,
+        ticketId: existingTicket.id,
+        sujet: existingTicket.sujet,
+        userName: existingTicket.userName,
+        userEmail: existingTicket.userEmail,
+        updateType: 'status_change',
+        newStatus: body.statut,
+        statusLabel: newStatusLabel,
+      }).catch((err) => console.error("Failed to send status update email:", err));
+    }
 
     return NextResponse.json({
       ok: true,

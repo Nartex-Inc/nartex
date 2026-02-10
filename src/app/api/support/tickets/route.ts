@@ -6,7 +6,7 @@ import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { calculatePriority, getEntiteForTenant, getPriorityInfo, SUPPORT_CATEGORIES, type CategoryKey } from "@/lib/support-constants";
-import { sendTicketNotificationEmail } from "@/lib/email";
+import { sendTicketNotificationEmail, sendTicketConfirmationEmail } from "@/lib/email";
 import { notifyNewSupportTicket } from "@/lib/notifications";
 
 // =============================================================================
@@ -232,6 +232,18 @@ export async function POST(request: NextRequest) {
       tenantId: tenant.id,
       userName: session.user.name || "",
     }).catch((err) => console.error("Failed to create in-app notification:", err));
+
+    // Send confirmation email to the requester (fire and forget)
+    sendTicketConfirmationEmail({
+      ticketCode,
+      sujet: body.sujet,
+      description: body.description,
+      userName: session.user.name || "",
+      userEmail: session.user.email || "",
+      priorite,
+      prioriteLabel: priorityInfo.label,
+      slaHours: priorityInfo.slaHours,
+    }).catch((err) => console.error("Failed to send confirmation email:", err));
 
     return NextResponse.json({
       ok: true,
