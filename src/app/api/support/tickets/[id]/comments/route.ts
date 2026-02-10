@@ -7,6 +7,7 @@ import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { sendTicketUpdateEmail } from "@/lib/email";
 import { TICKET_STATUSES } from "@/lib/support-constants";
+import { notifyTicketComment, notifyTicketStatusChange, notifyTicketReply } from "@/lib/notifications";
 
 // =============================================================================
 // GET - List comments for a ticket
@@ -157,9 +158,10 @@ export async function POST(
       }
     }
 
-    // Send email notification to requester (if not internal and not self-comment)
+    // Send email notification to requester (if not internal)
+    // Always notify when Gestionnaire/admin replies (acting in support role)
     const isOwnTicket = ticket.userId === session.user.id;
-    if (!isInternal && !isOwnTicket) {
+    if (!isInternal && (!isOwnTicket || canAddInternalComment)) {
       sendTicketUpdateEmail({
         ticketCode: ticket.code,
         ticketId: ticket.id,
@@ -173,6 +175,43 @@ export async function POST(
         commentAuthor: session.user.name || "Équipe TI",
         hasAttachments: false,
       }).catch((err) => console.error("Failed to send update email:", err));
+    }
+
+    // In-app notifications
+    const commentAuthorName = session.user.name || session.user.email || "Équipe TI";
+
+    if (canAddInternalComment && !isInternal && ticket.userId !== session.user.id) {
+      // Gestionnaire/admin commented on someone else's ticket → notify demandeur
+      notifyTicketComment({
+        ticketId: ticket.id,
+        ticketCode: ticket.code,
+        sujet: ticket.sujet,
+        demandeurUserId: ticket.userId,
+        commentAuthor: commentAuthorName,
+        tenantId,
+      }).catch((err) => console.error("Failed to send comment notification:", err));
+
+      if (statusUpdated && newStatusLabel) {
+        notifyTicketStatusChange({
+          ticketId: ticket.id,
+          ticketCode: ticket.code,
+          sujet: ticket.sujet,
+          demandeurUserId: ticket.userId,
+          updatedBy: commentAuthorName,
+          newStatusLabel,
+          tenantId,
+        }).catch((err) => console.error("Failed to send status notification:", err));
+      }
+    } else if (!canAddInternalComment) {
+      // Regular user (demandeur) replied → notify all Gestionnaires
+      notifyTicketReply({
+        ticketId: ticket.id,
+        ticketCode: ticket.code,
+        sujet: ticket.sujet,
+        replyUserName: commentAuthorName,
+        replyUserId: session.user.id,
+        tenantId,
+      }).catch((err) => console.error("Failed to send reply notification:", err));
     }
 
     return NextResponse.json({

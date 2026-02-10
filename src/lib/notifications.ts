@@ -43,7 +43,8 @@ export async function createNotification(data: CreateNotificationData) {
 export async function notifyTenantUsersByRole(
   tenantId: string,
   roles: string[],
-  notificationData: Omit<CreateNotificationData, "userId" | "tenantId">
+  notificationData: Omit<CreateNotificationData, "userId" | "tenantId">,
+  excludeUserId?: string
 ) {
   try {
     // Find all users in the tenant with the specified roles
@@ -64,6 +65,7 @@ export async function notifyTenantUsersByRole(
     // Filter by role and create notifications
     const notifications = userTenants
       .filter((ut) => roles.includes(ut.user.role))
+      .filter((ut) => !excludeUserId || ut.user.id !== excludeUserId)
       .map((ut) => ({
         userId: ut.user.id,
         tenantId,
@@ -111,5 +113,78 @@ export async function notifyNewSupportTicket(ticketData: {
       entityType: "support_ticket",
       entityId: ticketData.ticketId,
     }
+  );
+}
+
+/**
+ * Notify the demandeur when a Gestionnaire comments on their ticket
+ */
+export async function notifyTicketComment(data: {
+  ticketId: string;
+  ticketCode: string;
+  sujet: string;
+  demandeurUserId: string;
+  commentAuthor: string;
+  tenantId: string;
+}) {
+  return createNotification({
+    userId: data.demandeurUserId,
+    tenantId: data.tenantId,
+    type: "ticket_comment",
+    title: `Mise à jour: ${data.ticketCode}`,
+    message: `${data.commentAuthor} a commenté votre billet "${data.sujet}" (${data.ticketCode})`,
+    link: `/dashboard/support/tickets`,
+    entityType: "support_ticket",
+    entityId: data.ticketId,
+  });
+}
+
+/**
+ * Notify the demandeur when ticket status changes
+ */
+export async function notifyTicketStatusChange(data: {
+  ticketId: string;
+  ticketCode: string;
+  sujet: string;
+  demandeurUserId: string;
+  updatedBy: string;
+  newStatusLabel: string;
+  tenantId: string;
+}) {
+  return createNotification({
+    userId: data.demandeurUserId,
+    tenantId: data.tenantId,
+    type: "ticket_updated",
+    title: `Statut modifié: ${data.ticketCode}`,
+    message: `${data.updatedBy} a changé le statut de votre billet "${data.sujet}" (${data.ticketCode}) à "${data.newStatusLabel}"`,
+    link: `/dashboard/support/tickets`,
+    entityType: "support_ticket",
+    entityId: data.ticketId,
+  });
+}
+
+/**
+ * Notify all Gestionnaires when a demandeur replies on a ticket
+ */
+export async function notifyTicketReply(data: {
+  ticketId: string;
+  ticketCode: string;
+  sujet: string;
+  replyUserName: string;
+  replyUserId: string;
+  tenantId: string;
+}) {
+  return notifyTenantUsersByRole(
+    data.tenantId,
+    ["Gestionnaire"],
+    {
+      type: "ticket_comment",
+      title: `Réponse: ${data.ticketCode}`,
+      message: `${data.replyUserName} a répondu sur le billet "${data.sujet}" (${data.ticketCode})`,
+      link: `/dashboard/support/tickets`,
+      entityType: "support_ticket",
+      entityId: data.ticketId,
+    },
+    data.replyUserId
   );
 }

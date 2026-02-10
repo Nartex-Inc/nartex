@@ -7,6 +7,7 @@ import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { sendTicketUpdateEmail } from "@/lib/email";
 import { TICKET_STATUSES } from "@/lib/support-constants";
+import { notifyTicketStatusChange } from "@/lib/notifications";
 
 // =============================================================================
 // GET - Get single ticket by ID
@@ -167,6 +168,19 @@ export async function PATCH(
         newStatus: body.statut,
         statusLabel: newStatusLabel,
       }).catch((err) => console.error("Failed to send status update email:", err));
+
+      // In-app notification to demandeur
+      if (existingTicket.userId !== session.user.id) {
+        notifyTicketStatusChange({
+          ticketId: existingTicket.id,
+          ticketCode: existingTicket.code,
+          sujet: existingTicket.sujet,
+          demandeurUserId: existingTicket.userId,
+          updatedBy: session.user.name || session.user.email || "Équipe TI",
+          newStatusLabel: newStatusLabel!,
+          tenantId,
+        }).catch((err) => console.error("Failed to send status notification:", err));
+      }
     }
 
     return NextResponse.json({
