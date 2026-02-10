@@ -279,14 +279,14 @@ export async function sendTicketNotificationEmail(data: TicketNotificationData) 
 
                       <!-- Logo Section -->
                       <tr>
-                          <td align="center" style="padding-bottom: 32px;">
+                          <td align="center" style="padding: 24px 20px; background-color: #0D1117; border-radius: 12px 12px 0 0;">
                               <img src="${nartexLogoUrl}" alt="Nartex" width="100" style="display: block; max-width: 100px; height: auto;">
                           </td>
                       </tr>
 
                       <!-- Main Card -->
                       <tr>
-                          <td style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06); overflow: hidden;">
+                          <td style="background-color: #ffffff; border-radius: 0 0 12px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06); overflow: hidden;">
 
                               <!-- Priority Badge Header -->
                               <table width="100%" border="0" cellspacing="0" cellpadding="0">
@@ -483,12 +483,12 @@ export async function sendTicketConfirmationEmail(data: TicketConfirmationData) 
               <td align="center" style="padding: 40px 20px;">
                   <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 560px;">
                       <tr>
-                          <td align="center" style="padding-bottom: 32px;">
+                          <td align="center" style="padding: 24px 20px; background-color: #0D1117; border-radius: 12px 12px 0 0;">
                               <img src="${nartexLogoUrl}" alt="Nartex" width="100" style="display: block; max-width: 100px; height: auto;">
                           </td>
                       </tr>
                       <tr>
-                          <td style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden;">
+                          <td style="background-color: #ffffff; border-radius: 0 0 12px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden;">
                               <table width="100%" border="0" cellspacing="0" cellpadding="0">
                                   <tr>
                                       <td style="padding: 32px; text-align: center; background-color: #10b981;">
@@ -653,12 +653,12 @@ export async function sendTicketUpdateEmail(data: TicketUpdateData) {
               <td align="center" style="padding: 40px 20px;">
                   <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 560px;">
                       <tr>
-                          <td align="center" style="padding-bottom: 32px;">
+                          <td align="center" style="padding: 24px 20px; background-color: #0D1117; border-radius: 12px 12px 0 0;">
                               <img src="${nartexLogoUrl}" alt="Nartex" width="100" style="display: block; max-width: 100px; height: auto;">
                           </td>
                       </tr>
                       <tr>
-                          <td style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden;">
+                          <td style="background-color: #ffffff; border-radius: 0 0 12px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden;">
                               <table width="100%" border="0" cellspacing="0" cellpadding="0">
                                   <tr>
                                       <td style="padding: 32px;">
