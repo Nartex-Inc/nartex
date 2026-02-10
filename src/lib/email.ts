@@ -238,22 +238,21 @@ interface TicketNotificationData {
 export async function sendTicketNotificationEmail(data: TicketNotificationData) {
   if (!isEmailServiceConfigured || !transporter) {
     console.error("Email transporter not configured. Cannot send ticket notification.");
-    return; // Don't throw - notification failure shouldn't block ticket creation
+    return;
   }
 
-  // IT support team email - configure this as needed
   const itSupportEmail = process.env.IT_SUPPORT_EMAIL || "ti@sinto.ca";
   const ticketUrl = `${process.env.NEXTAUTH_URL}/dashboard/support/tickets`;
   const nartexLogoUrl = "https://nartex-static-assets.s3.ca-central-1.amazonaws.com/nartex-logo-white.png";
 
-  // Priority colors
-  const priorityColors: Record<string, string> = {
-    P1: "#dc2626", // Red
-    P2: "#ea580c", // Orange
-    P3: "#ca8a04", // Yellow
-    P4: "#16a34a", // Green
+  // Priority colors and backgrounds
+  const priorityStyles: Record<string, { bg: string; text: string; light: string }> = {
+    P1: { bg: "#dc2626", text: "#ffffff", light: "#fef2f2" },
+    P2: { bg: "#ea580c", text: "#ffffff", light: "#fff7ed" },
+    P3: { bg: "#ca8a04", text: "#ffffff", light: "#fefce8" },
+    P4: { bg: "#16a34a", text: "#ffffff", light: "#f0fdf4" },
   };
-  const priorityColor = priorityColors[data.priorite] || "#6b7280";
+  const pStyle = priorityStyles[data.priorite] || { bg: "#6b7280", text: "#ffffff", light: "#f9fafb" };
 
   const htmlBody = `
   <!DOCTYPE html>
@@ -261,86 +260,142 @@ export async function sendTicketNotificationEmail(data: TicketNotificationData) 
   <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Nouveau billet de support - ${data.ticketCode}</title>
+      <title>Nouvelle demande - ${data.ticketCode}</title>
+      <!--[if mso]>
+      <noscript>
+        <xml>
+          <o:OfficeDocumentSettings>
+            <o:PixelsPerInch>96</o:PixelsPerInch>
+          </o:OfficeDocumentSettings>
+        </xml>
+      </noscript>
+      <![endif]-->
   </head>
-  <body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f4f4f7;">
-      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f4f4f7;">
+  <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6; -webkit-font-smoothing: antialiased;">
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f3f4f6;">
           <tr>
-              <td align="center" style="padding: 20px;">
-                  <table width="600" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.08);">
-                      <!-- Header -->
+              <td align="center" style="padding: 40px 20px;">
+                  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 560px;">
+
+                      <!-- Logo Section -->
                       <tr>
-                          <td style="background-color: #0D1117; padding: 24px; text-align: center;">
-                              <img src="${nartexLogoUrl}" alt="Nartex" style="max-width: 120px; height: auto;">
+                          <td align="center" style="padding-bottom: 32px;">
+                              <img src="${nartexLogoUrl}" alt="Nartex" width="100" style="display: block; max-width: 100px; height: auto;">
                           </td>
                       </tr>
 
-                      <!-- Priority Banner -->
+                      <!-- Main Card -->
                       <tr>
-                          <td style="background-color: ${priorityColor}; padding: 16px 24px; text-align: center;">
-                              <span style="color: #ffffff; font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">
-                                  ${data.priorite} - ${data.prioriteLabel} (SLA: ${data.slaHours}h)
-                              </span>
-                          </td>
-                      </tr>
+                          <td style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06); overflow: hidden;">
 
-                      <!-- Content -->
-                      <tr>
-                          <td style="padding: 32px 24px;">
-                              <h1 style="margin: 0 0 8px 0; font-size: 20px; color: #1a202c;">Nouveau billet de support</h1>
-                              <p style="margin: 0 0 24px 0; font-size: 24px; font-weight: bold; color: #374151; font-family: monospace;">${data.ticketCode}</p>
-
-                              <h2 style="margin: 0 0 8px 0; font-size: 16px; color: #1a202c;">${data.sujet}</h2>
-
-                              <!-- Info Grid -->
-                              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+                              <!-- Priority Badge Header -->
+                              <table width="100%" border="0" cellspacing="0" cellpadding="0">
                                   <tr>
-                                      <td style="padding: 12px 16px; background-color: #f8f9fa; border-bottom: 1px solid #e2e8f0; width: 40%;">
-                                          <span style="font-size: 12px; color: #6b7280; text-transform: uppercase;">Demandeur</span>
-                                      </td>
-                                      <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
-                                          <span style="font-size: 14px; color: #374151;">${data.userName}</span><br>
-                                          <span style="font-size: 12px; color: #6b7280;">${data.userEmail}</span>
-                                      </td>
-                                  </tr>
-                                  <tr>
-                                      <td style="padding: 12px 16px; background-color: #f8f9fa; border-bottom: 1px solid #e2e8f0;">
-                                          <span style="font-size: 12px; color: #6b7280; text-transform: uppercase;">Organisation</span>
-                                      </td>
-                                      <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
-                                          <span style="font-size: 14px; color: #374151;">${data.tenantName}</span>
-                                      </td>
-                                  </tr>
-                                  <tr>
-                                      <td style="padding: 12px 16px; background-color: #f8f9fa; border-bottom: 1px solid #e2e8f0;">
-                                          <span style="font-size: 12px; color: #6b7280; text-transform: uppercase;">Site / Département</span>
-                                      </td>
-                                      <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
-                                          <span style="font-size: 14px; color: #374151;">${data.site} / ${data.departement}</span>
-                                      </td>
-                                  </tr>
-                                  <tr>
-                                      <td style="padding: 12px 16px; background-color: #f8f9fa;">
-                                          <span style="font-size: 12px; color: #6b7280; text-transform: uppercase;">Catégorie</span>
-                                      </td>
-                                      <td style="padding: 12px 16px;">
-                                          <span style="font-size: 14px; color: #374151;">${data.categorie}</span>
+                                      <td style="padding: 24px 32px; background-color: ${pStyle.light}; border-bottom: 1px solid #e5e7eb;">
+                                          <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                              <tr>
+                                                  <td>
+                                                      <span style="display: inline-block; padding: 6px 12px; background-color: ${pStyle.bg}; color: ${pStyle.text}; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; border-radius: 6px;">
+                                                          ${data.priorite} &bull; ${data.prioriteLabel}
+                                                      </span>
+                                                      <span style="display: inline-block; margin-left: 12px; color: #6b7280; font-size: 13px;">
+                                                          SLA: ${data.slaHours} heures
+                                                      </span>
+                                                  </td>
+                                              </tr>
+                                          </table>
                                       </td>
                                   </tr>
                               </table>
 
-                              <!-- Description -->
-                              <div style="margin: 24px 0; padding: 16px; background-color: #f8f9fa; border-radius: 8px; border-left: 4px solid ${priorityColor};">
-                                  <p style="margin: 0; font-size: 14px; color: #374151; white-space: pre-wrap;">${data.description.substring(0, 500)}${data.description.length > 500 ? '...' : ''}</p>
-                              </div>
-
-                              <!-- CTA Button -->
-                              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0;">
+                              <!-- Content -->
+                              <table width="100%" border="0" cellspacing="0" cellpadding="0">
                                   <tr>
-                                      <td align="center">
-                                          <a href="${ticketUrl}" target="_blank" style="display: inline-block; padding: 14px 32px; background-color: #1D8102; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px;">
-                                              Voir le billet dans Nartex
-                                          </a>
+                                      <td style="padding: 32px;">
+
+                                          <!-- Ticket Code -->
+                                          <p style="margin: 0 0 8px 0; font-size: 13px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">
+                                              Nouvelle demande
+                                          </p>
+                                          <h1 style="margin: 0 0 24px 0; font-size: 28px; font-weight: 700; color: #111827; font-family: 'SF Mono', Monaco, 'Courier New', monospace; letter-spacing: -0.5px;">
+                                              ${data.ticketCode}
+                                          </h1>
+
+                                          <!-- Subject -->
+                                          <h2 style="margin: 0 0 24px 0; font-size: 18px; font-weight: 600; color: #374151; line-height: 1.4;">
+                                              ${data.sujet}
+                                          </h2>
+
+                                          <!-- Info Cards -->
+                                          <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
+                                              <tr>
+                                                  <td style="padding: 16px; background-color: #f9fafb; border-radius: 8px;">
+                                                      <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                                          <tr>
+                                                              <td style="padding-bottom: 12px; border-bottom: 1px solid #e5e7eb;">
+                                                                  <p style="margin: 0 0 4px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">Demandeur</p>
+                                                                  <p style="margin: 0; font-size: 14px; color: #111827; font-weight: 500;">${data.userName}</p>
+                                                                  <p style="margin: 2px 0 0 0; font-size: 13px; color: #6b7280;">${data.userEmail}</p>
+                                                              </td>
+                                                          </tr>
+                                                          <tr>
+                                                              <td style="padding-top: 12px;">
+                                                                  <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                                                      <tr>
+                                                                          <td width="50%" valign="top">
+                                                                              <p style="margin: 0 0 4px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">Organisation</p>
+                                                                              <p style="margin: 0; font-size: 14px; color: #111827; font-weight: 500;">${data.tenantName}</p>
+                                                                          </td>
+                                                                          <td width="50%" valign="top">
+                                                                              <p style="margin: 0 0 4px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">Catégorie</p>
+                                                                              <p style="margin: 0; font-size: 14px; color: #111827; font-weight: 500;">${data.categorie}</p>
+                                                                          </td>
+                                                                      </tr>
+                                                                  </table>
+                                                              </td>
+                                                          </tr>
+                                                          <tr>
+                                                              <td style="padding-top: 12px;">
+                                                                  <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                                                      <tr>
+                                                                          <td width="50%" valign="top">
+                                                                              <p style="margin: 0 0 4px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">Site</p>
+                                                                              <p style="margin: 0; font-size: 14px; color: #111827; font-weight: 500;">${data.site}</p>
+                                                                          </td>
+                                                                          <td width="50%" valign="top">
+                                                                              <p style="margin: 0 0 4px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">Département</p>
+                                                                              <p style="margin: 0; font-size: 14px; color: #111827; font-weight: 500;">${data.departement}</p>
+                                                                          </td>
+                                                                      </tr>
+                                                                  </table>
+                                                              </td>
+                                                          </tr>
+                                                      </table>
+                                                  </td>
+                                              </tr>
+                                          </table>
+
+                                          <!-- Description -->
+                                          <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 32px;">
+                                              <tr>
+                                                  <td style="padding: 16px; background-color: #f9fafb; border-radius: 8px; border-left: 3px solid ${pStyle.bg};">
+                                                      <p style="margin: 0 0 8px 0; font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">Description</p>
+                                                      <p style="margin: 0; font-size: 14px; color: #374151; line-height: 1.6; white-space: pre-wrap;">${data.description.substring(0, 600)}${data.description.length > 600 ? '...' : ''}</p>
+                                                  </td>
+                                              </tr>
+                                          </table>
+
+                                          <!-- CTA Button -->
+                                          <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                              <tr>
+                                                  <td align="center">
+                                                      <a href="${ticketUrl}" target="_blank" style="display: inline-block; padding: 14px 28px; background-color: #111827; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">
+                                                          Voir dans Nartex &rarr;
+                                                      </a>
+                                                  </td>
+                                              </tr>
+                                          </table>
+
                                       </td>
                                   </tr>
                               </table>
@@ -349,13 +404,16 @@ export async function sendTicketNotificationEmail(data: TicketNotificationData) 
 
                       <!-- Footer -->
                       <tr>
-                          <td style="background-color: #f8f9fa; padding: 20px 24px; text-align: center; border-top: 1px solid #e2e8f0;">
-                              <p style="margin: 0; font-size: 12px; color: #6b7280;">
-                                  Ce message a été envoyé automatiquement par Nartex.<br>
-                                  © ${getCurrentYear()} Nartex. Tous droits réservés.
+                          <td align="center" style="padding: 32px 20px;">
+                              <p style="margin: 0 0 8px 0; font-size: 12px; color: #9ca3af;">
+                                  Ce message a été envoyé automatiquement par Nartex.
+                              </p>
+                              <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                                  &copy; ${getCurrentYear()} Nartex Inc. &bull; Tous droits réservés.
                               </p>
                           </td>
                       </tr>
+
                   </table>
               </td>
           </tr>
@@ -370,13 +428,12 @@ export async function sendTicketNotificationEmail(data: TicketNotificationData) 
     await transporter.sendMail({
       from: process.env.EMAIL_FROM,
       to: itSupportEmail,
-      subject: `[${data.priorite}] Nouveau billet: ${data.ticketCode} - ${data.sujet}`,
+      subject: `[${data.priorite}] ${data.ticketCode} - ${data.sujet}`,
       html: htmlBody,
     });
     console.log(`Ticket notification sent successfully for ${data.ticketCode}`);
   } catch (error) {
     console.error(`Failed to send ticket notification for ${data.ticketCode}:`, error);
-    // Don't throw - we don't want to fail ticket creation if email fails
   }
 }
 

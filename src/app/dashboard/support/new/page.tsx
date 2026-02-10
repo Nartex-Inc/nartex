@@ -5,26 +5,6 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import Image from "next/image";
-import {
-  Lock,
-  Building2,
-  User,
-  Mail,
-  Phone,
-  MapPin,
-  Briefcase,
-  Tag,
-  AlertTriangle,
-  Users,
-  Clock,
-  FileText,
-  Paperclip,
-  Send,
-  Loader2,
-  CheckCircle,
-  ArrowLeft,
-  Zap,
-} from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   SUPPORT_CATEGORIES,
@@ -53,14 +33,13 @@ interface TenantData {
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 // =============================================================================
-// MAIN PAGE COMPONENT
+// MAIN PAGE COMPONENT - ZENDESK-STYLE UI
 // =============================================================================
 
 export default function NewSupportTicketPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  // Fetch tenants to get active tenant details
   const { data: tenantsRes } = useSWR<{ ok: boolean; data: TenantData[] }>(
     "/api/tenants",
     fetcher
@@ -105,8 +84,22 @@ export default function NewSupportTicketPage() {
     setSousCategorie("");
   }, [categorie]);
 
-  // Check for tenant context
   const hasTenantContext = !!activeTenantId && !!activeTenant;
+
+  // Calculate form completion percentage
+  const completionSteps = [
+    !!site,
+    !!departement,
+    !!categorie,
+    !!impact,
+    !!portee,
+    !!urgence,
+    sujet.length >= 10,
+    description.length >= 50,
+  ];
+  const completionPercentage = Math.round(
+    (completionSteps.filter(Boolean).length / completionSteps.length) * 100
+  );
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -114,7 +107,7 @@ export default function NewSupportTicketPage() {
     setError(null);
 
     if (!hasTenantContext) {
-      setError("Problème de contexte Nartex - veuillez recharger la page ou sélectionner une organisation.");
+      setError("Veuillez sélectionner une organisation dans le menu latéral.");
       return;
     }
 
@@ -170,8 +163,8 @@ export default function NewSupportTicketPage() {
   // Loading state
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[hsl(var(--bg-base))]">
-        <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-neutral-950">
+        <div className="w-8 h-8 border-2 border-neutral-200 border-t-neutral-800 rounded-full animate-spin" />
       </div>
     );
   }
@@ -180,30 +173,42 @@ export default function NewSupportTicketPage() {
   if (success) {
     const successPriorityInfo = getPriorityInfo(success.priorite as Priority);
     return (
-      <div className="min-h-screen bg-[hsl(var(--bg-base))]">
-        <div className="mx-auto max-w-2xl px-4 sm:px-6 py-16">
-          <div className="rounded-2xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-xl p-10 text-center">
-            <div className="mx-auto w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mb-8">
-              <CheckCircle className="h-10 w-10 text-green-500" />
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+        <div className="mx-auto max-w-lg px-4 py-20">
+          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-800 p-8 text-center">
+            <div className="mx-auto w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-6">
+              <svg className="w-8 h-8 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
             </div>
-            <h1 className="text-3xl font-semibold text-[hsl(var(--text-primary))] mb-3">
-              Billet créé avec succès
+            <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white mb-2">
+              Demande soumise
             </h1>
-            <p className="text-[hsl(var(--text-secondary))] mb-8 text-lg">
-              Votre demande a été soumise et sera traitée selon sa priorité.
+            <p className="text-neutral-600 dark:text-neutral-400 mb-6">
+              Notre équipe TI a été notifiée et traitera votre demande.
             </p>
 
-            <div className="inline-flex flex-col items-center gap-3 px-8 py-6 rounded-xl bg-[hsl(var(--bg-elevated))] mb-8">
-              <span className="text-sm text-[hsl(var(--text-muted))] uppercase tracking-wide">Numéro de billet</span>
-              <span className="text-3xl font-mono font-bold text-[hsl(var(--text-primary))]">
+            <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-lg p-6 mb-6">
+              <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-1">Numéro de référence</p>
+              <p className="text-2xl font-mono font-semibold text-neutral-900 dark:text-white mb-3">
                 {success.code}
-              </span>
-              <span className={cn("inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold", successPriorityInfo.bgColor, successPriorityInfo.color)}>
-                {successPriorityInfo.priority} - {successPriorityInfo.label}
+              </p>
+              <span className={cn(
+                "inline-flex items-center px-3 py-1 rounded-full text-sm font-medium",
+                successPriorityInfo.bgColor,
+                successPriorityInfo.color
+              )}>
+                Priorité {successPriorityInfo.priority}
               </span>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => router.push("/dashboard/support/tickets")}
+                className="w-full py-2.5 px-4 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-lg text-sm font-medium hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
+              >
+                Voir mes demandes
+              </button>
               <button
                 onClick={() => {
                   setSuccess(null);
@@ -218,15 +223,9 @@ export default function NewSupportTicketPage() {
                   setDescription("");
                   setUserPhone("");
                 }}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))] text-sm font-medium hover:bg-[hsl(var(--bg-elevated))] transition-all"
+                className="w-full py-2.5 px-4 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg text-sm font-medium hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
               >
-                Créer un autre billet
-              </button>
-              <button
-                onClick={() => router.push("/dashboard/support/tickets")}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] text-sm font-medium hover:opacity-90 transition-all"
-              >
-                Voir mes billets
+                Nouvelle demande
               </button>
             </div>
           </div>
@@ -236,466 +235,526 @@ export default function NewSupportTicketPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[hsl(var(--bg-base))]">
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8">
-        {/* Back button */}
-        <button
-          onClick={() => router.back()}
-          className="inline-flex items-center gap-2 text-sm text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-primary))] mb-8 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Retour
-        </button>
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+      {/* Progress bar */}
+      <div className="sticky top-0 z-10 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800">
+        <div className="h-1 bg-neutral-100 dark:bg-neutral-800">
+          <div
+            className="h-full bg-emerald-500 transition-all duration-300"
+            style={{ width: `${completionPercentage}%` }}
+          />
+        </div>
+      </div>
 
-        {/* Header with tenant logo */}
-        <header className="mb-10">
-          <div className="flex items-center gap-6">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <button
+            onClick={() => router.back()}
+            className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-white mb-4 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Retour
+          </button>
+          <div className="flex items-start gap-4">
             {activeTenant?.logo && (
-              <div className="shrink-0 p-3 rounded-2xl bg-[hsl(var(--bg-surface))] border border-[hsl(var(--border-subtle))]">
+              <div className="shrink-0 w-12 h-12 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center overflow-hidden">
                 <Image
                   src={activeTenant.logo}
                   alt={activeTenant.name}
-                  width={72}
-                  height={72}
-                  className="h-16 w-16 object-contain"
+                  width={40}
+                  height={40}
+                  className="w-10 h-10 object-contain"
                 />
               </div>
             )}
             <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-[hsl(var(--text-primary))]">
-                Nouveau billet de support TI
+              <h1 className="text-xl font-semibold text-neutral-900 dark:text-white">
+                Soumettre une demande
               </h1>
-              <p className="mt-2 text-[hsl(var(--text-secondary))]">
-                Décrivez votre problème et notre équipe TI vous assistera dans les meilleurs délais.
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                Décrivez votre problème et nous vous aiderons rapidement.
               </p>
             </div>
           </div>
-        </header>
+        </div>
 
-        {/* No tenant warning */}
         {!hasTenantContext && (
-          <div className="mb-8 p-5 rounded-xl border border-red-500/30 bg-red-500/10">
-            <div className="flex items-start gap-4">
-              <AlertTriangle className="h-6 w-6 text-red-500 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-red-400">
-                  Aucune organisation sélectionnée
-                </p>
-                <p className="text-sm text-red-400/80 mt-1">
-                  Veuillez sélectionner une organisation dans le menu latéral avant de soumettre un billet.
-                </p>
-              </div>
-            </div>
+          <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              Veuillez sélectionner une organisation dans le menu latéral avant de continuer.
+            </p>
           </div>
         )}
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Row 1: Identification + Location */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Identification Section */}
-            <Section title="Identification" icon={User}>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <LockedField label="Nom" value={session?.user?.name || "—"} />
-                  <LockedField label="Courriel" value={session?.user?.email || "—"} />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Téléphone" optional>
-                    <input
-                      type="tel"
+        <form onSubmit={handleSubmit}>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Main Form Column */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Your Information */}
+              <Card>
+                <CardHeader>Vos informations</CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <ReadOnlyField label="Nom" value={session?.user?.name || "—"} />
+                    <ReadOnlyField label="Courriel" value={session?.user?.email || "—"} />
+                    <InputField
+                      label="Téléphone"
                       value={userPhone}
-                      onChange={(e) => setUserPhone(e.target.value)}
-                      placeholder="450-555-1234"
-                      className="input-field"
+                      onChange={setUserPhone}
+                      placeholder="514-555-0123"
+                      optional
                     />
-                  </Field>
-                  <LockedField label="Organisation" value={activeTenant?.name || "—"} />
-                </div>
-              </div>
-            </Section>
-
-            {/* Location Section */}
-            <Section title="Localisation" icon={MapPin}>
-              <div className="space-y-4">
-                <Field label="Site" required>
-                  <div className="grid grid-cols-2 gap-3">
-                    {SITES.map((s) => (
-                      <button
-                        key={s.value}
-                        type="button"
-                        onClick={() => setSite(s.value)}
-                        className={cn(
-                          "flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all",
-                          site === s.value
-                            ? "border-[hsl(var(--accent))] bg-[hsl(var(--accent))]/10 text-[hsl(var(--accent))]"
-                            : "border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))] hover:border-[hsl(var(--border-strong))] hover:bg-[hsl(var(--bg-elevated))]"
-                        )}
-                      >
-                        {s.value === "bureau" ? <Building2 className="h-4 w-4" /> : <MapPin className="h-4 w-4" />}
-                        {s.label}
-                      </button>
-                    ))}
+                    <ReadOnlyField label="Organisation" value={activeTenant?.name || "—"} />
                   </div>
-                </Field>
-                <Field label="Département" required>
-                  <select
-                    value={departement}
-                    onChange={(e) => setDepartement(e.target.value)}
-                    required
-                    className="input-field"
-                  >
-                    <option value="">Sélectionnez un département</option>
-                    {DEPARTEMENTS.map((d) => (
-                      <option key={d.value} value={d.value}>{d.label}</option>
-                    ))}
-                  </select>
-                </Field>
-              </div>
-            </Section>
-          </div>
+                </CardContent>
+              </Card>
 
-          {/* Row 2: Classification */}
-          <Section title="Classification" icon={Tag}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <Field label="Catégorie" required>
-                <select
-                  value={categorie}
-                  onChange={(e) => setCategorie(e.target.value as CategoryKey | "")}
-                  required
-                  className="input-field"
-                >
-                  <option value="">Sélectionnez une catégorie</option>
-                  {Object.entries(SUPPORT_CATEGORIES).map(([key, cat]) => (
-                    <option key={key} value={key}>{cat.label}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Sous-catégorie">
-                <select
-                  value={sousCategorie}
-                  onChange={(e) => setSousCategorie(e.target.value)}
-                  disabled={subcategories.length === 0}
-                  className="input-field disabled:opacity-50"
-                >
-                  <option value="">{subcategories.length === 0 ? "Sélectionnez d'abord une catégorie" : "Sélectionnez (optionnel)"}</option>
-                  {subcategories.map((sc) => (
-                    <option key={sc.value} value={sc.value}>{sc.label}</option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-          </Section>
+              {/* Location */}
+              <Card>
+                <CardHeader>Localisation</CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <FieldLabel required>Lieu de travail</FieldLabel>
+                      <div className="flex gap-2">
+                        {SITES.map((s) => (
+                          <button
+                            key={s.value}
+                            type="button"
+                            onClick={() => setSite(s.value)}
+                            className={cn(
+                              "flex-1 py-2.5 px-4 rounded-lg text-sm font-medium border transition-all",
+                              site === s.value
+                                ? "bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 border-transparent"
+                                : "bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600"
+                            )}
+                          >
+                            {s.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <SelectField
+                      label="Département"
+                      value={departement}
+                      onChange={setDepartement}
+                      options={DEPARTEMENTS}
+                      placeholder="Sélectionner..."
+                      required
+                    />
+                  </div>
+                </CardContent>
+              </Card>
 
-          {/* Row 3: Impact Assessment */}
-          <Section title="Évaluation de la priorité" icon={Zap} accent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {/* Impact */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <AlertTriangle className="h-4 w-4 text-[hsl(var(--text-muted))]" />
-                  <span className="text-sm font-semibold text-[hsl(var(--text-primary))]">Impact</span>
-                  <span className="text-red-500">*</span>
-                </div>
-                <div className="space-y-2">
-                  {IMPACT_OPTIONS.map((opt) => (
-                    <RadioCard
-                      key={opt.value}
+              {/* Classification */}
+              <Card>
+                <CardHeader>Type de demande</CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <SelectField
+                      label="Catégorie"
+                      value={categorie}
+                      onChange={(v) => setCategorie(v as CategoryKey | "")}
+                      options={Object.entries(SUPPORT_CATEGORIES).map(([key, cat]) => ({
+                        value: key,
+                        label: cat.label,
+                      }))}
+                      placeholder="Sélectionner..."
+                      required
+                    />
+                    <SelectField
+                      label="Sous-catégorie"
+                      value={sousCategorie}
+                      onChange={setSousCategorie}
+                      options={subcategories}
+                      placeholder={subcategories.length === 0 ? "Choisir d'abord une catégorie" : "Sélectionner..."}
+                      disabled={subcategories.length === 0}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Priority Assessment */}
+              <Card>
+                <CardHeader>Évaluation de l'urgence</CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    <RadioGroup
+                      label="Impact"
                       name="impact"
-                      value={opt.value}
-                      label={opt.label}
-                      description={opt.description}
-                      checked={impact === opt.value}
-                      onChange={() => setImpact(opt.value)}
+                      value={impact}
+                      onChange={setImpact}
+                      options={IMPACT_OPTIONS}
+                      required
                     />
-                  ))}
-                </div>
-              </div>
-
-              {/* Portée */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Users className="h-4 w-4 text-[hsl(var(--text-muted))]" />
-                  <span className="text-sm font-semibold text-[hsl(var(--text-primary))]">Portée</span>
-                  <span className="text-red-500">*</span>
-                </div>
-                <div className="space-y-2">
-                  {PORTEE_OPTIONS.map((opt) => (
-                    <RadioCard
-                      key={opt.value}
+                    <RadioGroup
+                      label="Portée"
                       name="portee"
-                      value={opt.value}
-                      label={opt.label}
-                      description={opt.description}
-                      checked={portee === opt.value}
-                      onChange={() => setPortee(opt.value)}
+                      value={portee}
+                      onChange={setPortee}
+                      options={PORTEE_OPTIONS}
+                      required
                     />
-                  ))}
-                </div>
-              </div>
-
-              {/* Urgence */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Clock className="h-4 w-4 text-[hsl(var(--text-muted))]" />
-                  <span className="text-sm font-semibold text-[hsl(var(--text-primary))]">Urgence</span>
-                  <span className="text-red-500">*</span>
-                </div>
-                <div className="space-y-2">
-                  {URGENCE_OPTIONS.map((opt) => (
-                    <RadioCard
-                      key={opt.value}
+                    <RadioGroup
+                      label="Urgence"
                       name="urgence"
-                      value={opt.value}
-                      label={opt.label}
-                      description={opt.description}
-                      checked={urgence === opt.value}
-                      onChange={() => setUrgence(opt.value)}
+                      value={urgence}
+                      onChange={setUrgence}
+                      options={URGENCE_OPTIONS}
+                      required
                     />
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Priority Badge */}
-            <div className="mt-8 pt-6 border-t border-[hsl(var(--border-subtle))]">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Zap className="h-5 w-5 text-[hsl(var(--text-muted))]" />
-                  <span className="text-sm font-medium text-[hsl(var(--text-secondary))]">Priorité calculée automatiquement</span>
-                </div>
-                {priorityInfo ? (
-                  <span className={cn("inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold", priorityInfo.bgColor, priorityInfo.color)}>
-                    {priorityInfo.priority} - {priorityInfo.label}
-                    <span className="text-xs font-medium opacity-75">SLA {priorityInfo.slaHours}h</span>
-                  </span>
-                ) : (
-                  <span className="text-sm text-[hsl(var(--text-muted))] italic">
-                    Complétez les 3 champs ci-dessus
-                  </span>
-                )}
-              </div>
-            </div>
-          </Section>
-
-          {/* Row 4: Description */}
-          <Section title="Description du problème" icon={FileText}>
-            <div className="space-y-6">
-              <Field label="Sujet" required hint="Résumez votre problème en une phrase claire">
-                <input
-                  type="text"
-                  value={sujet}
-                  onChange={(e) => setSujet(e.target.value)}
-                  placeholder="Ex: Impossible d'accéder à mon compte Office 365"
-                  minLength={10}
-                  required
-                  className="input-field"
-                />
-              </Field>
-
-              <Field label="Description détaillée" required hint={`${description.length}/50 caractères minimum`}>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder={`Décrivez votre problème en détail:
-
-• Que s'est-il passé exactement?
-• Quand le problème a-t-il commencé?
-• Y a-t-il un message d'erreur?
-• Qu'avez-vous déjà essayé?`}
-                  rows={7}
-                  minLength={50}
-                  required
-                  className="input-field resize-none"
-                />
-              </Field>
-
-              {/* Attachments placeholder */}
-              <Field label="Pièces jointes" optional hint="Captures d'écran, fichiers de log, etc.">
-                <div className="flex items-center justify-center h-28 rounded-xl border-2 border-dashed border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))]/50 text-[hsl(var(--text-muted))]">
-                  <div className="flex items-center gap-3 text-sm">
-                    <Paperclip className="h-5 w-5" />
-                    <span>Fonctionnalité à venir</span>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Description */}
+              <Card>
+                <CardHeader>Description du problème</CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <InputField
+                      label="Sujet"
+                      value={sujet}
+                      onChange={setSujet}
+                      placeholder="Décrivez brièvement votre problème"
+                      required
+                      minLength={10}
+                    />
+                    <TextAreaField
+                      label="Description détaillée"
+                      value={description}
+                      onChange={setDescription}
+                      placeholder="Expliquez votre problème en détail : que s'est-il passé, quand, et qu'avez-vous déjà essayé ?"
+                      required
+                      minLength={50}
+                      rows={6}
+                      hint={description.length < 50 ? `${description.length}/50 caractères minimum` : undefined}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Error */}
+              {error && (
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
                 </div>
-              </Field>
-            </div>
-          </Section>
-
-          {/* Error message */}
-          {error && (
-            <div className="p-5 rounded-xl border border-red-500/30 bg-red-500/10">
-              <p className="text-sm text-red-400 font-medium">{error}</p>
-            </div>
-          )}
-
-          {/* Submit buttons */}
-          <div className="flex flex-col-reverse sm:flex-row gap-4 justify-end pt-6">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              disabled={submitting}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))] text-sm font-medium hover:bg-[hsl(var(--bg-elevated))] transition-all disabled:opacity-50"
-            >
-              Annuler
-            </button>
-            <button
-              type="submit"
-              disabled={submitting || !hasTenantContext}
-              className="inline-flex items-center justify-center gap-2 px-8 py-3 rounded-xl bg-[hsl(var(--accent))] text-white text-sm font-semibold shadow-lg shadow-[hsl(var(--accent))]/25 hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Envoi en cours...
-                </>
-              ) : (
-                <>
-                  <Send className="h-4 w-4" />
-                  Soumettre le billet
-                </>
               )}
-            </button>
+
+              {/* Submit - Mobile */}
+              <div className="lg:hidden">
+                <button
+                  type="submit"
+                  disabled={submitting || !hasTenantContext}
+                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 text-white rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
+                >
+                  {submitting ? "Envoi en cours..." : "Soumettre la demande"}
+                </button>
+              </div>
+            </div>
+
+            {/* Sidebar */}
+            <div className="lg:col-span-1">
+              <div className="sticky top-16 space-y-4">
+                {/* Summary Card */}
+                <Card>
+                  <CardHeader>Résumé</CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <SummaryRow label="Demandeur" value={session?.user?.name || "—"} />
+                      <SummaryRow label="Organisation" value={activeTenant?.name || "—"} />
+                      <SummaryRow label="Lieu" value={site ? SITES.find(s => s.value === site)?.label : "—"} />
+                      <SummaryRow label="Département" value={departement ? DEPARTEMENTS.find(d => d.value === departement)?.label : "—"} />
+                      <SummaryRow label="Catégorie" value={categorie ? SUPPORT_CATEGORIES[categorie]?.label : "—"} />
+
+                      <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800">
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">Priorité calculée</p>
+                        {priorityInfo ? (
+                          <div className={cn(
+                            "inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium",
+                            priorityInfo.bgColor,
+                            priorityInfo.color
+                          )}>
+                            <span className={cn(
+                              "w-2 h-2 rounded-full",
+                              priorityInfo.priority === "P1" && "bg-red-500",
+                              priorityInfo.priority === "P2" && "bg-orange-500",
+                              priorityInfo.priority === "P3" && "bg-yellow-500",
+                              priorityInfo.priority === "P4" && "bg-green-500"
+                            )} />
+                            {priorityInfo.priority} - {priorityInfo.label}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-neutral-400 dark:text-neutral-500 italic">
+                            Complétez l'évaluation
+                          </p>
+                        )}
+                        {priorityInfo && (
+                          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-2">
+                            Délai de réponse cible : {priorityInfo.slaHours}h
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Submit Button - Desktop */}
+                <div className="hidden lg:block">
+                  <button
+                    type="submit"
+                    disabled={submitting || !hasTenantContext}
+                    className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 text-white rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
+                  >
+                    {submitting ? "Envoi en cours..." : "Soumettre la demande"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => router.back()}
+                    className="w-full mt-2 py-2.5 px-4 text-neutral-600 dark:text-neutral-400 text-sm hover:text-neutral-900 dark:hover:text-white transition-colors"
+                  >
+                    Annuler
+                  </button>
+                </div>
+
+                {/* Help Card */}
+                <Card>
+                  <CardContent>
+                    <p className="text-sm font-medium text-neutral-900 dark:text-white mb-2">
+                      Besoin d'aide urgente ?
+                    </p>
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                      Pour les urgences critiques (arrêt de production), contactez directement le TI au poste 123.
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </div>
         </form>
       </div>
-
-      {/* Global styles for input fields */}
-      <style jsx global>{`
-        .input-field {
-          width: 100%;
-          height: 44px;
-          padding: 0 16px;
-          border-radius: 12px;
-          border: 1px solid hsl(var(--border-default));
-          background: hsl(var(--bg-elevated));
-          color: hsl(var(--text-primary));
-          font-size: 14px;
-          transition: all 0.2s;
-        }
-        .input-field:focus {
-          outline: none;
-          border-color: hsl(var(--accent));
-          box-shadow: 0 0 0 3px hsl(var(--accent) / 0.1);
-        }
-        .input-field::placeholder {
-          color: hsl(var(--text-muted));
-        }
-        textarea.input-field {
-          height: auto;
-          padding: 12px 16px;
-        }
-        select.input-field {
-          cursor: pointer;
-          appearance: none;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-          background-repeat: no-repeat;
-          background-position: right 12px center;
-          padding-right: 40px;
-        }
-      `}</style>
     </div>
   );
 }
 
 // =============================================================================
-// HELPER COMPONENTS
+// COMPONENTS
 // =============================================================================
 
-function Section({ title, icon: Icon, accent, children }: { title: string; icon: React.ElementType; accent?: boolean; children: React.ReactNode }) {
+function Card({ children }: { children: React.ReactNode }) {
   return (
-    <section className={cn(
-      "rounded-2xl border bg-[hsl(var(--bg-surface))] overflow-hidden",
-      accent ? "border-[hsl(var(--accent))]/30" : "border-[hsl(var(--border-default))]"
-    )}>
-      <div className={cn(
-        "px-6 py-4 border-b",
-        accent
-          ? "border-[hsl(var(--accent))]/20 bg-[hsl(var(--accent))]/5"
-          : "border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-elevated))]/50"
-      )}>
-        <div className="flex items-center gap-3">
-          <Icon className={cn("h-5 w-5", accent ? "text-[hsl(var(--accent))]" : "text-[hsl(var(--text-muted))]")} />
-          <h2 className={cn("text-sm font-semibold uppercase tracking-wider", accent ? "text-[hsl(var(--accent))]" : "text-[hsl(var(--text-secondary))]")}>
-            {title}
-          </h2>
-        </div>
-      </div>
-      <div className="p-6">{children}</div>
-    </section>
-  );
-}
-
-function Field({ label, required, optional, hint, children }: { label: string; required?: boolean; optional?: boolean; hint?: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-[hsl(var(--text-primary))] mb-2">
-        {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
-        {optional && <span className="text-[hsl(var(--text-muted))] ml-2 text-xs font-normal">(optionnel)</span>}
-      </label>
+    <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden">
       {children}
-      {hint && <p className="mt-2 text-xs text-[hsl(var(--text-muted))]">{hint}</p>}
     </div>
   );
 }
 
-function LockedField({ label, value }: { label: string; value: string }) {
+function CardHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="px-5 py-4 border-b border-neutral-100 dark:border-neutral-800">
+      <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">{children}</h2>
+    </div>
+  );
+}
+
+function CardContent({ children }: { children: React.ReactNode }) {
+  return <div className="p-5">{children}</div>;
+}
+
+function FieldLabel({ children, required, optional }: { children: React.ReactNode; required?: boolean; optional?: boolean }) {
+  return (
+    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
+      {children}
+      {required && <span className="text-red-500 ml-0.5">*</span>}
+      {optional && <span className="text-neutral-400 dark:text-neutral-500 ml-1 font-normal">(optionnel)</span>}
+    </label>
+  );
+}
+
+function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-[hsl(var(--text-primary))] mb-2">
-        {label}
-      </label>
-      <div className="relative">
-        <div className="w-full h-11 px-4 flex items-center justify-between rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] text-sm text-[hsl(var(--text-secondary))]">
-          <span className="truncate">{value}</span>
-          <Lock className="h-3.5 w-3.5 text-[hsl(var(--text-muted))] shrink-0 ml-2" />
-        </div>
+      <FieldLabel>{label}</FieldLabel>
+      <div className="px-3 py-2.5 bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-600 dark:text-neutral-400">
+        {value}
       </div>
     </div>
   );
 }
 
-function RadioCard({
-  name,
-  value,
+function InputField({
   label,
-  description,
-  checked,
+  value,
   onChange,
+  placeholder,
+  required,
+  optional,
+  minLength,
 }: {
-  name: string;
-  value: string;
   label: string;
-  description: string;
-  checked: boolean;
-  onChange: () => void;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  required?: boolean;
+  optional?: boolean;
+  minLength?: number;
 }) {
   return (
-    <label
-      className={cn(
-        "flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all",
-        checked
-          ? "border-[hsl(var(--accent))] bg-[hsl(var(--accent))]/5"
-          : "border-[hsl(var(--border-default))] hover:border-[hsl(var(--border-strong))] hover:bg-[hsl(var(--bg-elevated))]"
-      )}
-    >
+    <div>
+      <FieldLabel required={required} optional={optional}>{label}</FieldLabel>
       <input
-        type="radio"
-        name={name}
+        type="text"
         value={value}
-        checked={checked}
-        onChange={onChange}
-        className="mt-0.5 h-4 w-4 text-[hsl(var(--accent))] border-[hsl(var(--border-default))] focus:ring-[hsl(var(--accent))] focus:ring-offset-0"
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        minLength={minLength}
+        className="w-full px-3 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors"
       />
-      <div className="flex-1 min-w-0">
-        <div className={cn("text-sm font-semibold", checked ? "text-[hsl(var(--accent))]" : "text-[hsl(var(--text-primary))]")}>
-          {label}
-        </div>
-        <div className="text-xs text-[hsl(var(--text-muted))] mt-0.5 leading-relaxed">
-          {description}
-        </div>
+    </div>
+  );
+}
+
+function TextAreaField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  required,
+  minLength,
+  rows,
+  hint,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  required?: boolean;
+  minLength?: number;
+  rows?: number;
+  hint?: string;
+}) {
+  return (
+    <div>
+      <FieldLabel required={required}>{label}</FieldLabel>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        minLength={minLength}
+        rows={rows}
+        className="w-full px-3 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors resize-none"
+      />
+      {hint && <p className="mt-1.5 text-xs text-neutral-500 dark:text-neutral-400">{hint}</p>}
+    </div>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder,
+  required,
+  disabled,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+  required?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <div>
+      <FieldLabel required={required}>{label}</FieldLabel>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className="w-full px-3 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "right 12px center",
+          paddingRight: "40px",
+        }}
+      >
+        <option value="">{placeholder}</option>
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function RadioGroup({
+  label,
+  name,
+  value,
+  onChange,
+  options,
+  required,
+}: {
+  label: string;
+  name: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string; description: string }[];
+  required?: boolean;
+}) {
+  return (
+    <div>
+      <FieldLabel required={required}>{label}</FieldLabel>
+      <div className="space-y-2">
+        {options.map((opt) => (
+          <label
+            key={opt.value}
+            className={cn(
+              "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all",
+              value === opt.value
+                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800"
+                : "bg-white dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600"
+            )}
+          >
+            <input
+              type="radio"
+              name={name}
+              value={opt.value}
+              checked={value === opt.value}
+              onChange={() => onChange(opt.value)}
+              className="mt-0.5 w-4 h-4 text-emerald-600 border-neutral-300 dark:border-neutral-600 focus:ring-emerald-500"
+            />
+            <div>
+              <p className={cn(
+                "text-sm font-medium",
+                value === opt.value ? "text-emerald-900 dark:text-emerald-100" : "text-neutral-900 dark:text-white"
+              )}>
+                {opt.label}
+              </p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                {opt.description}
+              </p>
+            </div>
+          </label>
+        ))}
       </div>
-    </label>
+    </div>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: string | undefined }) {
+  return (
+    <div className="flex justify-between items-start gap-2">
+      <span className="text-xs text-neutral-500 dark:text-neutral-400">{label}</span>
+      <span className="text-sm text-neutral-900 dark:text-white text-right">{value || "—"}</span>
+    </div>
   );
 }
