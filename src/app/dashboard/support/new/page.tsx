@@ -707,7 +707,7 @@ function RadioGroup({
   name: string;
   value: string;
   onChange: (value: string) => void;
-  options: { value: string; label: string; description: string }[];
+  options: readonly { readonly value: string; readonly label: string; readonly description: string }[];
   required?: boolean;
 }) {
   return (
