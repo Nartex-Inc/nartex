@@ -5,7 +5,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
-import { calculatePriority, getEntiteForTenant, getPriorityInfo } from "@/lib/support-constants";
+import { calculatePriority, getEntiteForTenant, getPriorityInfo, SUPPORT_CATEGORIES, type CategoryKey } from "@/lib/support-constants";
+import { sendTicketNotificationEmail } from "@/lib/email";
+import { notifyNewSupportTicket } from "@/lib/notifications";
 
 // =============================================================================
 // GET - List support tickets
@@ -203,6 +205,33 @@ export async function POST(request: NextRequest) {
         statut: "nouveau",
       },
     });
+
+    // Send email notification to IT team (fire and forget - don't block response)
+    const categoryLabel = SUPPORT_CATEGORIES[body.categorie as CategoryKey]?.label || body.categorie;
+    sendTicketNotificationEmail({
+      ticketCode,
+      sujet: body.sujet,
+      description: body.description,
+      userName: session.user.name || "",
+      userEmail: session.user.email || "",
+      tenantName: tenant.name,
+      site: body.site,
+      departement: body.departement,
+      categorie: categoryLabel,
+      priorite,
+      prioriteLabel: priorityInfo.label,
+      slaHours: priorityInfo.slaHours,
+    }).catch((err) => console.error("Failed to send ticket notification:", err));
+
+    // Create in-app notifications for IT team (fire and forget)
+    notifyNewSupportTicket({
+      ticketId: ticket.id,
+      ticketCode,
+      sujet: body.sujet,
+      priorite,
+      tenantId: tenant.id,
+      userName: session.user.name || "",
+    }).catch((err) => console.error("Failed to create in-app notification:", err));
 
     return NextResponse.json({
       ok: true,

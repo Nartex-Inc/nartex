@@ -3,14 +3,14 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Bell, Menu, Search } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import { UserNav } from "@/components/dashboard/user-nav";
+import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import NartexLogo from "@/components/nartex-logo";
 import { cn } from "@/lib/utils";
 
 interface HeaderProps {
   onToggleMobileSidebar: () => void;
-  notificationCount?: number;
 }
 
 /**
@@ -20,7 +20,6 @@ interface HeaderProps {
  */
 export function Header({
   onToggleMobileSidebar,
-  notificationCount = 0,
 }: HeaderProps) {
   const [scrolled, setScrolled] = React.useState(false);
   const [searchFocused, setSearchFocused] = React.useState(false);
@@ -113,18 +112,7 @@ export function Header({
              ───────────────────────────────────────────────────────────────────── */}
           <div className="flex items-center gap-1.5">
             {/* Notifications */}
-            <button
-              className="relative flex items-center justify-center h-9 w-9 rounded-lg text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] hover:text-[hsl(var(--text-primary))] transition-colors"
-              aria-label="Notifications"
-            >
-              <Bell className="h-[18px] w-[18px]" />
-              {notificationCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[hsl(var(--accent))] opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[hsl(var(--accent))]" />
-                </span>
-              )}
-            </button>
+            <NotificationBell />
 
             {/* Divider */}
             <div className="w-px h-6 bg-[hsl(var(--border-subtle))] mx-1" />

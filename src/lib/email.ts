@@ -216,6 +216,170 @@ export async function sendVerificationEmail(email: string, token: string) {
   }
 }
 
+// =============================================================================
+// SUPPORT TICKET NOTIFICATION
+// =============================================================================
+
+interface TicketNotificationData {
+  ticketCode: string;
+  sujet: string;
+  description: string;
+  userName: string;
+  userEmail: string;
+  tenantName: string;
+  site: string;
+  departement: string;
+  categorie: string;
+  priorite: string;
+  prioriteLabel: string;
+  slaHours: number;
+}
+
+export async function sendTicketNotificationEmail(data: TicketNotificationData) {
+  if (!isEmailServiceConfigured || !transporter) {
+    console.error("Email transporter not configured. Cannot send ticket notification.");
+    return; // Don't throw - notification failure shouldn't block ticket creation
+  }
+
+  // IT support team email - configure this as needed
+  const itSupportEmail = process.env.IT_SUPPORT_EMAIL || "ti@sinto.ca";
+  const ticketUrl = `${process.env.NEXTAUTH_URL}/dashboard/support/tickets`;
+  const nartexLogoUrl = "https://nartex-static-assets.s3.ca-central-1.amazonaws.com/nartex-logo-white.png";
+
+  // Priority colors
+  const priorityColors: Record<string, string> = {
+    P1: "#dc2626", // Red
+    P2: "#ea580c", // Orange
+    P3: "#ca8a04", // Yellow
+    P4: "#16a34a", // Green
+  };
+  const priorityColor = priorityColors[data.priorite] || "#6b7280";
+
+  const htmlBody = `
+  <!DOCTYPE html>
+  <html lang="fr">
+  <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Nouveau billet de support - ${data.ticketCode}</title>
+  </head>
+  <body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f4f4f7;">
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f4f4f7;">
+          <tr>
+              <td align="center" style="padding: 20px;">
+                  <table width="600" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.08);">
+                      <!-- Header -->
+                      <tr>
+                          <td style="background-color: #0D1117; padding: 24px; text-align: center;">
+                              <img src="${nartexLogoUrl}" alt="Nartex" style="max-width: 120px; height: auto;">
+                          </td>
+                      </tr>
+
+                      <!-- Priority Banner -->
+                      <tr>
+                          <td style="background-color: ${priorityColor}; padding: 16px 24px; text-align: center;">
+                              <span style="color: #ffffff; font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">
+                                  ${data.priorite} - ${data.prioriteLabel} (SLA: ${data.slaHours}h)
+                              </span>
+                          </td>
+                      </tr>
+
+                      <!-- Content -->
+                      <tr>
+                          <td style="padding: 32px 24px;">
+                              <h1 style="margin: 0 0 8px 0; font-size: 20px; color: #1a202c;">Nouveau billet de support</h1>
+                              <p style="margin: 0 0 24px 0; font-size: 24px; font-weight: bold; color: #374151; font-family: monospace;">${data.ticketCode}</p>
+
+                              <h2 style="margin: 0 0 8px 0; font-size: 16px; color: #1a202c;">${data.sujet}</h2>
+
+                              <!-- Info Grid -->
+                              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+                                  <tr>
+                                      <td style="padding: 12px 16px; background-color: #f8f9fa; border-bottom: 1px solid #e2e8f0; width: 40%;">
+                                          <span style="font-size: 12px; color: #6b7280; text-transform: uppercase;">Demandeur</span>
+                                      </td>
+                                      <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
+                                          <span style="font-size: 14px; color: #374151;">${data.userName}</span><br>
+                                          <span style="font-size: 12px; color: #6b7280;">${data.userEmail}</span>
+                                      </td>
+                                  </tr>
+                                  <tr>
+                                      <td style="padding: 12px 16px; background-color: #f8f9fa; border-bottom: 1px solid #e2e8f0;">
+                                          <span style="font-size: 12px; color: #6b7280; text-transform: uppercase;">Organisation</span>
+                                      </td>
+                                      <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
+                                          <span style="font-size: 14px; color: #374151;">${data.tenantName}</span>
+                                      </td>
+                                  </tr>
+                                  <tr>
+                                      <td style="padding: 12px 16px; background-color: #f8f9fa; border-bottom: 1px solid #e2e8f0;">
+                                          <span style="font-size: 12px; color: #6b7280; text-transform: uppercase;">Site / Département</span>
+                                      </td>
+                                      <td style="padding: 12px 16px; border-bottom: 1px solid #e2e8f0;">
+                                          <span style="font-size: 14px; color: #374151;">${data.site} / ${data.departement}</span>
+                                      </td>
+                                  </tr>
+                                  <tr>
+                                      <td style="padding: 12px 16px; background-color: #f8f9fa;">
+                                          <span style="font-size: 12px; color: #6b7280; text-transform: uppercase;">Catégorie</span>
+                                      </td>
+                                      <td style="padding: 12px 16px;">
+                                          <span style="font-size: 14px; color: #374151;">${data.categorie}</span>
+                                      </td>
+                                  </tr>
+                              </table>
+
+                              <!-- Description -->
+                              <div style="margin: 24px 0; padding: 16px; background-color: #f8f9fa; border-radius: 8px; border-left: 4px solid ${priorityColor};">
+                                  <p style="margin: 0; font-size: 14px; color: #374151; white-space: pre-wrap;">${data.description.substring(0, 500)}${data.description.length > 500 ? '...' : ''}</p>
+                              </div>
+
+                              <!-- CTA Button -->
+                              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0;">
+                                  <tr>
+                                      <td align="center">
+                                          <a href="${ticketUrl}" target="_blank" style="display: inline-block; padding: 14px 32px; background-color: #1D8102; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px;">
+                                              Voir le billet dans Nartex
+                                          </a>
+                                      </td>
+                                  </tr>
+                              </table>
+                          </td>
+                      </tr>
+
+                      <!-- Footer -->
+                      <tr>
+                          <td style="background-color: #f8f9fa; padding: 20px 24px; text-align: center; border-top: 1px solid #e2e8f0;">
+                              <p style="margin: 0; font-size: 12px; color: #6b7280;">
+                                  Ce message a été envoyé automatiquement par Nartex.<br>
+                                  © ${getCurrentYear()} Nartex. Tous droits réservés.
+                              </p>
+                          </td>
+                      </tr>
+                  </table>
+              </td>
+          </tr>
+      </table>
+  </body>
+  </html>
+  `;
+
+  console.log(`Sending ticket notification for ${data.ticketCode} to ${itSupportEmail}`);
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to: itSupportEmail,
+      subject: `[${data.priorite}] Nouveau billet: ${data.ticketCode} - ${data.sujet}`,
+      html: htmlBody,
+    });
+    console.log(`Ticket notification sent successfully for ${data.ticketCode}`);
+  } catch (error) {
+    console.error(`Failed to send ticket notification for ${data.ticketCode}:`, error);
+    // Don't throw - we don't want to fail ticket creation if email fails
+  }
+}
+
 export async function sendPriceListEmail(to: string, pdfBuffer: Buffer, subject: string) {
   if (!isEmailServiceConfigured || !transporter) {
     console.error("Email service not configured.");

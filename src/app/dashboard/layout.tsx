@@ -128,7 +128,6 @@ export default function DashboardLayout({
           {/* Header */}
           <Header
             onToggleMobileSidebar={() => setMobileOpen((v) => !v)}
-            notificationCount={5}
           />
 
           {/* Page content */}

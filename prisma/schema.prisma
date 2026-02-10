@@ -93,6 +93,7 @@ model User {
   sessions       Session[]
   tenants        UserTenant[]
   supportTickets SupportTicket[]
+  notifications  Notification[]
 
   @@index([role])
   @@index([email])
@@ -440,4 +441,32 @@ model SupportTicketComment {
 
   @@index([ticketId])
   @@map("support_ticket_comments")
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// 5) NOTIFICATIONS
+////////////////////////////////////////////////////////////////////////////////
+
+model Notification {
+  id       String  @id @default(uuid())
+  userId   String  @map("user_id")
+  tenantId String? @map("tenant_id")
+
+  type    String // ticket_created, ticket_updated, ticket_assigned, etc.
+  title   String
+  message String
+  link    String? // URL to navigate to
+
+  // Reference to related entity
+  entityType String? @map("entity_type") // support_ticket, etc.
+  entityId   String? @map("entity_id")
+
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
 }
