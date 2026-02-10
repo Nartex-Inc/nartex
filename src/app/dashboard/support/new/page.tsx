@@ -61,6 +61,10 @@ export default function NewSupportTicketPage() {
   const [sujet, setSujet] = React.useState("");
   const [description, setDescription] = React.useState("");
 
+  // File state
+  const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
   // UI state
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -152,6 +156,20 @@ export default function NewSupportTicketPage() {
         throw new Error(json.error || "Erreur lors de la création du billet");
       }
 
+      // Upload attachments if any
+      if (selectedFiles.length > 0 && json.data.id) {
+        const formData = new FormData();
+        selectedFiles.forEach((f) => formData.append("files", f));
+        try {
+          await fetch(`/api/support/tickets/${json.data.id}/attachments`, {
+            method: "POST",
+            body: formData,
+          });
+        } catch (uploadErr) {
+          console.error("Failed to upload attachments:", uploadErr);
+        }
+      }
+
       setSuccess({ code: json.data.code, priorite: json.data.priorite });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur lors de la création du billet");
@@ -222,6 +240,7 @@ export default function NewSupportTicketPage() {
                   setSujet("");
                   setDescription("");
                   setUserPhone("");
+                  setSelectedFiles([]);
                 }}
                 className="w-full py-2.5 px-4 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg text-sm font-medium hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
               >
@@ -434,6 +453,82 @@ export default function NewSupportTicketPage() {
                       hint={description.length < 50 ? `${description.length}/50 caractères minimum` : undefined}
                     />
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Attachments */}
+              <Card>
+                <CardHeader>Pièces jointes</CardHeader>
+                <CardContent>
+                  <div
+                    className="border-2 border-dashed border-neutral-200 dark:border-neutral-700 rounded-lg p-6 text-center hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors cursor-pointer"
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const droppedFiles = Array.from(e.dataTransfer.files);
+                      setSelectedFiles((prev) => [...prev, ...droppedFiles]);
+                    }}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files) {
+                          setSelectedFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
+                          e.target.value = "";
+                        }
+                      }}
+                    />
+                    <svg className="mx-auto h-10 w-10 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 16v-8m0 0l-3 3m3-3l3 3M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+                    </svg>
+                    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+                      Glissez des fichiers ici ou <span className="text-emerald-600 dark:text-emerald-400 font-medium">parcourir</span>
+                    </p>
+                    <p className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
+                      Max 25 Mo par fichier
+                    </p>
+                  </div>
+
+                  {selectedFiles.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      {selectedFiles.map((file, idx) => (
+                        <div key={`${file.name}-${idx}`} className="flex items-center gap-3 p-2 rounded-lg bg-neutral-50 dark:bg-neutral-800">
+                          {file.type.startsWith("image/") ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={URL.createObjectURL(file)}
+                              alt={file.name}
+                              className="w-10 h-10 rounded object-cover shrink-0"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center shrink-0">
+                              <svg className="w-5 h-5 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-neutral-900 dark:text-white truncate">{file.name}</p>
+                            <p className="text-xs text-neutral-500">{formatFileSize(file.size)}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedFiles((prev) => prev.filter((_, i) => i !== idx))}
+                            className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-400 hover:text-red-500 transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -757,4 +852,10 @@ function SummaryRow({ label, value }: { label: string; value: string | undefined
       <span className="text-sm text-neutral-900 dark:text-white text-right">{value || "—"}</span>
     </div>
   );
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
 }

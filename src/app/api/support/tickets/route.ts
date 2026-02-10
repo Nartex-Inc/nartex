@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
     // Get tenant info
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { id: true, name: true, slug: true },
+      select: { id: true, name: true, slug: true, logo: true },
     });
 
     if (!tenant) {
@@ -229,6 +229,7 @@ export async function POST(request: NextRequest) {
       userName: session.user.name || "",
       userEmail: session.user.email || "",
       tenantName: tenant.name,
+      tenantLogo: tenant.logo,
       site: body.site,
       departement: body.departement,
       categorie: categoryLabel,
@@ -254,6 +255,8 @@ export async function POST(request: NextRequest) {
       description: body.description,
       userName: session.user.name || "",
       userEmail: session.user.email || "",
+      tenantName: tenant.name,
+      tenantLogo: tenant.logo,
       priorite,
       prioriteLabel: priorityInfo.label,
       slaHours: priorityInfo.slaHours,

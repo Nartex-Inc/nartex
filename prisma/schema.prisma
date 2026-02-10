@@ -421,10 +421,13 @@ model SupportTicketAttachment {
   fileSize   Int      @map("file_size")
   mimeType   String   @map("mime_type")
   uploadedAt DateTime @default(now()) @map("uploaded_at")
+  commentId  String?  @map("comment_id")
 
-  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket  SupportTicket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  comment SupportTicketComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
   @@index([ticketId])
+  @@index([commentId])
   @@map("support_ticket_attachments")
 }
 
@@ -437,7 +440,8 @@ model SupportTicketComment {
   isInternal Boolean  @default(false) @map("is_internal")
   createdAt  DateTime @default(now()) @map("created_at")
 
-  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket      SupportTicket              @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  attachments SupportTicketAttachment[]
 
   @@index([ticketId])
   @@map("support_ticket_comments")

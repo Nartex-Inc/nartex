@@ -8,6 +8,7 @@ import { authOptions } from "@/lib/auth";
 import { sendTicketUpdateEmail } from "@/lib/email";
 import { TICKET_STATUSES } from "@/lib/support-constants";
 import { notifyTicketStatusChange } from "@/lib/notifications";
+import { getViewUrl, getPreviewUrl, getDownloadUrl } from "@/lib/google-drive";
 
 // =============================================================================
 // GET - Get single ticket by ID
@@ -39,6 +40,7 @@ export async function GET(
         attachments: true,
         comments: {
           orderBy: { createdAt: "desc" },
+          include: { attachments: true },
         },
       },
     });
@@ -46,6 +48,20 @@ export async function GET(
     if (!ticket) {
       return NextResponse.json({ ok: false, error: "Billet introuvable" }, { status: 404 });
     }
+
+    const mapAttachment = (a: typeof ticket.attachments[0]) => ({
+      id: a.id,
+      ticketId: a.ticketId,
+      fileName: a.fileName,
+      fileUrl: a.fileUrl,
+      fileSize: a.fileSize,
+      mimeType: a.mimeType,
+      commentId: a.commentId,
+      uploadedAt: a.uploadedAt.toISOString(),
+      viewUrl: getViewUrl(a.fileUrl),
+      previewUrl: getPreviewUrl(a.fileUrl),
+      downloadUrl: getDownloadUrl(a.fileUrl),
+    });
 
     return NextResponse.json({
       ok: true,
@@ -74,8 +90,16 @@ export async function GET(
         resolvedAt: ticket.resolvedAt?.toISOString() || null,
         closedAt: ticket.closedAt?.toISOString() || null,
         slaTarget: ticket.slaTarget?.toISOString() || null,
-        attachments: ticket.attachments,
-        comments: ticket.comments,
+        attachments: ticket.attachments.map(mapAttachment),
+        comments: ticket.comments.map((c) => ({
+          id: c.id,
+          userId: c.userId,
+          userName: c.userName,
+          content: c.content,
+          isInternal: c.isInternal,
+          createdAt: c.createdAt.toISOString(),
+          attachments: c.attachments.map(mapAttachment),
+        })),
       },
     });
   } catch (error) {
@@ -167,6 +191,7 @@ export async function PATCH(
     // Check ticket exists and belongs to tenant
     const existingTicket = await prisma.supportTicket.findFirst({
       where: { id, tenantId },
+      include: { tenant: { select: { logo: true } } },
     });
 
     if (!existingTicket) {
@@ -215,6 +240,8 @@ export async function PATCH(
         sujet: existingTicket.sujet,
         userName: existingTicket.userName,
         userEmail: existingTicket.userEmail,
+        tenantName: existingTicket.tenantName,
+        tenantLogo: existingTicket.tenant?.logo,
         updateType: 'status_change',
         newStatus: body.statut,
         statusLabel: newStatusLabel,

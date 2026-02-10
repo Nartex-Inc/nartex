@@ -103,7 +103,9 @@ export async function POST(
         userId: true,
         userEmail: true,
         userName: true,
+        tenantName: true,
         statut: true,
+        tenant: { select: { logo: true } },
       },
     });
 
@@ -168,6 +170,8 @@ export async function POST(
         sujet: ticket.sujet,
         userName: ticket.userName,
         userEmail: ticket.userEmail,
+        tenantName: ticket.tenantName,
+        tenantLogo: ticket.tenant?.logo,
         updateType: statusUpdated ? 'status_change' : 'comment',
         newStatus: statusUpdated ? body.newStatus : ticket.statut,
         statusLabel: statusUpdated ? newStatusLabel : undefined,

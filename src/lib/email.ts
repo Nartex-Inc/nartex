@@ -227,6 +227,7 @@ interface TicketNotificationData {
   userName: string;
   userEmail: string;
   tenantName: string;
+  tenantLogo?: string | null;
   site: string;
   departement: string;
   categorie: string;
@@ -244,6 +245,7 @@ export async function sendTicketNotificationEmail(data: TicketNotificationData) 
   const itSupportEmail = process.env.IT_SUPPORT_EMAIL || "ti@sinto.ca";
   const ticketUrl = `${process.env.NEXTAUTH_URL}/dashboard/support/tickets`;
   const nartexLogoUrl = "https://nartex-static-assets.s3.ca-central-1.amazonaws.com/nartex-logo-white.png";
+  const tenantLogoUrl = data.tenantLogo ? `${process.env.NEXTAUTH_URL}${data.tenantLogo}` : null;
 
   // Priority colors and backgrounds
   const priorityStyles: Record<string, { bg: string; text: string; light: string }> = {
@@ -405,6 +407,7 @@ export async function sendTicketNotificationEmail(data: TicketNotificationData) 
                       <!-- Footer -->
                       <tr>
                           <td align="center" style="padding: 32px 20px;">
+                              ${tenantLogoUrl ? `<img src="${tenantLogoUrl}" alt="${data.tenantName}" width="80" style="display: block; margin: 0 auto 12px; max-width: 80px; height: auto;">` : ''}
                               <p style="margin: 0 0 8px 0; font-size: 12px; color: #9ca3af;">
                                   Ce message a été envoyé automatiquement par Nartex.
                               </p>
@@ -428,7 +431,7 @@ export async function sendTicketNotificationEmail(data: TicketNotificationData) 
     await transporter.sendMail({
       from: process.env.EMAIL_FROM,
       to: itSupportEmail,
-      subject: `[${data.priorite}] ${data.ticketCode} - ${data.sujet}`,
+      subject: `[${data.tenantName}] [${data.priorite}] ${data.ticketCode} - ${data.sujet}`,
       html: htmlBody,
     });
     console.log(`Ticket notification sent successfully for ${data.ticketCode}`);
@@ -447,6 +450,8 @@ interface TicketConfirmationData {
   description: string;
   userName: string;
   userEmail: string;
+  tenantName: string;
+  tenantLogo?: string | null;
   priorite: string;
   prioriteLabel: string;
   slaHours: number;
@@ -460,6 +465,7 @@ export async function sendTicketConfirmationEmail(data: TicketConfirmationData) 
 
   const ticketUrl = `${process.env.NEXTAUTH_URL}/dashboard/support/tickets`;
   const nartexLogoUrl = "https://nartex-static-assets.s3.ca-central-1.amazonaws.com/nartex-logo-white.png";
+  const tenantLogoUrl = data.tenantLogo ? `${process.env.NEXTAUTH_URL}${data.tenantLogo}` : null;
 
   const priorityStyles: Record<string, { bg: string; text: string; light: string }> = {
     P1: { bg: "#dc2626", text: "#ffffff", light: "#fef2f2" },
@@ -492,9 +498,13 @@ export async function sendTicketConfirmationEmail(data: TicketConfirmationData) 
                               <table width="100%" border="0" cellspacing="0" cellpadding="0">
                                   <tr>
                                       <td style="padding: 32px; text-align: center; background-color: #10b981;">
-                                          <div style="width: 64px; height: 64px; margin: 0 auto 16px; background-color: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                                              <span style="font-size: 32px;">✓</span>
-                                          </div>
+                                          <table width="80" height="80" border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 0 auto 16px;">
+                                              <tr>
+                                                  <td align="center" valign="middle" width="80" height="80" style="width: 80px; height: 80px; background-color: rgba(255,255,255,0.25); border-radius: 50%; font-size: 44px; font-weight: bold; color: #ffffff; line-height: 80px; font-family: Arial, sans-serif;">
+                                                      &#10003;
+                                                  </td>
+                                              </tr>
+                                          </table>
                                           <h1 style="margin: 0; font-size: 24px; font-weight: 600; color: #ffffff;">Demande reçue</h1>
                                           <p style="margin: 8px 0 0; font-size: 14px; color: rgba(255,255,255,0.9);">Notre équipe TI a été notifiée</p>
                                       </td>
@@ -563,6 +573,7 @@ export async function sendTicketConfirmationEmail(data: TicketConfirmationData) 
                       </tr>
                       <tr>
                           <td align="center" style="padding: 32px 20px;">
+                              ${tenantLogoUrl ? `<img src="${tenantLogoUrl}" alt="${data.tenantName}" width="80" style="display: block; margin: 0 auto 12px; max-width: 80px; height: auto;">` : ''}
                               <p style="margin: 0; font-size: 12px; color: #9ca3af;">
                                   &copy; ${getCurrentYear()} Nartex Inc. &bull; Support TI
                               </p>
@@ -580,7 +591,7 @@ export async function sendTicketConfirmationEmail(data: TicketConfirmationData) 
     await transporter.sendMail({
       from: process.env.EMAIL_FROM,
       to: data.userEmail,
-      subject: `✓ Demande reçue: ${data.ticketCode} - ${data.sujet}`,
+      subject: `[${data.tenantName}] ✓ Demande reçue: ${data.ticketCode} - ${data.sujet}`,
       html: htmlBody,
     });
     console.log(`Confirmation email sent to ${data.userEmail} for ${data.ticketCode}`);
@@ -599,6 +610,8 @@ interface TicketUpdateData {
   sujet: string;
   userName: string;
   userEmail: string;
+  tenantName: string;
+  tenantLogo?: string | null;
   updateType: 'status_change' | 'comment' | 'reply';
   newStatus?: string;
   statusLabel?: string;
@@ -615,6 +628,7 @@ export async function sendTicketUpdateEmail(data: TicketUpdateData) {
 
   const ticketUrl = `${process.env.NEXTAUTH_URL}/dashboard/support/tickets`;
   const nartexLogoUrl = "https://nartex-static-assets.s3.ca-central-1.amazonaws.com/nartex-logo-white.png";
+  const tenantLogoUrl = data.tenantLogo ? `${process.env.NEXTAUTH_URL}${data.tenantLogo}` : null;
 
   const statusColors: Record<string, { bg: string; text: string }> = {
     nouveau: { bg: "#3b82f6", text: "#ffffff" },
@@ -725,6 +739,7 @@ export async function sendTicketUpdateEmail(data: TicketUpdateData) {
                       </tr>
                       <tr>
                           <td align="center" style="padding: 32px 20px;">
+                              ${tenantLogoUrl ? `<img src="${tenantLogoUrl}" alt="${data.tenantName}" width="80" style="display: block; margin: 0 auto 12px; max-width: 80px; height: auto;">` : ''}
                               <p style="margin: 0; font-size: 12px; color: #9ca3af;">
                                   &copy; ${getCurrentYear()} Nartex Inc. &bull; Support TI
                               </p>
@@ -746,7 +761,7 @@ export async function sendTicketUpdateEmail(data: TicketUpdateData) {
     await transporter.sendMail({
       from: process.env.EMAIL_FROM,
       to: data.userEmail,
-      subject: `[${data.ticketCode}] ${updateTitle} - ${data.sujet}`,
+      subject: `[${data.tenantName}] [${data.ticketCode}] ${updateTitle} - ${data.sujet}`,
       html: htmlBody,
       headers: {
         'Message-ID': messageId,

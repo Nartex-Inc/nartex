@@ -28,6 +28,9 @@ import {
   Archive,
   Trash2,
   ArrowLeft,
+  Paperclip,
+  FileText,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -60,6 +63,20 @@ interface TicketRow {
   commentsCount: number;
 }
 
+interface TicketAttachment {
+  id: string;
+  ticketId: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  mimeType: string;
+  commentId: string | null;
+  uploadedAt: string;
+  viewUrl: string;
+  previewUrl: string;
+  downloadUrl: string;
+}
+
 interface TicketComment {
   id: string;
   userId: string;
@@ -67,6 +84,7 @@ interface TicketComment {
   content: string;
   isInternal: boolean;
   createdAt: string;
+  attachments: TicketAttachment[];
 }
 
 interface TicketDetail {
@@ -94,6 +112,7 @@ interface TicketDetail {
   resolvedAt: string | null;
   closedAt: string | null;
   slaTarget: string | null;
+  attachments: TicketAttachment[];
   comments: TicketComment[];
 }
 
@@ -513,6 +532,8 @@ function TicketDetailModal({
   const [newStatus, setNewStatus] = React.useState<string>("");
   const [submittingComment, setSubmittingComment] = React.useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = React.useState(false);
+  const [commentFiles, setCommentFiles] = React.useState<File[]>([]);
+  const commentFileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Delete
   const [deleting, setDeleting] = React.useState(false);
@@ -574,9 +595,24 @@ function TicketDetailModal({
       });
       const json = await res.json();
       if (json.ok) {
+        // Upload comment files if any
+        if (commentFiles.length > 0 && json.data?.id) {
+          const formData = new FormData();
+          commentFiles.forEach((f) => formData.append("files", f));
+          formData.append("commentId", json.data.id);
+          try {
+            await fetch(`/api/support/tickets/${ticketId}/attachments`, {
+              method: "POST",
+              body: formData,
+            });
+          } catch (uploadErr) {
+            console.error("Failed to upload comment attachments:", uploadErr);
+          }
+        }
         setCommentContent("");
         setNewStatus("");
         setIsInternalComment(false);
+        setCommentFiles([]);
         mutateTicket();
         onRefresh();
       }
@@ -688,6 +724,21 @@ function TicketDetailModal({
             </div>
           </div>
 
+          {/* Ticket-level Attachments */}
+          {ticket.attachments && ticket.attachments.filter((a) => !a.commentId).length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2 flex items-center gap-2">
+                <Paperclip className="h-4 w-4" />
+                Pièces jointes ({ticket.attachments.filter((a) => !a.commentId).length})
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {ticket.attachments.filter((a) => !a.commentId).map((att) => (
+                  <AttachmentCard key={att.id} attachment={att} />
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Impact Assessment */}
           <div>
             <h3 className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Évaluation</h3>
@@ -749,6 +800,13 @@ function TicketDetailModal({
                       <p className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">
                         {comment.content}
                       </p>
+                      {comment.attachments && comment.attachments.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {comment.attachments.map((att) => (
+                            <AttachmentCard key={att.id} attachment={att} compact />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })
@@ -769,8 +827,53 @@ function TicketDetailModal({
                 className="w-full px-3 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors resize-none"
               />
 
+              {/* Comment file chips */}
+              {commentFiles.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {commentFiles.map((file, idx) => (
+                    <span
+                      key={`${file.name}-${idx}`}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-neutral-100 dark:bg-neutral-800 text-xs text-neutral-700 dark:text-neutral-300"
+                    >
+                      <Paperclip className="h-3 w-3" />
+                      <span className="max-w-[120px] truncate">{file.name}</span>
+                      <span className="text-neutral-400">({formatFileSize(file.size)})</span>
+                      <button
+                        type="button"
+                        onClick={() => setCommentFiles((prev) => prev.filter((_, i) => i !== idx))}
+                        className="ml-0.5 hover:text-red-500 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <input
+                ref={commentFileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files) {
+                    setCommentFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
+                    e.target.value = "";
+                  }
+                }}
+              />
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
+                  <button
+                    type="button"
+                    onClick={() => commentFileInputRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                    title="Joindre un fichier"
+                  >
+                    <Paperclip className="h-3.5 w-3.5" />
+                    Joindre
+                  </button>
                   {isGestionnaire && (
                     <>
                       <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400 cursor-pointer">
@@ -853,5 +956,64 @@ function InfoItem({ icon: Icon, label, value, subvalue }: { icon: React.ElementT
         {subvalue && <div className="text-xs text-neutral-500">{subvalue}</div>}
       </div>
     </div>
+  );
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+}
+
+function AttachmentCard({ attachment, compact }: { attachment: TicketAttachment; compact?: boolean }) {
+  const isImage = attachment.mimeType.startsWith("image/");
+
+  if (isImage) {
+    return (
+      <a
+        href={attachment.viewUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={cn(
+          "group relative block rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors",
+          compact ? "w-20 h-20" : "w-28 h-28"
+        )}
+        title={attachment.fileName}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={attachment.previewUrl}
+          alt={attachment.fileName}
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+          <Eye className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+      </a>
+    );
+  }
+
+  return (
+    <a
+      href={attachment.downloadUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(
+        "flex items-center gap-2 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors",
+        compact ? "px-2 py-1.5" : "px-3 py-2"
+      )}
+      title={attachment.fileName}
+    >
+      <FileText className={cn("shrink-0 text-neutral-400", compact ? "h-3.5 w-3.5" : "h-4 w-4")} />
+      <div className="min-w-0 flex-1">
+        <p className={cn("truncate text-neutral-900 dark:text-white", compact ? "text-xs" : "text-sm")}>
+          {attachment.fileName}
+        </p>
+        {!compact && (
+          <p className="text-xs text-neutral-500">{formatFileSize(attachment.fileSize)}</p>
+        )}
+      </div>
+      <Download className={cn("shrink-0 text-neutral-400", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
+    </a>
   );
 }
