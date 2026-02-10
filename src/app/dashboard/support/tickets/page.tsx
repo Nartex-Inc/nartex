@@ -69,6 +69,7 @@ interface TicketComment {
 interface TicketDetail {
   id: string;
   code: string;
+  userId: string;
   userName: string;
   userEmail: string;
   userPhone: string | null;

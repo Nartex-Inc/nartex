@@ -51,6 +51,7 @@ export async function GET(
       data: {
         id: ticket.id,
         code: ticket.code,
+        userId: ticket.userId,
         userName: ticket.userName,
         userEmail: ticket.userEmail,
         userPhone: ticket.userPhone,
