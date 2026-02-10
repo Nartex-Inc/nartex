@@ -23,6 +23,7 @@ import {
   Loader2,
   CheckCircle,
   ArrowLeft,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -31,9 +32,9 @@ import {
   PORTEE_OPTIONS,
   URGENCE_OPTIONS,
   DEPARTEMENTS,
+  SITES,
   calculatePriority,
   getPriorityInfo,
-  getSitesForTenant,
   type CategoryKey,
   type Priority,
 } from "@/lib/support-constants";
@@ -87,7 +88,6 @@ export default function NewSupportTicketPage() {
   const [success, setSuccess] = React.useState<{ code: string; priorite: string } | null>(null);
 
   // Derived values
-  const sites = React.useMemo(() => getSitesForTenant(activeTenant?.slug), [activeTenant?.slug]);
   const subcategories = React.useMemo(() => {
     if (!categorie) return [];
     return SUPPORT_CATEGORIES[categorie]?.subcategories ?? [];
@@ -118,7 +118,6 @@ export default function NewSupportTicketPage() {
       return;
     }
 
-    // Validate required fields
     if (!site || !departement || !categorie || !impact || !portee || !urgence || !sujet || !description) {
       setError("Veuillez remplir tous les champs obligatoires.");
       return;
@@ -171,7 +170,7 @@ export default function NewSupportTicketPage() {
   // Loading state
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950">
+      <div className="min-h-screen flex items-center justify-center bg-[hsl(var(--bg-base))]">
         <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
       </div>
     );
@@ -181,30 +180,30 @@ export default function NewSupportTicketPage() {
   if (success) {
     const successPriorityInfo = getPriorityInfo(success.priorite as Priority);
     return (
-      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 font-sans">
-        <div className="mx-auto max-w-2xl px-4 sm:px-6 py-12">
-          <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm p-8 text-center">
-            <div className="mx-auto w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-6">
-              <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+      <div className="min-h-screen bg-[hsl(var(--bg-base))]">
+        <div className="mx-auto max-w-2xl px-4 sm:px-6 py-16">
+          <div className="rounded-2xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-xl p-10 text-center">
+            <div className="mx-auto w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mb-8">
+              <CheckCircle className="h-10 w-10 text-green-500" />
             </div>
-            <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white mb-2">
+            <h1 className="text-3xl font-semibold text-[hsl(var(--text-primary))] mb-3">
               Billet créé avec succès
             </h1>
-            <p className="text-neutral-500 dark:text-neutral-400 mb-6">
-              Votre billet a été soumis et sera traité selon sa priorité.
+            <p className="text-[hsl(var(--text-secondary))] mb-8 text-lg">
+              Votre demande a été soumise et sera traitée selon sa priorité.
             </p>
 
-            <div className="inline-flex flex-col items-center gap-2 px-6 py-4 rounded-lg bg-neutral-50 dark:bg-neutral-800 mb-6">
-              <span className="text-sm text-neutral-500">Numéro de billet</span>
-              <span className="text-2xl font-mono font-semibold text-neutral-900 dark:text-white">
+            <div className="inline-flex flex-col items-center gap-3 px-8 py-6 rounded-xl bg-[hsl(var(--bg-elevated))] mb-8">
+              <span className="text-sm text-[hsl(var(--text-muted))] uppercase tracking-wide">Numéro de billet</span>
+              <span className="text-3xl font-mono font-bold text-[hsl(var(--text-primary))]">
                 {success.code}
               </span>
-              <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm font-medium", successPriorityInfo.bgColor, successPriorityInfo.color)}>
+              <span className={cn("inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold", successPriorityInfo.bgColor, successPriorityInfo.color)}>
                 {successPriorityInfo.priority} - {successPriorityInfo.label}
               </span>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button
                 onClick={() => {
                   setSuccess(null);
@@ -219,15 +218,15 @@ export default function NewSupportTicketPage() {
                   setDescription("");
                   setUserPhone("");
                 }}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 text-sm font-medium hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))] text-sm font-medium hover:bg-[hsl(var(--bg-elevated))] transition-all"
               >
                 Créer un autre billet
               </button>
               <button
-                onClick={() => router.push("/dashboard")}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
+                onClick={() => router.push("/dashboard/support/tickets")}
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] text-sm font-medium hover:opacity-90 transition-all"
               >
-                Retour au tableau de bord
+                Voir mes billets
               </button>
             </div>
           </div>
@@ -237,37 +236,37 @@ export default function NewSupportTicketPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 font-sans">
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8">
+    <div className="min-h-screen bg-[hsl(var(--bg-base))]">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8">
         {/* Back button */}
         <button
           onClick={() => router.back()}
-          className="inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-white mb-6 transition-colors"
+          className="inline-flex items-center gap-2 text-sm text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-primary))] mb-8 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           Retour
         </button>
 
         {/* Header with tenant logo */}
-        <header className="mb-8">
-          <div className="flex items-start gap-4">
+        <header className="mb-10">
+          <div className="flex items-center gap-6">
             {activeTenant?.logo && (
-              <div className="shrink-0">
+              <div className="shrink-0 p-3 rounded-2xl bg-[hsl(var(--bg-surface))] border border-[hsl(var(--border-subtle))]">
                 <Image
                   src={activeTenant.logo}
                   alt={activeTenant.name}
-                  width={64}
-                  height={64}
+                  width={72}
+                  height={72}
                   className="h-16 w-16 object-contain"
                 />
               </div>
             )}
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-white">
+              <h1 className="text-3xl font-semibold tracking-tight text-[hsl(var(--text-primary))]">
                 Nouveau billet de support TI
               </h1>
-              <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-                Remplissez ce formulaire pour soumettre une demande d'assistance technique.
+              <p className="mt-2 text-[hsl(var(--text-secondary))]">
+                Décrivez votre problème et notre équipe TI vous assistera dans les meilleurs délais.
               </p>
             </div>
           </div>
@@ -275,14 +274,14 @@ export default function NewSupportTicketPage() {
 
         {/* No tenant warning */}
         {!hasTenantContext && (
-          <div className="mb-6 p-4 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+          <div className="mb-8 p-5 rounded-xl border border-red-500/30 bg-red-500/10">
+            <div className="flex items-start gap-4">
+              <AlertTriangle className="h-6 w-6 text-red-500 shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-red-800 dark:text-red-300">
+                <p className="text-sm font-semibold text-red-400">
                   Aucune organisation sélectionnée
                 </p>
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                <p className="text-sm text-red-400/80 mt-1">
                   Veuillez sélectionner une organisation dans le menu latéral avant de soumettre un billet.
                 </p>
               </div>
@@ -291,69 +290,80 @@ export default function NewSupportTicketPage() {
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* SECTION: Identification */}
-          <Section title="Identification" icon={User}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <LockedField label="Nom complet" value={session?.user?.name || "—"} icon={User} />
-              <LockedField label="Courriel" value={session?.user?.email || "—"} icon={Mail} />
-              <Field label="Téléphone / Poste" optional>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
-                  <input
-                    type="tel"
-                    value={userPhone}
-                    onChange={(e) => setUserPhone(e.target.value)}
-                    placeholder="Ex: 450-555-1234 poste 123"
-                    className="w-full h-10 pl-9 pr-4 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white transition-shadow"
-                  />
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Row 1: Identification + Location */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Identification Section */}
+            <Section title="Identification" icon={User}>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <LockedField label="Nom" value={session?.user?.name || "—"} />
+                  <LockedField label="Courriel" value={session?.user?.email || "—"} />
                 </div>
-              </Field>
-              <LockedField label="Organisation" value={activeTenant?.name || "—"} icon={Building2} />
-              <Field label="Site" required>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
-                  <select
-                    value={site}
-                    onChange={(e) => setSite(e.target.value)}
-                    required
-                    className="w-full h-10 pl-9 pr-4 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white transition-shadow appearance-none cursor-pointer"
-                  >
-                    <option value="">Sélectionnez un site</option>
-                    {sites.map((s) => (
-                      <option key={s.value} value={s.value}>{s.label}</option>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Téléphone" optional>
+                    <input
+                      type="tel"
+                      value={userPhone}
+                      onChange={(e) => setUserPhone(e.target.value)}
+                      placeholder="450-555-1234"
+                      className="input-field"
+                    />
+                  </Field>
+                  <LockedField label="Organisation" value={activeTenant?.name || "—"} />
+                </div>
+              </div>
+            </Section>
+
+            {/* Location Section */}
+            <Section title="Localisation" icon={MapPin}>
+              <div className="space-y-4">
+                <Field label="Site" required>
+                  <div className="grid grid-cols-2 gap-3">
+                    {SITES.map((s) => (
+                      <button
+                        key={s.value}
+                        type="button"
+                        onClick={() => setSite(s.value)}
+                        className={cn(
+                          "flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all",
+                          site === s.value
+                            ? "border-[hsl(var(--accent))] bg-[hsl(var(--accent))]/10 text-[hsl(var(--accent))]"
+                            : "border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))] hover:border-[hsl(var(--border-strong))] hover:bg-[hsl(var(--bg-elevated))]"
+                        )}
+                      >
+                        {s.value === "bureau" ? <Building2 className="h-4 w-4" /> : <MapPin className="h-4 w-4" />}
+                        {s.label}
+                      </button>
                     ))}
-                  </select>
-                </div>
-              </Field>
-              <Field label="Département" required>
-                <div className="relative">
-                  <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                  </div>
+                </Field>
+                <Field label="Département" required>
                   <select
                     value={departement}
                     onChange={(e) => setDepartement(e.target.value)}
                     required
-                    className="w-full h-10 pl-9 pr-4 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white transition-shadow appearance-none cursor-pointer"
+                    className="input-field"
                   >
                     <option value="">Sélectionnez un département</option>
                     {DEPARTEMENTS.map((d) => (
                       <option key={d.value} value={d.value}>{d.label}</option>
                     ))}
                   </select>
-                </div>
-              </Field>
-            </div>
-          </Section>
+                </Field>
+              </div>
+            </Section>
+          </div>
 
-          {/* SECTION: Classification */}
+          {/* Row 2: Classification */}
           <Section title="Classification" icon={Tag}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <Field label="Catégorie" required>
                 <select
                   value={categorie}
                   onChange={(e) => setCategorie(e.target.value as CategoryKey | "")}
                   required
-                  className="w-full h-10 px-4 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white transition-shadow appearance-none cursor-pointer"
+                  className="input-field"
                 >
                   <option value="">Sélectionnez une catégorie</option>
                   {Object.entries(SUPPORT_CATEGORIES).map(([key, cat]) => (
@@ -361,14 +371,14 @@ export default function NewSupportTicketPage() {
                   ))}
                 </select>
               </Field>
-              <Field label="Sous-catégorie" required={subcategories.length > 0}>
+              <Field label="Sous-catégorie">
                 <select
                   value={sousCategorie}
                   onChange={(e) => setSousCategorie(e.target.value)}
                   disabled={subcategories.length === 0}
-                  className="w-full h-10 px-4 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white transition-shadow appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="input-field disabled:opacity-50"
                 >
-                  <option value="">{subcategories.length === 0 ? "Sélectionnez d'abord une catégorie" : "Sélectionnez une sous-catégorie"}</option>
+                  <option value="">{subcategories.length === 0 ? "Sélectionnez d'abord une catégorie" : "Sélectionnez (optionnel)"}</option>
                   {subcategories.map((sc) => (
                     <option key={sc.value} value={sc.value}>{sc.label}</option>
                   ))}
@@ -377,14 +387,14 @@ export default function NewSupportTicketPage() {
             </div>
           </Section>
 
-          {/* SECTION: Impact Assessment */}
-          <Section title="Évaluation de l'impact" icon={AlertTriangle}>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Row 3: Impact Assessment */}
+          <Section title="Évaluation de la priorité" icon={Zap} accent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {/* Impact */}
               <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <AlertTriangle className="h-4 w-4 text-neutral-500" />
-                  <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Impact</span>
+                <div className="flex items-center gap-2 mb-4">
+                  <AlertTriangle className="h-4 w-4 text-[hsl(var(--text-muted))]" />
+                  <span className="text-sm font-semibold text-[hsl(var(--text-primary))]">Impact</span>
                   <span className="text-red-500">*</span>
                 </div>
                 <div className="space-y-2">
@@ -404,9 +414,9 @@ export default function NewSupportTicketPage() {
 
               {/* Portée */}
               <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Users className="h-4 w-4 text-neutral-500" />
-                  <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Portée</span>
+                <div className="flex items-center gap-2 mb-4">
+                  <Users className="h-4 w-4 text-[hsl(var(--text-muted))]" />
+                  <span className="text-sm font-semibold text-[hsl(var(--text-primary))]">Portée</span>
                   <span className="text-red-500">*</span>
                 </div>
                 <div className="space-y-2">
@@ -426,9 +436,9 @@ export default function NewSupportTicketPage() {
 
               {/* Urgence */}
               <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Clock className="h-4 w-4 text-neutral-500" />
-                  <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Urgence</span>
+                <div className="flex items-center gap-2 mb-4">
+                  <Clock className="h-4 w-4 text-[hsl(var(--text-muted))]" />
+                  <span className="text-sm font-semibold text-[hsl(var(--text-primary))]">Urgence</span>
                   <span className="text-red-500">*</span>
                 </div>
                 <div className="space-y-2">
@@ -448,27 +458,30 @@ export default function NewSupportTicketPage() {
             </div>
 
             {/* Priority Badge */}
-            <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-neutral-800">
+            <div className="mt-8 pt-6 border-t border-[hsl(var(--border-subtle))]">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-neutral-500">Priorité calculée</span>
+                <div className="flex items-center gap-3">
+                  <Zap className="h-5 w-5 text-[hsl(var(--text-muted))]" />
+                  <span className="text-sm font-medium text-[hsl(var(--text-secondary))]">Priorité calculée automatiquement</span>
+                </div>
                 {priorityInfo ? (
-                  <span className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold", priorityInfo.bgColor, priorityInfo.color)}>
+                  <span className={cn("inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold", priorityInfo.bgColor, priorityInfo.color)}>
                     {priorityInfo.priority} - {priorityInfo.label}
-                    <span className="text-xs opacity-75">({priorityInfo.slaHours}h SLA)</span>
+                    <span className="text-xs font-medium opacity-75">SLA {priorityInfo.slaHours}h</span>
                   </span>
                 ) : (
-                  <span className="text-sm text-neutral-400 italic">
-                    Sélectionnez Impact, Portée et Urgence
+                  <span className="text-sm text-[hsl(var(--text-muted))] italic">
+                    Complétez les 3 champs ci-dessus
                   </span>
                 )}
               </div>
             </div>
           </Section>
 
-          {/* SECTION: Description */}
+          {/* Row 4: Description */}
           <Section title="Description du problème" icon={FileText}>
-            <div className="space-y-4">
-              <Field label="Sujet" required hint="Résumez votre problème en une phrase (minimum 10 caractères)">
+            <div className="space-y-6">
+              <Field label="Sujet" required hint="Résumez votre problème en une phrase claire">
                 <input
                   type="text"
                   value={sujet}
@@ -476,36 +489,33 @@ export default function NewSupportTicketPage() {
                   placeholder="Ex: Impossible d'accéder à mon compte Office 365"
                   minLength={10}
                   required
-                  className="w-full h-10 px-4 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white transition-shadow"
+                  className="input-field"
                 />
               </Field>
 
-              <Field label="Description détaillée" required hint="Minimum 50 caractères">
+              <Field label="Description détaillée" required hint={`${description.length}/50 caractères minimum`}>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder={`Décrivez votre problème en détail...
+                  placeholder={`Décrivez votre problème en détail:
 
-- Que s'est-il passé?
-- Quand le problème a-t-il commencé?
-- Y a-t-il un message d'erreur?
-- Avez-vous essayé quelque chose pour résoudre le problème?`}
-                  rows={6}
+• Que s'est-il passé exactement?
+• Quand le problème a-t-il commencé?
+• Y a-t-il un message d'erreur?
+• Qu'avez-vous déjà essayé?`}
+                  rows={7}
                   minLength={50}
                   required
-                  className="w-full px-4 py-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white transition-shadow resize-none"
+                  className="input-field resize-none"
                 />
-                <div className="mt-1 text-xs text-neutral-400 text-right">
-                  {description.length} / 50 caractères minimum
-                </div>
               </Field>
 
               {/* Attachments placeholder */}
               <Field label="Pièces jointes" optional hint="Captures d'écran, fichiers de log, etc.">
-                <div className="flex items-center justify-center h-24 rounded-lg border-2 border-dashed border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 text-neutral-400">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Paperclip className="h-4 w-4" />
-                    Fonctionnalité à venir
+                <div className="flex items-center justify-center h-28 rounded-xl border-2 border-dashed border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))]/50 text-[hsl(var(--text-muted))]">
+                  <div className="flex items-center gap-3 text-sm">
+                    <Paperclip className="h-5 w-5" />
+                    <span>Fonctionnalité à venir</span>
                   </div>
                 </div>
               </Field>
@@ -514,25 +524,25 @@ export default function NewSupportTicketPage() {
 
           {/* Error message */}
           {error && (
-            <div className="p-4 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30">
-              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            <div className="p-5 rounded-xl border border-red-500/30 bg-red-500/10">
+              <p className="text-sm text-red-400 font-medium">{error}</p>
             </div>
           )}
 
           {/* Submit buttons */}
-          <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end pt-4 border-t border-neutral-200 dark:border-neutral-800">
+          <div className="flex flex-col-reverse sm:flex-row gap-4 justify-end pt-6">
             <button
               type="button"
               onClick={() => router.back()}
               disabled={submitting}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 text-sm font-medium hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))] text-sm font-medium hover:bg-[hsl(var(--bg-elevated))] transition-all disabled:opacity-50"
             >
               Annuler
             </button>
             <button
               type="submit"
               disabled={submitting || !hasTenantContext}
-              className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium shadow-sm hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center justify-center gap-2 px-8 py-3 rounded-xl bg-[hsl(var(--accent))] text-white text-sm font-semibold shadow-lg shadow-[hsl(var(--accent))]/25 hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? (
                 <>
@@ -549,6 +559,41 @@ export default function NewSupportTicketPage() {
           </div>
         </form>
       </div>
+
+      {/* Global styles for input fields */}
+      <style jsx global>{`
+        .input-field {
+          width: 100%;
+          height: 44px;
+          padding: 0 16px;
+          border-radius: 12px;
+          border: 1px solid hsl(var(--border-default));
+          background: hsl(var(--bg-elevated));
+          color: hsl(var(--text-primary));
+          font-size: 14px;
+          transition: all 0.2s;
+        }
+        .input-field:focus {
+          outline: none;
+          border-color: hsl(var(--accent));
+          box-shadow: 0 0 0 3px hsl(var(--accent) / 0.1);
+        }
+        .input-field::placeholder {
+          color: hsl(var(--text-muted));
+        }
+        textarea.input-field {
+          height: auto;
+          padding: 12px 16px;
+        }
+        select.input-field {
+          cursor: pointer;
+          appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 12px center;
+          padding-right: 40px;
+        }
+      `}</style>
     </div>
   );
 }
@@ -557,18 +602,26 @@ export default function NewSupportTicketPage() {
 // HELPER COMPONENTS
 // =============================================================================
 
-function Section({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
+function Section({ title, icon: Icon, accent, children }: { title: string; icon: React.ElementType; accent?: boolean; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm overflow-hidden">
-      <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50">
-        <div className="flex items-center gap-2">
-          <Icon className="h-4 w-4 text-neutral-500" />
-          <h2 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
+    <section className={cn(
+      "rounded-2xl border bg-[hsl(var(--bg-surface))] overflow-hidden",
+      accent ? "border-[hsl(var(--accent))]/30" : "border-[hsl(var(--border-default))]"
+    )}>
+      <div className={cn(
+        "px-6 py-4 border-b",
+        accent
+          ? "border-[hsl(var(--accent))]/20 bg-[hsl(var(--accent))]/5"
+          : "border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-elevated))]/50"
+      )}>
+        <div className="flex items-center gap-3">
+          <Icon className={cn("h-5 w-5", accent ? "text-[hsl(var(--accent))]" : "text-[hsl(var(--text-muted))]")} />
+          <h2 className={cn("text-sm font-semibold uppercase tracking-wider", accent ? "text-[hsl(var(--accent))]" : "text-[hsl(var(--text-secondary))]")}>
             {title}
           </h2>
         </div>
       </div>
-      <div className="p-4">{children}</div>
+      <div className="p-6">{children}</div>
     </section>
   );
 }
@@ -576,29 +629,28 @@ function Section({ title, icon: Icon, children }: { title: string; icon: React.E
 function Field({ label, required, optional, hint, children }: { label: string; required?: boolean; optional?: boolean; hint?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
+      <label className="block text-sm font-medium text-[hsl(var(--text-primary))] mb-2">
         {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
-        {optional && <span className="text-neutral-400 ml-1 text-xs font-normal">(optionnel)</span>}
+        {required && <span className="text-red-500 ml-1">*</span>}
+        {optional && <span className="text-[hsl(var(--text-muted))] ml-2 text-xs font-normal">(optionnel)</span>}
       </label>
       {children}
-      {hint && <p className="mt-1 text-xs text-neutral-400">{hint}</p>}
+      {hint && <p className="mt-2 text-xs text-[hsl(var(--text-muted))]">{hint}</p>}
     </div>
   );
 }
 
-function LockedField({ label, value, icon: Icon }: { label: string; value: string; icon: React.ElementType }) {
+function LockedField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
+      <label className="block text-sm font-medium text-[hsl(var(--text-primary))] mb-2">
         {label}
       </label>
       <div className="relative">
-        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
-        <div className="w-full h-10 pl-9 pr-10 flex items-center rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800/50 text-sm text-neutral-600 dark:text-neutral-400">
-          {value}
+        <div className="w-full h-11 px-4 flex items-center justify-between rounded-xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] text-sm text-[hsl(var(--text-secondary))]">
+          <span className="truncate">{value}</span>
+          <Lock className="h-3.5 w-3.5 text-[hsl(var(--text-muted))] shrink-0 ml-2" />
         </div>
-        <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
       </div>
     </div>
   );
@@ -622,10 +674,10 @@ function RadioCard({
   return (
     <label
       className={cn(
-        "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all",
+        "flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all",
         checked
-          ? "border-neutral-900 dark:border-white bg-neutral-50 dark:bg-neutral-800"
-          : "border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600 bg-white dark:bg-neutral-900"
+          ? "border-[hsl(var(--accent))] bg-[hsl(var(--accent))]/5"
+          : "border-[hsl(var(--border-default))] hover:border-[hsl(var(--border-strong))] hover:bg-[hsl(var(--bg-elevated))]"
       )}
     >
       <input
@@ -634,13 +686,13 @@ function RadioCard({
         value={value}
         checked={checked}
         onChange={onChange}
-        className="mt-0.5 h-4 w-4 text-neutral-900 dark:text-white border-neutral-300 dark:border-neutral-600 focus:ring-neutral-900 dark:focus:ring-white"
+        className="mt-0.5 h-4 w-4 text-[hsl(var(--accent))] border-[hsl(var(--border-default))] focus:ring-[hsl(var(--accent))] focus:ring-offset-0"
       />
       <div className="flex-1 min-w-0">
-        <div className={cn("text-sm font-medium", checked ? "text-neutral-900 dark:text-white" : "text-neutral-700 dark:text-neutral-300")}>
+        <div className={cn("text-sm font-semibold", checked ? "text-[hsl(var(--accent))]" : "text-[hsl(var(--text-primary))]")}>
           {label}
         </div>
-        <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+        <div className="text-xs text-[hsl(var(--text-muted))] mt-0.5 leading-relaxed">
           {description}
         </div>
       </div>

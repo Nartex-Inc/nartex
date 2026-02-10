@@ -152,38 +152,16 @@ export function getPriorityInfo(priority: Priority): PriorityInfo {
 }
 
 // =============================================================================
-// SITES BY TENANT
+// SITES (simplified - same for all tenants)
 // =============================================================================
 
-export const SITES_BY_TENANT: Record<string, { value: string; label: string }[]> = {
-  sinto: [
-    { value: "granby-siege", label: "Granby - Siège social" },
-    { value: "boucherville", label: "Boucherville" },
-    { value: "toronto", label: "Toronto" },
-    { value: "tele-travail", label: "Télétravail" },
-  ],
-  prolab: [
-    { value: "drummondville", label: "Drummondville" },
-    { value: "tele-travail", label: "Télétravail" },
-  ],
-  otoprotec: [
-    { value: "granby-oto", label: "Granby - Otoprotec" },
-    { value: "tele-travail", label: "Télétravail" },
-  ],
-  lubrilab: [
-    { value: "granby-lubri", label: "Granby - Lubrilab" },
-    { value: "tele-travail", label: "Télétravail" },
-  ],
-  // Fallback for unknown tenants
-  default: [
-    { value: "bureau-principal", label: "Bureau principal" },
-    { value: "tele-travail", label: "Télétravail" },
-  ],
-};
+export const SITES = [
+  { value: "bureau", label: "Bureau" },
+  { value: "tele-travail", label: "Télétravail" },
+] as const;
 
-export function getSitesForTenant(tenantSlug: string | null | undefined): { value: string; label: string }[] {
-  if (!tenantSlug) return SITES_BY_TENANT.default;
-  return SITES_BY_TENANT[tenantSlug.toLowerCase()] || SITES_BY_TENANT.default;
+export function getSitesForTenant(_tenantSlug: string | null | undefined): { value: string; label: string }[] {
+  return [...SITES];
 }
 
 // =============================================================================
