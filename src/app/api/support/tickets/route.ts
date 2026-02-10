@@ -22,17 +22,31 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
+    const view = searchParams.get("view");
     const tenantId = session.user.activeTenantId;
 
     if (!tenantId) {
       return NextResponse.json({ ok: false, error: "Aucun tenant actif" }, { status: 400 });
     }
 
+    const userRole = (session.user as any).role;
+    const userEmail = session.user.email;
+    const isGestionnaire = userRole === "Gestionnaire" || userEmail === "n.labranche@sinto.ca";
+
     const whereClause: Record<string, unknown> = { tenantId };
 
-    // Filter by status if provided
+    // Demandeur sees only their own tickets
+    if (!isGestionnaire) {
+      whereClause.userId = session.user.id;
+    }
+
+    // Filter by status or view mode
     if (status && status !== "all") {
       whereClause.statut = status;
+    } else if (view === "history") {
+      whereClause.statut = { in: ["resolu", "ferme"] };
+    } else {
+      whereClause.statut = { notIn: ["resolu", "ferme"] };
     }
 
     const tickets = await prisma.supportTicket.findMany({

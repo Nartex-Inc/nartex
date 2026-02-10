@@ -88,6 +88,57 @@ export async function GET(
 }
 
 // =============================================================================
+// DELETE - Delete a ticket (Gestionnaire only)
+// =============================================================================
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const tenantId = session.user.activeTenantId;
+
+    if (!tenantId) {
+      return NextResponse.json({ ok: false, error: "Aucun tenant actif" }, { status: 400 });
+    }
+
+    // Only Gestionnaire can delete tickets
+    const userRole = (session.user as any).role;
+    const userEmail = session.user.email;
+    const isGestionnaire = userRole === "Gestionnaire" || userEmail === "n.labranche@sinto.ca";
+
+    if (!isGestionnaire) {
+      return NextResponse.json({ ok: false, error: "Accès refusé" }, { status: 403 });
+    }
+
+    // Verify ticket exists and belongs to tenant
+    const ticket = await prisma.supportTicket.findFirst({
+      where: { id, tenantId },
+    });
+
+    if (!ticket) {
+      return NextResponse.json({ ok: false, error: "Billet introuvable" }, { status: 404 });
+    }
+
+    await prisma.supportTicket.delete({ where: { id } });
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("DELETE /api/support/tickets/[id] error:", error);
+    return NextResponse.json(
+      { ok: false, error: "Erreur lors de la suppression du billet" },
+      { status: 500 }
+    );
+  }
+}
+
+// =============================================================================
 // PATCH - Update ticket (status, assignee, etc.)
 // =============================================================================
 

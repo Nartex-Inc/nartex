@@ -25,6 +25,9 @@ import {
   XCircle,
   Send,
   ChevronDown,
+  Archive,
+  Trash2,
+  ArrowLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -106,15 +109,31 @@ export default function SupportTicketsPage() {
   const userRole = (session?.user as any)?.role;
   const isGestionnaire = userRole === "Gestionnaire" || userRole === "admin";
 
+  // View mode: active (default) or history (resolved/closed)
+  const [viewMode, setViewMode] = React.useState<"active" | "history">("active");
+
   // Filters
   const [query, setQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<string>("all");
   const [priorityFilter, setPriorityFilter] = React.useState<string>("all");
   const [showFilters, setShowFilters] = React.useState(false);
 
+  // Build SWR URL based on view mode and filters
+  const ticketsUrl = React.useMemo(() => {
+    const params = new URLSearchParams();
+    if (viewMode === "history") {
+      params.set("view", "history");
+    }
+    if (statusFilter !== "all") {
+      params.set("status", statusFilter);
+    }
+    const qs = params.toString();
+    return `/api/support/tickets${qs ? `?${qs}` : ""}`;
+  }, [viewMode, statusFilter]);
+
   // Data
   const { data: ticketsRes, isLoading, mutate } = useSWR<{ ok: boolean; data: TicketRow[] }>(
-    `/api/support/tickets${statusFilter !== "all" ? `?status=${statusFilter}` : ""}`,
+    ticketsUrl,
     fetcher,
     { refreshInterval: 30000 }
   );
@@ -160,6 +179,7 @@ export default function SupportTicketsPage() {
     setQuery("");
     setStatusFilter("all");
     setPriorityFilter("all");
+    setViewMode("active");
   };
 
   return (
@@ -173,16 +193,46 @@ export default function SupportTicketsPage() {
                 Billets de support
               </h1>
               <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-                {isGestionnaire ? "Gérez les demandes d'assistance technique" : "Suivez vos demandes d'assistance"}
+                {viewMode === "history"
+                  ? "Billets résolus et fermés"
+                  : isGestionnaire
+                  ? "Gérez les demandes d'assistance technique"
+                  : "Suivez vos demandes d'assistance"}
               </p>
             </div>
-            <button
-              onClick={() => router.push("/dashboard/support/new")}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium shadow-sm hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              Nouveau billet
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setViewMode(viewMode === "active" ? "history" : "active");
+                  setStatusFilter("all");
+                }}
+                className={cn(
+                  "inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium shadow-sm transition-colors",
+                  viewMode === "history"
+                    ? "bg-amber-600 text-white hover:bg-amber-700"
+                    : "border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                )}
+              >
+                {viewMode === "history" ? (
+                  <>
+                    <ArrowLeft className="h-4 w-4" />
+                    Billets actifs
+                  </>
+                ) : (
+                  <>
+                    <Archive className="h-4 w-4" />
+                    Historique
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => router.push("/dashboard/support/new")}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium shadow-sm hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Nouveau billet
+              </button>
+            </div>
           </div>
 
           {/* Stats */}
@@ -463,6 +513,26 @@ function TicketDetailModal({
   const [newStatus, setNewStatus] = React.useState<string>("");
   const [submittingComment, setSubmittingComment] = React.useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = React.useState(false);
+
+  // Delete
+  const [deleting, setDeleting] = React.useState(false);
+
+  const handleDelete = async () => {
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce billet ? Cette action est irréversible.")) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/support/tickets/${ticketId}`, { method: "DELETE" });
+      const json = await res.json();
+      if (json.ok) {
+        onRefresh();
+        onClose();
+      }
+    } catch (err) {
+      console.error("Failed to delete ticket:", err);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // Status update
   const [updating, setUpdating] = React.useState(false);
@@ -748,7 +818,19 @@ function TicketDetailModal({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 p-6 border-t border-neutral-200 dark:border-neutral-800">
+        <div className="flex items-center justify-between p-6 border-t border-neutral-200 dark:border-neutral-800">
+          <div>
+            {isGestionnaire && (
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 dark:border-red-800 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-50"
+              >
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                Supprimer
+              </button>
+            )}
+          </div>
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
