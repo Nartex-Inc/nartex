@@ -1942,19 +1942,19 @@ function CataloguePageContent() {
                     </div>
 
                     <div className="overflow-x-auto">
-                      <table className={cn("w-full border-collapse table-fixed", isCompact ? "text-xs" : "text-sm")}>
+                      <table className={cn("w-full border-collapse", isCompact ? "text-xs" : "text-sm")}>
                         <thead>
                           <tr className="bg-neutral-50 dark:bg-neutral-800/50">
                             {/* Remove column header */}
                             <th className={cn("w-10 text-center font-black text-neutral-400 dark:text-neutral-500 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-2" : "p-3")}></th>
-                            <th className={cn("w-[22%] text-left font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700 sticky left-0 bg-neutral-50 dark:bg-neutral-800/50 z-10", isCompact ? "p-3" : "p-4")}>
+                            <th className={cn("text-left font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700 sticky left-0 bg-neutral-50 dark:bg-neutral-800/50 z-10", isCompact ? "p-3" : "p-4")}>
                               <div className="flex items-center gap-2">
                                 <Package className={cn(isCompact ? "w-4 h-4" : "w-5 h-5", "opacity-50")} />Article
                               </div>
                             </th>
-                            <th className={cn("w-[7%] text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-3" : "p-4")}>Cs</th>
-                            <th className={cn("w-[8%] text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-3" : "p-4")}>Fmt</th>
-                            <th className={cn("w-[7%] text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-3" : "p-4")}>Qty</th>
+                            <th className={cn("text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-3" : "p-4")}>Cs</th>
+                            <th className={cn("text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-3" : "p-4")}>Fmt</th>
+                            <th className={cn("text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-3" : "p-4")}>Qty</th>
                             {standardColumns.map((colCode) => {
                               const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
                               const displayName = abbreviateColumnName(colCode);
