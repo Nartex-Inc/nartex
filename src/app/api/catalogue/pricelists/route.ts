@@ -34,6 +34,8 @@ export async function GET() {
         ) as "currency"
       FROM ${T.PRICE_LIST}
       WHERE "IsActive" = true
+        AND "_excludecybercat" = false
+        AND "cieid" = '2'
         AND "PriceListType" = 'customer'
         AND "Pricecode" BETWEEN '01' AND '08'
         AND "priceid" != 17
