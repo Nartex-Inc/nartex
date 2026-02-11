@@ -8,6 +8,7 @@ import { authOptions } from "@/lib/auth";
 import { formatReturnCode, getReturnStatus } from "@/types/returns";
 import type { ReturnRow, Reporter, Cause } from "@/types/returns";
 import { Prisma } from "@prisma/client";
+import { notifyReturnCreated } from "@/lib/notifications";
 
 // User roles
 export type UserRole = "Gestionnaire" | "Vérificateur" | "Facturation" | "Expert" | "Analyste";
@@ -397,6 +398,15 @@ export async function POST(request: NextRequest) {
       },
       include: { products: true }
     });
+
+    // Fire-and-forget notification
+    notifyReturnCreated({
+      returnId: ret.id,
+      returnCode: formatReturnCode(ret.id),
+      client: body.client,
+      userName: session.user.name || session.user.email || "Système",
+      tenantId,
+    }).catch(console.error);
 
     return NextResponse.json({
       ok: true,

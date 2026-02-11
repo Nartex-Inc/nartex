@@ -7,6 +7,7 @@ import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { parseReturnCode, formatReturnCode } from "@/types/returns";
+import { notifyReturnVerified } from "@/lib/notifications";
 
 type RouteParams = { params: Promise<{ code: string }> };
 
@@ -115,6 +116,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         verifiedAt: new Date(),
       },
     });
+
+    // Fire-and-forget notification
+    notifyReturnVerified({
+      returnId,
+      returnCode: formatReturnCode(returnId),
+      verifiedBy: session.user.name || "Vérificateur",
+      tenantId,
+    }).catch(console.error);
 
     return NextResponse.json({
       ok: true,

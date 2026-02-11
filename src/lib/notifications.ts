@@ -188,3 +188,100 @@ export async function notifyTicketReply(data: {
     data.replyUserId
   );
 }
+
+// =============================================================================
+// RETURNS NOTIFICATIONS
+// =============================================================================
+
+/**
+ * Notify Vérificateur and Facturation when a new return is created
+ */
+export async function notifyReturnCreated(data: {
+  returnId: number;
+  returnCode: string;
+  client: string;
+  userName: string;
+  tenantId: string;
+}) {
+  return notifyTenantUsersByRole(
+    data.tenantId,
+    ["Vérificateur", "Facturation"],
+    {
+      type: "return_created",
+      title: `Nouveau retour: ${data.returnCode}`,
+      message: `${data.userName} a créé un retour pour ${data.client}`,
+      link: `/dashboard/returns`,
+      entityType: "return",
+      entityId: String(data.returnId),
+    }
+  );
+}
+
+/**
+ * Notify Gestionnaire when a return is verified
+ */
+export async function notifyReturnVerified(data: {
+  returnId: number;
+  returnCode: string;
+  verifiedBy: string;
+  tenantId: string;
+}) {
+  return notifyTenantUsersByRole(
+    data.tenantId,
+    ["Gestionnaire"],
+    {
+      type: "return_verified",
+      title: `Retour vérifié: ${data.returnCode}`,
+      message: `${data.verifiedBy} a vérifié le retour ${data.returnCode}`,
+      link: `/dashboard/returns`,
+      entityType: "return",
+      entityId: String(data.returnId),
+    }
+  );
+}
+
+/**
+ * Notify Gestionnaire when a return is finalized
+ */
+export async function notifyReturnFinalized(data: {
+  returnId: number;
+  returnCode: string;
+  finalizedBy: string;
+  tenantId: string;
+}) {
+  return notifyTenantUsersByRole(
+    data.tenantId,
+    ["Gestionnaire"],
+    {
+      type: "return_finalized",
+      title: `Retour finalisé: ${data.returnCode}`,
+      message: `${data.finalizedBy} a finalisé le retour ${data.returnCode}`,
+      link: `/dashboard/returns`,
+      entityType: "return",
+      entityId: String(data.returnId),
+    }
+  );
+}
+
+/**
+ * Notify Gestionnaire when a return is put on standby
+ */
+export async function notifyReturnStandby(data: {
+  returnId: number;
+  returnCode: string;
+  userName: string;
+  tenantId: string;
+}) {
+  return notifyTenantUsersByRole(
+    data.tenantId,
+    ["Gestionnaire"],
+    {
+      type: "return_standby",
+      title: `Retour en standby: ${data.returnCode}`,
+      message: `${data.userName} a mis le retour ${data.returnCode} en standby`,
+      link: `/dashboard/returns`,
+      entityType: "return",
+      entityId: String(data.returnId),
+    }
+  );
+}

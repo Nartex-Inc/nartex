@@ -38,6 +38,7 @@ import {
   Recycle,
   SlidersHorizontal,
   Lock,
+  Download,
 } from "lucide-react";
 
 /* =========================
@@ -914,6 +915,7 @@ function CataloguePageContent() {
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   // CHANGE: Filters collapsed by default
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
@@ -1099,13 +1101,11 @@ function CataloguePageContent() {
     }
   };
 
-  const handleEmailPDF = async (recipientEmail: string) => {
-    setIsSendingEmail(true);
-    try {
+  const generatePriceListPDF = async () => {
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
-      
+
       const corporateRed: [number, number, number] = [200, 30, 30];
       const black: [number, number, number] = [0, 0, 0];
       const darkGray: [number, number, number] = [51, 51, 51];
@@ -1128,12 +1128,12 @@ function CataloguePageContent() {
         const logoHeight = logoWidth / aspectRatio;
         doc.addImage(logoData, "PNG", 15, 14, logoWidth, logoHeight);
       }
-      
+
       doc.setTextColor(...black);
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
       doc.text(tenantName.toUpperCase(), pageWidth - 15, 15, { align: "right" });
-      
+
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
       doc.setTextColor(...mediumGray);
@@ -1144,7 +1144,7 @@ function CataloguePageContent() {
       if (activeTenant?.phone) {
         doc.text(`Tél: ${activeTenant.phone}`, pageWidth - 15, 31, { align: "right" });
       }
-      
+
       doc.setFillColor(...corporateRed);
       doc.rect(15, 38, pageWidth - 30, 10, "F");
       doc.setTextColor(...white);
@@ -1152,7 +1152,7 @@ function CataloguePageContent() {
       doc.setFont("helvetica", "bold");
       const priceListTitle = `${abbreviateColumnName(selectedPriceList?.code || "")} - ${selectedPriceList?.name || ""}`.toUpperCase();
       doc.text(priceListTitle, pageWidth / 2, 45, { align: "center" });
-      
+
       doc.setTextColor(...darkGray);
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
@@ -1182,7 +1182,7 @@ function CataloguePageContent() {
           doc.text(priceListTitle, pageWidth / 2, 15.5, { align: "center" });
           finalY = 25;
         }
-        
+
         // Draw category header
         doc.setFillColor(40, 40, 40);
         doc.rect(15, finalY, pageWidth - 30, 10, "F");
@@ -1207,7 +1207,7 @@ function CataloguePageContent() {
           doc.text(priceListTitle, pageWidth / 2, 15.5, { align: "center" });
           finalY = 25;
         }
-        
+
         doc.setFillColor(...black);
         doc.rect(15, finalY, pageWidth - 30, 7, "F");
         doc.setTextColor(...white);
@@ -1217,7 +1217,7 @@ function CataloguePageContent() {
         doc.setTextColor(...corporateRed);
         doc.setFontSize(7);
         doc.text(`${classItems.length} article(s)`, pageWidth - 18, finalY + 5, { align: "right" });
-        
+
         finalY += 10;
 
         const firstItem = classItems[0];
@@ -1295,15 +1295,15 @@ function CataloguePageContent() {
           head: [headRow],
           body: tableBody,
           margin: { left: 15, right: 15 },
-          styles: { 
-            fontSize: 8, 
+          styles: {
+            fontSize: 8,
             cellPadding: 2,
             font: "helvetica",
             lineColor: borderGray,
             lineWidth: 0.3,
             textColor: darkGray,
           },
-          headStyles: { 
+          headStyles: {
             fillColor: corporateRed,
             textColor: white,
             fontStyle: "bold",
@@ -1311,7 +1311,7 @@ function CataloguePageContent() {
             lineColor: corporateRed,
             lineWidth: 0.3,
           },
-          columnStyles: { 
+          columnStyles: {
             0: { fontStyle: "bold", halign: "left", cellWidth: 30 },
             1: { halign: "center", cellWidth: 12 },
             2: { halign: "center", cellWidth: 15 },
@@ -1351,7 +1351,7 @@ function CataloguePageContent() {
         });
         finalY = (doc as any).lastAutoTable.finalY + 8;
         }
-        
+
         finalY += 6; // Extra spacing after each category
       }
 
@@ -1367,6 +1367,27 @@ function CataloguePageContent() {
         doc.text(tenantName, 15, pageHeight - 10);
         doc.text(`Page ${i} / ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: "right" });
       }
+
+      return doc;
+  };
+
+  const handleDownloadPDF = async () => {
+    setIsDownloading(true);
+    try {
+      const doc = await generatePriceListPDF();
+      doc.save(`ListePrix_${tenantName.toUpperCase()}.pdf`);
+    } catch (e: any) {
+      console.error(e);
+      alert("Erreur: " + e.message);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleEmailPDF = async (recipientEmail: string) => {
+    setIsSendingEmail(true);
+    try {
+      const doc = await generatePriceListPDF();
 
       const pdfBlob = doc.output("blob");
       const formData = new FormData();
@@ -1528,13 +1549,24 @@ function CataloguePageContent() {
                 />
 
                 {/* Email Button with Label */}
-                <ActionButton 
-                  onClick={() => setShowEmailModal(true)} 
+                <ActionButton
+                  onClick={() => setShowEmailModal(true)}
                   disabled={priceData.length === 0}
-                  icon={Mail} 
+                  icon={Mail}
                   title="Envoyer par courriel"
-                  primary 
+                  primary
                   label={!isMobile ? "Envoyer" : undefined}
+                />
+
+                {/* Download PDF Button */}
+                <ActionButton
+                  onClick={handleDownloadPDF}
+                  disabled={priceData.length === 0}
+                  icon={Download}
+                  title="Télécharger en PDF"
+                  primary
+                  label={!isMobile ? "Télécharger" : undefined}
+                  loading={isDownloading}
                 />
 
                 <div className="w-px h-8 bg-white/20 mx-1 hidden sm:block" />

@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { parseReturnCode, formatReturnCode } from "@/types/returns";
+import { notifyReturnStandby } from "@/lib/notifications";
 
 type RouteParams = { params: Promise<{ code: string }> };
 
@@ -58,6 +59,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           isStandby: true,
         },
       });
+
+      // Fire-and-forget notification
+      notifyReturnStandby({
+        returnId,
+        returnCode: formatReturnCode(returnId),
+        userName: session.user.name || session.user.email || "Système",
+        tenantId,
+      }).catch(console.error);
 
       return NextResponse.json({
         ok: true,

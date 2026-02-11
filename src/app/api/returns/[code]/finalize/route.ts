@@ -7,6 +7,7 @@ import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { parseReturnCode, formatReturnCode } from "@/types/returns";
+import { notifyReturnFinalized } from "@/lib/notifications";
 
 type RouteParams = { params: Promise<{ code: string }> };
 
@@ -138,6 +139,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         restockingAmount: restockingAmount ?? ret.restockingAmount,
       },
     });
+
+    // Fire-and-forget notification
+    notifyReturnFinalized({
+      returnId,
+      returnCode: formatReturnCode(returnId),
+      finalizedBy: session.user.name || "Facturation",
+      tenantId,
+    }).catch(console.error);
 
     return NextResponse.json({
       ok: true,

@@ -109,3 +109,39 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+
+// =============================================================================
+// DELETE - Delete notifications
+// =============================================================================
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
+    }
+
+    const body = await request.json() as { ids?: string[]; all?: boolean };
+
+    if (body.all) {
+      await prisma.notification.deleteMany({
+        where: { userId: session.user.id },
+      });
+    } else if (body.ids && body.ids.length > 0) {
+      await prisma.notification.deleteMany({
+        where: {
+          id: { in: body.ids },
+          userId: session.user.id,
+        },
+      });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("DELETE /api/notifications error:", error);
+    return NextResponse.json(
+      { ok: false, error: "Erreur lors de la suppression des notifications" },
+      { status: 500 }
+    );
+  }
+}

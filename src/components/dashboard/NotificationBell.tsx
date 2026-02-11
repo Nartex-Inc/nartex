@@ -63,6 +63,24 @@ export function NotificationBell() {
     mutate();
   };
 
+  const dismissNotification = async (id: string) => {
+    await fetch("/api/notifications", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: [id] }),
+    });
+    mutate();
+  };
+
+  const dismissAll = async () => {
+    await fetch("/api/notifications", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ all: true }),
+    });
+    mutate();
+  };
+
   const handleNotificationClick = (notification: Notification) => {
     if (!notification.isRead) {
       markAsRead([notification.id]);
@@ -122,17 +140,30 @@ export function NotificationBell() {
           <span className="text-sm font-semibold text-[hsl(var(--text-primary))]">
             Notifications
           </span>
-          {unreadCount > 0 && (
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                markAllAsRead();
-              }}
-              className="text-xs text-accent hover:underline"
-            >
-              Tout marquer comme lu
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {unreadCount > 0 && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  markAllAsRead();
+                }}
+                className="text-xs text-accent hover:underline"
+              >
+                Tout marquer comme lu
+              </button>
+            )}
+            {notifications.length > 0 && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  dismissAll();
+                }}
+                className="text-xs text-[hsl(var(--text-muted))] hover:text-red-400 hover:underline"
+              >
+                Tout effacer
+              </button>
+            )}
+          </div>
         </DropdownMenuLabel>
 
         {notifications.length === 0 ? (
@@ -146,7 +177,7 @@ export function NotificationBell() {
                 key={notification.id}
                 onClick={() => handleNotificationClick(notification)}
                 className={cn(
-                  "flex flex-col items-start gap-1 px-4 py-3 cursor-pointer",
+                  "flex flex-col items-start gap-1 px-4 py-3 cursor-pointer group",
                   "border-b border-[hsl(var(--border-subtle))] last:border-0",
                   !notification.isRead && "bg-accent/5"
                 )}
@@ -176,6 +207,17 @@ export function NotificationBell() {
                       {formatTime(notification.createdAt)}
                     </span>
                   </div>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      dismissNotification(notification.id);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-muted))] hover:text-red-400 shrink-0"
+                    title="Supprimer"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </DropdownMenuItem>
             ))}
