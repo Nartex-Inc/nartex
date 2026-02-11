@@ -3,6 +3,7 @@
 
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   PieChart,
@@ -1552,16 +1553,24 @@ const DashboardContent = () => {
    ═══════════════════════════════════════════════════════════════════════════════ */
 export default function DashboardPage() {
   const { data: session, status } = useSession();
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
+
+  const userRole = (session as any)?.user?.role;
+  const userEmail = session?.user?.email;
 
   useEffect(() => setMounted(true), []);
 
+  // Redirect expert role users to pricelist
+  useEffect(() => {
+    if (mounted && status === "authenticated" && userRole?.toLowerCase() === "expert") {
+      router.replace("/dashboard/pricelist");
+    }
+  }, [mounted, status, userRole, router]);
+
   if (!mounted || status === "loading") {
-    return null; 
+    return null;
   }
-  
-  const userRole = (session as any)?.user?.role;
-  const userEmail = session?.user?.email;
 
   // Use the centralized authorization check
   const isAuthorized = isUserAuthorized(userRole, userEmail);
@@ -1570,11 +1579,16 @@ export default function DashboardPage() {
     return <AccessDenied role={userRole} email={userEmail} />;
   }
 
+  // Expert users are being redirected, show nothing
+  if (userRole?.toLowerCase() === "expert") {
+    return null;
+  }
+
   return (
     <main className="min-h-[100svh]">
       <div className="px-4 md:px-8 lg:px-10 py-8 md:py-10">
         <div className="mx-auto w-full max-w-[1920px]">
-          <DashboardContent /> 
+          <DashboardContent />
         </div>
       </div>
     </main>

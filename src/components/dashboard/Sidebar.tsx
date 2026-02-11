@@ -5,7 +5,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useTheme } from "next-themes";
 import useSWR from "swr";
+import { useAccentColor } from "@/components/accent-color-provider";
 import {
   UserPlus,
   RefreshCcw,
@@ -119,6 +121,8 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
 function CompanySelector({ expanded }: { expanded: boolean }) {
   const { data: session, update } = useSession();
   const router = useRouter();
+  const { setTheme } = useTheme();
+  const { setAccentKey } = useAccentColor();
   const { data: tenantsRes } = useSWR<{ ok: boolean; data: TenantData[] }>(
     "/api/tenants",
     fetcher
@@ -130,6 +134,11 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
 
   const handleSwitch = async (tenant: TenantData) => {
     if (tenant.id === activeTenantId) return;
+    // Apply brand defaults for SINTO
+    if (tenant.name?.toUpperCase() === "SINTO") {
+      setTheme("dark");
+      setAccentKey("red");
+    }
     await update({ user: { activeTenantId: tenant.id } });
     router.refresh();
   };
