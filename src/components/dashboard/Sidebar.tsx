@@ -145,9 +145,9 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
             <Image
               src={displayLogo}
               alt={displayName}
-              width={48}
-              height={48}
-              className="h-12 w-12 object-contain"
+              width={32}
+              height={32}
+              className="h-8 w-8 object-contain"
             />
           </div>
         </TooltipTrigger>
@@ -172,9 +172,9 @@ function CompanySelector({ expanded }: { expanded: boolean }) {
             <Image
               src={displayLogo}
               alt={displayName}
-              width={64}
-              height={64}
-              className="h-16 w-16 object-contain"
+              width={40}
+              height={40}
+              className="h-10 w-10 object-contain"
             />
           </div>
 
@@ -290,7 +290,7 @@ function NavLink({
         "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-200",
         "outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--bg-surface))]",
         active
-          ? "bg-accent text-white shadow-sm shadow-accent/25"
+          ? "bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-primary))]"
           : "text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] hover:text-[hsl(var(--text-primary))]",
         !expanded && "justify-center px-0 w-10 mx-auto"
       )}
@@ -301,16 +301,19 @@ function NavLink({
           "shrink-0 transition-all duration-200",
           expanded ? "h-4 w-4" : "h-[18px] w-[18px]",
           active
-            ? "text-white"
-            : "text-[hsl(var(--text-tertiary))] group-hover:text-[hsl(var(--text-primary))] group-hover:scale-105"
+            ? "text-[hsl(var(--accent))]"
+            : "text-[hsl(var(--text-tertiary))] group-hover:text-[hsl(var(--text-primary))]"
         )}
-        strokeWidth={active ? 2.5 : 2}
+        strokeWidth={active ? 2 : 1.75}
       />
       {expanded && (
         <span className="truncate leading-none">{item.title}</span>
       )}
       {active && expanded && (
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 bg-white/80 rounded-r-full" />
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 bg-[hsl(var(--accent))] rounded-r-full" />
+      )}
+      {active && !expanded && (
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 bg-[hsl(var(--accent))] rounded-r-full" />
       )}
     </Link>
   );
@@ -346,7 +349,7 @@ function NavGroup({
   return (
     <div className="space-y-1">
       {expanded && (
-        <h2 className="px-3 mb-2 text-[10px] font-semibold tracking-widest uppercase text-[hsl(var(--text-muted))]">
+        <h2 className="px-3 mb-2 text-[10px] font-medium tracking-widest uppercase text-[hsl(var(--text-muted))]">
           {title}
         </h2>
       )}
@@ -395,7 +398,7 @@ export function Sidebar({
       <div
         className={cn(
           "shrink-0 border-b border-[hsl(var(--border-subtle))]",
-          expanded ? "px-3 py-4" : "px-2 py-4"
+          expanded ? "px-3 py-3" : "px-2 py-3"
         )}
       >
         {expanded ? (
@@ -415,7 +418,7 @@ export function Sidebar({
           2. Navigation Content
           ───────────────────────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-8">
           {filteredNavGroups.map((group) => (
             <NavGroup key={group.title} title={group.title} expanded={expanded}>
               {group.items.map((item) => (
@@ -436,24 +439,20 @@ export function Sidebar({
           3. Footer — BIGGER Toggle Button (Moved to Bottom)
           ───────────────────────────────────────────────────────────────────────── */}
       {!isMobile && (
-        <div className="shrink-0 p-3 border-t border-[hsl(var(--border-subtle))]">
+        <div className="shrink-0 px-3 py-2 border-t border-[hsl(var(--border-subtle))]">
           <button
             onClick={toggleSidebar}
             className={cn(
               "flex items-center justify-center w-full rounded-lg transition-colors",
               "hover:bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-primary))]",
-              // Made button taller (h-10) for easier clicking
-              "h-10" 
+              "h-8"
             )}
             title={expanded ? "Réduire le menu" : "Agrandir le menu"}
           >
             {expanded ? (
-              // Expanded: Show Chevron Left with some text or just the icon? 
-              // Let's keep it simple and centered but BIG.
-              <ChevronLeft className="h-6 w-6" /> 
+              <ChevronLeft className="h-5 w-5" />
             ) : (
-              // Collapsed: Show Chevron Right
-              <ChevronRight className="h-6 w-6" />
+              <ChevronRight className="h-5 w-5" />
             )}
           </button>
         </div>

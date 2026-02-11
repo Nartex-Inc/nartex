@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Menu, Search } from "lucide-react";
+import { Menu } from "lucide-react";
 import { UserNav } from "@/components/dashboard/user-nav";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import NartexLogo from "@/components/nartex-logo";
@@ -22,7 +22,6 @@ export function Header({
   onToggleMobileSidebar,
 }: HeaderProps) {
   const [scrolled, setScrolled] = React.useState(false);
-  const [searchFocused, setSearchFocused] = React.useState(false);
 
   // Detect scroll for subtle elevation
   React.useEffect(() => {
@@ -36,7 +35,7 @@ export function Header({
     <header
       className={cn(
         "sticky top-0 z-40 w-full transition-all duration-200",
-        "bg-[hsl(var(--bg-base))]/80 backdrop-blur-xl backdrop-saturate-150",
+        "bg-[hsl(var(--bg-base))]/85 backdrop-blur-lg backdrop-saturate-[1.1]",
         "border-b",
         scrolled
           ? "border-[hsl(var(--border-subtle))] shadow-sm shadow-black/5"
@@ -45,7 +44,7 @@ export function Header({
     >
       {/* Centered container */}
       <div className="mx-auto max-w-screen-2xl">
-        <div className="flex h-14 items-center justify-between px-4 lg:px-6">
+        <div className="flex h-12 items-center justify-between px-4 lg:px-6">
           {/* ─────────────────────────────────────────────────────────────────────
              Left Section: Mobile Menu + Logo
              ───────────────────────────────────────────────────────────────────── */}
@@ -59,63 +58,27 @@ export function Header({
               <Menu className="h-5 w-5" />
             </button>
 
-            {/* Nartex Logo — Scaled down (h-5) */}
+            {/* Nartex Logo */}
             <Link
               href="/dashboard"
               className="flex items-center group"
             >
-              <NartexLogo 
-                className="h-5 w-auto text-[hsl(var(--text-primary))] transition-opacity group-hover:opacity-70" 
+              <NartexLogo
+                className="h-[18px] w-auto ml-1 text-[hsl(var(--text-primary))] transition-opacity group-hover:opacity-70"
                 title="Nartex"
               />
             </Link>
           </div>
 
           {/* ─────────────────────────────────────────────────────────────────────
-             Center Section: Search (Desktop only) — Higher contrast
-             ───────────────────────────────────────────────────────────────────── */}
-          <div className="hidden md:flex flex-1 justify-center max-w-md mx-8">
-            <div className="relative w-full">
-              <Search 
-                className={cn(
-                  "absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors",
-                  searchFocused 
-                    ? "text-[hsl(var(--accent))]" 
-                    : "text-[hsl(var(--text-secondary))]"
-                )} 
-              />
-              <input
-                type="search"
-                placeholder="Rechercher..."
-                onFocus={() => setSearchFocused(true)}
-                onBlur={() => setSearchFocused(false)}
-                className={cn(
-                  "w-full h-9 pl-10 pr-4 rounded-lg text-sm font-medium",
-                  // Higher contrast background
-                  "bg-[hsl(var(--bg-elevated))]",
-                  "text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-secondary))]",
-                  // Visible border for better contrast
-                  "border border-[hsl(var(--border-default))]",
-                  // Focus state with GREEN accent
-                  "focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))] focus:border-[hsl(var(--accent))]",
-                  // Hover state
-                  "hover:border-[hsl(var(--border-strong))]",
-                  "transition-all duration-200"
-                )}
-                aria-label="Rechercher"
-              />
-            </div>
-          </div>
-
-          {/* ─────────────────────────────────────────────────────────────────────
              Right Section: Actions
              ───────────────────────────────────────────────────────────────────── */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             {/* Notifications */}
             <NotificationBell />
 
             {/* Divider */}
-            <div className="w-px h-6 bg-[hsl(var(--border-subtle))] mx-1" />
+            <div className="w-px h-5 bg-[hsl(var(--border-subtle))] mx-2" />
 
             {/* User Menu (includes theme toggle) */}
             <UserNav />

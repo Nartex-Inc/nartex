@@ -36,7 +36,7 @@
     --text-muted: 0 0% 60%;         /* #999999 - Placeholders, hints */
     
     /* Border Hierarchy */
-    --border-subtle: 0 0% 92%;      /* #EBEBEB - Subtle dividers */
+    --border-subtle: 0 0% 94%;      /* #F0F0F0 - Subtler dividers */
     --border-default: 0 0% 85%;     /* #D9D9D9 - Default borders */
     --border-strong: 0 0% 70%;      /* #B3B3B3 - Emphasized borders */
     
@@ -59,7 +59,7 @@
     
     /* Component Specific */
     --ring: 152 76% 40%;
-    --radius: 0.75rem;
+    --radius: 0.625rem;
     
     /* Sidebar */
     --sidebar: 0 0% 98%;
@@ -146,8 +146,8 @@
     @apply bg-[hsl(var(--bg-base))] text-[hsl(var(--text-secondary))];
     font-feature-settings: "rlig" 1, "calt" 1;
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-    font-size: 15px; /* Base font size increased */
-    line-height: 1.6;
+    font-size: 14px;
+    line-height: 1.55;
   }
   
   /* Smooth transitions for theme changes */
@@ -183,7 +183,7 @@
   }
   
   .text-caption {
-    @apply text-[0.9375rem]; /* 15px */
+    @apply text-[0.875rem]; /* 14px */
     color: hsl(var(--text-muted));
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
@@ -203,7 +203,8 @@
   .surface-card {
     background: hsl(var(--bg-surface));
     border: 1px solid hsl(var(--border-subtle));
-    border-radius: 0.75rem;
+    border-radius: 0.625rem;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.03);
   }
   
   .surface-inset {
@@ -376,7 +377,7 @@
   
   /* Card hover effect */
   .card-hover {
-    @apply transition-all duration-300 hover:shadow-lg hover:shadow-black/10 hover:-translate-y-0.5;
+    @apply transition-all duration-200 hover:shadow-md hover:shadow-black/5 hover:-translate-y-px;
   }
   
   /* Subtle border glow on focus */
