@@ -195,3 +195,4 @@ export async function getFileInfo(fileId: string): Promise<any | null> {
 export const getPreviewUrl = (id: string) => `https://drive.google.com/file/d/${id}/preview?rm=minimal&ui=integrated&dscale=1&embedded=true`;
 export const getDownloadUrl = (id: string) => `https://drive.google.com/uc?export=download&id=${id}`;
 export const getViewUrl = (id: string) => `https://drive.google.com/file/d/${id}/view`;
+export const getThumbnailUrl = (id: string, size = 400) => `https://drive.google.com/thumbnail?id=${id}&sz=w${size}`;

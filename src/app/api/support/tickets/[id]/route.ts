@@ -8,7 +8,7 @@ import { authOptions } from "@/lib/auth";
 import { sendTicketUpdateEmail } from "@/lib/email";
 import { TICKET_STATUSES } from "@/lib/support-constants";
 import { notifyTicketStatusChange } from "@/lib/notifications";
-import { getViewUrl, getPreviewUrl, getDownloadUrl } from "@/lib/google-drive";
+import { getViewUrl, getPreviewUrl, getDownloadUrl, getThumbnailUrl } from "@/lib/google-drive";
 
 // =============================================================================
 // GET - Get single ticket by ID
@@ -61,6 +61,7 @@ export async function GET(
       viewUrl: getViewUrl(a.fileUrl),
       previewUrl: getPreviewUrl(a.fileUrl),
       downloadUrl: getDownloadUrl(a.fileUrl),
+      thumbnailUrl: getThumbnailUrl(a.fileUrl),
     });
 
     return NextResponse.json({

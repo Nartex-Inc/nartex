@@ -79,6 +79,17 @@ export default function NewSupportTicketPage() {
 
   // Section refs for scroll targeting
   const sectionRefs = React.useRef<(HTMLDivElement | null)[]>([]);
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+
+  // Disable body scroll while on this page
+  React.useEffect(() => {
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.documentElement.style.overflow = "";
+      document.body.style.overflow = "";
+    };
+  }, []);
 
   // Derived values
   const subcategories = React.useMemo(() => {
@@ -144,8 +155,10 @@ export default function NewSupportTicketPage() {
   // Navigation handlers
   const scrollToSection = (n: number) => {
     const el = sectionRefs.current[n];
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    const container = scrollContainerRef.current;
+    if (el && container) {
+      const offsetTop = el.offsetTop - container.offsetTop;
+      container.scrollTo({ top: offsetTop, behavior: "smooth" });
     }
   };
 
@@ -262,8 +275,8 @@ export default function NewSupportTicketPage() {
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
         <div className="mx-auto max-w-lg px-4 py-20">
           <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-800 p-8 text-center">
-            <div className="mx-auto w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-6">
-              <svg className="w-8 h-8 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="mx-auto w-16 h-16 rounded-full bg-lime-100 dark:bg-lime-900/30 flex items-center justify-center mb-6">
+              <svg className="w-8 h-8 text-lime-500 dark:text-lime-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
@@ -332,69 +345,70 @@ export default function NewSupportTicketPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+    <div className="h-screen flex flex-col bg-neutral-50 dark:bg-neutral-950 overflow-hidden">
       {/* Sticky progress bar */}
-      <div className="sticky top-0 z-10 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800">
+      <div className="shrink-0 z-10 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-2 flex items-center justify-between">
           <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
             Étape {currentStep} sur {TOTAL_SECTIONS} — {completionPercentage}%
           </p>
         </div>
-        <div className="h-1 bg-neutral-100 dark:bg-neutral-800">
+        <div className="h-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
           <div
-            className="h-full bg-emerald-500 transition-all duration-300"
+            className="h-full bg-gradient-to-r from-yellow-400 via-lime-400 to-green-500 transition-all duration-500 ease-out rounded-full"
             style={{ width: `${completionPercentage}%` }}
           />
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <button
-            onClick={() => router.back()}
-            className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-white mb-4 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Retour
-          </button>
-          <div className="flex items-start gap-4">
-            {activeTenant?.logo && (
-              <div className="shrink-0 w-12 h-12 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center overflow-hidden">
-                <Image
-                  src={activeTenant.logo}
-                  alt={activeTenant.name}
-                  width={40}
-                  height={40}
-                  className="w-10 h-10 object-contain"
-                />
+      <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4">
+          {/* Header */}
+          <div className="mb-4">
+            <button
+              onClick={() => router.back()}
+              className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-white mb-2 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Retour
+            </button>
+            <div className="flex items-start gap-4">
+              {activeTenant?.logo && (
+                <div className="shrink-0 w-10 h-10 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center overflow-hidden">
+                  <Image
+                    src={activeTenant.logo}
+                    alt={activeTenant.name}
+                    width={32}
+                    height={32}
+                    className="w-8 h-8 object-contain"
+                  />
+                </div>
+              )}
+              <div>
+                <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">
+                  Soumettre une demande
+                </h1>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                  Décrivez votre problème et nous vous aiderons rapidement.
+                </p>
               </div>
-            )}
-            <div>
-              <h1 className="text-xl font-semibold text-neutral-900 dark:text-white">
-                Soumettre une demande
-              </h1>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                Décrivez votre problème et nous vous aiderons rapidement.
-              </p>
             </div>
           </div>
-        </div>
 
-        {!hasTenantContext && (
-          <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-            <p className="text-sm text-amber-800 dark:text-amber-200">
-              Veuillez sélectionner une organisation dans le menu latéral avant de continuer.
-            </p>
-          </div>
-        )}
+          {!hasTenantContext && (
+            <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <p className="text-sm text-amber-800 dark:text-amber-200">
+                Veuillez sélectionner une organisation dans le menu latéral avant de continuer.
+              </p>
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Main Form Column */}
-            <div className="lg:col-span-2 space-y-3">
+          <form onSubmit={handleSubmit}>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Main Form Column */}
+              <div className="lg:col-span-2 space-y-3">
               {/* Section 1: Informations générales */}
               <CollapsibleSection
                 ref={(el) => { sectionRefs.current[1] = el; }}
@@ -559,7 +573,7 @@ export default function NewSupportTicketPage() {
                     placeholder="Expliquez votre problème en détail : que s'est-il passé, quand, et qu'avez-vous déjà essayé ?"
                     required
                     minLength={50}
-                    rows={6}
+                    rows={4}
                     hint={description.length < 50 ? `${description.length}/50 caractères minimum` : undefined}
                   />
                 </div>
@@ -604,7 +618,7 @@ export default function NewSupportTicketPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 16v-8m0 0l-3 3m3-3l3 3M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
                   </svg>
                   <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-                    Glissez des fichiers ici ou <span className="text-emerald-600 dark:text-emerald-400 font-medium">parcourir</span>
+                    Glissez des fichiers ici ou <span className="text-lime-500 dark:text-lime-400 font-medium">parcourir</span>
                   </p>
                   <p className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
                     Max 25 Mo par fichier
@@ -657,7 +671,7 @@ export default function NewSupportTicketPage() {
                   <button
                     type="submit"
                     disabled={submitting || !hasTenantContext}
-                    className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 text-white rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
+                    className="w-full py-3 px-4 bg-lime-500 hover:bg-lime-600 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 text-neutral-900 rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
                   >
                     {submitting ? "Envoi en cours..." : "Soumettre la demande"}
                   </button>
@@ -676,7 +690,7 @@ export default function NewSupportTicketPage() {
                 <button
                   type="submit"
                   disabled={submitting || !hasTenantContext}
-                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 text-white rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
+                  className="w-full py-3 px-4 bg-lime-500 hover:bg-lime-600 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 text-neutral-900 rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
                 >
                   {submitting ? "Envoi en cours..." : "Soumettre la demande"}
                 </button>
@@ -734,7 +748,7 @@ export default function NewSupportTicketPage() {
                   <button
                     type="submit"
                     disabled={submitting || !hasTenantContext}
-                    className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 text-white rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
+                    className="w-full py-3 px-4 bg-lime-500 hover:bg-lime-600 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 text-neutral-900 rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
                   >
                     {submitting ? "Envoi en cours..." : "Soumettre la demande"}
                   </button>
@@ -760,8 +774,9 @@ export default function NewSupportTicketPage() {
                 </Card>
               </div>
             </div>
-          </div>
-        </form>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
@@ -815,7 +830,7 @@ const CollapsibleSection = React.forwardRef<HTMLDivElement, CollapsibleSectionPr
             <span className={cn(
               "shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold",
               isComplete
-                ? "bg-emerald-600 text-white"
+                ? "bg-lime-500 text-white"
                 : isUnlocked
                   ? "bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300"
                   : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500"
@@ -876,7 +891,7 @@ const CollapsibleSection = React.forwardRef<HTMLDivElement, CollapsibleSectionPr
                           type="button"
                           onClick={onNext}
                           disabled={!nextUnlocked}
-                          className="py-2 px-4 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 disabled:cursor-not-allowed transition-colors"
+                          className="py-2 px-4 text-sm font-medium text-neutral-900 bg-lime-500 rounded-lg hover:bg-lime-600 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 disabled:cursor-not-allowed transition-colors"
                         >
                           Suivant
                         </button>
@@ -964,7 +979,7 @@ function InputField({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         minLength={minLength}
-        className="w-full px-3 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors"
+        className="w-full px-3 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-lime-500/20 focus:border-lime-500 transition-colors"
       />
     </div>
   );
@@ -998,7 +1013,7 @@ function TextAreaField({
         placeholder={placeholder}
         minLength={minLength}
         rows={rows}
-        className="w-full px-3 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors resize-none"
+        className="w-full px-3 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-lime-500/20 focus:border-lime-500 transition-colors resize-none"
       />
       {hint && <p className="mt-1.5 text-xs text-neutral-500 dark:text-neutral-400">{hint}</p>}
     </div>
@@ -1029,7 +1044,7 @@ function SelectField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className="w-full px-3 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
+        className="w-full px-3 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-lime-500/20 focus:border-lime-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
           backgroundRepeat: "no-repeat",
@@ -1073,7 +1088,7 @@ function RadioGroup({
             className={cn(
               "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all",
               value === opt.value
-                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800"
+                ? "bg-lime-50 dark:bg-lime-900/20 border-lime-200 dark:border-lime-800"
                 : "bg-white dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600"
             )}
           >
@@ -1083,12 +1098,12 @@ function RadioGroup({
               value={opt.value}
               checked={value === opt.value}
               onChange={() => onChange(opt.value)}
-              className="mt-0.5 w-4 h-4 text-emerald-600 border-neutral-300 dark:border-neutral-600 focus:ring-emerald-500"
+              className="mt-0.5 w-4 h-4 text-lime-500 border-neutral-300 dark:border-neutral-600 focus:ring-lime-500"
             />
             <div>
               <p className={cn(
                 "text-sm font-medium",
-                value === opt.value ? "text-emerald-900 dark:text-emerald-100" : "text-neutral-900 dark:text-white"
+                value === opt.value ? "text-lime-900 dark:text-lime-100" : "text-neutral-900 dark:text-white"
               )}>
                 {opt.label}
               </p>

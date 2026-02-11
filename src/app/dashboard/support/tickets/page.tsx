@@ -75,6 +75,7 @@ interface TicketAttachment {
   viewUrl: string;
   previewUrl: string;
   downloadUrl: string;
+  thumbnailUrl: string;
 }
 
 interface TicketComment {
@@ -640,7 +641,7 @@ function TicketDetailModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-3xl my-8 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800">
+      <div className="relative w-[90vw] max-w-7xl my-8 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800">
         {/* Header */}
         <div className="flex items-start justify-between p-6 border-b border-neutral-200 dark:border-neutral-800">
           <div>
@@ -982,7 +983,7 @@ function AttachmentCard({ attachment, compact }: { attachment: TicketAttachment;
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={attachment.previewUrl}
+          src={attachment.thumbnailUrl}
           alt={attachment.fileName}
           className="w-full h-full object-cover"
         />
