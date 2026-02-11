@@ -1540,7 +1540,9 @@ function CataloguePageContent() {
     setIsDownloading(true);
     try {
       const doc = await generatePriceListPDF();
-      doc.save(`ListePrix_${tenantName.toUpperCase()}.pdf`);
+      const now = new Date();
+      const dateSuffix = `${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}${now.getFullYear()}`;
+      doc.save(`ListePrix_${tenantName.toUpperCase()}_${dateSuffix}.pdf`);
     } catch (e: any) {
       console.error(e);
       alert("Erreur: " + e.message);
@@ -1556,7 +1558,9 @@ function CataloguePageContent() {
 
       const pdfBlob = doc.output("blob");
       const formData = new FormData();
-      formData.append("file", pdfBlob, `ListePrix_${tenantName.toUpperCase()}.pdf`);
+      const now = new Date();
+      const dateSuffix = `${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}${now.getFullYear()}`;
+      formData.append("file", pdfBlob, `ListePrix_${tenantName.toUpperCase()}_${dateSuffix}.pdf`);
       formData.append("to", recipientEmail);
       formData.append("subject", `Liste de prix ${tenantName} : ${selectedPriceList?.name}`);
       formData.append("tenantName", tenantName);
@@ -1623,7 +1627,7 @@ function CataloguePageContent() {
               {/* LEFT SECTION: Logo + Price List + Details Toggle + Filters Toggle */}
               <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                 {/* Tenant Logo */}
-                <div className="flex-shrink-0 bg-white p-1.5 rounded-lg shadow-sm">
+                <a href="https://app.nartex.ca" className="flex-shrink-0 bg-black p-1.5 rounded-lg shadow-sm hover:opacity-80 transition-opacity">
                   <Image
                     src={tenantLogo}
                     alt={tenantName}
@@ -1631,7 +1635,7 @@ function CataloguePageContent() {
                     height={28}
                     className="h-6 sm:h-7 w-auto object-contain"
                   />
-                </div>
+                </a>
 
                 <div className="w-px h-8 bg-white/20 hidden sm:block" />
 
