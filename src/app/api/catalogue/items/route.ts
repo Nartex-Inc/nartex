@@ -34,6 +34,13 @@ export async function GET(request: NextRequest) {
       LEFT JOIN ${T.ITEM_TYPE} t ON i."locitemtype" = t."itemtypeid"
       LEFT JOIN ${T.PRODUCTS} p ON i."ProdId" = p."ProdId"
       WHERE i."ProdId" BETWEEN 1 AND 10
+        AND NOT EXISTS (
+          SELECT 1 FROM ${T.RECORD_SPEC_DATA} rsd
+          WHERE rsd."TableName" = 'items'
+            AND rsd."TableId" = i."ItemId"
+            AND rsd."FieldName" IN ('excludecybercat', 'isPriceList')
+            AND rsd."FieldValue" = '1'
+        )
     `;
 
     const params: (string | number)[] = [];

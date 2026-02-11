@@ -115,6 +115,13 @@ export async function GET(request: NextRequest) {
       LEFT JOIN ${T.PRODUCTS} p ON i."ProdId" = p."ProdId"
       LEFT JOIN ${T.ITEM_TYPE} t ON i."locitemtype" = t."itemtypeid"
       WHERE 1=1 ${itemFilterSQL} ${activeFilter}
+        AND NOT EXISTS (
+          SELECT 1 FROM ${T.RECORD_SPEC_DATA} rsd
+          WHERE rsd."TableName" = 'items'
+            AND rsd."TableId" = i."ItemId"
+            AND rsd."FieldName" IN ('excludecybercat', 'isPriceList')
+            AND rsd."FieldValue" = '1'
+        )
       ORDER BY i."ItemCode" ASC
     `;
 
@@ -126,6 +133,13 @@ export async function GET(request: NextRequest) {
         INNER JOIN ${T.ITEMS} i ON ipr."itemid" = i."ItemId"
         WHERE ipr."priceid" = ANY($${paramIdx})
           ${itemFilterSQL} ${activeFilter}
+          AND NOT EXISTS (
+            SELECT 1 FROM ${T.RECORD_SPEC_DATA} rsd
+            WHERE rsd."TableName" = 'items'
+              AND rsd."TableId" = i."ItemId"
+              AND rsd."FieldName" IN ('excludecybercat', 'isPriceList')
+              AND rsd."FieldValue" = '1'
+          )
         GROUP BY ipr."itemid", ipr."priceid"
       )
       SELECT

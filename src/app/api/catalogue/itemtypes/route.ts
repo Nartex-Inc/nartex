@@ -32,6 +32,13 @@ export async function GET(request: NextRequest) {
       FROM ${T.ITEM_TYPE} t
       INNER JOIN ${T.ITEMS} i ON t."itemtypeid" = i."locitemtype"
       WHERE i."ProdId" = $1
+        AND NOT EXISTS (
+          SELECT 1 FROM ${T.RECORD_SPEC_DATA} rsd
+          WHERE rsd."TableName" = 'items'
+            AND rsd."TableId" = i."ItemId"
+            AND rsd."FieldName" IN ('excludecybercat', 'isPriceList')
+            AND rsd."FieldValue" = '1'
+        )
       GROUP BY t."itemtypeid", t."descr"
       HAVING COUNT(i."ItemId") > 0
       ORDER BY t."descr" ASC
