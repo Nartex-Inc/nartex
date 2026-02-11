@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, Fragment } from "react";
+import { useState, useEffect, useRef, useMemo, Fragment } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
@@ -102,6 +102,41 @@ interface Item {
   className?: string;
   categoryName?: string;
 }
+interface GroupedClass {
+  className: string;
+  items: Item[];
+  allItemIds: number[];
+}
+interface GroupedCategory {
+  categoryName: string;
+  classes: GroupedClass[];
+  allItemIds: number[];
+}
+
+function groupItemsByCategory(items: Item[]): GroupedCategory[] {
+  const catMap = new Map<string, Map<string, Item[]>>();
+  for (const item of items) {
+    const cat = item.categoryName || "Sans catégorie";
+    const cls = item.className || "Sans classe";
+    if (!catMap.has(cat)) catMap.set(cat, new Map());
+    const clsMap = catMap.get(cat)!;
+    if (!clsMap.has(cls)) clsMap.set(cls, []);
+    clsMap.get(cls)!.push(item);
+  }
+  const result: GroupedCategory[] = [];
+  for (const [categoryName, clsMap] of catMap) {
+    const classes: GroupedClass[] = [];
+    const allCatIds: number[] = [];
+    for (const [className, clsItems] of clsMap) {
+      const ids = clsItems.map((i) => i.itemId);
+      allCatIds.push(...ids);
+      classes.push({ className, items: clsItems, allItemIds: ids });
+    }
+    result.push({ categoryName, classes, allItemIds: allCatIds });
+  }
+  return result;
+}
+
 interface PriceList {
   priceId: number;
   name: string;
@@ -459,6 +494,8 @@ function QuickAddPanel({
   const [results, setResults] = useState<Item[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [searching, setSearching] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [expandedClasses, setExpandedClasses] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -471,7 +508,19 @@ function QuickAddPanel({
         setSearching(true);
         try {
           const res = await fetch(`/api/catalogue/items?search=${encodeURIComponent(query)}`);
-          if (res.ok) setResults(await res.json());
+          if (res.ok) {
+            const data: Item[] = await res.json();
+            setResults(data);
+            // Auto-expand all categories and classes on new search
+            const cats = new Set<string>();
+            const cls = new Set<string>();
+            for (const item of data) {
+              cats.add(item.categoryName || "Sans catégorie");
+              cls.add(`${item.categoryName || "Sans catégorie"}::${item.className || "Sans classe"}`);
+            }
+            setExpandedCategories(cats);
+            setExpandedClasses(cls);
+          }
         } finally {
           setSearching(false);
         }
@@ -480,6 +529,8 @@ function QuickAddPanel({
     return () => clearTimeout(timeout);
   }, [query]);
 
+  const grouped = useMemo(() => groupItemsByCategory(results), [results]);
+
   const toggleSelect = (id: number) => {
     const next = new Set(selectedIds);
     if (next.has(id)) next.delete(id);
@@ -487,9 +538,41 @@ function QuickAddPanel({
     setSelectedIds(next);
   };
 
+  const toggleBulk = (ids: number[]) => {
+    const allSelected = ids.every((id) => selectedIds.has(id));
+    const next = new Set(selectedIds);
+    if (allSelected) {
+      for (const id of ids) next.delete(id);
+    } else {
+      for (const id of ids) next.add(id);
+    }
+    setSelectedIds(next);
+  };
+
+  const toggleCategory = (catName: string) => {
+    const next = new Set(expandedCategories);
+    if (next.has(catName)) next.delete(catName);
+    else next.add(catName);
+    setExpandedCategories(next);
+  };
+
+  const toggleClass = (key: string) => {
+    const next = new Set(expandedClasses);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setExpandedClasses(next);
+  };
+
   const handleAdd = () => {
     onAddItems(Array.from(selectedIds));
     onClose();
+  };
+
+  const checkState = (ids: number[]): "none" | "partial" | "all" => {
+    const count = ids.filter((id) => selectedIds.has(id)).length;
+    if (count === 0) return "none";
+    if (count === ids.length) return "all";
+    return "partial";
   };
 
   return (
@@ -534,7 +617,7 @@ function QuickAddPanel({
                 "placeholder:text-neutral-400"
               )}
               style={{ borderColor: query ? accentColor : "transparent" }}
-              placeholder="Code article ou description..."
+              placeholder="Code, description, catégorie ou classe..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -547,43 +630,125 @@ function QuickAddPanel({
         </div>
 
         <div className="max-h-[50vh] overflow-y-auto px-4 sm:px-6">
-          {results.length > 0 ? (
-            <div className="space-y-2 pb-4">
-              {results.map((item) => {
-                const isSelected = selectedIds.has(item.itemId);
+          {grouped.length > 0 ? (
+            <div className="pb-4 space-y-1">
+              {grouped.map((cat) => {
+                const catExpanded = expandedCategories.has(cat.categoryName);
+                const catState = checkState(cat.allItemIds);
                 return (
-                  <button
-                    key={item.itemId}
-                    onClick={() => toggleSelect(item.itemId)}
-                    className={cn(
-                      "w-full flex items-center gap-4 p-4 rounded-2xl transition-all duration-200",
-                      "text-left active:scale-[0.99]",
-                      isSelected
-                        ? "bg-neutral-100 dark:bg-neutral-800 ring-2"
-                        : "hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
-                    )}
-                    style={isSelected ? { ["--tw-ring-color" as string]: accentColor } : undefined}
-                  >
-                    <div
-                      className={cn(
-                        "w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200"
-                      )}
-                      style={{
-                        backgroundColor: isSelected ? accentColor : "transparent",
-                        borderColor: isSelected ? accentColor : "currentColor",
-                      }}
-                    >
-                      {isSelected && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
+                  <div key={cat.categoryName}>
+                    {/* Category row */}
+                    <div className="flex items-center gap-2 py-2.5 px-2 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
+                      <button
+                        onClick={() => toggleBulk(cat.allItemIds)}
+                        className="w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200"
+                        style={{
+                          backgroundColor: catState !== "none" ? accentColor : "transparent",
+                          borderColor: catState !== "none" ? accentColor : "currentColor",
+                          opacity: catState === "partial" ? 0.7 : 1,
+                        }}
+                      >
+                        {catState === "all" && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
+                        {catState === "partial" && <Minus className="w-4 h-4 text-white" strokeWidth={3} />}
+                      </button>
+                      <button
+                        onClick={() => toggleCategory(cat.categoryName)}
+                        className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                      >
+                        <Layers className="w-4 h-4 text-neutral-400 flex-shrink-0" />
+                        <span className="font-semibold text-sm text-neutral-900 dark:text-white truncate">
+                          {cat.categoryName}
+                        </span>
+                        <span className="text-xs text-neutral-400 flex-shrink-0">
+                          ({cat.allItemIds.length})
+                        </span>
+                        {catExpanded ? (
+                          <ChevronUp className="w-4 h-4 text-neutral-400 ml-auto flex-shrink-0" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-neutral-400 ml-auto flex-shrink-0" />
+                        )}
+                      </button>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-mono font-bold text-sm" style={{ color: accentColor }}>
-                        {item.itemCode}
-                      </div>
-                      <div className="text-sm text-neutral-600 dark:text-neutral-400 truncate">
-                        {item.description}
-                      </div>
-                    </div>
-                  </button>
+
+                    {/* Classes within category */}
+                    {catExpanded && cat.classes.map((cls) => {
+                      const clsKey = `${cat.categoryName}::${cls.className}`;
+                      const clsExpanded = expandedClasses.has(clsKey);
+                      const clsState = checkState(cls.allItemIds);
+                      return (
+                        <div key={clsKey} className="ml-5">
+                          {/* Class row */}
+                          <div className="flex items-center gap-2 py-2 px-2 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
+                            <button
+                              onClick={() => toggleBulk(cls.allItemIds)}
+                              className="w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200"
+                              style={{
+                                backgroundColor: clsState !== "none" ? accentColor : "transparent",
+                                borderColor: clsState !== "none" ? accentColor : "currentColor",
+                                opacity: clsState === "partial" ? 0.7 : 1,
+                              }}
+                            >
+                              {clsState === "all" && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                              {clsState === "partial" && <Minus className="w-3 h-3 text-white" strokeWidth={3} />}
+                            </button>
+                            <button
+                              onClick={() => toggleClass(clsKey)}
+                              className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                            >
+                              <Tag className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />
+                              <span className="font-medium text-sm text-neutral-700 dark:text-neutral-300 truncate">
+                                {cls.className}
+                              </span>
+                              <span className="text-xs text-neutral-400 flex-shrink-0">
+                                ({cls.items.length})
+                              </span>
+                              {clsExpanded ? (
+                                <ChevronUp className="w-3.5 h-3.5 text-neutral-400 ml-auto flex-shrink-0" />
+                              ) : (
+                                <ChevronDown className="w-3.5 h-3.5 text-neutral-400 ml-auto flex-shrink-0" />
+                              )}
+                            </button>
+                          </div>
+
+                          {/* Items within class */}
+                          {clsExpanded && cls.items.map((item) => {
+                            const isSelected = selectedIds.has(item.itemId);
+                            return (
+                              <button
+                                key={item.itemId}
+                                onClick={() => toggleSelect(item.itemId)}
+                                className={cn(
+                                  "w-full flex items-center gap-3 py-2 px-2 ml-5 rounded-xl transition-all duration-200",
+                                  "text-left active:scale-[0.99]",
+                                  isSelected
+                                    ? "bg-neutral-100 dark:bg-neutral-800"
+                                    : "hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
+                                )}
+                              >
+                                <div
+                                  className="w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200"
+                                  style={{
+                                    backgroundColor: isSelected ? accentColor : "transparent",
+                                    borderColor: isSelected ? accentColor : "currentColor",
+                                  }}
+                                >
+                                  {isSelected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <span className="font-mono font-bold text-xs" style={{ color: accentColor }}>
+                                    {item.itemCode}
+                                  </span>
+                                  <span className="text-xs text-neutral-500 dark:text-neutral-400 ml-2 truncate">
+                                    {item.description}
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
                 );
               })}
             </div>

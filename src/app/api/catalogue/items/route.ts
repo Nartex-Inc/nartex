@@ -40,23 +40,14 @@ export async function GET(request: NextRequest) {
     let paramIndex = 1;
 
     if (search) {
-      query += ` AND (i."ItemCode" ILIKE $${paramIndex} OR i."Descr" ILIKE $${paramIndex})`;
+      query += ` AND (i."ItemCode" ILIKE $${paramIndex} OR i."Descr" ILIKE $${paramIndex} OR t."descr" ILIKE $${paramIndex} OR p."Name" ILIKE $${paramIndex})`;
       params.push(`%${search}%`);
       paramIndex++;
 
       query += `
-        ORDER BY
-          CASE
-            WHEN i."ItemCode" ILIKE $${paramIndex} THEN 1
-            WHEN i."ItemCode" ILIKE $${paramIndex + 1} THEN 2
-            WHEN i."Descr" ILIKE $${paramIndex + 1} THEN 3
-            ELSE 4
-          END,
-          i."ItemCode" ASC
-        LIMIT 50
+        ORDER BY p."Name" ASC, t."descr" ASC, i."ItemCode" ASC
+        LIMIT 200
       `;
-      params.push(search);
-      params.push(`${search}%`);
 
     } else if (itemTypeId) {
       query += ` AND i."locitemtype" = $${paramIndex}`;
