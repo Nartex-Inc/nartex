@@ -1410,6 +1410,20 @@ function CataloguePageContent() {
         });
         if (hasPDS) headRow.push(abbreviateColumnName("08-PDS"));
 
+        // Compute explicit column widths so all item tables align
+        const tableWidth = pageWidth - 30; // margins
+        const fixedWidth = 30 + 15 + 12; // Article + Fmt + Qty
+        const numDynamicCols = headRow.length - 3;
+        const dynamicColWidth = numDynamicCols > 0 ? (tableWidth - fixedWidth) / numDynamicCols : 20;
+        const pdfColumnStyles: Record<number, any> = {
+          0: { fontStyle: "bold", halign: "left", cellWidth: 30 },
+          1: { halign: "center", cellWidth: 15 },
+          2: { halign: "center", cellWidth: 12 },
+        };
+        for (let ci = 3; ci < headRow.length; ci++) {
+          pdfColumnStyles[ci] = { halign: "right", cellWidth: dynamicColWidth };
+        }
+
         const ROW_HEIGHT = 8;
         const HEAD_HEIGHT = 10;
         let showTableHead = true;
@@ -1487,16 +1501,9 @@ function CataloguePageContent() {
               lineColor: corporateRed,
               lineWidth: 0.2,
             },
-            columnStyles: {
-              0: { fontStyle: "bold", halign: "left", cellWidth: 30 },
-              1: { halign: "center", cellWidth: 15 },
-              2: { halign: "center", cellWidth: 12 },
-            },
+            columnStyles: pdfColumnStyles,
             theme: "grid",
             didParseCell: function (d) {
-              if (d.section === "body" && d.column.index >= 3) {
-                d.cell.styles.halign = "right";
-              }
               if (d.section === "body" && d.column.index === 0 && d.cell.raw) {
                 d.cell.styles.textColor = corporateRed;
                 d.cell.styles.fontStyle = "bold";
@@ -1934,19 +1941,19 @@ function CataloguePageContent() {
                     </div>
 
                     <div className="overflow-x-auto">
-                      <table className={cn("w-full border-collapse", isCompact ? "text-xs" : "text-sm")}>
+                      <table className={cn("w-full border-collapse table-fixed", isCompact ? "text-xs" : "text-sm")}>
                         <thead>
                           <tr className="bg-neutral-50 dark:bg-neutral-800/50">
                             {/* Remove column header */}
                             <th className={cn("w-10 text-center font-black text-neutral-400 dark:text-neutral-500 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-2" : "p-3")}></th>
-                            <th className={cn("text-left font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700 sticky left-0 bg-neutral-50 dark:bg-neutral-800/50 z-10", isCompact ? "p-3" : "p-4")}>
+                            <th className={cn("w-[22%] text-left font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700 sticky left-0 bg-neutral-50 dark:bg-neutral-800/50 z-10", isCompact ? "p-3" : "p-4")}>
                               <div className="flex items-center gap-2">
                                 <Package className={cn(isCompact ? "w-4 h-4" : "w-5 h-5", "opacity-50")} />Article
                               </div>
                             </th>
-                            <th className={cn("text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-3" : "p-4")}>Cs</th>
-                            <th className={cn("text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-3" : "p-4")}>Fmt</th>
-                            <th className={cn("text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-3" : "p-4")}>Qty</th>
+                            <th className={cn("w-[7%] text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-3" : "p-4")}>Cs</th>
+                            <th className={cn("w-[8%] text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-3" : "p-4")}>Fmt</th>
+                            <th className={cn("w-[7%] text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-3" : "p-4")}>Qty</th>
                             {standardColumns.map((colCode) => {
                               const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
                               const displayName = abbreviateColumnName(colCode);
