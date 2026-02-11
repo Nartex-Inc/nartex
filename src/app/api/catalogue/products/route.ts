@@ -24,13 +24,6 @@ export async function GET() {
         COUNT(i."ItemId")::int as "itemCount"
       FROM ${T.PRODUCTS} p
       LEFT JOIN ${T.ITEMS} i ON p."ProdId" = i."ProdId"
-        AND NOT EXISTS (
-          SELECT 1 FROM ${T.RECORD_SPEC_DATA} rsd
-          WHERE rsd."TableName" = 'items'
-            AND rsd."TableId" = i."ItemId"
-            AND rsd."FieldName" IN ('excludecybercat', 'isPriceList')
-            AND rsd."FieldValue" = '1'
-        )
       WHERE p."ProdId" BETWEEN 1 AND 10
       GROUP BY p."ProdId", p."Name"
       HAVING COUNT(i."ItemId") > 0
