@@ -1,11 +1,11 @@
 // src/app/api/customers/map/route.ts
-// HARDCODED API KEY - GUARANTEED TO WORK
 
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
 import { getPrextraTables } from "@/lib/prextra";
+import prisma from "@/lib/prisma";
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyAYT0oFzSGe2IAoivqG2Reb-1IKOW4URjs";
 
@@ -45,12 +45,13 @@ async function geocode(address: string, city: string, postalCode: string): Promi
   }
 }
 
-async function saveGeo(custId: number, lat: number, lng: number, T: ReturnType<typeof getPrextraTables>): Promise<boolean> {
+async function saveGeo(tenantSlug: string, custId: number, lat: number, lng: number, address: string): Promise<boolean> {
   try {
-    await pg.query(
-      `UPDATE ${T.CUSTOMERS} SET "geoLocation" = $1 WHERE "CustId" = $2`,
-      [`${lat},${lng}`, custId]
-    );
+    await prisma.customerGeoCache.upsert({
+      where: { tenantSlug_custId: { tenantSlug, custId } },
+      create: { tenantSlug, custId, lat, lng, address },
+      update: { lat, lng, address },
+    });
     console.log(`Saved to DB: customer ${custId}`);
     return true;
   } catch (e: any) {
@@ -132,7 +133,6 @@ export async function GET(req: Request) {
       c."City" AS city,
       c."ZipCode" AS postal,
       c."tel" AS phone,
-      c."geoLocation" AS geo,
       sr."Name" AS rep,
       SUM(d."Amount"::float8) AS sales,
       COUNT(DISTINCT h."invnbr") AS txns,
@@ -150,7 +150,7 @@ export async function GET(req: Request) {
       AND c."Line1" IS NOT NULL AND c."Line1" <> ''
       AND c."City" IS NOT NULL AND c."City" <> ''
       ${where}
-    GROUP BY c."CustId", c."Name", c."Line1", c."City", c."ZipCode", c."tel", c."geoLocation", sr."Name"
+    GROUP BY c."CustId", c."Name", c."Line1", c."City", c."ZipCode", c."tel", sr."Name"
     HAVING SUM(d."Amount"::float8) >= ${minSales}
     ORDER BY SUM(d."Amount"::float8) DESC;
   `;
@@ -162,6 +162,13 @@ export async function GET(req: Request) {
 
     console.log(`\nMAP API: Processing ${rows.length} customers`);
 
+    // Batch-fetch all cached geo entries for these customers
+    const custIds = rows.map((r: any) => r.id as number);
+    const cached = await prisma.customerGeoCache.findMany({
+      where: { tenantSlug: schema, custId: { in: custIds } },
+    });
+    const cacheMap = new Map(cached.map(c => [c.custId, c]));
+
     const customers: any[] = [];
     const errors: string[] = [];
     let cachedCount = 0;
@@ -170,29 +177,22 @@ export async function GET(req: Request) {
     for (const row of rows) {
       let lat: number | null = null;
       let lng: number | null = null;
-      let fromCache = false;
 
-      // Try existing geoLocation first (CACHE HIT)
-      if (row.geo && row.geo.includes(",")) {
-        const [latStr, lngStr] = row.geo.split(",");
-        const parsedLat = parseFloat(latStr);
-        const parsedLng = parseFloat(lngStr);
-        if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
-          lat = parsedLat;
-          lng = parsedLng;
-          fromCache = true;
-          cachedCount++;
-        }
-      }
+      const rowAddress = `${row.address}, ${row.city}`;
+      const hit = cacheMap.get(row.id);
 
-      // If no geo, geocode it (CACHE MISS)
-      if (lat === null) {
+      if (hit && hit.address === rowAddress) {
+        // Cache hit — address unchanged
+        lat = hit.lat;
+        lng = hit.lng;
+        cachedCount++;
+      } else {
+        // Cache miss or address changed — geocode
         const result = await geocode(row.address, row.city, row.postal || "");
         if (result) {
           lat = result.lat;
           lng = result.lng;
-          // Save for next time
-          const saved = await saveGeo(row.id, lat, lng, T);
+          const saved = await saveGeo(schema, row.id, lat, lng, rowAddress);
           if (saved) savedCount++;
         } else {
           errors.push(row.name);

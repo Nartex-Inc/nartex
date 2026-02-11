@@ -440,7 +440,7 @@ model SupportTicketComment {
   isInternal Boolean  @default(false) @map("is_internal")
   createdAt  DateTime @default(now()) @map("created_at")
 
-  ticket      SupportTicket              @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket      SupportTicket             @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   attachments SupportTicketAttachment[]
 
   @@index([ticketId])
@@ -473,4 +473,23 @@ model Notification {
   @@index([userId, isRead])
   @@index([userId, createdAt])
   @@map("notifications")
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// 6) CUSTOMER GEO CACHE  (schema: public — DMS never touches this)
+////////////////////////////////////////////////////////////////////////////////
+
+model CustomerGeoCache {
+  id         Int      @id @default(autoincrement())
+  tenantSlug String   @map("tenant_slug")
+  custId     Int      @map("cust_id")
+  lat        Float
+  lng        Float
+  address    String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantSlug, custId])
+  @@index([tenantSlug])
+  @@map("customer_geo_cache")
 }
