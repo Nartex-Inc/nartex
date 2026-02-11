@@ -52,6 +52,21 @@ if (isEmailServiceConfigured) {
 // Function to generate the year for the footer
 const getCurrentYear = () => new Date().getFullYear();
 
+// S3 bucket for static email assets (email clients don't support SVG)
+const STATIC_ASSETS_BASE = "https://nartex-static-assets.s3.ca-central-1.amazonaws.com";
+
+/**
+ * Convert a tenant logo path to a publicly accessible PNG URL for emails.
+ * Email clients (Gmail, Outlook) don't support SVG, so we serve PNG from S3.
+ * e.g. "/sinto-logo.svg" → "https://nartex-static-assets.s3.ca-central-1.amazonaws.com/sinto-logo.png"
+ */
+function getTenantLogoEmailUrl(logoPath: string | null | undefined): string | null {
+  if (!logoPath) return null;
+  // Extract filename, strip leading slash, force .png extension
+  const filename = logoPath.replace(/^\//, "").replace(/\.[^.]+$/, ".png");
+  return `${STATIC_ASSETS_BASE}/${filename}`;
+}
+
 export async function sendVerificationEmail(email: string, token: string) {
   if (!isEmailServiceConfigured || !transporter) {
     console.error("Email transporter not properly configured or not initialized. Cannot send verification email.");
@@ -245,7 +260,7 @@ export async function sendTicketNotificationEmail(data: TicketNotificationData) 
   const itSupportEmail = process.env.IT_SUPPORT_EMAIL || "ti@sinto.ca";
   const ticketUrl = `${process.env.NEXTAUTH_URL}/dashboard/support/tickets`;
   const nartexLogoUrl = "https://nartex-static-assets.s3.ca-central-1.amazonaws.com/nartex-logo-white.png";
-  const tenantLogoUrl = data.tenantLogo ? `${process.env.NEXTAUTH_URL}${data.tenantLogo}` : null;
+  const tenantLogoUrl = getTenantLogoEmailUrl(data.tenantLogo);
 
   // Priority colors and backgrounds
   const priorityStyles: Record<string, { bg: string; text: string; light: string }> = {
@@ -465,7 +480,7 @@ export async function sendTicketConfirmationEmail(data: TicketConfirmationData) 
 
   const ticketUrl = `${process.env.NEXTAUTH_URL}/dashboard/support/tickets`;
   const nartexLogoUrl = "https://nartex-static-assets.s3.ca-central-1.amazonaws.com/nartex-logo-white.png";
-  const tenantLogoUrl = data.tenantLogo ? `${process.env.NEXTAUTH_URL}${data.tenantLogo}` : null;
+  const tenantLogoUrl = getTenantLogoEmailUrl(data.tenantLogo);
 
   const priorityStyles: Record<string, { bg: string; text: string; light: string }> = {
     P1: { bg: "#dc2626", text: "#ffffff", light: "#fef2f2" },
@@ -628,7 +643,7 @@ export async function sendTicketUpdateEmail(data: TicketUpdateData) {
 
   const ticketUrl = `${process.env.NEXTAUTH_URL}/dashboard/support/tickets`;
   const nartexLogoUrl = "https://nartex-static-assets.s3.ca-central-1.amazonaws.com/nartex-logo-white.png";
-  const tenantLogoUrl = data.tenantLogo ? `${process.env.NEXTAUTH_URL}${data.tenantLogo}` : null;
+  const tenantLogoUrl = getTenantLogoEmailUrl(data.tenantLogo);
 
   const statusColors: Record<string, { bg: string; text: string }> = {
     nouveau: { bg: "#3b82f6", text: "#ffffff" },
