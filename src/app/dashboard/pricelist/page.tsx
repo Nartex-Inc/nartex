@@ -1398,12 +1398,26 @@ function CataloguePageContent() {
         const standardColumns = priceColumns.filter((c) => c.trim() !== "08-PDS");
         const hasPDS = priceColumns.some((c) => c.trim() === "08-PDS") && selectedPriceList?.code?.trim() !== "03-IND";
 
-        const tableBody: any[] = [];
-        const itemStartRows: number[] = [];
-        let rowIndex = 0;
+        const headRow = ["Article", "Fmt", "Qty"];
+        const pdfCommonUnit = getCommonUnit(classItems);
+        standardColumns.forEach((c) => {
+          headRow.push(abbreviateColumnName(c));
+          if (c.trim() === selectedPriceList?.code?.trim()) {
+            headRow.push(`$/${pdfCommonUnit}`);
+            if (showDetails) {
+              headRow.push("$/Cs");
+              headRow.push("%Exp");
+            }
+          }
+        });
+        if (hasPDS) headRow.push(abbreviateColumnName("08-PDS"));
 
-        classItems.forEach((item) => {
-          itemStartRows.push(rowIndex);
+        const ROW_HEIGHT = 8;
+        const HEAD_HEIGHT = 10;
+        let showTableHead = true;
+
+        classItems.forEach((item, itemIndex) => {
+          const itemRows: string[][] = [];
           item.ranges.forEach((range, idx) => {
             const row: string[] = [];
             if (idx === 0) {
@@ -1418,7 +1432,6 @@ function CataloguePageContent() {
               const val = range.columns?.[col] ?? null;
               row.push(val ? val.toFixed(2) : "-");
               if (col.trim() === selectedPriceList?.code?.trim()) {
-                // Always add $/Unit column for selected price list
                 const { quantity } = parseFormat(item.format);
                 const ppu = quantity && val ? (val / quantity) : null;
                 row.push(ppu ? ppu.toFixed(2) : "-");
@@ -1435,86 +1448,70 @@ function CataloguePageContent() {
               const p = range.columns?.["08-PDS"] ?? null;
               row.push(p ? p.toFixed(2) : "-");
             }
-            tableBody.push(row);
-            rowIndex++;
+            itemRows.push(row);
           });
-        });
 
-        const headRow = ["Article", "Fmt", "Qty"];
-        // Get common unit for this class
-        const pdfCommonUnit = getCommonUnit(classItems);
-        standardColumns.forEach((c) => {
-          headRow.push(abbreviateColumnName(c));
-          if (c.trim() === selectedPriceList?.code?.trim()) {
-            // Always add $/Unit header for selected price list
-            headRow.push(`$/${pdfCommonUnit}`);
-            if (showDetails) {
-              headRow.push("$/Cs");
-              headRow.push("%Exp");
-            }
+          if (itemRows.length === 0) return;
+
+          // Check if this item's rows fit on the remaining page
+          const neededHeight = itemRows.length * ROW_HEIGHT + (showTableHead ? HEAD_HEIGHT : 0);
+          if (finalY + neededHeight > pageHeight - 20) {
+            doc.addPage();
+            doc.setFillColor(...black);
+            doc.rect(15, 10, pageWidth - 30, 8, "F");
+            doc.setTextColor(...white);
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "bold");
+            doc.text(priceListTitle, pageWidth / 2, 15.5, { align: "center" });
+            finalY = 25;
+            showTableHead = true;
           }
-        });
-        if (hasPDS) headRow.push(abbreviateColumnName("08-PDS"));
 
-        autoTable(doc, {
-          startY: finalY,
-          head: [headRow],
-          body: tableBody,
-          margin: { left: 15, right: 15 },
-          styles: {
-            fontSize: 8,
-            cellPadding: 2,
-            font: "helvetica",
-            lineColor: borderGray,
-            lineWidth: 0.2,
-            textColor: darkGray,
-          },
-          headStyles: {
-            fillColor: corporateRed,
-            textColor: white,
-            fontStyle: "bold",
-            halign: "center",
-            lineColor: corporateRed,
-            lineWidth: 0.2,
-          },
-          columnStyles: {
-            0: { fontStyle: "bold", halign: "left", cellWidth: 30 },
-            1: { halign: "center", cellWidth: 15 },
-            2: { halign: "center", cellWidth: 12 },
-          },
-          theme: "grid",
-          didParseCell: function (d) {
-            if (d.section === "body" && d.column.index >= 3) {
-              d.cell.styles.halign = "right";
-            }
-            if (d.section === "body" && d.column.index === 0 && d.cell.raw) {
-              d.cell.styles.textColor = corporateRed;
-              d.cell.styles.fontStyle = "bold";
-            }
-            if (d.section === "body") {
-              let itemIndex = 0;
-              for (let i = 0; i < itemStartRows.length; i++) {
-                if (d.row.index >= itemStartRows[i]) {
-                  itemIndex = i;
-                }
+          autoTable(doc, {
+            startY: finalY,
+            head: [headRow],
+            showHead: showTableHead ? "everyPage" : false,
+            body: itemRows,
+            margin: { left: 15, right: 15 },
+            styles: {
+              fontSize: 8,
+              cellPadding: 2,
+              font: "helvetica",
+              lineColor: borderGray,
+              lineWidth: 0.2,
+              textColor: darkGray,
+            },
+            headStyles: {
+              fillColor: corporateRed,
+              textColor: white,
+              fontStyle: "bold",
+              halign: "center",
+              lineColor: corporateRed,
+              lineWidth: 0.2,
+            },
+            columnStyles: {
+              0: { fontStyle: "bold", halign: "left", cellWidth: 30 },
+              1: { halign: "center", cellWidth: 15 },
+              2: { halign: "center", cellWidth: 12 },
+            },
+            theme: "grid",
+            didParseCell: function (d) {
+              if (d.section === "body" && d.column.index >= 3) {
+                d.cell.styles.halign = "right";
               }
-              if (itemIndex % 2 === 1) {
+              if (d.section === "body" && d.column.index === 0 && d.cell.raw) {
+                d.cell.styles.textColor = corporateRed;
+                d.cell.styles.fontStyle = "bold";
+              }
+              if (d.section === "body" && itemIndex % 2 === 1) {
                 d.cell.styles.fillColor = [248, 248, 248];
               }
-            }
-          },
-          didDrawCell: function(d) {
-            if (d.section === "body" && d.column.index === 0) {
-              const nextRowIndex = d.row.index + 1;
-              if (itemStartRows.includes(nextRowIndex) && nextRowIndex < tableBody.length) {
-                doc.setDrawColor(...black);
-                doc.setLineWidth(1);
-                doc.line(d.cell.x, d.cell.y + d.cell.height, pageWidth - 15, d.cell.y + d.cell.height);
-              }
-            }
-          },
+            },
+          });
+          finalY = (doc as any).lastAutoTable.finalY;
+          showTableHead = false;
         });
-        finalY = (doc as any).lastAutoTable.finalY + 8;
+        finalY += 8;
         }
 
         finalY += 6; // Extra spacing after each category

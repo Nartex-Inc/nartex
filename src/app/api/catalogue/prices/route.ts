@@ -184,6 +184,38 @@ export async function GET(request: NextRequest) {
       pricesMap[iId][qty][pId] = { price, discount };
     }
 
+    // Fill missing quantity prices using discount ratios from reference price lists
+    for (const iId of Object.keys(pricesMap).map(Number)) {
+      const itemPrices = pricesMap[iId];
+      const quantities = Object.keys(itemPrices).map(Number).sort((a, b) => a - b);
+      const basePrices = itemPrices[1] || {}; // Qty=1 prices
+
+      for (const qty of quantities) {
+        if (qty === 1) continue;
+        const pricesAtQty = itemPrices[qty];
+
+        // Find a reference price list that has prices at both Qty=1 and this qty
+        let ratio: number | null = null;
+        for (const pId of Object.keys(pricesAtQty).map(Number)) {
+          if (basePrices[pId] && basePrices[pId].price > 0) {
+            ratio = pricesAtQty[pId].price / basePrices[pId].price;
+            break;
+          }
+        }
+        if (ratio === null) continue;
+
+        // Apply ratio to price lists that have Qty=1 but are missing this qty
+        for (const pId of Object.keys(basePrices).map(Number)) {
+          if (!pricesAtQty[pId] && basePrices[pId].price > 0) {
+            pricesAtQty[pId] = {
+              price: Math.round(basePrices[pId].price * ratio * 100) / 100,
+              discount: 0
+            };
+          }
+        }
+      }
+    }
+
     const result = itemsRes.rows.map((item: any) => {
       const iId = item.itemId;
       const itemPrices = pricesMap[iId] || {};
