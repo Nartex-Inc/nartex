@@ -818,36 +818,109 @@ export async function sendTicketUpdateEmail(data: TicketUpdateData) {
   }
 }
 
-export async function sendPriceListEmail(to: string, pdfBuffer: Buffer, subject: string) {
+interface PriceListEmailData {
+  to: string;
+  pdfBuffer: Buffer;
+  pdfFilename: string;
+  subject: string;
+  tenantName: string;
+  tenantLogo?: string | null;
+}
+
+export async function sendPriceListEmail(data: PriceListEmailData) {
   if (!isEmailServiceConfigured || !transporter) {
     console.error("Email service not configured.");
     throw new Error("Service courriel non disponible.");
   }
 
+  const nartexLogoUrl = "https://nartex-static-assets.s3.ca-central-1.amazonaws.com/nartex-logo-white.png";
+  const tenantLogoUrl = getTenantLogoEmailUrl(data.tenantLogo);
+
+  const htmlBody = `
+  <!DOCTYPE html>
+  <html lang="fr">
+  <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${data.subject}</title>
+  </head>
+  <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f3f4f6;">
+          <tr>
+              <td align="center" style="padding: 40px 20px;">
+                  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 560px;">
+
+                      <!-- Tenant Logo Header -->
+                      <tr>
+                          <td align="center" style="padding: 24px 20px; background-color: #0D1117; border-radius: 12px 12px 0 0;">
+                              ${tenantLogoUrl
+                                ? `<img src="${tenantLogoUrl}" alt="${data.tenantName}" width="120" style="display: block; max-width: 120px; height: auto;">`
+                                : `<span style="font-size: 20px; font-weight: 700; color: #ffffff; font-family: Arial, sans-serif;">${data.tenantName}</span>`
+                              }
+                          </td>
+                      </tr>
+
+                      <!-- Main Card -->
+                      <tr>
+                          <td style="background-color: #ffffff; border-radius: 0 0 12px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden;">
+                              <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                      <td style="padding: 32px;">
+                                          <p style="margin: 0 0 16px; font-size: 15px; color: #374151; line-height: 1.6;">
+                                              Bonjour,
+                                          </p>
+                                          <p style="margin: 0; font-size: 15px; color: #374151; line-height: 1.6;">
+                                              Veuillez trouver ci-joint la liste de prix que vous avez générée.
+                                          </p>
+                                      </td>
+                                  </tr>
+                              </table>
+                          </td>
+                      </tr>
+
+                      <!-- Footer -->
+                      <tr>
+                          <td align="center" style="padding: 0;">
+                              <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                      <td align="center" style="padding: 20px; background-color: #0D1117; border-radius: 8px;">
+                                          <img src="${nartexLogoUrl}" alt="Nartex" width="80" style="display: block; margin: 0 auto 10px; max-width: 80px; height: auto;">
+                                          <p style="margin: 0 0 4px 0; font-size: 11px; color: #9ca3af;">
+                                              Ce message a été envoyé automatiquement par Nartex.
+                                          </p>
+                                          <p style="margin: 0; font-size: 11px; color: #6b7280;">
+                                              &copy; ${getCurrentYear()} Nartex Inc. &bull; Tous droits réservés.
+                                          </p>
+                                      </td>
+                                  </tr>
+                              </table>
+                          </td>
+                      </tr>
+
+                  </table>
+              </td>
+          </tr>
+      </table>
+  </body>
+  </html>
+  `;
+
   try {
     await transporter.sendMail({
       from: process.env.EMAIL_FROM,
-      to: to,
-      subject: subject,
-      text: "Veuillez trouver ci-joint la liste de prix générée.",
-      html: `
-        <div style="font-family: Arial, sans-serif; color: #333;">
-          <h2>Liste de Prix Nartex</h2>
-          <p>Bonjour,</p>
-          <p>Veuillez trouver ci-joint la liste de prix que vous avez générée.</p>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-          <p style="font-size: 12px; color: #888;">Ce message a été envoyé automatiquement par Nartex.</p>
-        </div>
-      `,
+      to: data.to,
+      subject: `[${data.tenantName}] ${data.subject}`,
+      text: "Bonjour,\n\nVeuillez trouver ci-joint la liste de prix que vous avez générée.\n\nCe message a été envoyé automatiquement par Nartex.",
+      html: htmlBody,
       attachments: [
         {
-          filename: "Liste_Prix_SINTO.pdf",
-          content: pdfBuffer,
+          filename: data.pdfFilename,
+          content: data.pdfBuffer,
           contentType: "application/pdf",
         },
       ],
     });
-    console.log(`Price list email sent to ${to}`);
+    console.log(`Price list email sent to ${data.to}`);
   } catch (error) {
     console.error("Failed to send price list email:", error);
     throw error;

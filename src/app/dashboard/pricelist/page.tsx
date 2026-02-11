@@ -1373,10 +1373,10 @@ function CataloguePageContent() {
       formData.append("file", pdfBlob, `ListePrix_${tenantName.toUpperCase()}.pdf`);
       formData.append("to", recipientEmail);
       formData.append("subject", `Liste de prix ${tenantName} : ${selectedPriceList?.name}`);
-      formData.append(
-        "message",
-        `Bonjour,\n\nVeuillez trouver ci-joint la liste de prix que vous avez demandée.\n\nCordialement,\n\n${tenantName}`
-      );
+      formData.append("tenantName", tenantName);
+      if (activeTenant?.logo) {
+        formData.append("tenantLogo", activeTenant.logo);
+      }
       const res = await fetch("/api/catalogue/email", { method: "POST", body: formData });
       if (!res.ok) throw new Error("Erreur envoi");
       alert("Courriel envoyé avec succès!");

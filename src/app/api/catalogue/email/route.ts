@@ -15,7 +15,9 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get("file") as Blob | null;
     const to = formData.get("to") as string | null;
-    const subject = formData.get("subject") as string || "Liste de Prix SINTO";
+    const subject = formData.get("subject") as string || "Liste de Prix";
+    const tenantName = formData.get("tenantName") as string || "Nartex";
+    const tenantLogo = formData.get("tenantLogo") as string | null;
 
     if (!file || !to) {
       return NextResponse.json({ error: "Fichier ou destinataire manquant" }, { status: 400 });
@@ -25,7 +27,14 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
 
     // 4. Send using your shared utility
-    await sendPriceListEmail(to, buffer, subject);
+    await sendPriceListEmail({
+      to,
+      pdfBuffer: buffer,
+      pdfFilename: (file as File).name || `ListePrix.pdf`,
+      subject,
+      tenantName,
+      tenantLogo,
+    });
 
     return NextResponse.json({ success: true });
 
