@@ -1363,29 +1363,21 @@ function CataloguePageContent() {
         finalY += 13;
 
         for (const [className, classItems] of Object.entries(classesByCategory)) {
-        // Ensure class header + table header + at least 2 rows fit (7+10+16=33mm)
-        if (finalY + 33 > pageHeight - 20) {
-          doc.addPage();
+        // Defer class header drawing until first item to prevent orphaning
+        let classHeaderDrawn = false;
+        const drawClassHeader = () => {
           doc.setFillColor(...black);
-          doc.rect(15, 10, pageWidth - 30, 8, "F");
+          doc.rect(15, finalY, pageWidth - 30, 7, "F");
           doc.setTextColor(...white);
-          doc.setFontSize(9);
+          doc.setFontSize(8);
           doc.setFont("helvetica", "bold");
-          doc.text(priceListTitle, pageWidth / 2, 15.5, { align: "center" });
-          finalY = 25;
-        }
-
-        doc.setFillColor(...black);
-        doc.rect(15, finalY, pageWidth - 30, 7, "F");
-        doc.setTextColor(...white);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "bold");
-        doc.text(className.toUpperCase(), 18, finalY + 5);
-        doc.setTextColor(200, 200, 200);
-        doc.setFontSize(7);
-        doc.text(`${classItems.length} article(s)`, pageWidth - 18, finalY + 5, { align: "right" });
-
-        finalY += 7;
+          doc.text(className.toUpperCase(), 18, finalY + 5);
+          doc.setTextColor(200, 200, 200);
+          doc.setFontSize(7);
+          doc.text(`${classItems.length} article(s)`, pageWidth - 18, finalY + 5, { align: "right" });
+          finalY += 7;
+          classHeaderDrawn = true;
+        };
 
         const firstItem = classItems[0];
         let priceColumns = firstItem.ranges[0]?.columns
@@ -1467,7 +1459,9 @@ function CataloguePageContent() {
           if (itemRows.length === 0) return;
 
           // Check if this item's rows fit on the remaining page
-          const neededHeight = itemRows.length * ROW_HEIGHT + (showTableHead ? HEAD_HEIGHT : 0);
+          // Include class header height (7mm) if it hasn't been drawn yet
+          const classHeaderHeight = classHeaderDrawn ? 0 : 7;
+          const neededHeight = classHeaderHeight + itemRows.length * ROW_HEIGHT + (showTableHead ? HEAD_HEIGHT : 0);
           if (finalY + neededHeight > pageHeight - 20) {
             doc.addPage();
             doc.setFillColor(...black);
@@ -1479,6 +1473,9 @@ function CataloguePageContent() {
             finalY = 25;
             showTableHead = true;
           }
+
+          // Draw class header if not yet drawn
+          if (!classHeaderDrawn) drawClassHeader();
 
           autoTable(doc, {
             startY: finalY,
