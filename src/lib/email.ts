@@ -294,10 +294,13 @@ export async function sendTicketNotificationEmail(data: TicketNotificationData) 
               <td align="center" style="padding: 40px 20px;">
                   <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 560px;">
 
-                      <!-- Logo Section -->
+                      <!-- Tenant Logo Header -->
                       <tr>
                           <td align="center" style="padding: 24px 20px; background-color: #0D1117; border-radius: 12px 12px 0 0;">
-                              <img src="${nartexLogoUrl}" alt="Nartex" width="100" style="display: block; max-width: 100px; height: auto;">
+                              ${tenantLogoUrl
+                                ? `<img src="${tenantLogoUrl}" alt="${data.tenantName}" width="120" style="display: block; max-width: 120px; height: auto;">`
+                                : `<span style="font-size: 20px; font-weight: 700; color: #ffffff; font-family: Arial, sans-serif;">${data.tenantName}</span>`
+                              }
                           </td>
                       </tr>
 
@@ -421,14 +424,20 @@ export async function sendTicketNotificationEmail(data: TicketNotificationData) 
 
                       <!-- Footer -->
                       <tr>
-                          <td align="center" style="padding: 32px 20px;">
-                              ${tenantLogoUrl ? `<img src="${tenantLogoUrl}" alt="${data.tenantName}" width="80" style="display: block; margin: 0 auto 12px; max-width: 80px; height: auto;">` : ''}
-                              <p style="margin: 0 0 8px 0; font-size: 12px; color: #9ca3af;">
-                                  Ce message a été envoyé automatiquement par Nartex.
-                              </p>
-                              <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                                  &copy; ${getCurrentYear()} Nartex Inc. &bull; Tous droits réservés.
-                              </p>
+                          <td align="center" style="padding: 0;">
+                              <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                      <td align="center" style="padding: 20px; background-color: #0D1117; border-radius: 8px;">
+                                          <img src="${nartexLogoUrl}" alt="Nartex" width="80" style="display: block; margin: 0 auto 10px; max-width: 80px; height: auto;">
+                                          <p style="margin: 0 0 4px 0; font-size: 11px; color: #9ca3af;">
+                                              Ce message a été envoyé automatiquement par Nartex.
+                                          </p>
+                                          <p style="margin: 0; font-size: 11px; color: #6b7280;">
+                                              &copy; ${getCurrentYear()} Nartex Inc. &bull; Tous droits réservés.
+                                          </p>
+                                      </td>
+                                  </tr>
+                              </table>
                           </td>
                       </tr>
 
@@ -505,7 +514,10 @@ export async function sendTicketConfirmationEmail(data: TicketConfirmationData) 
                   <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 560px;">
                       <tr>
                           <td align="center" style="padding: 24px 20px; background-color: #0D1117; border-radius: 12px 12px 0 0;">
-                              <img src="${nartexLogoUrl}" alt="Nartex" width="100" style="display: block; max-width: 100px; height: auto;">
+                              ${tenantLogoUrl
+                                ? `<img src="${tenantLogoUrl}" alt="${data.tenantName}" width="120" style="display: block; max-width: 120px; height: auto;">`
+                                : `<span style="font-size: 20px; font-weight: 700; color: #ffffff; font-family: Arial, sans-serif;">${data.tenantName}</span>`
+                              }
                           </td>
                       </tr>
                       <tr>
@@ -587,11 +599,17 @@ export async function sendTicketConfirmationEmail(data: TicketConfirmationData) 
                           </td>
                       </tr>
                       <tr>
-                          <td align="center" style="padding: 32px 20px;">
-                              ${tenantLogoUrl ? `<img src="${tenantLogoUrl}" alt="${data.tenantName}" width="80" style="display: block; margin: 0 auto 12px; max-width: 80px; height: auto;">` : ''}
-                              <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                                  &copy; ${getCurrentYear()} Nartex Inc. &bull; Support TI
-                              </p>
+                          <td align="center" style="padding: 0;">
+                              <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                      <td align="center" style="padding: 20px; background-color: #0D1117; border-radius: 8px;">
+                                          <img src="${nartexLogoUrl}" alt="Nartex" width="80" style="display: block; margin: 0 auto 10px; max-width: 80px; height: auto;">
+                                          <p style="margin: 0; font-size: 11px; color: #6b7280;">
+                                              &copy; ${getCurrentYear()} Nartex Inc. &bull; Support TI
+                                          </p>
+                                      </td>
+                                  </tr>
+                              </table>
                           </td>
                       </tr>
                   </table>
@@ -683,7 +701,10 @@ export async function sendTicketUpdateEmail(data: TicketUpdateData) {
                   <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 560px;">
                       <tr>
                           <td align="center" style="padding: 24px 20px; background-color: #0D1117; border-radius: 12px 12px 0 0;">
-                              <img src="${nartexLogoUrl}" alt="Nartex" width="100" style="display: block; max-width: 100px; height: auto;">
+                              ${tenantLogoUrl
+                                ? `<img src="${tenantLogoUrl}" alt="${data.tenantName}" width="120" style="display: block; max-width: 120px; height: auto;">`
+                                : `<span style="font-size: 20px; font-weight: 700; color: #ffffff; font-family: Arial, sans-serif;">${data.tenantName}</span>`
+                              }
                           </td>
                       </tr>
                       <tr>
@@ -753,11 +774,17 @@ export async function sendTicketUpdateEmail(data: TicketUpdateData) {
                           </td>
                       </tr>
                       <tr>
-                          <td align="center" style="padding: 32px 20px;">
-                              ${tenantLogoUrl ? `<img src="${tenantLogoUrl}" alt="${data.tenantName}" width="80" style="display: block; margin: 0 auto 12px; max-width: 80px; height: auto;">` : ''}
-                              <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                                  &copy; ${getCurrentYear()} Nartex Inc. &bull; Support TI
-                              </p>
+                          <td align="center" style="padding: 0;">
+                              <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                      <td align="center" style="padding: 20px; background-color: #0D1117; border-radius: 8px;">
+                                          <img src="${nartexLogoUrl}" alt="Nartex" width="80" style="display: block; margin: 0 auto 10px; max-width: 80px; height: auto;">
+                                          <p style="margin: 0; font-size: 11px; color: #6b7280;">
+                                              &copy; ${getCurrentYear()} Nartex Inc. &bull; Support TI
+                                          </p>
+                                      </td>
+                                  </tr>
+                              </table>
                           </td>
                       </tr>
                   </table>
