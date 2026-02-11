@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
+import { ChevronDown, Lock, Check } from "lucide-react";
 import {
   SUPPORT_CATEGORIES,
   IMPACT_OPTIONS,
@@ -32,8 +34,10 @@ interface TenantData {
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
+const TOTAL_SECTIONS = 5;
+
 // =============================================================================
-// MAIN PAGE COMPONENT - ZENDESK-STYLE UI
+// MAIN PAGE COMPONENT
 // =============================================================================
 
 export default function NewSupportTicketPage() {
@@ -70,6 +74,12 @@ export default function NewSupportTicketPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState<{ code: string; priorite: string } | null>(null);
 
+  // Section state
+  const [activeSection, setActiveSection] = React.useState(1);
+
+  // Section refs for scroll targeting
+  const sectionRefs = React.useRef<(HTMLDivElement | null)[]>([]);
+
   // Derived values
   const subcategories = React.useMemo(() => {
     if (!categorie) return [];
@@ -82,6 +92,24 @@ export default function NewSupportTicketPage() {
   }, [impact, portee, urgence]);
 
   const priorityInfo = calculatedPriority ? getPriorityInfo(calculatedPriority) : null;
+
+  // Per-section completion check
+  const sectionComplete = React.useMemo(() => ({
+    1: !!site && !!departement,
+    2: !!categorie,
+    3: !!impact && !!portee && !!urgence,
+    4: sujet.length >= 10 && description.length >= 50,
+    5: true, // always "complete" (optional)
+  }), [site, departement, categorie, impact, portee, urgence, sujet, description]);
+
+  // Cumulative unlock: section N requires all prior sections complete
+  const sectionUnlocked = React.useMemo(() => ({
+    1: true,
+    2: sectionComplete[1],
+    3: sectionComplete[1] && sectionComplete[2],
+    4: sectionComplete[1] && sectionComplete[2] && sectionComplete[3],
+    5: sectionComplete[1] && sectionComplete[2] && sectionComplete[3] && sectionComplete[4],
+  }), [sectionComplete]);
 
   // Reset subcategory when category changes
   React.useEffect(() => {
@@ -104,6 +132,46 @@ export default function NewSupportTicketPage() {
   const completionPercentage = Math.round(
     (completionSteps.filter(Boolean).length / completionSteps.length) * 100
   );
+
+  // Find current step (first incomplete section)
+  const currentStep = React.useMemo(() => {
+    for (let i = 1; i <= TOTAL_SECTIONS; i++) {
+      if (!sectionComplete[i as keyof typeof sectionComplete]) return i;
+    }
+    return TOTAL_SECTIONS;
+  }, [sectionComplete]);
+
+  // Navigation handlers
+  const scrollToSection = (n: number) => {
+    const el = sectionRefs.current[n];
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  const handleSectionToggle = (n: number) => {
+    if (!sectionUnlocked[n as keyof typeof sectionUnlocked]) return;
+    setActiveSection((prev) => (prev === n ? 0 : n));
+    if (activeSection !== n) {
+      setTimeout(() => scrollToSection(n), 50);
+    }
+  };
+
+  const handleNext = (n: number) => {
+    const next = n + 1;
+    if (next <= TOTAL_SECTIONS && sectionUnlocked[next as keyof typeof sectionUnlocked]) {
+      setActiveSection(next);
+      setTimeout(() => scrollToSection(next), 50);
+    }
+  };
+
+  const handlePrev = (n: number) => {
+    const prev = n - 1;
+    if (prev >= 1) {
+      setActiveSection(prev);
+      setTimeout(() => scrollToSection(prev), 50);
+    }
+  };
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -241,6 +309,7 @@ export default function NewSupportTicketPage() {
                   setDescription("");
                   setUserPhone("");
                   setSelectedFiles([]);
+                  setActiveSection(1);
                 }}
                 className="w-full py-2.5 px-4 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg text-sm font-medium hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
               >
@@ -253,10 +322,24 @@ export default function NewSupportTicketPage() {
     );
   }
 
+  // Section definitions
+  const sectionTitles: Record<number, string> = {
+    1: "Informations générales",
+    2: "Type de demande",
+    3: "Évaluation de l'urgence",
+    4: "Description du problème",
+    5: "Pièces jointes",
+  };
+
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
-      {/* Progress bar */}
+      {/* Sticky progress bar */}
       <div className="sticky top-0 z-10 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-2 flex items-center justify-between">
+          <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+            Étape {currentStep} sur {TOTAL_SECTIONS} — {completionPercentage}%
+          </p>
+        </div>
         <div className="h-1 bg-neutral-100 dark:bg-neutral-800">
           <div
             className="h-full bg-emerald-500 transition-all duration-300"
@@ -311,235 +394,284 @@ export default function NewSupportTicketPage() {
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Main Form Column */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Your Information */}
-              <Card>
-                <CardHeader>Vos informations</CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <ReadOnlyField label="Nom" value={session?.user?.name || "—"} />
-                    <ReadOnlyField label="Courriel" value={session?.user?.email || "—"} />
-                    <InputField
-                      label="Téléphone"
-                      value={userPhone}
-                      onChange={setUserPhone}
-                      placeholder="514-555-0123"
-                      optional
-                    />
-                    <ReadOnlyField label="Organisation" value={activeTenant?.name || "—"} />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Location */}
-              <Card>
-                <CardHeader>Localisation</CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <FieldLabel required>Lieu de travail</FieldLabel>
-                      <div className="flex gap-2">
-                        {SITES.map((s) => (
-                          <button
-                            key={s.value}
-                            type="button"
-                            onClick={() => setSite(s.value)}
-                            className={cn(
-                              "flex-1 py-2.5 px-4 rounded-lg text-sm font-medium border transition-all",
-                              site === s.value
-                                ? "bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 border-transparent"
-                                : "bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600"
-                            )}
-                          >
-                            {s.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <SelectField
-                      label="Département"
-                      value={departement}
-                      onChange={setDepartement}
-                      options={DEPARTEMENTS}
-                      placeholder="Sélectionner..."
-                      required
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Classification */}
-              <Card>
-                <CardHeader>Type de demande</CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <SelectField
-                      label="Catégorie"
-                      value={categorie}
-                      onChange={(v) => setCategorie(v as CategoryKey | "")}
-                      options={Object.entries(SUPPORT_CATEGORIES).map(([key, cat]) => ({
-                        value: key,
-                        label: cat.label,
-                      }))}
-                      placeholder="Sélectionner..."
-                      required
-                    />
-                    <SelectField
-                      label="Sous-catégorie"
-                      value={sousCategorie}
-                      onChange={setSousCategorie}
-                      options={subcategories}
-                      placeholder={subcategories.length === 0 ? "Choisir d'abord une catégorie" : "Sélectionner..."}
-                      disabled={subcategories.length === 0}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Priority Assessment */}
-              <Card>
-                <CardHeader>Évaluation de l'urgence</CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                    <RadioGroup
-                      label="Impact"
-                      name="impact"
-                      value={impact}
-                      onChange={setImpact}
-                      options={IMPACT_OPTIONS}
-                      required
-                    />
-                    <RadioGroup
-                      label="Portée"
-                      name="portee"
-                      value={portee}
-                      onChange={setPortee}
-                      options={PORTEE_OPTIONS}
-                      required
-                    />
-                    <RadioGroup
-                      label="Urgence"
-                      name="urgence"
-                      value={urgence}
-                      onChange={setUrgence}
-                      options={URGENCE_OPTIONS}
-                      required
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Description */}
-              <Card>
-                <CardHeader>Description du problème</CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <InputField
-                      label="Sujet"
-                      value={sujet}
-                      onChange={setSujet}
-                      placeholder="Décrivez brièvement votre problème"
-                      required
-                      minLength={10}
-                    />
-                    <TextAreaField
-                      label="Description détaillée"
-                      value={description}
-                      onChange={setDescription}
-                      placeholder="Expliquez votre problème en détail : que s'est-il passé, quand, et qu'avez-vous déjà essayé ?"
-                      required
-                      minLength={50}
-                      rows={6}
-                      hint={description.length < 50 ? `${description.length}/50 caractères minimum` : undefined}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Attachments */}
-              <Card>
-                <CardHeader>Pièces jointes</CardHeader>
-                <CardContent>
-                  <div
-                    className="border-2 border-dashed border-neutral-200 dark:border-neutral-700 rounded-lg p-6 text-center hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors cursor-pointer"
-                    onClick={() => fileInputRef.current?.click()}
-                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      const droppedFiles = Array.from(e.dataTransfer.files);
-                      setSelectedFiles((prev) => [...prev, ...droppedFiles]);
-                    }}
-                  >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      multiple
-                      className="hidden"
-                      onChange={(e) => {
-                        if (e.target.files) {
-                          setSelectedFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
-                          e.target.value = "";
-                        }
-                      }}
-                    />
-                    <svg className="mx-auto h-10 w-10 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 16v-8m0 0l-3 3m3-3l3 3M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
-                    </svg>
-                    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-                      Glissez des fichiers ici ou <span className="text-emerald-600 dark:text-emerald-400 font-medium">parcourir</span>
-                    </p>
-                    <p className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
-                      Max 25 Mo par fichier
-                    </p>
-                  </div>
-
-                  {selectedFiles.length > 0 && (
-                    <div className="mt-4 space-y-2">
-                      {selectedFiles.map((file, idx) => (
-                        <div key={`${file.name}-${idx}`} className="flex items-center gap-3 p-2 rounded-lg bg-neutral-50 dark:bg-neutral-800">
-                          {file.type.startsWith("image/") ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={URL.createObjectURL(file)}
-                              alt={file.name}
-                              className="w-10 h-10 rounded object-cover shrink-0"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center shrink-0">
-                              <svg className="w-5 h-5 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                            </div>
+            <div className="lg:col-span-2 space-y-3">
+              {/* Section 1: Informations générales */}
+              <CollapsibleSection
+                ref={(el) => { sectionRefs.current[1] = el; }}
+                number={1}
+                title={sectionTitles[1]}
+                isActive={activeSection === 1}
+                isComplete={sectionComplete[1]}
+                isUnlocked={sectionUnlocked[1]}
+                onToggle={() => handleSectionToggle(1)}
+                onNext={() => handleNext(1)}
+                onPrev={() => handlePrev(1)}
+                isFirst
+                nextUnlocked={sectionUnlocked[2]}
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                  <ReadOnlyField label="Nom" value={session?.user?.name || "—"} />
+                  <ReadOnlyField label="Courriel" value={session?.user?.email || "—"} />
+                  <InputField
+                    label="Téléphone"
+                    value={userPhone}
+                    onChange={setUserPhone}
+                    placeholder="514-555-0123"
+                    optional
+                  />
+                  <ReadOnlyField label="Organisation" value={activeTenant?.name || "—"} />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <FieldLabel required>Lieu de travail</FieldLabel>
+                    <div className="flex gap-2">
+                      {SITES.map((s) => (
+                        <button
+                          key={s.value}
+                          type="button"
+                          onClick={() => setSite(s.value)}
+                          className={cn(
+                            "flex-1 py-2.5 px-4 rounded-lg text-sm font-medium border transition-all",
+                            site === s.value
+                              ? "bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 border-transparent"
+                              : "bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600"
                           )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm text-neutral-900 dark:text-white truncate">{file.name}</p>
-                            <p className="text-xs text-neutral-500">{formatFileSize(file.size)}</p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedFiles((prev) => prev.filter((_, i) => i !== idx))}
-                            className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-400 hover:text-red-500 transition-colors"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
+                        >
+                          {s.label}
+                        </button>
                       ))}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                  </div>
+                  <SelectField
+                    label="Département"
+                    value={departement}
+                    onChange={setDepartement}
+                    options={DEPARTEMENTS}
+                    placeholder="Sélectionner..."
+                    required
+                  />
+                </div>
+              </CollapsibleSection>
 
-              {/* Error */}
-              {error && (
+              {/* Section 2: Type de demande */}
+              <CollapsibleSection
+                ref={(el) => { sectionRefs.current[2] = el; }}
+                number={2}
+                title={sectionTitles[2]}
+                isActive={activeSection === 2}
+                isComplete={sectionComplete[2]}
+                isUnlocked={sectionUnlocked[2]}
+                onToggle={() => handleSectionToggle(2)}
+                onNext={() => handleNext(2)}
+                onPrev={() => handlePrev(2)}
+                nextUnlocked={sectionUnlocked[3]}
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <SelectField
+                    label="Catégorie"
+                    value={categorie}
+                    onChange={(v) => setCategorie(v as CategoryKey | "")}
+                    options={Object.entries(SUPPORT_CATEGORIES).map(([key, cat]) => ({
+                      value: key,
+                      label: cat.label,
+                    }))}
+                    placeholder="Sélectionner..."
+                    required
+                  />
+                  <SelectField
+                    label="Sous-catégorie"
+                    value={sousCategorie}
+                    onChange={setSousCategorie}
+                    options={subcategories}
+                    placeholder={subcategories.length === 0 ? "Choisir d'abord une catégorie" : "Sélectionner..."}
+                    disabled={subcategories.length === 0}
+                  />
+                </div>
+              </CollapsibleSection>
+
+              {/* Section 3: Évaluation de l'urgence */}
+              <CollapsibleSection
+                ref={(el) => { sectionRefs.current[3] = el; }}
+                number={3}
+                title={sectionTitles[3]}
+                isActive={activeSection === 3}
+                isComplete={sectionComplete[3]}
+                isUnlocked={sectionUnlocked[3]}
+                onToggle={() => handleSectionToggle(3)}
+                onNext={() => handleNext(3)}
+                onPrev={() => handlePrev(3)}
+                nextUnlocked={sectionUnlocked[4]}
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  <RadioGroup
+                    label="Impact"
+                    name="impact"
+                    value={impact}
+                    onChange={setImpact}
+                    options={IMPACT_OPTIONS}
+                    required
+                  />
+                  <RadioGroup
+                    label="Portée"
+                    name="portee"
+                    value={portee}
+                    onChange={setPortee}
+                    options={PORTEE_OPTIONS}
+                    required
+                  />
+                  <RadioGroup
+                    label="Urgence"
+                    name="urgence"
+                    value={urgence}
+                    onChange={setUrgence}
+                    options={URGENCE_OPTIONS}
+                    required
+                  />
+                </div>
+              </CollapsibleSection>
+
+              {/* Section 4: Description du problème */}
+              <CollapsibleSection
+                ref={(el) => { sectionRefs.current[4] = el; }}
+                number={4}
+                title={sectionTitles[4]}
+                isActive={activeSection === 4}
+                isComplete={sectionComplete[4]}
+                isUnlocked={sectionUnlocked[4]}
+                onToggle={() => handleSectionToggle(4)}
+                onNext={() => handleNext(4)}
+                onPrev={() => handlePrev(4)}
+                nextUnlocked={sectionUnlocked[5]}
+              >
+                <div className="space-y-4">
+                  <InputField
+                    label="Sujet"
+                    value={sujet}
+                    onChange={setSujet}
+                    placeholder="Décrivez brièvement votre problème"
+                    required
+                    minLength={10}
+                  />
+                  <TextAreaField
+                    label="Description détaillée"
+                    value={description}
+                    onChange={setDescription}
+                    placeholder="Expliquez votre problème en détail : que s'est-il passé, quand, et qu'avez-vous déjà essayé ?"
+                    required
+                    minLength={50}
+                    rows={6}
+                    hint={description.length < 50 ? `${description.length}/50 caractères minimum` : undefined}
+                  />
+                </div>
+              </CollapsibleSection>
+
+              {/* Section 5: Pièces jointes */}
+              <CollapsibleSection
+                ref={(el) => { sectionRefs.current[5] = el; }}
+                number={5}
+                title={sectionTitles[5]}
+                isActive={activeSection === 5}
+                isComplete={sectionComplete[5]}
+                isUnlocked={sectionUnlocked[5]}
+                onToggle={() => handleSectionToggle(5)}
+                onPrev={() => handlePrev(5)}
+                isLast
+              >
+                <div
+                  className="border-2 border-dashed border-neutral-200 dark:border-neutral-700 rounded-lg p-6 text-center hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors cursor-pointer"
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const droppedFiles = Array.from(e.dataTransfer.files);
+                    setSelectedFiles((prev) => [...prev, ...droppedFiles]);
+                  }}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files) {
+                        setSelectedFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
+                        e.target.value = "";
+                      }
+                    }}
+                  />
+                  <svg className="mx-auto h-10 w-10 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 16v-8m0 0l-3 3m3-3l3 3M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+                  </svg>
+                  <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+                    Glissez des fichiers ici ou <span className="text-emerald-600 dark:text-emerald-400 font-medium">parcourir</span>
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
+                    Max 25 Mo par fichier
+                  </p>
+                </div>
+
+                {selectedFiles.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {selectedFiles.map((file, idx) => (
+                      <div key={`${file.name}-${idx}`} className="flex items-center gap-3 p-2 rounded-lg bg-neutral-50 dark:bg-neutral-800">
+                        {file.type.startsWith("image/") ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={URL.createObjectURL(file)}
+                            alt={file.name}
+                            className="w-10 h-10 rounded object-cover shrink-0"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center shrink-0">
+                            <svg className="w-5 h-5 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-neutral-900 dark:text-white truncate">{file.name}</p>
+                          <p className="text-xs text-neutral-500">{formatFileSize(file.size)}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedFiles((prev) => prev.filter((_, i) => i !== idx))}
+                          className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-400 hover:text-red-500 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Submit inside Section 5 */}
+                <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-neutral-700">
+                  {error && (
+                    <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                      <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+                    </div>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={submitting || !hasTenantContext}
+                    className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 text-white rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
+                  >
+                    {submitting ? "Envoi en cours..." : "Soumettre la demande"}
+                  </button>
+                </div>
+              </CollapsibleSection>
+
+              {/* Error - shown outside sections too for visibility */}
+              {error && activeSection !== 5 && (
                 <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                   <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
                 </div>
               )}
 
-              {/* Submit - Mobile */}
+              {/* Submit - Mobile fallback */}
               <div className="lg:hidden">
                 <button
                   type="submit"
@@ -634,6 +766,132 @@ export default function NewSupportTicketPage() {
     </div>
   );
 }
+
+// =============================================================================
+// COLLAPSIBLE SECTION COMPONENT
+// =============================================================================
+
+interface CollapsibleSectionProps {
+  number: number;
+  title: string;
+  isActive: boolean;
+  isComplete: boolean;
+  isUnlocked: boolean;
+  onToggle: () => void;
+  onNext?: () => void;
+  onPrev?: () => void;
+  isFirst?: boolean;
+  isLast?: boolean;
+  nextUnlocked?: boolean;
+  children: React.ReactNode;
+}
+
+const CollapsibleSection = React.forwardRef<HTMLDivElement, CollapsibleSectionProps>(
+  function CollapsibleSection(
+    { number, title, isActive, isComplete, isUnlocked, onToggle, onNext, onPrev, isFirst, isLast, nextUnlocked, children },
+    ref
+  ) {
+    return (
+      <div ref={ref} className="scroll-mt-14">
+        <div className={cn(
+          "rounded-xl border overflow-hidden transition-colors",
+          isUnlocked
+            ? "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800"
+            : "bg-neutral-50 dark:bg-neutral-900/50 border-neutral-200 dark:border-neutral-800 opacity-50"
+        )}>
+          {/* Header */}
+          <button
+            type="button"
+            onClick={onToggle}
+            disabled={!isUnlocked}
+            className={cn(
+              "w-full flex items-center gap-3 px-5 py-4 text-left transition-colors",
+              isUnlocked
+                ? "cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
+                : "cursor-not-allowed"
+            )}
+          >
+            {/* Number badge */}
+            <span className={cn(
+              "shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold",
+              isComplete
+                ? "bg-emerald-600 text-white"
+                : isUnlocked
+                  ? "bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300"
+                  : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500"
+            )}>
+              {isComplete ? <Check className="w-4 h-4" /> : number}
+            </span>
+
+            {/* Title */}
+            <span className={cn(
+              "flex-1 text-sm font-semibold",
+              isUnlocked
+                ? "text-neutral-900 dark:text-white"
+                : "text-neutral-400 dark:text-neutral-500"
+            )}>
+              {title}
+            </span>
+
+            {/* Status icon */}
+            {!isUnlocked ? (
+              <Lock className="w-4 h-4 text-neutral-400 dark:text-neutral-500 shrink-0" />
+            ) : (
+              <ChevronDown className={cn(
+                "w-4 h-4 text-neutral-400 shrink-0 transition-transform duration-200",
+                isActive && "rotate-180"
+              )} />
+            )}
+          </button>
+
+          {/* Collapsible body */}
+          <AnimatePresence initial={false}>
+            {isActive && isUnlocked && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: "easeInOut" }}
+                className="overflow-hidden"
+              >
+                <div className="px-5 pb-5 pt-1 border-t border-neutral-100 dark:border-neutral-800">
+                  {children}
+
+                  {/* Navigation buttons */}
+                  {(!isLast || !isFirst) && (
+                    <div className="flex items-center justify-between mt-6 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+                      {!isFirst ? (
+                        <button
+                          type="button"
+                          onClick={onPrev}
+                          className="py-2 px-4 text-sm font-medium text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                        >
+                          Précédent
+                        </button>
+                      ) : (
+                        <div />
+                      )}
+                      {!isLast && (
+                        <button
+                          type="button"
+                          onClick={onNext}
+                          disabled={!nextUnlocked}
+                          className="py-2 px-4 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 disabled:cursor-not-allowed transition-colors"
+                        >
+                          Suivant
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    );
+  }
+);
 
 // =============================================================================
 // COMPONENTS
