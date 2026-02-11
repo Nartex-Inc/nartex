@@ -1374,19 +1374,17 @@ function CataloguePageContent() {
           finalY = 25;
         }
 
-        doc.setDrawColor(...corporateRed);
-        doc.setLineWidth(1.5);
-        doc.line(15, finalY, 15 + 25, finalY);
-        doc.setTextColor(...black);
+        doc.setFillColor(...black);
+        doc.rect(15, finalY, pageWidth - 30, 7, "F");
+        doc.setTextColor(...white);
         doc.setFontSize(8);
         doc.setFont("helvetica", "bold");
-        doc.text(className.toUpperCase(), 18, finalY + 6);
-        doc.setTextColor(...mediumGray);
+        doc.text(className.toUpperCase(), 18, finalY + 5);
+        doc.setTextColor(200, 200, 200);
         doc.setFontSize(7);
-        doc.setFont("helvetica", "normal");
-        doc.text(`${classItems.length} article(s)`, pageWidth - 18, finalY + 6, { align: "right" });
+        doc.text(`${classItems.length} article(s)`, pageWidth - 18, finalY + 5, { align: "right" });
 
-        finalY += 10;
+        finalY += 7;
 
         const firstItem = classItems[0];
         let priceColumns = firstItem.ranges[0]?.columns
