@@ -1363,7 +1363,8 @@ function CataloguePageContent() {
         finalY += 13;
 
         for (const [className, classItems] of Object.entries(classesByCategory)) {
-        if (finalY > 250) {
+        // Ensure class header + table header + at least 2 rows fit (7+10+16=33mm)
+        if (finalY + 33 > pageHeight - 20) {
           doc.addPage();
           doc.setFillColor(...black);
           doc.rect(15, 10, pageWidth - 30, 8, "F");
