@@ -1537,17 +1537,6 @@ function CataloguePageContent() {
                   title="Recherche rapide par code"
                 />
                 
-                {/* Add Button */}
-                <ActionButton 
-                  onClick={handleLoadSelection} 
-                  disabled={!canAddSelection}
-                  icon={Plus} 
-                  title="Ajouter la sélection à la liste"
-                  primary 
-                  label={!isMobile ? "Ajouter" : undefined}
-                  loading={loadingPrices}
-                />
-
                 {/* Email Button with Label */}
                 <ActionButton
                   onClick={() => setShowEmailModal(true)}
@@ -1555,7 +1544,7 @@ function CataloguePageContent() {
                   icon={Mail}
                   title="Envoyer par courriel"
                   primary
-                  label={!isMobile ? "Envoyer" : undefined}
+                  label={!isCompact ? "Envoyer" : undefined}
                 />
 
                 {/* Download PDF Button */}
@@ -1565,7 +1554,7 @@ function CataloguePageContent() {
                   icon={Download}
                   title="Télécharger en PDF"
                   primary
-                  label={!isMobile ? "Télécharger" : undefined}
+                  label={!isCompact ? "Télécharger" : undefined}
                   loading={isDownloading}
                 />
 
@@ -1655,6 +1644,17 @@ function CataloguePageContent() {
                     onChange={setSelectedItemIds}
                     disabled={!selectedType}
                     accentColor={accentColor}
+                  />
+
+                  {/* Add Button */}
+                  <ActionButton
+                    onClick={handleLoadSelection}
+                    disabled={!canAddSelection}
+                    icon={Plus}
+                    title="Ajouter la sélection à la liste"
+                    primary
+                    label={!isCompact ? "Ajouter" : undefined}
+                    loading={loadingPrices}
                   />
                 </div>
               </div>
