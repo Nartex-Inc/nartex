@@ -33,6 +33,7 @@ export function getPrextraTables(schema: string) {
     ITEM_TYPE: `${s}"itemtype"`,
     PRICE_LIST: `${s}"PriceList"`,
     ITEM_PRICE_RANGE: `${s}"itempricerange"`,
+    RECORD_SPEC_DATA: `${s}"RecordSpecData"`,
   } as const;
 }
 
