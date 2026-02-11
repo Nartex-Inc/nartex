@@ -699,123 +699,127 @@ function CustomerInfoWindow({
   customer: CustomerMapData;
   t: ThemeTokens;
 }) {
+  const pinColor = PIN_COLORS[customer.pinColor] || PIN_COLORS.red;
+
   return (
-    <div className="p-1 min-w-[280px] max-w-[320px]">
-      <div className="flex items-start gap-3 mb-3">
+    <>
+      {/* Override Google Maps InfoWindow white bg */}
+      <style>{`
+        .gm-style-iw.gm-style-iw-c { background: ${t.surface1} !important; padding: 0 !important; border-radius: 16px !important; box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important; overflow: hidden !important; max-width: none !important; }
+        .gm-style-iw-d { overflow: hidden !important; padding: 0 !important; }
+        .gm-style-iw-tc::after { background: ${t.surface1} !important; }
+        .gm-ui-hover-effect { top: 8px !important; right: 8px !important; }
+        .gm-ui-hover-effect > span { background-color: ${t.textSecondary} !important; }
+      `}</style>
+      <div
+        className="min-w-[300px] max-w-[340px]"
+        style={{ background: t.surface1, color: t.textPrimary }}
+      >
+        {/* Accent header bar */}
         <div
-          className="p-2 rounded-lg flex-shrink-0"
-          style={{ background: `${t.accent}15` }}
+          className="px-5 pt-5 pb-4"
+          style={{ background: `linear-gradient(135deg, ${pinColor}18, ${t.accent}10)` }}
         >
-          <Building2 className="h-5 w-5" style={{ color: t.accent }} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3
-            className="font-semibold text-sm leading-tight truncate"
-            style={{ color: t.textPrimary }}
-          >
-            {customer.customerName}
-          </h3>
-          <p className="text-xs mt-0.5" style={{ color: t.textTertiary }}>
-            {customer.address}
-          </p>
-          <p className="text-xs" style={{ color: t.textTertiary }}>
-            {customer.city}, {customer.postalCode}
-            {customer.locationSource && (
-              <span 
-                className="ml-2 px-1.5 py-0.5 rounded text-[10px]"
-                style={{ 
-                  background: customer.locationSource === "geocoded" ? t.success + "20" : 
-                              customer.locationSource === "database" ? t.accent + "20" : 
-                              t.warning + "20",
-                  color: customer.locationSource === "geocoded" ? t.success : 
-                         customer.locationSource === "database" ? t.accent : 
-                         t.warning,
-                }}
+          <div className="flex items-start gap-3">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: `${pinColor}20`, border: `1px solid ${pinColor}30` }}
+            >
+              <Building2 className="h-5 w-5" style={{ color: pinColor }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3
+                className="font-semibold text-[13px] leading-tight"
+                style={{ color: t.textPrimary }}
               >
-                {customer.locationSource === "geocoded" ? "📍 Géocodé" : 
-                 customer.locationSource === "database" ? "💾 BD" : 
-                 "📮 Code postal"}
-              </span>
-            )}
-          </p>
+                {customer.customerName}
+              </h3>
+              <p className="text-xs mt-1 leading-snug" style={{ color: t.textTertiary }}>
+                {customer.address}
+              </p>
+              <p className="text-xs" style={{ color: t.textTertiary }}>
+                {customer.city}{customer.postalCode ? `, ${customer.postalCode}` : ""}
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div
-        className="grid grid-cols-2 gap-3 py-3"
-        style={{ borderTop: `1px solid ${t.borderSubtle}` }}
-      >
-        <div>
-          <p className="text-xs" style={{ color: t.textTertiary }}>
-            Ventes totales
-          </p>
-          <p
-            className="font-semibold font-mono text-sm"
-            style={{ color: t.accent }}
-          >
-            {currency(customer.totalSales)}
-          </p>
+        {/* KPI row */}
+        <div className="px-5 py-4 grid grid-cols-2 gap-4" style={{ borderBottom: `1px solid ${t.borderDefault}` }}>
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: t.textMuted }}>
+              Ventes totales
+            </p>
+            <p className="text-lg font-bold font-mono tracking-tight" style={{ color: t.accent }}>
+              {currency(customer.totalSales)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: t.textMuted }}>
+              Transactions
+            </p>
+            <p className="text-lg font-bold font-mono tracking-tight" style={{ color: t.textPrimary }}>
+              {customer.transactionCount}
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="text-xs" style={{ color: t.textTertiary }}>
-            Transactions
-          </p>
-          <p
-            className="font-semibold font-mono text-sm"
-            style={{ color: t.textPrimary }}
-          >
-            {customer.transactionCount}
-          </p>
-        </div>
-      </div>
 
-      <div
-        className="py-3 space-y-2"
-        style={{ borderTop: `1px solid ${t.borderSubtle}` }}
-      >
-        <div className="flex items-center gap-2">
-          <Users className="h-3.5 w-3.5" style={{ color: t.textTertiary }} />
-          <span className="text-xs" style={{ color: t.textSecondary }}>
-            {customer.salesRepName}
-          </span>
-        </div>
-        {customer.phone && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs" style={{ color: t.textTertiary }}>
-              📞
-            </span>
-            <span className="text-xs" style={{ color: t.textSecondary }}>
-              {customer.phone}
+        {/* Details */}
+        <div className="px-5 py-3 space-y-2.5" style={{ borderBottom: `1px solid ${t.borderDefault}` }}>
+          <div className="flex items-center gap-2.5">
+            <Users className="h-3.5 w-3.5 flex-shrink-0" style={{ color: t.textMuted }} />
+            <span className="text-xs font-medium" style={{ color: t.textSecondary }}>
+              {customer.salesRepName}
             </span>
           </div>
-        )}
-        <div className="flex items-center gap-2">
-          <Calendar className="h-3.5 w-3.5" style={{ color: t.textTertiary }} />
-          <span className="text-xs" style={{ color: t.textTertiary }}>
-            Dernière facture: {customer.lastInvoice?.slice(0, 10) || "N/A"}
-          </span>
+          {customer.phone && (
+            <div className="flex items-center gap-2.5">
+              <span className="h-3.5 w-3.5 flex-shrink-0 text-center text-xs leading-[14px]" style={{ color: t.textMuted }}>
+                T
+              </span>
+              <span className="text-xs font-mono" style={{ color: t.textSecondary }}>
+                {customer.phone}
+              </span>
+            </div>
+          )}
+          <div className="flex items-center gap-2.5">
+            <Calendar className="h-3.5 w-3.5 flex-shrink-0" style={{ color: t.textMuted }} />
+            <span className="text-xs" style={{ color: t.textTertiary }}>
+              Dernière facture:{" "}
+              <span style={{ color: t.textSecondary }}>{customer.lastInvoice?.slice(0, 10) || "N/A"}</span>
+            </span>
+          </div>
         </div>
-      </div>
 
-      {customer.productsPurchased && (
-        <div
-          className="pt-3"
-          style={{ borderTop: `1px solid ${t.borderSubtle}` }}
-        >
-          <p className="text-xs mb-1" style={{ color: t.textTertiary }}>
-            Produits achetés:
-          </p>
-          <p
-            className="text-xs leading-relaxed"
-            style={{ color: t.textSecondary }}
-          >
-            {customer.productsPurchased.length > 100
-              ? customer.productsPurchased.slice(0, 100) + "..."
-              : customer.productsPurchased}
-          </p>
-        </div>
-      )}
-    </div>
+        {/* Products footer */}
+        {customer.productsPurchased && (
+          <div className="px-5 py-3">
+            <p className="text-[10px] font-medium uppercase tracking-wider mb-1.5" style={{ color: t.textMuted }}>
+              Produits achetés
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {customer.productsPurchased.split(", ").slice(0, 8).map((prod) => (
+                <span
+                  key={prod}
+                  className="px-1.5 py-0.5 rounded text-[10px] font-mono"
+                  style={{ background: t.surface3, color: t.textSecondary }}
+                >
+                  {prod}
+                </span>
+              ))}
+              {customer.productsPurchased.split(", ").length > 8 && (
+                <span
+                  className="px-1.5 py-0.5 rounded text-[10px]"
+                  style={{ color: t.textMuted }}
+                >
+                  +{customer.productsPurchased.split(", ").length - 8}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
