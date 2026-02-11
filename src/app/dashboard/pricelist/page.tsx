@@ -1507,6 +1507,10 @@ function CataloguePageContent() {
             },
           });
           finalY = (doc as any).lastAutoTable.finalY;
+          // Draw bold separator line between SKUs
+          doc.setDrawColor(...black);
+          doc.setLineWidth(0.8);
+          doc.line(15, finalY, pageWidth - 15, finalY);
           showTableHead = false;
         });
         finalY += 8;
