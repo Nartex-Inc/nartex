@@ -27,6 +27,8 @@ env:
     RDS_CREDENTIALS:        nartex/prod/rds-credentials
     # Google Maps API Key for customer maps feature
     NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: nartex/prod/env:GOOGLE_MAPS_API_KEY
+    # Server-side key (no referrer restriction) for Geocoding API
+    GOOGLE_MAPS_SERVER_KEY: nartex/prod/env:GOOGLE_MAPS_SERVER_KEY
 
 phases:
   install:
@@ -213,6 +215,7 @@ phases:
           --build-arg GOOGLE_PRIVATE_KEY="$GOOGLE_PRIVATE_KEY" \
           --build-arg GOOGLE_DRIVE_FOLDER_ID="$GOOGLE_DRIVE_FOLDER_ID" \
           --build-arg NEXT_PUBLIC_GOOGLE_MAPS_API_KEY="$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY" \
+          --build-arg GOOGLE_MAPS_SERVER_KEY="$GOOGLE_MAPS_SERVER_KEY" \
           -t "$ECR_IMAGE_URI:$COMMIT_HASH" \
           -t "$ECR_IMAGE_URI:latest" .
 

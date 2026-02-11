@@ -7,7 +7,7 @@ import { pg } from "@/lib/db";
 import { getPrextraTables } from "@/lib/prextra";
 import prisma from "@/lib/prisma";
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyAYT0oFzSGe2IAoivqG2Reb-1IKOW4URjs";
+const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_SERVER_KEY || "";
 
 const ALLOWED_USER_ROLES = ["gestionnaire", "admin", "ventes-exec", "ventes_exec", "facturation", "expert"];
 const BYPASS_EMAILS = ["n.labranche@sinto.ca"];
@@ -93,6 +93,10 @@ export async function GET(req: Request) {
   const schema = user.prextraSchema;
   if (!schema) {
     return NextResponse.json({ error: "Aucune donnée ERP pour ce tenant" }, { status: 403 });
+  }
+
+  if (!GOOGLE_MAPS_API_KEY) {
+    return NextResponse.json({ error: "GOOGLE_MAPS_SERVER_KEY not configured" }, { status: 500 });
   }
 
   const T = getPrextraTables(schema);
