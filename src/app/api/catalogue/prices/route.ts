@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
             AND rsd."FieldName" IN ('excludecybercat', 'isPriceList')
             AND rsd."FieldValue" = '1'
         )
-      ORDER BY i."Descr" ASC, i."volume" ASC, i."ItemCode" ASC
+      ORDER BY p."Name" ASC, t."descr" ASC, i."volume" ASC, i."ItemCode" ASC
     `;
 
     // 6. Fetch Prices using IDs (Updated to fetch _discount)
