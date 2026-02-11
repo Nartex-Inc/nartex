@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     // 2. Determine Target Codes
     const targetCodesSet = new Set(COLUMN_MATRIX[selectedCode] || [selectedCode]);
     targetCodesSet.add("01-EXP");
-    targetCodesSet.add("08-PDS");
+    if (selectedCode !== "03-IND") targetCodesSet.add("08-PDS");
     const targetCodes = Array.from(targetCodesSet);
 
     // 3. Resolve Codes to PriceIDs

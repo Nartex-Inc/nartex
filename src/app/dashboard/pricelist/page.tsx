@@ -578,7 +578,7 @@ function QuickAddPanel({
   return (
     <div className="fixed inset-0 z-[999999] flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
-      <div className="relative w-full sm:max-w-lg bg-white dark:bg-neutral-900 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 sm:animate-in sm:zoom-in-95">
+      <div className="relative w-full sm:max-w-5xl bg-white dark:bg-neutral-900 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 sm:animate-in sm:zoom-in-95">
         <div className="sm:hidden flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-700" />
         </div>
@@ -1350,16 +1350,17 @@ function CataloguePageContent() {
 
         // Draw category header
         doc.setFillColor(40, 40, 40);
-        doc.rect(15, finalY, pageWidth - 30, 10, "F");
+        doc.rect(15, finalY, pageWidth - 30, 9, "F");
         doc.setTextColor(...white);
-        doc.setFontSize(11);
+        doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
-        doc.text(categoryName.toUpperCase(), 18, finalY + 7);
+        doc.text(categoryName.toUpperCase(), 18, finalY + 6.5);
         const totalInCategory = Object.values(classesByCategory).reduce((sum, items) => sum + items.length, 0);
-        doc.setTextColor(...corporateRed);
-        doc.setFontSize(8);
-        doc.text(`${Object.keys(classesByCategory).length} classe(s) • ${totalInCategory} article(s)`, pageWidth - 18, finalY + 7, { align: "right" });
-        finalY += 14;
+        doc.setTextColor(200, 200, 200);
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "normal");
+        doc.text(`${Object.keys(classesByCategory).length} classe(s) • ${totalInCategory} article(s)`, pageWidth - 18, finalY + 6.5, { align: "right" });
+        finalY += 13;
 
         for (const [className, classItems] of Object.entries(classesByCategory)) {
         if (finalY > 250) {
@@ -1373,15 +1374,17 @@ function CataloguePageContent() {
           finalY = 25;
         }
 
-        doc.setFillColor(...black);
-        doc.rect(15, finalY, pageWidth - 30, 7, "F");
-        doc.setTextColor(...white);
+        doc.setDrawColor(...corporateRed);
+        doc.setLineWidth(1.5);
+        doc.line(15, finalY, 15 + 25, finalY);
+        doc.setTextColor(...black);
         doc.setFontSize(8);
         doc.setFont("helvetica", "bold");
-        doc.text(className.toUpperCase(), 18, finalY + 5);
-        doc.setTextColor(...corporateRed);
+        doc.text(className.toUpperCase(), 18, finalY + 6);
+        doc.setTextColor(...mediumGray);
         doc.setFontSize(7);
-        doc.text(`${classItems.length} article(s)`, pageWidth - 18, finalY + 5, { align: "right" });
+        doc.setFont("helvetica", "normal");
+        doc.text(`${classItems.length} article(s)`, pageWidth - 18, finalY + 6, { align: "right" });
 
         finalY += 10;
 
@@ -1393,7 +1396,7 @@ function CataloguePageContent() {
           priceColumns = priceColumns.filter((c) => c.trim() !== "01-EXP");
         }
         const standardColumns = priceColumns.filter((c) => c.trim() !== "08-PDS");
-        const hasPDS = priceColumns.some((c) => c.trim() === "08-PDS");
+        const hasPDS = priceColumns.some((c) => c.trim() === "08-PDS") && selectedPriceList?.code?.trim() !== "03-IND";
 
         const tableBody: any[] = [];
         const itemStartRows: number[] = [];
@@ -1405,10 +1408,8 @@ function CataloguePageContent() {
             const row: string[] = [];
             if (idx === 0) {
               row.push(item.itemCode);
-              row.push(item.caisse ? Math.round(item.caisse).toString() : "-");
               row.push(item.format || "-");
             } else {
-              row.push("");
               row.push("");
               row.push("");
             }
@@ -1439,7 +1440,7 @@ function CataloguePageContent() {
           });
         });
 
-        const headRow = ["Article", "Cs", "Fmt", "Qty"];
+        const headRow = ["Article", "Fmt", "Qty"];
         // Get common unit for this class
         const pdfCommonUnit = getCommonUnit(classItems);
         standardColumns.forEach((c) => {
@@ -1465,7 +1466,7 @@ function CataloguePageContent() {
             cellPadding: 2,
             font: "helvetica",
             lineColor: borderGray,
-            lineWidth: 0.3,
+            lineWidth: 0.2,
             textColor: darkGray,
           },
           headStyles: {
@@ -1474,17 +1475,16 @@ function CataloguePageContent() {
             fontStyle: "bold",
             halign: "center",
             lineColor: corporateRed,
-            lineWidth: 0.3,
+            lineWidth: 0.2,
           },
           columnStyles: {
             0: { fontStyle: "bold", halign: "left", cellWidth: 30 },
-            1: { halign: "center", cellWidth: 12 },
-            2: { halign: "center", cellWidth: 15 },
-            3: { halign: "center", cellWidth: 12 },
+            1: { halign: "center", cellWidth: 15 },
+            2: { halign: "center", cellWidth: 12 },
           },
           theme: "grid",
           didParseCell: function (d) {
-            if (d.section === "body" && d.column.index >= 4) {
+            if (d.section === "body" && d.column.index >= 3) {
               d.cell.styles.halign = "right";
             }
             if (d.section === "body" && d.column.index === 0 && d.cell.raw) {
@@ -1499,7 +1499,7 @@ function CataloguePageContent() {
                 }
               }
               if (itemIndex % 2 === 1) {
-                d.cell.styles.fillColor = [250, 250, 250];
+                d.cell.styles.fillColor = [248, 248, 248];
               }
             }
           },
@@ -1531,6 +1531,12 @@ function CataloguePageContent() {
         doc.setFont("helvetica", "normal");
         doc.text(tenantName, 15, pageHeight - 10);
         doc.text(`Page ${i} / ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: "right" });
+        if (tenantName.toUpperCase() === "SINTO") {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8);
+          doc.setTextColor(...black);
+          doc.text("www.sintoexpert.com", pageWidth / 2, pageHeight - 10, { align: "center" });
+        }
       }
 
       return doc;
@@ -1904,7 +1910,7 @@ function CataloguePageContent() {
                 if (!showDetails && selectedPriceList?.code !== "01-EXP")
                   priceColumns = priceColumns.filter((c) => c.trim() !== "01-EXP");
                 const standardColumns = priceColumns.filter((c) => c.trim() !== "08-PDS");
-                const hasPDS = priceColumns.some((c) => c.trim() === "08-PDS");
+                const hasPDS = priceColumns.some((c) => c.trim() === "08-PDS") && selectedPriceList?.code?.trim() !== "03-IND";
                 const commonUnit = getCommonUnit(classItems);
 
                 return (
