@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { useCurrentAccent } from "@/components/accent-color-provider";
@@ -111,7 +111,20 @@ function RoleBadge({ role }: { role: string }) {
 // MAIN PAGE
 // ============================================================================
 
-export default function ProfilePage() {
+export default function ProfilePageWrapper() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center py-20">
+        <Loader2 className="w-8 h-8 animate-spin text-white/50 mb-4" />
+        <p className="text-white/50">Chargement du profil...</p>
+      </div>
+    }>
+      <ProfilePage />
+    </Suspense>
+  );
+}
+
+function ProfilePage() {
   const { data: session, status, update } = useSession();
   const { color: accentColor } = useCurrentAccent();
   const searchParams = useSearchParams();
