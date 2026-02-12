@@ -48,7 +48,6 @@ const ALLOWED_ROLES = [
   "ventes-exec",
   "ventes_exec",
   "gestionnaire",
-  "expert",
   "admin",
   "facturation",
 ];
@@ -1572,16 +1571,16 @@ export default function DashboardPage() {
     return null;
   }
 
+  // Expert users are always redirected to pricelist, regardless of bypass emails
+  if (userRole?.toLowerCase() === "expert") {
+    return null;
+  }
+
   // Use the centralized authorization check
   const isAuthorized = isUserAuthorized(userRole, userEmail);
 
   if (status === "unauthenticated" || !isAuthorized) {
     return <AccessDenied role={userRole} email={userEmail} />;
-  }
-
-  // Expert users are being redirected, show nothing
-  if (userRole?.toLowerCase() === "expert") {
-    return null;
   }
 
   return (
