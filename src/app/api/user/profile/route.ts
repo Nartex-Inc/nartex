@@ -1,13 +1,25 @@
 // src/app/api/user/profile/route.ts
-// Matching actual Prisma schema field names
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
-// GET - Fetch current user profile
-export async function GET() {
+const PROFILE_SELECT = {
+  id: true,
+  name: true,
+  firstName: true,
+  lastName: true,
+  email: true,
+  image: true,
+  role: true,
+  departement: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+// GET - Fetch user profile (own or another user's for Gestionnaire)
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -15,26 +27,48 @@ export async function GET() {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
+    // Check if requesting another user's profile
+    const targetUserId = request.nextUrl.searchParams.get("userId");
+
+    if (targetUserId) {
+      // Only Gestionnaire can view other users' profiles
+      if (session.user.role !== "Gestionnaire") {
+        return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: targetUserId },
+        select: PROFILE_SELECT,
+      });
+
+      if (!user) {
+        return NextResponse.json({ error: "Utilisateur non trouvé" }, { status: 404 });
+      }
+
+      return NextResponse.json({
+        id: user.id,
+        name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        image: user.image,
+        role: user.role || "Expert",
+        departement: user.departement,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      });
+    }
+
+    // Default: fetch own profile
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
-      select: {
-        id: true,
-        name: true,
-        firstName: true,  // Prisma uses camelCase, maps to first_name
-        lastName: true,   // Prisma uses camelCase, maps to last_name
-        email: true,
-        image: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: PROFILE_SELECT,
     });
 
     if (!user) {
       return NextResponse.json({ error: "Utilisateur non trouvé" }, { status: 404 });
     }
 
-    // Return profile in expected format
     return NextResponse.json({
       id: user.id,
       name: user.name,
@@ -42,7 +76,8 @@ export async function GET() {
       lastName: user.lastName,
       email: user.email,
       image: user.image,
-      role: user.role || "Expert", // Default matches schema
+      role: user.role || "Expert",
+      departement: user.departement,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     });
@@ -55,7 +90,7 @@ export async function GET() {
   }
 }
 
-// PATCH - Update current user profile
+// PATCH - Update user profile (own or another user's for Gestionnaire)
 export async function PATCH(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -65,15 +100,28 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, firstName, lastName, image } = body;
+    const { name, firstName, lastName, image, userId, departement } = body;
 
-    // Build update data - using Prisma camelCase field names
+    const isGestionnaire = session.user.role === "Gestionnaire";
+    const isEditingOther = !!userId && userId !== session.user.id;
+
+    // Only Gestionnaire can edit other users
+    if (isEditingOther && !isGestionnaire) {
+      return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 });
+    }
+
+    // Build update data
     const updateData: Record<string, string | null> = {};
-    
+
     if (name !== undefined) updateData.name = name;
     if (firstName !== undefined) updateData.firstName = firstName;
     if (lastName !== undefined) updateData.lastName = lastName;
     if (image !== undefined) updateData.image = image;
+
+    // Only Gestionnaire can set departement
+    if (departement !== undefined && isGestionnaire) {
+      updateData.departement = departement;
+    }
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
@@ -82,8 +130,13 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // Determine which user to update
+    const whereClause = isEditingOther
+      ? { id: userId }
+      : { email: session.user.email };
+
     const updatedUser = await prisma.user.update({
-      where: { email: session.user.email },
+      where: whereClause,
       data: updateData,
       select: {
         id: true,
@@ -93,6 +146,7 @@ export async function PATCH(request: NextRequest) {
         email: true,
         image: true,
         role: true,
+        departement: true,
       },
     });
 
@@ -106,6 +160,7 @@ export async function PATCH(request: NextRequest) {
         email: updatedUser.email,
         image: updatedUser.image,
         role: updatedUser.role,
+        departement: updatedUser.departement,
       },
     });
   } catch (error) {

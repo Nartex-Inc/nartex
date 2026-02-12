@@ -137,8 +137,10 @@ export const authOptions: NextAuthOptions = {
               where: { email: token.email },
               select: {
                 id: true,
+                name: true,
                 role: true,
                 image: true,
+                departement: true,
                 tenants: {
                   select: { tenantId: true },
                   take: 1,
@@ -149,7 +151,9 @@ export const authOptions: NextAuthOptions = {
 
            if (dbUser) {
                token.id = dbUser.id;
+               token.name = dbUser.name;
                token.role = dbUser.role as string;
+               token.departement = dbUser.departement;
                if (dbUser.image) {
                  token.picture = dbUser.image;
                }
@@ -187,7 +191,9 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.name = token.name as string;
         session.user.role = token.role as string;
+        session.user.departement = token.departement as string | null;
         session.user.activeTenantId = token.activeTenantId as string | null;
         session.user.prextraSchema = token.prextraSchema as string | null;
         session.user.image = token.picture;

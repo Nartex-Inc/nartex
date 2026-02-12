@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { useCurrentAccent } from "@/components/accent-color-provider";
 import {
   User,
   Mail,
   Camera,
   Shield,
-  ChevronDown,
   Check,
   Loader2,
   AlertCircle,
@@ -18,7 +18,9 @@ import {
   CheckCircle,
   Receipt,
   Sparkles,
+  Building2,
 } from "lucide-react";
+import { DEPARTEMENTS } from "@/lib/support-constants";
 
 // ============================================================================
 // CONFIGURATION
@@ -111,6 +113,11 @@ function RoleBadge({ role }: { role: string }) {
 export default function ProfilePage() {
   const { data: session, update } = useSession();
   const { color: accentColor } = useCurrentAccent();
+  const searchParams = useSearchParams();
+
+  const targetUserId = searchParams.get("userId");
+  const isGestionnaire = session?.user?.role === "Gestionnaire";
+  const isEditingOther = !!targetUserId && isGestionnaire;
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -124,22 +131,27 @@ export default function ProfilePage() {
   const [email, setEmail] = useState("");
   const [image, setImage] = useState("");
   const [role, setRole] = useState("Expert");
+  const [departement, setDepartement] = useState("");
 
   // Load profile data
   useEffect(() => {
     async function loadProfile() {
       try {
         setIsLoading(true);
-        const response = await fetch("/api/user/profile");
+        const url = targetUserId && isGestionnaire
+          ? `/api/user/profile?userId=${targetUserId}`
+          : "/api/user/profile";
+        const response = await fetch(url);
         if (!response.ok) throw new Error("Erreur lors du chargement");
         const data = await response.json();
-        
+
         setName(data.name || "");
         setFirstName(data.firstName || "");
         setLastName(data.lastName || "");
         setEmail(data.email || "");
         setImage(data.image || "");
         setRole(data.role || "Expert");
+        setDepartement(data.departement || "");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erreur inconnue");
       } finally {
@@ -147,7 +159,7 @@ export default function ProfilePage() {
       }
     }
     loadProfile();
-  }, []);
+  }, [targetUserId, isGestionnaire]);
 
   // Save profile
   const handleSave = async () => {
@@ -156,10 +168,20 @@ export default function ProfilePage() {
       setError(null);
       setSuccessMessage(null);
 
+      const body: Record<string, string | undefined> = { name, firstName, lastName };
+
+      if (isEditingOther) {
+        body.userId = targetUserId!;
+      }
+
+      if (isGestionnaire) {
+        body.departement = departement;
+      }
+
       const response = await fetch("/api/user/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, firstName, lastName }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -167,9 +189,11 @@ export default function ProfilePage() {
         throw new Error(data.error || "Erreur lors de la sauvegarde");
       }
 
-      // Update session
-      await update({ name });
-      
+      // Update own session when editing self
+      if (!isEditingOther) {
+        await update({ name });
+      }
+
       setSuccessMessage("Profil mis à jour avec succès");
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
@@ -188,12 +212,17 @@ export default function ProfilePage() {
     );
   }
 
+  const pageTitle = isEditingOther ? `Profil de ${name || "l'utilisateur"}` : "Mon profil";
+  const pageDescription = isEditingOther
+    ? "Modifier les informations de cet utilisateur"
+    : "Gérez vos informations personnelles";
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Mon profil</h1>
-        <p className="text-white/50 mt-1">Gérez vos informations personnelles</p>
+        <h1 className="text-2xl font-bold text-white">{pageTitle}</h1>
+        <p className="text-white/50 mt-1">{pageDescription}</p>
       </div>
 
       {/* Messages */}
@@ -283,11 +312,76 @@ export default function ProfilePage() {
         </div>
       </SectionCard>
 
+      {/* Département */}
+      <SectionCard title="Département" icon={Building2} accentColor={accentColor}>
+        <div className="max-w-md">
+          <label className="block text-sm font-medium text-white/70 mb-2">Département</label>
+          {isGestionnaire ? (
+            <div className="relative">
+              <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+              <select
+                value={departement}
+                onChange={(e) => setDepartement(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-white/30 transition-colors appearance-none cursor-pointer"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "right 12px center",
+                  paddingRight: "40px",
+                }}
+              >
+                <option value="">Aucun département</option>
+                {DEPARTEMENTS.map((d) => (
+                  <option key={d.value} value={d.value}>
+                    {d.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="relative">
+              <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+              <input
+                type="text"
+                value={departement ? DEPARTEMENTS.find((d) => d.value === departement)?.label || departement : "Non défini"}
+                disabled
+                className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white opacity-50 cursor-not-allowed"
+              />
+            </div>
+          )}
+          {!isGestionnaire && (
+            <p className="text-white/40 text-sm mt-2">
+              Contactez un gestionnaire pour modifier votre département.
+            </p>
+          )}
+        </div>
+
+        {isGestionnaire && (
+          <div className="mt-6 pt-6 border-t border-white/10 flex justify-end">
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-white transition-all disabled:opacity-50"
+              style={{ backgroundColor: accentColor }}
+            >
+              {isSaving ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Save className="w-5 h-5" />
+              )}
+              {isSaving ? "Enregistrement..." : "Enregistrer"}
+            </button>
+          </div>
+        )}
+      </SectionCard>
+
       {/* Role Info (Read-only) */}
       <SectionCard title="Rôle et permissions" icon={Shield} accentColor={accentColor}>
         <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
           <div>
-            <p className="text-white font-medium">Votre rôle actuel</p>
+            <p className="text-white font-medium">
+              {isEditingOther ? "Rôle actuel" : "Votre rôle actuel"}
+            </p>
             <p className="text-white/50 text-sm mt-1">
               {getRoleConfig(role).description}
             </p>
@@ -295,7 +389,9 @@ export default function ProfilePage() {
           <RoleBadge role={role} />
         </div>
         <p className="text-white/40 text-sm mt-4">
-          Contactez un administrateur pour modifier votre rôle.
+          {isEditingOther
+            ? "Modifiez le rôle depuis la page de gestion des rôles."
+            : "Contactez un administrateur pour modifier votre rôle."}
         </p>
       </SectionCard>
     </div>

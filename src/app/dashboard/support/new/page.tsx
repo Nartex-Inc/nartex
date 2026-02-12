@@ -120,6 +120,23 @@ export default function NewSupportTicketPage() {
     5: sectionComplete[1] && sectionComplete[2] && sectionComplete[3] && sectionComplete[4],
   }), [sectionComplete]);
 
+  // Auto-populate departement from user profile
+  React.useEffect(() => {
+    async function fetchUserDepartement() {
+      try {
+        const res = await fetch("/api/user/profile");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.departement) {
+          setDepartement(data.departement);
+        }
+      } catch {
+        // Ignore - departement pre-fill is best-effort
+      }
+    }
+    fetchUserDepartement();
+  }, []);
+
   // Reset appareil when category changes
   React.useEffect(() => {
     setAppareil("");

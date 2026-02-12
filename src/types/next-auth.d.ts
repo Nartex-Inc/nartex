@@ -7,6 +7,7 @@ declare module "next-auth" {
     user: {
       id: string;
       role: string;
+      departement?: string | null;
       activeTenantId: string | null;
       prextraSchema: string | null;
       firstName?: string | null;
@@ -18,6 +19,7 @@ declare module "next-auth" {
   interface User extends DefaultUser {
     id: string;
     role: string;
+    departement?: string | null;
     activeTenantId?: string | null;
     prextraSchema?: string | null;
     firstName?: string | null;
@@ -30,6 +32,7 @@ declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
     id: string;
     role: string;
+    departement?: string | null;
     activeTenantId: string | null;
     prextraSchema: string | null;
     firstName?: string | null;

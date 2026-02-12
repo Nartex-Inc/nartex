@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useCurrentAccent } from "@/components/accent-color-provider";
 import {
   Shield,
@@ -18,6 +19,7 @@ import {
   CheckCircle,
   Receipt,
   Sparkles,
+  Pencil,
 } from "lucide-react";
 
 // ============================================================================
@@ -190,10 +192,11 @@ function RoleSelector({ currentRole, onRoleChange, disabled, accentColor }: {
   );
 }
 
-function UserRow({ user, currentUserEmail, onRoleChange, isUpdating, accentColor }: {
+function UserRow({ user, currentUserEmail, onRoleChange, onEditProfile, isUpdating, accentColor }: {
   user: UserData;
   currentUserEmail: string;
   onRoleChange: (userId: string, role: RoleValue) => void;
+  onEditProfile?: (userId: string) => void;
   isUpdating: boolean;
   accentColor: string;
 }) {
@@ -223,7 +226,16 @@ function UserRow({ user, currentUserEmail, onRoleChange, isUpdating, accentColor
         </div>
         <p className="text-sm text-white/50 truncate">{user.email}</p>
       </div>
-      <div className="flex-shrink-0">
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {onEditProfile && (
+          <button
+            onClick={() => onEditProfile(user.id)}
+            className="p-2 rounded-lg bg-white/5 border border-white/10 hover:border-white/20 hover:bg-white/10 transition-colors"
+            title="Modifier le profil"
+          >
+            <Pencil className="w-4 h-4 text-white/50 hover:text-white/80" />
+          </button>
+        )}
         {isUpdating ? (
           <div className="flex items-center gap-2 px-3 py-2">
             <Loader2 className="w-4 h-4 animate-spin text-white/50" />
@@ -245,6 +257,7 @@ function UserRow({ user, currentUserEmail, onRoleChange, isUpdating, accentColor
 export default function RolesPage() {
   const { data: session } = useSession();
   const { color: accentColor } = useCurrentAccent();
+  const router = useRouter();
 
   const [users, setUsers] = useState<UserData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -415,6 +428,7 @@ export default function RolesPage() {
                 user={user}
                 currentUserEmail={currentUserEmail}
                 onRoleChange={handleRoleChange}
+                onEditProfile={userIsAdmin ? (userId) => router.push(`/dashboard/settings/profile?userId=${userId}`) : undefined}
                 isUpdating={updatingUserId === user.id}
                 accentColor={accentColor}
               />
