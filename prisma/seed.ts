@@ -45,6 +45,7 @@ async function main() {
   // 3. Assign admin user to ALL tenants
   const admin = await prisma.user.findUnique({
     where: { email: "n.labranche@sinto.ca" },
+    select: { id: true, email: true },
   });
 
   if (admin) {
