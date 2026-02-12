@@ -89,15 +89,30 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  accounts       Account[]
-  sessions       Session[]
-  tenants        UserTenant[]
-  supportTickets SupportTicket[]
-  notifications  Notification[]
+  accounts            Account[]
+  sessions            Session[]
+  tenants             UserTenant[]
+  supportTickets      SupportTicket[]
+  notifications       Notification[]
+  webauthnCredentials WebAuthnCredential[]
 
   @@index([role])
   @@index([email])
   @@map("users")
+}
+
+model WebAuthnCredential {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  credentialId String   @unique @map("credential_id")
+  publicKey    Bytes    @map("public_key")
+  counter      BigInt   @default(0)
+  transports   String[] @default([])
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("webauthn_credentials")
 }
 
 model Account {

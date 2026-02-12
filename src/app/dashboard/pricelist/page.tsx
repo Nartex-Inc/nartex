@@ -9,7 +9,7 @@ import useSWR from "swr";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useCurrentAccent } from "@/components/accent-color-provider";
-import { startRegistration } from "@simplewebauthn/browser";
+import { startRegistration, startAuthentication } from "@simplewebauthn/browser";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -1244,12 +1244,19 @@ function CataloguePageContent() {
     try {
       const resp = await fetch("/api/auth/challenge");
       if (!resp.ok) throw new Error("Challenge fetch failed");
-      const options = await resp.json();
-      const authResp = await startRegistration(options);
+      const { type, options } = await resp.json();
+
+      let authResp;
+      if (type === "authenticate") {
+        authResp = await startAuthentication(options);
+      } else {
+        authResp = await startRegistration(options);
+      }
+
       const verifyResp = await fetch("/api/auth/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(authResp),
+        body: JSON.stringify({ type, response: authResp }),
       });
       const verification = await verifyResp.json();
       if (verification.verified) setShowDetails(true);
