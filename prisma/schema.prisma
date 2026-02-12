@@ -80,8 +80,7 @@ model User {
   password String? @map("password_hash")
 
   // Updated to use the specific Enum from your SQL
-  role        UserRole @default(Expert)
-  departement String?
+  role UserRole @default(Expert)
 
   verificationToken    String?   @unique @map("verification_token")
   passwordResetToken   String?   @unique @map("password_reset_token")

@@ -13,7 +13,6 @@ const PROFILE_SELECT = {
   email: true,
   image: true,
   role: true,
-  departement: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -53,7 +52,6 @@ export async function GET(request: NextRequest) {
         email: user.email,
         image: user.image,
         role: user.role || "Expert",
-        departement: user.departement,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       });
@@ -77,7 +75,6 @@ export async function GET(request: NextRequest) {
       email: user.email,
       image: user.image,
       role: user.role || "Expert",
-      departement: user.departement,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     });
@@ -100,7 +97,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, firstName, lastName, image, userId, departement } = body;
+    const { name, firstName, lastName, image, userId } = body;
 
     const isGestionnaire = session.user.role === "Gestionnaire";
     const isEditingOther = !!userId && userId !== session.user.id;
@@ -117,11 +114,6 @@ export async function PATCH(request: NextRequest) {
     if (firstName !== undefined) updateData.firstName = firstName;
     if (lastName !== undefined) updateData.lastName = lastName;
     if (image !== undefined) updateData.image = image;
-
-    // Only Gestionnaire can set departement
-    if (departement !== undefined && isGestionnaire) {
-      updateData.departement = departement;
-    }
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
@@ -146,7 +138,6 @@ export async function PATCH(request: NextRequest) {
         email: true,
         image: true,
         role: true,
-        departement: true,
       },
     });
 
@@ -160,7 +151,6 @@ export async function PATCH(request: NextRequest) {
         email: updatedUser.email,
         image: updatedUser.image,
         role: updatedUser.role,
-        departement: updatedUser.departement,
       },
     });
   } catch (error) {
