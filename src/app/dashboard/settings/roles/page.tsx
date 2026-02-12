@@ -24,7 +24,7 @@ import {
 // CONFIGURATION - Matching Prisma UserRole enum
 // ============================================================================
 
-const ADMIN_EMAILS = ["n.labranche@sinto.ca", "d.drouin@sinto.ca"];
+const ADMIN_EMAILS = ["n.labranche@sinto.ca"];
 
 const AVAILABLE_ROLES = [
   {

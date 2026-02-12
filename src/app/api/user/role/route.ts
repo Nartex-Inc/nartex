@@ -7,7 +7,7 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 // Admin emails - these users have full admin access regardless of role
-const ADMIN_EMAILS = ["n.labranche@sinto.ca", "d.drouin@sinto.ca"];
+const ADMIN_EMAILS = ["n.labranche@sinto.ca"];
 
 // Roles that have admin privileges
 const ADMIN_ROLES = ["Gestionnaire"];
