@@ -7,55 +7,75 @@
 
 export const SUPPORT_CATEGORIES = {
   materiel: {
-    label: "Matériel",
-    subcategories: [
-      { value: "ordinateur", label: "Ordinateur (PC/Laptop)" },
-      { value: "peripherique", label: "Périphérique (souris, clavier, écran)" },
-      { value: "imprimante", label: "Imprimante / Scanner" },
-      { value: "telephone", label: "Téléphone / Headset" },
-      { value: "reseau", label: "Équipement réseau" },
-    ]
+    label: "Problème matériel (souris, clavier, écran, ordinateur qui ne démarre pas)",
   },
   logiciel: {
-    label: "Logiciel",
-    subcategories: [
-      { value: "installation", label: "Installation / Mise à jour" },
-      { value: "erreur", label: "Erreur / Bug" },
-      { value: "acces", label: "Accès / Permissions" },
-      { value: "office365", label: "Office 365 / Teams" },
-      { value: "erp", label: "ERP / Prextra" },
-      { value: "nartex", label: "Nartex" },
-    ]
+    label: "Problème de logiciel / application (bug, lenteur, installation)",
   },
-  reseau: {
-    label: "Réseau & Connectivité",
-    subcategories: [
-      { value: "internet", label: "Connexion Internet" },
-      { value: "vpn", label: "VPN" },
-      { value: "wifi", label: "Wi-Fi" },
-      { value: "partage", label: "Partage de fichiers" },
-    ]
+  connexion: {
+    label: "Problème de connexion (Internet, Wi-Fi, VPN)",
   },
-  compte: {
-    label: "Compte & Accès",
-    subcategories: [
-      { value: "creation", label: "Création de compte" },
-      { value: "reinitialisation", label: "Réinitialisation mot de passe" },
-      { value: "permissions", label: "Permissions / Droits" },
-      { value: "desactivation", label: "Désactivation de compte" },
-    ]
+  authentification: {
+    label: "Problème d'authentification (mot de passe, connexion à une app)",
+  },
+  permission: {
+    label: "Problème de permission",
+  },
+  configuration: {
+    label: "Changement de configuration",
+  },
+  licence: {
+    label: "Assignation de licence",
+  },
+  securite: {
+    label: "Enjeu de sécurité",
+  },
+  commande_materiel: {
+    label: "Commande de matériel TI",
+  },
+  projet: {
+    label: "Projet",
   },
   autre: {
     label: "Autre",
-    subcategories: [
-      { value: "question", label: "Question générale" },
-      { value: "formation", label: "Formation / Aide" },
-      { value: "suggestion", label: "Suggestion d'amélioration" },
-    ]
-  }
+  },
 } as const;
 
 export type CategoryKey = keyof typeof SUPPORT_CATEGORIES;
+
+// =============================================================================
+// APPAREILS (DEVICES) - for regular support tickets
+// =============================================================================
+
+export const APPAREILS = [
+  { value: "desktop", label: "Desktop (PC)" },
+  { value: "laptop", label: "Laptop (PC)" },
+  { value: "ipad", label: "iPad" },
+  { value: "iphone", label: "iPhone" },
+  { value: "imprimante", label: "Imprimante" },
+  { value: "scanneur", label: "Scanneur" },
+  { value: "telephone_ip", label: "Téléphone IP" },
+  { value: "na", label: "N/A" },
+] as const;
+
+// =============================================================================
+// ÉQUIPEMENTS TI - for equipment order requests
+// =============================================================================
+
+export const EQUIPEMENTS_TI = [
+  { value: "telephone_voip", label: "Téléphone VoIP fixe" },
+  { value: "cellulaire", label: "Cellulaire" },
+  { value: "imprimante", label: "Imprimante" },
+  { value: "docking_station", label: "Docking station" },
+  { value: "laptop", label: "Laptop" },
+  { value: "ordinateur", label: "Ordinateur" },
+  { value: "moniteur", label: "Moniteur d'affichage" },
+  { value: "micro", label: "Micro" },
+  { value: "souris", label: "Souris" },
+  { value: "clavier", label: "Clavier" },
+  { value: "webcam", label: "Webcam" },
+  { value: "haut_parleurs", label: "Haut-parleurs" },
+] as const;
 
 // =============================================================================
 // IMPACT OPTIONS

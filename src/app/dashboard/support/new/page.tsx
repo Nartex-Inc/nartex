@@ -10,6 +10,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Lock, Check } from "lucide-react";
 import {
   SUPPORT_CATEGORIES,
+  APPAREILS,
+  EQUIPEMENTS_TI,
   IMPACT_OPTIONS,
   PORTEE_OPTIONS,
   URGENCE_OPTIONS,
@@ -58,7 +60,7 @@ export default function NewSupportTicketPage() {
   const [site, setSite] = React.useState("");
   const [departement, setDepartement] = React.useState("");
   const [categorie, setCategorie] = React.useState<CategoryKey | "">("");
-  const [sousCategorie, setSousCategorie] = React.useState("");
+  const [appareil, setAppareil] = React.useState("");
   const [impact, setImpact] = React.useState("");
   const [portee, setPortee] = React.useState("");
   const [urgence, setUrgence] = React.useState("");
@@ -92,10 +94,6 @@ export default function NewSupportTicketPage() {
   }, []);
 
   // Derived values
-  const subcategories = React.useMemo(() => {
-    if (!categorie) return [];
-    return SUPPORT_CATEGORIES[categorie]?.subcategories ?? [];
-  }, [categorie]);
 
   const calculatedPriority = React.useMemo<Priority | null>(() => {
     if (!impact || !portee || !urgence) return null;
@@ -122,9 +120,9 @@ export default function NewSupportTicketPage() {
     5: sectionComplete[1] && sectionComplete[2] && sectionComplete[3] && sectionComplete[4],
   }), [sectionComplete]);
 
-  // Reset subcategory when category changes
+  // Reset appareil when category changes
   React.useEffect(() => {
-    setSousCategorie("");
+    setAppareil("");
   }, [categorie]);
 
   const hasTenantContext = !!activeTenantId && !!activeTenant;
@@ -221,7 +219,7 @@ export default function NewSupportTicketPage() {
           site,
           departement,
           categorie,
-          sousCategorie: sousCategorie || undefined,
+          sousCategorie: appareil || undefined,
           impact,
           portee,
           urgence,
@@ -314,7 +312,7 @@ export default function NewSupportTicketPage() {
                   setSite("");
                   setDepartement("");
                   setCategorie("");
-                  setSousCategorie("");
+                  setAppareil("");
                   setImpact("");
                   setPortee("");
                   setUrgence("");
@@ -492,14 +490,24 @@ export default function NewSupportTicketPage() {
                     placeholder="Sélectionner..."
                     required
                   />
-                  <SelectField
-                    label="Sous-catégorie"
-                    value={sousCategorie}
-                    onChange={setSousCategorie}
-                    options={subcategories}
-                    placeholder={subcategories.length === 0 ? "Choisir d'abord une catégorie" : "Sélectionner..."}
-                    disabled={subcategories.length === 0}
-                  />
+                  {categorie === "commande_materiel" ? (
+                    <SelectField
+                      label="Équipement demandé"
+                      value={appareil}
+                      onChange={setAppareil}
+                      options={[...EQUIPEMENTS_TI]}
+                      placeholder="Sélectionner..."
+                      required
+                    />
+                  ) : (
+                    <SelectField
+                      label="Appareil concerné"
+                      value={appareil}
+                      onChange={setAppareil}
+                      options={[...APPAREILS]}
+                      placeholder="Sélectionner..."
+                    />
+                  )}
                 </div>
               </CollapsibleSection>
 
@@ -710,6 +718,14 @@ export default function NewSupportTicketPage() {
                       <SummaryRow label="Lieu" value={site ? SITES.find(s => s.value === site)?.label : "—"} />
                       <SummaryRow label="Département" value={departement ? DEPARTEMENTS.find(d => d.value === departement)?.label : "—"} />
                       <SummaryRow label="Catégorie" value={categorie ? SUPPORT_CATEGORIES[categorie]?.label : "—"} />
+                      <SummaryRow
+                        label={categorie === "commande_materiel" ? "Équipement" : "Appareil"}
+                        value={appareil
+                          ? (categorie === "commande_materiel"
+                            ? EQUIPEMENTS_TI.find(e => e.value === appareil)?.label
+                            : APPAREILS.find(a => a.value === appareil)?.label) || "—"
+                          : "—"}
+                      />
 
                       <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800">
                         <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">Priorité calculée</p>
