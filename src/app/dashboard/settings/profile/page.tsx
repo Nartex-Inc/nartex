@@ -19,6 +19,7 @@ import {
   Receipt,
   Sparkles,
   Building2,
+  Link,
 } from "lucide-react";
 import { DEPARTEMENTS } from "@/lib/support-constants";
 
@@ -111,7 +112,7 @@ function RoleBadge({ role }: { role: string }) {
 // ============================================================================
 
 export default function ProfilePage() {
-  const { data: session, update } = useSession();
+  const { data: session, status, update } = useSession();
   const { color: accentColor } = useCurrentAccent();
   const searchParams = useSearchParams();
 
@@ -133,8 +134,13 @@ export default function ProfilePage() {
   const [role, setRole] = useState("Expert");
   const [departement, setDepartement] = useState("");
 
-  // Load profile data
+  // Derive display name: prefer `name`, fall back to firstName + lastName
+  const displayName = name || [firstName, lastName].filter(Boolean).join(" ") || "Utilisateur";
+
+  // Load profile data — wait for session to be ready to avoid race condition
   useEffect(() => {
+    if (status !== "authenticated") return;
+
     async function loadProfile() {
       try {
         setIsLoading(true);
@@ -159,7 +165,7 @@ export default function ProfilePage() {
       }
     }
     loadProfile();
-  }, [targetUserId, isGestionnaire]);
+  }, [targetUserId, isGestionnaire, status]);
 
   // Save profile
   const handleSave = async () => {
@@ -168,7 +174,12 @@ export default function ProfilePage() {
       setError(null);
       setSuccessMessage(null);
 
-      const body: Record<string, string | undefined> = { name, firstName, lastName };
+      const body: Record<string, string | undefined> = {
+        name,
+        firstName,
+        lastName,
+        image,
+      };
 
       if (isEditingOther) {
         body.userId = targetUserId!;
@@ -203,7 +214,7 @@ export default function ProfilePage() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || status === "loading") {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <Loader2 className="w-8 h-8 animate-spin text-white/50 mb-4" />
@@ -212,7 +223,7 @@ export default function ProfilePage() {
     );
   }
 
-  const pageTitle = isEditingOther ? `Profil de ${name || "l'utilisateur"}` : "Mon profil";
+  const pageTitle = isEditingOther ? `Profil de ${displayName}` : "Mon profil";
   const pageDescription = isEditingOther
     ? "Modifier les informations de cet utilisateur"
     : "Gérez vos informations personnelles";
@@ -245,20 +256,34 @@ export default function ProfilePage() {
         <div className="flex items-center gap-6">
           <div className="relative">
             {image ? (
-              <img src={image} alt={name} className="w-24 h-24 rounded-2xl object-cover" />
+              <img src={image} alt={displayName} className="w-24 h-24 rounded-2xl object-cover" />
             ) : (
               <div className="w-24 h-24 rounded-2xl flex items-center justify-center text-white text-2xl font-medium" style={{ backgroundColor: `${accentColor}40` }}>
-                {name?.charAt(0)?.toUpperCase() || "?"}
+                {displayName.charAt(0).toUpperCase()}
               </div>
             )}
           </div>
           <div>
-            <p className="text-white font-medium">{name || "Utilisateur"}</p>
+            <p className="text-white font-medium">{displayName}</p>
             <p className="text-white/50 text-sm">{email}</p>
             <div className="mt-2">
               <RoleBadge role={role} />
             </div>
           </div>
+        </div>
+
+        {/* Image URL input */}
+        <div className="mt-6 pt-6 border-t border-white/10">
+          <InputField
+            label="URL de la photo"
+            icon={Link}
+            value={image}
+            onChange={setImage}
+            placeholder="https://exemple.com/photo.jpg"
+          />
+          <p className="text-white/40 text-sm mt-2">
+            Collez l&apos;URL d&apos;une image pour changer la photo de profil.
+          </p>
         </div>
       </SectionCard>
 
@@ -270,7 +295,7 @@ export default function ProfilePage() {
             icon={User}
             value={name}
             onChange={setName}
-            placeholder="Votre nom"
+            placeholder="Nom complet"
           />
           <InputField
             label="Email"
@@ -284,31 +309,15 @@ export default function ProfilePage() {
             icon={User}
             value={firstName}
             onChange={setFirstName}
-            placeholder="Votre prénom"
+            placeholder="Prénom"
           />
           <InputField
             label="Nom de famille"
             icon={User}
             value={lastName}
             onChange={setLastName}
-            placeholder="Votre nom de famille"
+            placeholder="Nom de famille"
           />
-        </div>
-
-        <div className="mt-6 pt-6 border-t border-white/10 flex justify-end">
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-white transition-all disabled:opacity-50"
-            style={{ backgroundColor: accentColor }}
-          >
-            {isSaving ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Save className="w-5 h-5" />
-            )}
-            {isSaving ? "Enregistrement..." : "Enregistrer"}
-          </button>
         </div>
       </SectionCard>
 
@@ -355,24 +364,6 @@ export default function ProfilePage() {
             </p>
           )}
         </div>
-
-        {isGestionnaire && (
-          <div className="mt-6 pt-6 border-t border-white/10 flex justify-end">
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-white transition-all disabled:opacity-50"
-              style={{ backgroundColor: accentColor }}
-            >
-              {isSaving ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Save className="w-5 h-5" />
-              )}
-              {isSaving ? "Enregistrement..." : "Enregistrer"}
-            </button>
-          </div>
-        )}
       </SectionCard>
 
       {/* Role Info (Read-only) */}
@@ -394,6 +385,23 @@ export default function ProfilePage() {
             : "Contactez un administrateur pour modifier votre rôle."}
         </p>
       </SectionCard>
+
+      {/* Single Save Button at the bottom */}
+      <div className="flex justify-end">
+        <button
+          onClick={handleSave}
+          disabled={isSaving}
+          className="flex items-center gap-2 px-8 py-3 rounded-xl font-medium text-white transition-all disabled:opacity-50"
+          style={{ backgroundColor: accentColor }}
+        >
+          {isSaving ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <Save className="w-5 h-5" />
+          )}
+          {isSaving ? "Enregistrement..." : "Enregistrer les modifications"}
+        </button>
+      </div>
     </div>
   );
 }
