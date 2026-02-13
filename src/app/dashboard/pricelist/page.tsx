@@ -2086,7 +2086,9 @@ function CataloguePageContent() {
                                             const expBaseVal = selectedPriceList?.code === "01-EXP"
                                               ? (range.columns?.["03-IND"] ?? null)
                                               : (range.columns?.["01-EXP"] ?? null);
-                                            const percentExp = calcMargin(selectedPriceVal, expBaseVal);
+                                            const percentExp = selectedPriceList?.code === "01-EXP"
+                                              ? calcMargin(expBaseVal, selectedPriceVal)
+                                              : calcMargin(selectedPriceVal, expBaseVal);
                                             return (
                                                 <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-violet-50/30 dark:bg-violet-900/10">
                                                   <span className={cn("font-mono font-bold", percentExp && percentExp < 0 ? "text-red-600 dark:text-red-400" : "text-violet-700 dark:text-violet-400")}>
@@ -2101,7 +2103,9 @@ function CataloguePageContent() {
                                             const expBaseVal = selectedPriceList?.code === "01-EXP"
                                               ? (range.columns?.["03-IND"] ?? null)
                                               : (range.columns?.["01-EXP"] ?? null);
-                                            const percentExp = calcMargin(selectedPriceVal, expBaseVal);
+                                            const percentExp = selectedPriceList?.code === "01-EXP"
+                                              ? calcMargin(expBaseVal, selectedPriceVal)
+                                              : calcMargin(selectedPriceVal, expBaseVal);
                                             return (
                                               <td className="p-3 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/10">
                                                 <div className="space-y-1 text-[10px]">
