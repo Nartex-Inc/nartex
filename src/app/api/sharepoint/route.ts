@@ -56,17 +56,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const {
-      name,
-      parentId,
-      type = "folder",
-      icon,
-      restricted = false,
-      highSecurity = false,
-      permissions,
-      editGroups: editGroupsRaw,
-      readGroups: readGroupsRaw,
-    } = body ?? {};
+    const name = body.name;
+    const parentId = typeof body.parentId === "string" ? body.parentId : null;
+    const type = typeof body.type === "string" ? body.type : "folder";
+    const icon = typeof body.icon === "string" ? body.icon : undefined;
+    const restricted = typeof body.restricted === "boolean" ? body.restricted : false;
+    const highSecurity = typeof body.highSecurity === "boolean" ? body.highSecurity : false;
+    const permissions = body.permissions as { edit?: unknown; read?: unknown } | "inherit" | null | undefined;
+    const editGroupsRaw = body.editGroups;
+    const readGroupsRaw = body.readGroups;
 
     if (!name || typeof name !== "string" || name.trim() === "") {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -123,7 +121,7 @@ export async function POST(req: Request) {
     const created = await prisma.sharePointNode.create({
       data: {
         name: name.trim(),
-        parentId: parentId ?? null,
+        parentId,
         tenantId: a.tenantId,
         type,
         icon,

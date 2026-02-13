@@ -86,7 +86,7 @@ export async function PATCH(
     }
 
     if (Object.prototype.hasOwnProperty.call(body, "parentId")) {
-      const parentId: string | null = body.parentId ?? null;
+      const parentId: string | null = typeof body.parentId === "string" ? body.parentId : null;
       if (parentId === id) {
         return NextResponse.json({ error: "Cannot set parentId to self" }, { status: 400 });
       }
@@ -119,7 +119,7 @@ export async function PATCH(
     let readGroupsToSet: string[] | null | undefined;
 
     if (Object.prototype.hasOwnProperty.call(body, "permissions")) {
-      const perms: PermSpec = body.permissions;
+      const perms = body.permissions as PermSpec;
       if (perms == null || perms === "inherit") {
         editGroupsToSet = null;
         readGroupsToSet = null;
