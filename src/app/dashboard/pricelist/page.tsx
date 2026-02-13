@@ -1120,19 +1120,8 @@ function CataloguePageContent() {
     if (pl.code === "01-EXP") {
       setIsAuthenticating(true);
       try {
-        const resp = await fetch("/api/auth/challenge");
-        if (!resp.ok) throw new Error("Challenge fetch failed");
-        const { type, options } = await resp.json();
-        const authResp = type === "authenticate"
-          ? await startAuthentication(options)
-          : await startRegistration(options);
-        const verifyResp = await fetch("/api/auth/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type, response: authResp }),
-        });
-        const verification = await verifyResp.json();
-        if (!verification.verified) {
+        const verified = await performWebAuthn();
+        if (!verified) {
           alert("Vérification échouée.");
           return;
         }
@@ -1265,6 +1254,42 @@ function CataloguePageContent() {
     setPriceData((prev) => prev.filter((item) => item.itemId !== itemId));
   };
 
+  const performWebAuthn = async (): Promise<boolean> => {
+    const resp = await fetch("/api/auth/challenge");
+    if (!resp.ok) throw new Error("Challenge fetch failed");
+    const { type, options } = await resp.json();
+
+    let authResp;
+    if (type === "authenticate") {
+      try {
+        authResp = await startAuthentication(options);
+      } catch {
+        // No matching credential on this device — fall back to registering a new one
+        const regResp = await fetch("/api/auth/challenge?register=true");
+        if (!regResp.ok) throw new Error("Registration challenge failed");
+        const regData = await regResp.json();
+        authResp = await startRegistration(regData.options);
+        const verifyResp = await fetch("/api/auth/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "register", response: authResp }),
+        });
+        const verification = await verifyResp.json();
+        return verification.verified;
+      }
+    } else {
+      authResp = await startRegistration(options);
+    }
+
+    const verifyResp = await fetch("/api/auth/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, response: authResp }),
+    });
+    const verification = await verifyResp.json();
+    return verification.verified;
+  };
+
   const handleToggleDetails = async () => {
     if (showDetails) {
       setShowDetails(false);
@@ -1272,24 +1297,8 @@ function CataloguePageContent() {
     }
     setIsAuthenticating(true);
     try {
-      const resp = await fetch("/api/auth/challenge");
-      if (!resp.ok) throw new Error("Challenge fetch failed");
-      const { type, options } = await resp.json();
-
-      let authResp;
-      if (type === "authenticate") {
-        authResp = await startAuthentication(options);
-      } else {
-        authResp = await startRegistration(options);
-      }
-
-      const verifyResp = await fetch("/api/auth/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, response: authResp }),
-      });
-      const verification = await verifyResp.json();
-      if (verification.verified) setShowDetails(true);
+      const verified = await performWebAuthn();
+      if (verified) setShowDetails(true);
       else {
         alert("Vérification échouée.");
         setShowDetails(false);

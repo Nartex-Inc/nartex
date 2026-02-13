@@ -7,10 +7,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { searchParams } = new URL(request.url);
+  const forceRegister = searchParams.get("register") === "true";
 
   let rpID = process.env.RP_ID;
   if (!rpID) {
@@ -34,7 +37,7 @@ export async function GET() {
   let challenge: string;
   let responseBody: Record<string, unknown>;
 
-  if (existingCreds.length > 0) {
+  if (existingCreds.length > 0 && !forceRegister) {
     // AUTHENTICATION flow — user already registered, go straight to Windows Hello
     const options = await generateAuthenticationOptions({
       rpID,

@@ -80,6 +80,7 @@ nartex/
 **Prextra ERP (Read-Only Replicas):**
 - `Items`, `Locations`, `SOHeader`, `Customers`, `Carriers`
 - `Salesrep`, `ShipmentHdr`, `Itemsite`, `Sites`
+- `RecordSpecData`, `_DiscountMaintenanceHdr` (used for `_costdiff` pricing in 01-EXP)
 
 ### Key Enums
 - `UserRole`: Gestionnaire, Analyste, Vérificateur, Facturation, Expert, user
@@ -105,16 +106,30 @@ nartex/
 - New customer tracking (no purchases in past 3 years)
 - Advanced filtering by rep, products, customers, date ranges
 
-### 3. Integrations
+### 3. Price List Management (Pricelist Module)
+- Full-screen catalogue page at `/dashboard/pricelist`
+- **Column matrix**: Each price list code (01-EXP, 02-DET, 03-IND, etc.) shows a configured set of comparison columns
+- **01-EXP special handling**:
+  - Protected behind WebAuthn/biometric authentication
+  - Uses `_costdiff` from `_DiscountMaintenanceHdr` via `RecordSpecData` to compute tiered pricing above caisse qty
+  - Shows `%Exp (vs. IND)` margin column (compares EXP cost against IND sell price)
+  - "Envoyer" (email) button disabled when 01-EXP is selected
+- **PDF export**: jsPDF + jspdf-autotable with corporate branding, category/class grouping, and conditional `%Exp` column
+- **Details mode**: Requires biometric auth to toggle, shows $/Cs and %Exp columns
+- **Quick add**: Search panel to add individual items by code
+- **Email**: Send generated PDF via Nodemailer
+
+### 4. Integrations
 - **Prextra ERP**: Orders, inventory, customer data sync
 - **Google Drive**: Document management
 - **Google Maps**: Customer geographic visualization
 - **SharePoint**: File hierarchy and sharing
 
-### 4. Authentication
+### 5. Authentication
 - Email/password with bcrypt hashing
 - Google OAuth 2.0
 - Microsoft Azure AD / Entra ID
+- **WebAuthn/Biometric**: Used to gate sensitive views (01-EXP pricelist, details mode) via `@simplewebauthn/browser`
 - Role-based access control (RBAC)
 - Email verification flow
 - Password reset tokens
@@ -254,6 +269,9 @@ SMTP_PASS=
 | Database schema | `prisma/schema.prisma` |
 | Auth middleware | `middleware.ts` |
 | Main dashboard | `src/app/dashboard/page.tsx` |
+| Pricelist page | `src/app/dashboard/pricelist/page.tsx` |
+| Prices API | `src/app/api/catalogue/prices/route.ts` |
+| Prextra helpers | `src/lib/prextra.ts` |
 | Theme tokens | `src/lib/theme-tokens.ts` |
 | Docker build | `Dockerfile` |
 | CI/CD | `buildspec.yml` |
@@ -273,5 +291,5 @@ SMTP_PASS=
 - Admin bypass: `n.labranche@sinto.ca`
 
 ---
-*Last updated: 2026-02-04*
+*Last updated: 2026-02-13*
 *Maintainer: @nlabranche / Nartex-Inc*
