@@ -165,6 +165,31 @@ export async function GET(request: NextRequest) {
       pg.query(pricesQuery, pricesParams)
     ]);
 
+    // --- Fetch _costdiff per item via RecordSpecData → _DiscountMaintenanceHdr ---
+    const costdiffMap: Record<number, number> = {};
+    const caisseMap: Record<number, number> = {};
+
+    const allItemIds = itemsRes.rows.map((r: any) => r.itemId);
+    for (const item of itemsRes.rows) {
+      caisseMap[item.itemId] = item.caisse ? parseFloat(item.caisse) : 0;
+    }
+
+    if (allItemIds.length > 0) {
+      const costdiffRes = await pg.query(
+        `SELECT rsd."TableId" AS "itemId", dmh."_costdiff" AS "costdiff"
+         FROM ${T.RECORD_SPEC_DATA} rsd
+         JOIN ${T.DISCOUNT_MAINTENANCE_HDR} dmh
+           ON CAST(rsd."FieldValue" AS INTEGER) = dmh."DiscountMaintenanceHdrId"
+         WHERE rsd."TableName" = 'items'
+           AND rsd."FieldName" = 'DiscountMaintenance'
+           AND rsd."TableId" = ANY($1)`,
+        [allItemIds]
+      );
+      for (const row of costdiffRes.rows) {
+        costdiffMap[row.itemId] = parseFloat(row.costdiff);
+      }
+    }
+
     // --- Processing Data ---
 
     // Map Prices: ItemID -> Qty -> PriceID -> { price, discount }
@@ -182,6 +207,36 @@ export async function GET(request: NextRequest) {
       if (!pricesMap[iId][qty]) pricesMap[iId][qty] = {};
 
       pricesMap[iId][qty][pId] = { price, discount };
+    }
+
+    // Override 01-EXP prices for tiers above caisse using _costdiff
+    const expPriceId = codeToIdMap["01-EXP"];
+    if (expPriceId) {
+      for (const iId of Object.keys(pricesMap).map(Number)) {
+        const costdiff = costdiffMap[iId];
+        if (costdiff === undefined || costdiff <= 0) continue;
+
+        const caisse = caisseMap[iId];
+        if (!caisse || caisse <= 0) continue;
+
+        const itemPrices = pricesMap[iId];
+        const baseCostEntry = itemPrices[caisse]?.[expPriceId];
+        if (!baseCostEntry) continue;
+
+        const baseCost = baseCostEntry.price;
+        const quantities = Object.keys(itemPrices).map(Number).sort((a, b) => a - b);
+        const tiersAboveCaisse = quantities.filter(q => q > caisse);
+
+        for (let n = 0; n < tiersAboveCaisse.length; n++) {
+          const qty = tiersAboveCaisse[n];
+          const newPrice = Math.round((baseCost - (n + 1) * costdiff) * 100) / 100;
+          if (!itemPrices[qty]) itemPrices[qty] = {};
+          itemPrices[qty][expPriceId] = {
+            price: newPrice,
+            discount: itemPrices[qty][expPriceId]?.discount ?? 0
+          };
+        }
+      }
     }
 
     // Fill missing quantity prices using discount ratios from reference price lists
