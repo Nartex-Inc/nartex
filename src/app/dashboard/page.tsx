@@ -658,9 +658,49 @@ const DashboardContent = () => {
     };
   }, [activeDateRange.start]);
 
-  // Data fetching
-  useEffect(() => {
-    const fetchData = async () => {
+  // Cache helpers
+  const getCacheKey = useCallback(
+    () => `dashboard_${activeDateRange.start}_${activeDateRange.end}`,
+    [activeDateRange]
+  );
+
+  const loadFromCache = useCallback(() => {
+    try {
+      const raw = sessionStorage.getItem(getCacheKey());
+      if (!raw) return null;
+      return JSON.parse(raw) as {
+        master: SalesRecord[];
+        previous: SalesRecord[];
+        history3y: SalesRecord[];
+      };
+    } catch {
+      return null;
+    }
+  }, [getCacheKey]);
+
+  const saveToCache = useCallback(
+    (master: SalesRecord[], previous: SalesRecord[], history3y: SalesRecord[]) => {
+      try {
+        sessionStorage.setItem(getCacheKey(), JSON.stringify({ master, previous, history3y }));
+      } catch { /* storage full — ignore */ }
+    },
+    [getCacheKey]
+  );
+
+  // Data fetching — serves from cache unless forceRefresh is true
+  const fetchDashboardData = useCallback(
+    async (forceRefresh = false) => {
+      if (!forceRefresh) {
+        const cached = loadFromCache();
+        if (cached) {
+          setMasterData(cached.master);
+          setPreviousYearData(cached.previous);
+          setHistory3yData(cached.history3y);
+          setIsLoading(false);
+          return;
+        }
+      }
+
       setIsLoading(true);
       setError(null);
       try {
@@ -675,17 +715,26 @@ const DashboardContent = () => {
           throw new Error(errorData.error || `HTTP ${currentRes.status}`);
         }
 
-        setMasterData(await currentRes.json());
-        setPreviousYearData(prevRes.ok ? await prevRes.json() : []);
-        setHistory3yData(histRes.ok ? await histRes.json() : []);
+        const master = await currentRes.json();
+        const previous = prevRes.ok ? await prevRes.json() : [];
+        const history3y = histRes.ok ? await histRes.json() : [];
+
+        setMasterData(master);
+        setPreviousYearData(previous);
+        setHistory3yData(history3y);
+        saveToCache(master, previous, history3y);
       } catch (err) {
         setError(err as Error);
       } finally {
         setIsLoading(false);
       }
-    };
-    fetchData();
-  }, [activeDateRange, previousYearDateRange, lookback3y]);
+    },
+    [activeDateRange, previousYearDateRange, lookback3y, loadFromCache, saveToCache]
+  );
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   // Derived data
   const allSalesReps = useMemo(
@@ -1133,6 +1182,21 @@ const DashboardContent = () => {
               }}
             >
               Appliquer
+            </button>
+
+            <button
+              onClick={() => fetchDashboardData(true)}
+              disabled={isLoading}
+              className="px-4 py-2 rounded-full text-[0.875rem] font-medium transition-all duration-200 disabled:opacity-50"
+              style={{
+                background: t.surface2,
+                color: t.textSecondary,
+                border: `1px solid ${t.borderSubtle}`,
+              }}
+              title="Actualiser les données"
+            >
+              <RotateCcw className={`w-4 h-4 inline mr-1.5 ${isLoading ? "animate-spin" : ""}`} />
+              Actualiser
             </button>
 
             {hasActiveFilters && (
