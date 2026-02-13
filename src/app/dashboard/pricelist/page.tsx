@@ -1726,9 +1726,9 @@ function CataloguePageContent() {
                 {/* Email Button with Label */}
                 <ActionButton
                   onClick={() => setShowEmailModal(true)}
-                  disabled={priceData.length === 0}
+                  disabled={priceData.length === 0 || showDetails}
                   icon={Mail}
-                  title="Envoyer par courriel"
+                  title={showDetails ? "Désactivé en mode détails" : "Envoyer par courriel"}
                   primary
                   label={!isCompact ? "Envoyer" : undefined}
                 />
@@ -1970,10 +1970,10 @@ function CataloguePageContent() {
                                     <th className={cn("text-right font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/20 whitespace-nowrap", isCompact ? "p-3" : "p-4")}>$/{commonUnit}</th>
                                   )}
                                   {showDetails && isSelectedList && !isCompact && (
-                                    <>
-                                      <th className="text-right p-4 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/20 whitespace-nowrap">$/Cs</th>
-                                      <th className="text-right p-4 font-black text-violet-700 dark:text-violet-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-violet-50/50 dark:bg-violet-900/20 whitespace-nowrap">%Exp</th>
-                                    </>
+                                    <th className="text-right p-4 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/20 whitespace-nowrap">$/Cs</th>
+                                  )}
+                                  {(showDetails || selectedPriceList?.code === "01-EXP") && isSelectedList && !isCompact && (
+                                    <th className="text-right p-4 font-black text-violet-700 dark:text-violet-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-violet-50/50 dark:bg-violet-900/20 whitespace-nowrap">%Exp</th>
                                   )}
                                   {showDetails && isSelectedList && isCompact && (
                                     <th className="text-right p-3 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/20 whitespace-nowrap">Détails</th>
@@ -2045,19 +2045,22 @@ function CataloguePageContent() {
                                           {showDetails && isSelectedList && !isCompact && (() => {
                                             const selectedPriceVal = priceVal ?? 0;
                                             const ppc = calcPricePerCaisse(selectedPriceVal, item.caisse);
-                                            const expBaseVal = range.columns?.["01-EXP"] ?? null;
-                                            const percentExp = calcMargin(selectedPriceVal, expBaseVal);
                                             return (
-                                              <>
                                                 <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/10">
                                                   <span className="font-mono text-sky-700 dark:text-sky-400">{ppc ? ppc.toFixed(2) : "-"}</span>
                                                 </td>
+                                            );
+                                          })()}
+                                          {(showDetails || selectedPriceList?.code === "01-EXP") && isSelectedList && !isCompact && (() => {
+                                            const selectedPriceVal = priceVal ?? 0;
+                                            const expBaseVal = range.columns?.["01-EXP"] ?? null;
+                                            const percentExp = calcMargin(selectedPriceVal, expBaseVal);
+                                            return (
                                                 <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-violet-50/30 dark:bg-violet-900/10">
                                                   <span className={cn("font-mono font-bold", percentExp && percentExp < 0 ? "text-red-600 dark:text-red-400" : "text-violet-700 dark:text-violet-400")}>
                                                     {percentExp !== null ? `${percentExp.toFixed(1)}%` : "-"}
                                                   </span>
                                                 </td>
-                                              </>
                                             );
                                           })()}
                                           {showDetails && isSelectedList && isCompact && (() => {
