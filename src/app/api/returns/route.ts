@@ -2,13 +2,13 @@
 // Main returns API with role-based filtering
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
 import { formatReturnCode, getReturnStatus } from "@/types/returns";
 import type { ReturnRow, Reporter, Cause } from "@/types/returns";
 import { Prisma } from "@prisma/client";
 import { notifyReturnCreated } from "@/lib/notifications";
+import { requireTenant, normalizeRole } from "@/lib/auth-helpers";
+import { CreateReturnSchema } from "@/lib/validations";
 
 // User roles
 export type UserRole = "Gestionnaire" | "Vérificateur" | "Facturation" | "Expert" | "Analyste";
@@ -31,15 +31,9 @@ const LEGACY_USER_MAP: Record<string, string> = {
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
-
-    const tenantId = session.user.activeTenantId;
-    if (!tenantId) {
-      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
-    }
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { user, tenantId } = auth;
 
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get("mode");
@@ -62,11 +56,11 @@ export async function GET(request: NextRequest) {
     const history = searchParams.get("history") === "true"; // Archive/History toggle
     const take = parseInt(searchParams.get("take") || "200", 10);
 
-    const userRole = (session.user as { role?: string }).role as UserRole | undefined;
-    const userName = session.user.name || "";
-    
+    const userRole = user.role as UserRole | undefined;
+    const userName = user.name || "";
+
     // Normalize role for comparison (handle accent variations)
-    const normalizedRole = userRole?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() || "";
+    const normalizedRole = normalizeRole(userRole);
 
     const where: Prisma.ReturnWhereInput = { tenantId };
     const AND: Prisma.ReturnWhereInput[] = [];
@@ -178,7 +172,7 @@ export async function GET(request: NextRequest) {
 
     const emailsToFetch = new Set<string>();
 
-    const resolveCreatorEmail = (ret: any): string | null => {
+    const resolveCreatorEmail = (ret: { initiatedBy: string | null }): string | null => {
       if (ret.initiatedBy) {
         const initiator = ret.initiatedBy.trim();
         if (LEGACY_USER_MAP[initiator]) return LEGACY_USER_MAP[initiator];
@@ -301,7 +295,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({ ok: true, data, userRole });
+    return NextResponse.json({ ok: true, data, userRole: user.role });
   } catch (error) {
     console.error("GET /api/returns error:", error);
     return NextResponse.json(
@@ -313,40 +307,33 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
-
-    const tenantId = session.user.activeTenantId;
-    if (!tenantId) {
-      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
-    }
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { user, tenantId } = auth;
 
     // Only Gestionnaire can create returns
-    const userRole = (session.user as { role?: string }).role;
-    const normalizedRole = userRole?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() || "";
-    if (normalizedRole !== "gestionnaire") {
+    if (normalizeRole(user.role) !== "gestionnaire") {
       return NextResponse.json(
         { ok: false, error: "Seul un gestionnaire peut créer un retour" },
         { status: 403 }
       );
     }
 
-    const body = await request.json();
-
-    if (!body.expert || !body.client) {
+    const raw = await request.json();
+    const parsed = CreateReturnSchema.safeParse(raw);
+    if (!parsed.success) {
       return NextResponse.json(
-        { ok: false, error: "Expert et client sont requis" },
+        { ok: false, error: "Données invalides", details: parsed.error.flatten() },
         { status: 400 }
       );
     }
+    const body = parsed.data;
 
     const hasRequiredFields = body.reporter && body.cause && body.expert && body.client;
-    const hasProducts = body.products 
-      && body.products.length > 0 
-      && body.products.some((p: { quantite?: number }) => (p.quantite ?? 0) > 0);
-    
+    const hasProducts = body.products
+      && body.products.length > 0
+      && body.products.some((p) => (p.quantite ?? 0) > 0);
+
     const isDraft = !(hasRequiredFields && hasProducts);
 
     const lastReturn = await prisma.return.findFirst({
@@ -382,7 +369,7 @@ export async function POST(request: NextRequest) {
         isFinal: false,
         isVerified: false,
         isStandby: false,
-        initiatedBy: session.user.name || session.user.email || "Système",
+        initiatedBy: user.name || user.email || "Système",
         initializedAt: new Date(),
         noCommandeCheckbox: body.noCommandeCheckbox ?? false,
         products: {
@@ -404,7 +391,7 @@ export async function POST(request: NextRequest) {
       returnId: ret.id,
       returnCode: formatReturnCode(ret.id),
       client: body.client,
-      userName: session.user.name || session.user.email || "Système",
+      userName: user.name || user.email || "Système",
       tenantId,
     }).catch(console.error);
 

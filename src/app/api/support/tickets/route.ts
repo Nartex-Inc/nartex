@@ -2,9 +2,8 @@
 // Support tickets API - Create and list tickets
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
+import { requireTenant, isGestionnaire } from "@/lib/auth-helpers";
 import { calculatePriority, getEntiteForTenant, getPriorityInfo, SUPPORT_CATEGORIES, type CategoryKey } from "@/lib/support-constants";
 import { sendTicketNotificationEmail, sendTicketConfirmationEmail } from "@/lib/email";
 import { notifyNewSupportTicket } from "@/lib/notifications";
@@ -15,29 +14,19 @@ import { notifyNewSupportTicket } from "@/lib/notifications";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { user, tenantId } = auth;
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const view = searchParams.get("view");
-    const tenantId = session.user.activeTenantId;
-
-    if (!tenantId) {
-      return NextResponse.json({ ok: false, error: "Aucun tenant actif" }, { status: 400 });
-    }
-
-    const userRole = (session.user as any).role;
-    const userEmail = session.user.email;
-    const isGestionnaire = userRole === "Gestionnaire" || userEmail === "n.labranche@sinto.ca";
 
     const whereClause: Record<string, unknown> = { tenantId };
 
     // Demandeur sees only their own tickets
-    if (!isGestionnaire) {
-      whereClause.userId = session.user.id;
+    if (!isGestionnaire(user)) {
+      whereClause.userId = user.id;
     }
 
     // Filter by status or view mode
@@ -109,18 +98,9 @@ interface CreateTicketPayload {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
-
-    const tenantId = session.user.activeTenantId;
-    if (!tenantId) {
-      return NextResponse.json(
-        { ok: false, error: "Problème de contexte Nartex - aucun tenant actif. Veuillez recharger la page." },
-        { status: 400 }
-      );
-    }
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { user, tenantId } = auth;
 
     // Get tenant info
     const tenant = await prisma.tenant.findUnique({
@@ -198,9 +178,9 @@ export async function POST(request: NextRequest) {
     const ticket = await prisma.supportTicket.create({
       data: {
         code: ticketCode,
-        userId: session.user.id,
-        userEmail: session.user.email || "",
-        userName: session.user.name || "",
+        userId: user.id,
+        userEmail: user.email || "",
+        userName: user.name || "",
         userPhone: body.userPhone || null,
         tenantId: tenant.id,
         tenantName: tenant.name,
@@ -226,8 +206,8 @@ export async function POST(request: NextRequest) {
       ticketCode,
       sujet: body.sujet,
       description: body.description,
-      userName: session.user.name || "",
-      userEmail: session.user.email || "",
+      userName: user.name || "",
+      userEmail: user.email || "",
       tenantName: tenant.name,
       tenantLogo: tenant.logo,
       site: body.site,
@@ -245,7 +225,7 @@ export async function POST(request: NextRequest) {
       sujet: body.sujet,
       priorite,
       tenantId: tenant.id,
-      userName: session.user.name || "",
+      userName: user.name || "",
     }).catch((err) => console.error("Failed to create in-app notification:", err));
 
     // Send confirmation email to the requester (fire and forget)
@@ -253,8 +233,8 @@ export async function POST(request: NextRequest) {
       ticketCode,
       sujet: body.sujet,
       description: body.description,
-      userName: session.user.name || "",
-      userEmail: session.user.email || "",
+      userName: user.name || "",
+      userEmail: user.email || "",
       tenantName: tenant.name,
       tenantLogo: tenant.logo,
       priorite,

@@ -2,24 +2,20 @@
 // GET /api/orders/:sonbr
 
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
 import { getPrextraTables } from "@/lib/prextra";
+import { requireSchema } from "@/lib/auth-helpers";
 
-export async function GET(_req: Request, context: any) {
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ sonbr: string }> }
+) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, exists: false, error: "Non autorisé" }, { status: 401 });
-    }
+    const auth = await requireSchema();
+    if (!auth.ok) return auth.response;
+    const { schema } = auth;
 
-    const schema = session.user.prextraSchema;
-    if (!schema) {
-      return NextResponse.json({ ok: false, exists: false, error: "Aucun schéma Prextra configuré" }, { status: 403 });
-    }
-
-    const raw = context?.params?.sonbr ?? "";
+    const { sonbr: raw } = await params;
     let decoded = "";
     try {
       decoded = decodeURIComponent(String(raw)).trim();

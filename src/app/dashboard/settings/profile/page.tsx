@@ -52,15 +52,15 @@ function SectionCard({ title, description, icon: Icon, children, accentColor }: 
   accentColor: string;
 }) {
   return (
-    <div className="bg-[#1a1a2e]/80 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden">
-      <div className="p-6 border-b border-white/10">
+    <div className="bg-[hsl(var(--bg-elevated))]/80 backdrop-blur-sm rounded-2xl border border-[hsl(var(--border-subtle))] overflow-hidden">
+      <div className="p-6 border-b border-[hsl(var(--border-subtle))]">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}20` }}>
             <Icon className="w-5 h-5" style={{ color: accentColor }} />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">{title}</h2>
-            {description && <p className="text-sm text-white/50">{description}</p>}
+            <h2 className="text-lg font-semibold text-[hsl(var(--text-primary))]">{title}</h2>
+            {description && <p className="text-sm text-[hsl(var(--text-muted))]">{description}</p>}
           </div>
         </div>
       </div>
@@ -80,16 +80,16 @@ function InputField({ label, icon: Icon, value, onChange, placeholder, disabled,
 }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-white/70 mb-2">{label}</label>
+      <label className="block text-sm font-medium text-[hsl(var(--text-secondary))] mb-2">{label}</label>
       <div className="relative">
-        <Icon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+        <Icon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[hsl(var(--text-tertiary))]" />
         <input
           type={type}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           disabled={disabled}
-          className={`w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+          className={`w-full pl-12 pr-4 py-3 bg-white/5 border border-[hsl(var(--border-subtle))] rounded-xl text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-tertiary))] focus:outline-none focus:border-white/30 transition-colors ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
         />
       </div>
     </div>
@@ -115,8 +115,8 @@ export default function ProfilePageWrapper() {
   return (
     <Suspense fallback={
       <div className="flex flex-col items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-white/50 mb-4" />
-        <p className="text-white/50">Chargement du profil...</p>
+        <Loader2 className="w-8 h-8 animate-spin text-[hsl(var(--text-muted))] mb-4" />
+        <p className="text-[hsl(var(--text-muted))]">Chargement du profil...</p>
       </div>
     }>
       <ProfilePage />
@@ -230,8 +230,8 @@ function ProfilePage() {
   if (isLoading || status === "loading") {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-white/50 mb-4" />
-        <p className="text-white/50">Chargement du profil...</p>
+        <Loader2 className="w-8 h-8 animate-spin text-[hsl(var(--text-muted))] mb-4" />
+        <p className="text-[hsl(var(--text-muted))]">Chargement du profil...</p>
       </div>
     );
   }
@@ -245,8 +245,8 @@ function ProfilePage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">{pageTitle}</h1>
-        <p className="text-white/50 mt-1">{pageDescription}</p>
+        <h1 className="text-2xl font-bold text-[hsl(var(--text-primary))]">{pageTitle}</h1>
+        <p className="text-[hsl(var(--text-muted))] mt-1">{pageDescription}</p>
       </div>
 
       {/* Messages */}
@@ -271,14 +271,14 @@ function ProfilePage() {
             {image ? (
               <img src={image} alt={displayName} className="w-24 h-24 rounded-2xl object-cover" />
             ) : (
-              <div className="w-24 h-24 rounded-2xl flex items-center justify-center text-white text-2xl font-medium" style={{ backgroundColor: `${accentColor}40` }}>
+              <div className="w-24 h-24 rounded-2xl flex items-center justify-center text-[hsl(var(--text-primary))] text-2xl font-medium" style={{ backgroundColor: `${accentColor}40` }}>
                 {displayName.charAt(0).toUpperCase()}
               </div>
             )}
           </div>
           <div>
-            <p className="text-white font-medium">{displayName}</p>
-            <p className="text-white/50 text-sm">{email}</p>
+            <p className="text-[hsl(var(--text-primary))] font-medium">{displayName}</p>
+            <p className="text-[hsl(var(--text-muted))] text-sm">{email}</p>
             <div className="mt-2">
               <RoleBadge role={role} />
             </div>
@@ -286,7 +286,7 @@ function ProfilePage() {
         </div>
 
         {/* Image URL input */}
-        <div className="mt-6 pt-6 border-t border-white/10">
+        <div className="mt-6 pt-6 border-t border-[hsl(var(--border-subtle))]">
           <InputField
             label="URL de la photo"
             icon={Link}
@@ -294,7 +294,7 @@ function ProfilePage() {
             onChange={setImage}
             placeholder="https://exemple.com/photo.jpg"
           />
-          <p className="text-white/40 text-sm mt-2">
+          <p className="text-[hsl(var(--text-muted))] text-sm mt-2">
             Collez l&apos;URL d&apos;une image pour changer la photo de profil.
           </p>
         </div>
@@ -337,14 +337,14 @@ function ProfilePage() {
       {/* Département */}
       <SectionCard title="Département" icon={Building2} accentColor={accentColor}>
         <div className="max-w-md">
-          <label className="block text-sm font-medium text-white/70 mb-2">Département</label>
+          <label className="block text-sm font-medium text-[hsl(var(--text-secondary))] mb-2">Département</label>
           {isGestionnaire ? (
             <div className="relative">
-              <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+              <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[hsl(var(--text-tertiary))]" />
               <select
                 value={departement}
                 onChange={(e) => setDepartement(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-white/30 transition-colors appearance-none cursor-pointer"
+                className="w-full pl-12 pr-4 py-3 bg-white/5 border border-[hsl(var(--border-subtle))] rounded-xl text-[hsl(var(--text-primary))] focus:outline-none focus:border-white/30 transition-colors appearance-none cursor-pointer"
                 style={{
                   backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
                   backgroundRepeat: "no-repeat",
@@ -362,17 +362,17 @@ function ProfilePage() {
             </div>
           ) : (
             <div className="relative">
-              <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+              <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[hsl(var(--text-tertiary))]" />
               <input
                 type="text"
                 value={departement ? DEPARTEMENTS.find((d) => d.value === departement)?.label || departement : "Non défini"}
                 disabled
-                className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white opacity-50 cursor-not-allowed"
+                className="w-full pl-12 pr-4 py-3 bg-white/5 border border-[hsl(var(--border-subtle))] rounded-xl text-[hsl(var(--text-primary))] opacity-50 cursor-not-allowed"
               />
             </div>
           )}
           {!isGestionnaire && (
-            <p className="text-white/40 text-sm mt-2">
+            <p className="text-[hsl(var(--text-muted))] text-sm mt-2">
               Contactez un gestionnaire pour modifier votre département.
             </p>
           )}
@@ -381,18 +381,18 @@ function ProfilePage() {
 
       {/* Role Info (Read-only) */}
       <SectionCard title="Rôle et permissions" icon={Shield} accentColor={accentColor}>
-        <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
+        <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-[hsl(var(--border-subtle))]">
           <div>
-            <p className="text-white font-medium">
+            <p className="text-[hsl(var(--text-primary))] font-medium">
               {isEditingOther ? "Rôle actuel" : "Votre rôle actuel"}
             </p>
-            <p className="text-white/50 text-sm mt-1">
+            <p className="text-[hsl(var(--text-muted))] text-sm mt-1">
               {getRoleConfig(role).description}
             </p>
           </div>
           <RoleBadge role={role} />
         </div>
-        <p className="text-white/40 text-sm mt-4">
+        <p className="text-[hsl(var(--text-muted))] text-sm mt-4">
           {isEditingOther
             ? "Modifiez le rôle depuis la page de gestion des rôles."
             : "Contactez un administrateur pour modifier votre rôle."}
@@ -404,7 +404,7 @@ function ProfilePage() {
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="flex items-center gap-2 px-8 py-3 rounded-xl font-medium text-white transition-all disabled:opacity-50"
+          className="flex items-center gap-2 px-8 py-3 rounded-xl font-medium text-[hsl(var(--text-primary))] transition-all disabled:opacity-50"
           style={{ backgroundColor: accentColor }}
         >
           {isSaving ? (

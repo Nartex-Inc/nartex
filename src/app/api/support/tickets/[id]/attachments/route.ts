@@ -2,9 +2,8 @@
 // Upload and delete attachments for support tickets
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requireTenant, isGestionnaire, getErrorMessage } from "@/lib/auth-helpers";
 import { Buffer } from "buffer";
 import {
   uploadFileToDrive,
@@ -24,15 +23,9 @@ export async function POST(
   { params }: RouteContext
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
-
-    const tenantId = session.user.activeTenantId;
-    if (!tenantId) {
-      return NextResponse.json({ ok: false, error: "Aucun tenant actif" }, { status: 403 });
-    }
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { tenantId } = auth;
 
     const { id } = await params;
 
@@ -54,8 +47,8 @@ export async function POST(
     let formData;
     try {
       formData = await request.formData();
-    } catch (formError: any) {
-      return NextResponse.json({ ok: false, error: `Erreur FormData: ${formError.message}` }, { status: 400 });
+    } catch (formError: unknown) {
+      return NextResponse.json({ ok: false, error: `Erreur FormData: ${getErrorMessage(formError)}` }, { status: 400 });
     }
 
     const files = formData.getAll("files");
@@ -88,7 +81,7 @@ export async function POST(
     const errors: string[] = [];
 
     for (let i = 0; i < files.length; i++) {
-      const file = files[i] as any;
+      const file = files[i] as File;
 
       if (!file || typeof file.arrayBuffer !== "function" || typeof file.name !== "string") {
         errors.push(`Item ${i} n'est pas un fichier valide`);
@@ -118,8 +111,8 @@ export async function POST(
       let driveResult;
       try {
         driveResult = await uploadFileToDrive(buffer, file.name, file.type || "application/octet-stream");
-      } catch (driveErr: any) {
-        errors.push(`${file.name}: ${driveErr.message}`);
+      } catch (driveErr: unknown) {
+        errors.push(`${file.name}: ${getErrorMessage(driveErr)}`);
         continue;
       }
 
@@ -140,7 +133,7 @@ export async function POST(
             commentId: commentId || null,
           },
         });
-      } catch (dbErr: any) {
+      } catch (dbErr: unknown) {
         console.error("DB save failed for attachment:", dbErr);
         await deleteFileFromDrive(driveResult.fileId).catch(console.error);
         errors.push(`${file.name}: erreur base de données`);
@@ -171,10 +164,10 @@ export async function POST(
       attachments: uploadedAttachments,
       errors: errors.length > 0 ? errors : undefined,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("POST /api/support/tickets/[id]/attachments error:", error);
     return NextResponse.json(
-      { ok: false, error: error instanceof Error ? error.message : "Erreur serveur" },
+      { ok: false, error: getErrorMessage(error) || "Erreur serveur" },
       { status: 500 }
     );
   }
@@ -189,15 +182,9 @@ export async function DELETE(
   { params }: RouteContext
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
-
-    const tenantId = session.user.activeTenantId;
-    if (!tenantId) {
-      return NextResponse.json({ ok: false, error: "Aucun tenant actif" }, { status: 403 });
-    }
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { user, tenantId } = auth;
 
     const { id } = await params;
     const { searchParams } = new URL(request.url);
@@ -218,11 +205,9 @@ export async function DELETE(
     }
 
     // Check permission: Gestionnaire or ticket owner
-    const userRole = (session.user as any).role;
-    const isGestionnaire = userRole === "Gestionnaire" || session.user.email === "n.labranche@sinto.ca";
-    const isOwner = ticket.userId === session.user.id;
+    const isOwner = ticket.userId === user.id;
 
-    if (!isGestionnaire && !isOwner) {
+    if (!isGestionnaire(user) && !isOwner) {
       return NextResponse.json({ ok: false, error: "Accès refusé" }, { status: 403 });
     }
 
@@ -247,10 +232,10 @@ export async function DELETE(
       ok: true,
       message: "Pièce jointe supprimée",
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("DELETE /api/support/tickets/[id]/attachments error:", error);
     return NextResponse.json(
-      { ok: false, error: error instanceof Error ? error.message : "Erreur serveur" },
+      { ok: false, error: getErrorMessage(error) || "Erreur serveur" },
       { status: 500 }
     );
   }

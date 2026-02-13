@@ -9,7 +9,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-white/10 bg-white/[0.02] p-4",
+        "rounded-2xl border border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-surface))] p-4",
         className
       )}
       {...props}
@@ -32,7 +32,7 @@ export function CardTitle({
   return (
     <div
       className={cn(
-        "flex items-center gap-2 text-sm font-medium tracking-wide text-white",
+        "flex items-center gap-2 text-sm font-medium tracking-wide text-[hsl(var(--text-primary))]",
         className
       )}
     >

@@ -2,11 +2,10 @@
 // Single return operations - GET (detail), PUT (update), DELETE (remove)
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
 import { parseReturnCode, formatReturnCode, getReturnStatus } from "@/types/returns";
 import type { ReturnRow } from "@/types/returns";
+import { requireTenant, normalizeRole } from "@/lib/auth-helpers";
 
 type RouteParams = { params: Promise<{ code: string }> };
 
@@ -16,15 +15,9 @@ type RouteParams = { params: Promise<{ code: string }> };
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
-
-    const tenantId = session.user.activeTenantId;
-    if (!tenantId) {
-      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
-    }
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { user, tenantId } = auth;
 
     const { code } = await params;
     const returnId = parseReturnCode(code);
@@ -46,9 +39,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Expert can only see their own returns
-    const userRole = (session.user as { role?: string }).role;
-    const userName = session.user.name || "";
-    if (userRole === "Expert" && ret.expert && !ret.expert.toLowerCase().includes(userName.toLowerCase())) {
+    const userName = user.name || "";
+    if (user.role === "Expert" && ret.expert && !ret.expert.toLowerCase().includes(userName.toLowerCase())) {
       return NextResponse.json({ ok: false, error: "Accès non autorisé" }, { status: 403 });
     }
 
@@ -138,15 +130,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
-
-    const tenantId = session.user.activeTenantId;
-    if (!tenantId) {
-      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
-    }
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { user, tenantId } = auth;
 
     const { code } = await params;
     const returnId = parseReturnCode(code);
@@ -168,9 +154,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
 
     // Expert can only edit their own returns
-    const userRole = (session.user as { role?: string }).role;
-    const userName = session.user.name || "";
-    if (userRole === "Expert" && ret.expert && !ret.expert.toLowerCase().includes(userName.toLowerCase())) {
+    const userName = user.name || "";
+    if (user.role === "Expert" && ret.expert && !ret.expert.toLowerCase().includes(userName.toLowerCase())) {
       return NextResponse.json({ ok: false, error: "Accès non autorisé" }, { status: 403 });
     }
 
@@ -256,19 +241,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
-
-    const tenantId = session.user.activeTenantId;
-    if (!tenantId) {
-      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
-    }
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { user, tenantId } = auth;
 
     // Only Gestionnaire can delete
-    const userRole = (session.user as { role?: string }).role;
-    if (userRole !== "Gestionnaire") {
+    if (user.role !== "Gestionnaire") {
       return NextResponse.json(
         { ok: false, error: "Seul un gestionnaire peut supprimer un retour" },
         { status: 403 }

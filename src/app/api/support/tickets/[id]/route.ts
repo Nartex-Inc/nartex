@@ -2,9 +2,8 @@
 // Get single ticket, update ticket status
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
+import { requireTenant, isGestionnaire } from "@/lib/auth-helpers";
 import { sendTicketUpdateEmail } from "@/lib/email";
 import { TICKET_STATUSES } from "@/lib/support-constants";
 import { notifyTicketStatusChange } from "@/lib/notifications";
@@ -19,17 +18,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { tenantId } = auth;
 
     const { id } = await params;
-    const tenantId = session.user.activeTenantId;
-
-    if (!tenantId) {
-      return NextResponse.json({ ok: false, error: "Aucun tenant actif" }, { status: 400 });
-    }
 
     const ticket = await prisma.supportTicket.findFirst({
       where: {
@@ -121,24 +114,14 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { user, tenantId } = auth;
 
     const { id } = await params;
-    const tenantId = session.user.activeTenantId;
-
-    if (!tenantId) {
-      return NextResponse.json({ ok: false, error: "Aucun tenant actif" }, { status: 400 });
-    }
 
     // Only Gestionnaire can delete tickets
-    const userRole = (session.user as any).role;
-    const userEmail = session.user.email;
-    const isGestionnaire = userRole === "Gestionnaire" || userEmail === "n.labranche@sinto.ca";
-
-    if (!isGestionnaire) {
+    if (!isGestionnaire(user)) {
       return NextResponse.json({ ok: false, error: "Accès refusé" }, { status: 403 });
     }
 
@@ -177,17 +160,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { user, tenantId } = auth;
 
     const { id } = await params;
-    const tenantId = session.user.activeTenantId;
-
-    if (!tenantId) {
-      return NextResponse.json({ ok: false, error: "Aucun tenant actif" }, { status: 400 });
-    }
 
     // Check ticket exists and belongs to tenant
     const existingTicket = await prisma.supportTicket.findFirst({
@@ -249,13 +226,13 @@ export async function PATCH(
       }).catch((err) => console.error("Failed to send status update email:", err));
 
       // In-app notification to demandeur
-      if (existingTicket.userId !== session.user.id) {
+      if (existingTicket.userId !== user.id) {
         notifyTicketStatusChange({
           ticketId: existingTicket.id,
           ticketCode: existingTicket.code,
           sujet: existingTicket.sujet,
           demandeurUserId: existingTicket.userId,
-          updatedBy: session.user.name || session.user.email || "Équipe TI",
+          updatedBy: user.name || user.email || "Équipe TI",
           newStatusLabel: newStatusLabel!,
           tenantId,
         }).catch((err) => console.error("Failed to send status notification:", err));

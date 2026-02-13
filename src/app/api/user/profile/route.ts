@@ -1,9 +1,9 @@
 // src/app/api/user/profile/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth-helpers";
+import { UpdateProfileSchema } from "@/lib/validations";
 
 const PROFILE_SELECT = {
   id: true,
@@ -20,9 +20,11 @@ const PROFILE_SELECT = {
 // GET - Fetch user profile (own or another user's for Gestionnaire)
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
+    const { session } = auth;
 
-    if (!session?.user?.email) {
+    if (!session.user.email) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
@@ -90,14 +92,23 @@ export async function GET(request: NextRequest) {
 // PATCH - Update user profile (own or another user's for Gestionnaire)
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
+    const { session } = auth;
 
-    if (!session?.user?.email) {
+    if (!session.user.email) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { name, firstName, lastName, image, userId } = body;
+    const raw = await request.json();
+    const parsed = UpdateProfileSchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Données invalides", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+    const { name, firstName, lastName, image, userId } = parsed.data;
 
     const isGestionnaire = session.user.role === "Gestionnaire";
     const isEditingOther = !!userId && userId !== session.user.id;

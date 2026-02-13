@@ -1,12 +1,10 @@
 // src/app/api/customers/map/filters/route.ts
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
 import { getPrextraTables } from "@/lib/prextra";
+import { requireSchema, requireRoles, getErrorMessage } from "@/lib/auth-helpers";
 
-// Roles allowed to access (case-insensitive)
-const ALLOWED_USER_ROLES = [
+const ALLOWED_ROLES = [
   "gestionnaire",
   "admin",
   "ventes-exec",
@@ -15,35 +13,13 @@ const ALLOWED_USER_ROLES = [
   "expert",
 ];
 
-const BYPASS_EMAILS = ["n.labranche@sinto.ca"];
-
 export async function GET(req: Request) {
-  // Auth check
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireSchema();
+  if (!auth.ok) return auth.response;
+  const { user, schema } = auth;
 
-  const user = session.user as any;
-  const userEmail = user.email;
-  const sessionRole = (user.role || "").toLowerCase().trim();
-
-  let isAuthorized = ALLOWED_USER_ROLES.includes(sessionRole);
-  if (!isAuthorized && userEmail && BYPASS_EMAILS.includes(userEmail.toLowerCase())) {
-    isAuthorized = true;
-  }
-
-  if (!isAuthorized) {
-    return NextResponse.json(
-      { error: "Vous ne disposez pas des autorisations nécessaires." },
-      { status: 403 }
-    );
-  }
-
-  const schema = user.prextraSchema;
-  if (!schema) {
-    return NextResponse.json({ error: "Aucune donnée ERP pour ce tenant" }, { status: 403 });
-  }
+  const forbidden = requireRoles(user, ALLOWED_ROLES);
+  if (forbidden) return forbidden;
 
   const T = getPrextraTables(schema);
   const { searchParams } = new URL(req.url);
@@ -82,13 +58,13 @@ export async function GET(req: Request) {
     ]);
 
     return NextResponse.json({
-      salesReps: salesRepsResult.rows.map((r: any) => r.name),
-      products: productsResult.rows.map((r: any) => ({
+      salesReps: salesRepsResult.rows.map((r: { name: string }) => r.name),
+      products: productsResult.rows.map((r: { code: string; description: string }) => ({
         code: r.code,
         description: r.description,
       })),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Failed to fetch filter options:", error);
     return NextResponse.json(
       { error: "Échec de la récupération des options de filtrage." },

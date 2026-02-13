@@ -1,16 +1,14 @@
 // src/app/api/customers/map/route.ts
 
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
 import { getPrextraTables } from "@/lib/prextra";
 import prisma from "@/lib/prisma";
+import { requireSchema, requireRoles, getErrorMessage } from "@/lib/auth-helpers";
 
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_SERVER_KEY || "";
 
-const ALLOWED_USER_ROLES = ["gestionnaire", "admin", "ventes-exec", "ventes_exec", "facturation", "expert"];
-const BYPASS_EMAILS = ["n.labranche@sinto.ca"];
+const ALLOWED_ROLES = ["gestionnaire", "admin", "ventes-exec", "ventes_exec", "facturation", "expert"];
 
 let geocodeCount = 0;
 const GEOCODE_LIMIT = 100; // Max new geocodes per request
@@ -37,8 +35,8 @@ async function geocode(address: string, city: string, postalCode: string): Promi
       console.log(`FAILED: ${errorMsg}`);
       return null;
     }
-  } catch (err: any) {
-    const errorMsg = `${city}: FETCH ERROR - ${err.message}`;
+  } catch (err: unknown) {
+    const errorMsg = `${city}: FETCH ERROR - ${getErrorMessage(err)}`;
     geocodeErrors.push(errorMsg);
     console.log(`ERROR: ${errorMsg}`);
     return null;
@@ -54,8 +52,8 @@ async function saveGeo(tenantSlug: string, custId: number, lat: number, lng: num
     });
     console.log(`Saved to DB: customer ${custId}`);
     return true;
-  } catch (e: any) {
-    console.log(`DB Save failed: ${custId} - ${e.message}`);
+  } catch (e: unknown) {
+    console.log(`DB Save failed: ${custId} - ${getErrorMessage(e)}`);
     return false;
   }
 }
@@ -77,23 +75,12 @@ function getPinSize(sales: number): string {
 
 export async function GET(req: Request) {
   // Auth
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireSchema();
+  if (!auth.ok) return auth.response;
+  const { user, schema } = auth;
 
-  const user = session.user as any;
-  const role = (user.role || "").toLowerCase().trim();
-  const email = user.email?.toLowerCase() || "";
-
-  if (!ALLOWED_USER_ROLES.includes(role) && !BYPASS_EMAILS.includes(email)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const schema = user.prextraSchema;
-  if (!schema) {
-    return NextResponse.json({ error: "Aucune donnée ERP pour ce tenant" }, { status: 403 });
-  }
+  const forbidden = requireRoles(user, ALLOWED_ROLES);
+  if (forbidden) return forbidden;
 
   if (!GOOGLE_MAPS_API_KEY) {
     return NextResponse.json({ error: "GOOGLE_MAPS_SERVER_KEY not configured" }, { status: 500 });
@@ -114,7 +101,7 @@ export async function GET(req: Request) {
   // Build query
   let paramIndex = 5;
   const conditions: string[] = [];
-  const params: any[] = [gcieid, startDate, endDate, minSales];
+  const params: unknown[] = [gcieid, startDate, endDate, minSales];
 
   if (salesRep) {
     conditions.push(`sr."Name" = $${paramIndex++}`);
@@ -167,13 +154,13 @@ export async function GET(req: Request) {
     console.log(`\nMAP API: Processing ${rows.length} customers`);
 
     // Batch-fetch all cached geo entries for these customers
-    const custIds = rows.map((r: any) => r.id as number);
+    const custIds = rows.map((r: Record<string, unknown>) => r.id as number);
     const cached = await prisma.customerGeoCache.findMany({
       where: { tenantSlug: schema, custId: { in: custIds } },
     });
     const cacheMap = new Map(cached.map(c => [c.custId, c]));
 
-    const customers: any[] = [];
+    const customers: Record<string, unknown>[] = [];
     const errors: string[] = [];
     let cachedCount = 0;
     let savedCount = 0;
@@ -235,8 +222,9 @@ export async function GET(req: Request) {
       filters: { salesRep, products, minSales, startDate, endDate },
     });
 
-  } catch (error: any) {
-    console.error("DB Error:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = getErrorMessage(error);
+    console.error("DB Error:", message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

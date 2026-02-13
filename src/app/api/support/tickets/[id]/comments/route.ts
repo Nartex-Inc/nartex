@@ -2,9 +2,8 @@
 // Add comments to support tickets with optional attachments
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
+import { requireTenant } from "@/lib/auth-helpers";
 import { sendTicketUpdateEmail } from "@/lib/email";
 import { TICKET_STATUSES } from "@/lib/support-constants";
 import { notifyTicketComment, notifyTicketStatusChange, notifyTicketReply } from "@/lib/notifications";
@@ -18,17 +17,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { tenantId } = auth;
 
     const { id } = await params;
-    const tenantId = session.user.activeTenantId;
-
-    if (!tenantId) {
-      return NextResponse.json({ ok: false, error: "Aucun tenant actif" }, { status: 400 });
-    }
 
     // Verify ticket exists and belongs to tenant
     const ticket = await prisma.supportTicket.findFirst({
@@ -80,18 +73,12 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { user, tenantId } = auth;
 
     const { id } = await params;
-    const tenantId = session.user.activeTenantId;
-    const userRole = (session.user as any).role;
-
-    if (!tenantId) {
-      return NextResponse.json({ ok: false, error: "Aucun tenant actif" }, { status: 400 });
-    }
+    const userRole = user.role;
 
     // Verify ticket exists and get details
     const ticket = await prisma.supportTicket.findFirst({
@@ -127,8 +114,8 @@ export async function POST(
     const comment = await prisma.supportTicketComment.create({
       data: {
         ticketId: id,
-        userId: session.user.id,
-        userName: session.user.name || session.user.email || "Utilisateur",
+        userId: user.id,
+        userName: user.name || user.email || "Utilisateur",
         content: body.content.trim(),
         isInternal,
       },
@@ -162,7 +149,7 @@ export async function POST(
 
     // Send email notification to requester (if not internal)
     // Always notify when Gestionnaire/admin replies (acting in support role)
-    const isOwnTicket = ticket.userId === session.user.id;
+    const isOwnTicket = ticket.userId === user.id;
     if (!isInternal && (!isOwnTicket || canAddInternalComment)) {
       sendTicketUpdateEmail({
         ticketCode: ticket.code,
@@ -176,15 +163,15 @@ export async function POST(
         newStatus: statusUpdated ? body.newStatus : ticket.statut,
         statusLabel: statusUpdated ? newStatusLabel : undefined,
         commentContent: body.content.trim(),
-        commentAuthor: session.user.name || "Équipe TI",
+        commentAuthor: user.name || "Équipe TI",
         hasAttachments: false,
       }).catch((err) => console.error("Failed to send update email:", err));
     }
 
     // In-app notifications
-    const commentAuthorName = session.user.name || session.user.email || "Équipe TI";
+    const commentAuthorName = user.name || user.email || "Équipe TI";
 
-    if (canAddInternalComment && !isInternal && ticket.userId !== session.user.id) {
+    if (canAddInternalComment && !isInternal && ticket.userId !== user.id) {
       // Gestionnaire/admin commented on someone else's ticket → notify demandeur
       notifyTicketComment({
         ticketId: ticket.id,
@@ -213,7 +200,7 @@ export async function POST(
         ticketCode: ticket.code,
         sujet: ticket.sujet,
         replyUserName: commentAuthorName,
-        replyUserId: session.user.id,
+        replyUserId: user.id,
         tenantId,
       }).catch((err) => console.error("Failed to send reply notification:", err));
     }

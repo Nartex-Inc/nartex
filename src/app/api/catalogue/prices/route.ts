@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
 import { getPrextraTables } from "@/lib/prextra";
+import { requireSchema, getErrorMessage } from "@/lib/auth-helpers";
 
 // --- Configuration Matrix ---
 const COLUMN_MATRIX: Record<string, string[]> = {
@@ -17,15 +16,9 @@ const COLUMN_MATRIX: Record<string, string[]> = {
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    }
-
-    const schema = session.user.prextraSchema;
-    if (!schema) {
-      return NextResponse.json({ error: "Aucune donnée ERP pour ce tenant" }, { status: 403 });
-    }
+    const auth = await requireSchema();
+    if (!auth.ok) return auth.response;
+    const { schema } = auth;
 
     const T = getPrextraTables(schema);
     const { searchParams } = new URL(request.url);
@@ -78,7 +71,7 @@ export async function GET(request: NextRequest) {
 
     // 4. Build Query Filters
     let itemFilterSQL = "";
-    const baseParams: any[] = [];
+    const baseParams: unknown[] = [];
     let paramIdx = 1;
 
     if (itemIds) {
@@ -169,7 +162,7 @@ export async function GET(request: NextRequest) {
     const costdiffMap: Record<number, number> = {};
     const caisseMap: Record<number, number> = {};
 
-    const allItemIds = itemsRes.rows.map((r: any) => r.itemId);
+    const allItemIds = itemsRes.rows.map((r: Record<string, unknown>) => r.itemId as number);
     for (const item of itemsRes.rows) {
       caisseMap[item.itemId] = item.caisse ? parseFloat(item.caisse) : 0;
     }
@@ -273,7 +266,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const result = itemsRes.rows.map((item: any) => {
+    const result = itemsRes.rows.map((item: Record<string, unknown>) => {
       const iId = item.itemId;
       const itemPrices = pricesMap[iId] || {};
 
@@ -328,10 +321,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(result);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Prices API error:", error);
     return NextResponse.json(
-      { error: error.message || "Erreur lors de la génération des prix" },
+      { error: getErrorMessage(error) || "Erreur lors de la génération des prix" },
       { status: 500 }
     );
   }

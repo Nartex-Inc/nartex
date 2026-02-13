@@ -1,10 +1,9 @@
 // src/app/api/dashboard-data/route.ts
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
 import prisma from "@/lib/prisma";
 import { getPrextraTables } from "@/lib/prextra";
+import { requireSchema, normalizeRole, isBypassEmail, getErrorMessage } from "@/lib/auth-helpers";
 
 // Roles allowed to access dashboard data (case-insensitive)
 const ALLOWED_USER_ROLES = [
@@ -23,28 +22,14 @@ const ALLOWED_TENANT_ROLES = [
 ];
 
 export async function GET(req: Request) {
-  // 1) Auth check
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // 1) Auth + tenant + schema check
+  const auth = await requireSchema();
+  if (!auth.ok) return auth.response;
+  const { user, schema } = auth;
 
-  const user = session.user as any;
   const userId = user.id;
   const userEmail = user.email;
-  const sessionRole = (user.role || "").toLowerCase().trim();
-
-  // Tenant guard
-  const tenantId = user.activeTenantId;
-  if (!tenantId) {
-    return NextResponse.json({ error: "Aucun tenant actif sélectionné" }, { status: 403 });
-  }
-
-  // Prextra schema guard
-  const schema = user.prextraSchema;
-  if (!schema) {
-    return NextResponse.json({ error: "Aucune donnée ERP pour ce tenant" }, { status: 403 });
-  }
+  const sessionRole = normalizeRole(user.role);
 
   // 2) Check if user's session role is allowed
   let isAuthorized = ALLOWED_USER_ROLES.includes(sessionRole);
@@ -67,8 +52,7 @@ export async function GET(req: Request) {
   }
 
   // 4) Special bypass for specific emails (safety net)
-  const bypassEmails = ["n.labranche@sinto.ca"];
-  if (!isAuthorized && userEmail && bypassEmails.includes(userEmail.toLowerCase())) {
+  if (!isAuthorized && isBypassEmail(userEmail)) {
     isAuthorized = true;
   }
 
@@ -140,12 +124,12 @@ WHERE h."cieid" = $1
     const params: [number, string, string] = [gcieid, startDate, endDate];
     const { rows } = await pg.query(SQL_QUERY, params);
     return NextResponse.json(rows);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Database query failed in /api/dashboard-data:", error);
     return NextResponse.json(
       {
         error: "Échec de la récupération des données du tableau de bord.",
-        details: error?.message ?? "Unknown error",
+        details: getErrorMessage(error),
       },
       { status: 500 }
     );

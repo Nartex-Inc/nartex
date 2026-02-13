@@ -3,52 +3,21 @@ export const runtime = "nodejs";
 export const revalidate = 0;
 
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requireTenant, normalizeRole, getErrorMessage } from "@/lib/auth-helpers";
 
 type Authed = { userId: string; role: string; tenantId: string };
 
 function toJsonError(e: unknown, fallback = "Internal error", status = 500) {
-  const msg =
-    typeof e === "object" && e && "message" in e
-      ? String((e as any).message)
-      : String(e);
-  // Don’t expose full stack traces in prod; message is enough to debug quickly
+  const msg = getErrorMessage(e);
   return NextResponse.json({ error: fallback, detail: msg }, { status });
 }
 
 async function loadAuth(): Promise<Authed> {
-  try {
-    const session = await getServerSession(authOptions);
-    const email = session?.user?.email ?? null;
-    let userId = (session?.user as any)?.id as string | undefined;
-
-    if (!userId && email) {
-      const u = await prisma.user.findFirst({ where: { email }, select: { id: true } });
-      userId = u?.id ?? undefined;
-    }
-    if (!userId) throw new Error("Not authenticated");
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { role: true },
-    });
-    const role = (user?.role ?? "user").toLowerCase().trim();
-
-    const ut = await prisma.userTenant.findFirst({
-      where: { userId },
-      select: { tenantId: true },
-    });
-    if (!ut) throw new Error("Tenant not found for user");
-
-    return { userId, role, tenantId: ut.tenantId };
-  } catch (e) {
-    throw new Error(
-      "AUTH_LOAD_FAILED: " +
-        (typeof e === "object" && e && "message" in e ? (e as any).message : String(e))
-    );
-  }
+  const auth = await requireTenant();
+  if (!auth.ok) throw new Error("Not authenticated");
+  const { user, tenantId } = auth;
+  return { userId: user.id!, role: normalizeRole(user.role), tenantId };
 }
 
 /** GET /api/sharepoint — list all nodes for the user's tenant */
@@ -80,7 +49,7 @@ export async function POST(req: Request) {
   try {
     const a = await loadAuth();
 
-    let body: any;
+    let body: Record<string, unknown>;
     try {
       body = await req.json();
     } catch {

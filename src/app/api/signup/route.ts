@@ -1,27 +1,23 @@
-// src/app/api/signup/route.ts (UPDATED AND CORRECTED)
+// src/app/api/signup/route.ts
 
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { sendVerificationEmail } from "@/lib/email";
+import { SignupSchema } from "@/lib/validations";
+import { getErrorMessage } from "@/lib/auth-helpers";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    // --- CHANGED ---: We only need email and password now.
-    const { email, password, password_confirm } = body;
+    const raw = await req.json();
+    const parsed = SignupSchema.safeParse(raw);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0]?.message || "Données invalides";
+      return NextResponse.json({ success: false, error: firstError }, { status: 400 });
+    }
 
-    // --- CHANGED ---: Validation now only checks for email and password.
-    if (!email || !password) {
-      return NextResponse.json({ success: false, error: "L'e-mail et le mot de passe sont requis." }, { status: 400 });
-    }
-    if (password !== password_confirm) {
-      return NextResponse.json({ success: false, error: "Les mots de passe ne correspondent pas." }, { status: 400 });
-    }
-    if (password.length < 8) {
-      return NextResponse.json({ success: false, error: "Le mot de passe doit comporter au moins 8 caractères." }, { status: 400 });
-    }
+    const { email, password } = parsed.data;
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -52,8 +48,8 @@ export async function POST(req: Request) {
       message: "Compte créé. Veuillez vérifier votre e-mail pour l'activer.",
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("SIGNUP API ERROR:", error);
-    return NextResponse.json({ success: false, error: "Impossible de créer le compte: " + error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Impossible de créer le compte: " + getErrorMessage(error) }, { status: 500 });
   }
 }

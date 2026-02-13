@@ -3,45 +3,22 @@ export const runtime = "nodejs";
 export const revalidate = 0;
 
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { requireTenant, normalizeRole, getErrorMessage } from "@/lib/auth-helpers";
 
 type PermSpec = { edit?: string[]; read?: string[] } | "inherit" | null;
 type Authed = { userId: string; role: string; tenantId: string };
 
 function toJsonError(e: unknown, fallback = "Internal error", status = 500) {
-  const msg =
-    typeof e === "object" && e && "message" in e
-      ? String((e as any).message)
-      : String(e);
+  const msg = getErrorMessage(e);
   return NextResponse.json({ error: fallback, detail: msg }, { status });
 }
 
 async function loadAuth(): Promise<Authed> {
-  const session = await getServerSession(authOptions);
-  const email = session?.user?.email ?? null;
-  let userId = (session?.user as any)?.id as string | undefined;
-
-  if (!userId && email) {
-    const u = await prisma.user.findFirst({ where: { email }, select: { id: true } });
-    userId = u?.id ?? undefined;
-  }
-  if (!userId) throw new Error("Not authenticated");
-
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { role: true },
-  });
-  const role = (user?.role ?? "user").toLowerCase().trim();
-
-  const ut = await prisma.userTenant.findFirst({
-    where: { userId },
-    select: { tenantId: true },
-  });
-  if (!ut) throw new Error("Tenant not found for user");
-
-  return { userId, role, tenantId: ut.tenantId };
+  const auth = await requireTenant();
+  if (!auth.ok) throw new Error("Not authenticated");
+  const { user, tenantId } = auth;
+  return { userId: user.id!, role: normalizeRole(user.role), tenantId };
 }
 
 const sanitize = (arr: unknown): string[] =>
@@ -57,11 +34,14 @@ async function getParentId(nodeId: string, tenantId: string): Promise<string | n
   return row?.parentId ?? null;
 }
 
-export async function GET(_req: Request, ctx: any) {
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const a = await loadAuth();
 
-    const id = ctx?.params?.id?.toString();
+    const { id } = await params;
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
     const node = await prisma.sharePointNode.findFirst({
@@ -74,14 +54,17 @@ export async function GET(_req: Request, ctx: any) {
   }
 }
 
-export async function PATCH(req: Request, ctx: any) {
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const a = await loadAuth();
 
-    const id = ctx?.params?.id?.toString();
+    const { id } = await params;
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-    let body: any;
+    let body: Record<string, unknown>;
     try {
       body = await req.json();
     } catch {
@@ -94,7 +77,7 @@ export async function PATCH(req: Request, ctx: any) {
     });
     if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const data: Record<string, any> = {};
+    const data: Record<string, unknown> = {};
 
     if (typeof body.name === "string") {
       const name = body.name.trim();
@@ -170,11 +153,14 @@ export async function PATCH(req: Request, ctx: any) {
   }
 }
 
-export async function DELETE(_req: Request, ctx: any) {
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const a = await loadAuth();
 
-    const id = ctx?.params?.id?.toString();
+    const { id } = await params;
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
     const all = await prisma.sharePointNode.findMany({
