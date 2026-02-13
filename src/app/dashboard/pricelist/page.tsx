@@ -652,7 +652,7 @@ function QuickAddPanel({
                         {catState === "partial" && <Minus className="w-4 h-4 text-white" strokeWidth={3} />}
                       </button>
                       <button
-                        onClick={() => toggleCategory(cat.categoryName)}
+                        onClick={() => toggleBulk(cat.allItemIds)}
                         className="flex items-center gap-2 flex-1 min-w-0 text-left"
                       >
                         <Layers className="w-4 h-4 text-neutral-400 flex-shrink-0" />
@@ -662,10 +662,15 @@ function QuickAddPanel({
                         <span className="text-xs text-neutral-400 flex-shrink-0">
                           ({cat.allItemIds.length})
                         </span>
+                      </button>
+                      <button
+                        onClick={() => toggleCategory(cat.categoryName)}
+                        className="p-1 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors flex-shrink-0"
+                      >
                         {catExpanded ? (
-                          <ChevronUp className="w-4 h-4 text-neutral-400 ml-auto flex-shrink-0" />
+                          <ChevronUp className="w-4 h-4 text-neutral-400" />
                         ) : (
-                          <ChevronDown className="w-4 h-4 text-neutral-400 ml-auto flex-shrink-0" />
+                          <ChevronDown className="w-4 h-4 text-neutral-400" />
                         )}
                       </button>
                     </div>
@@ -692,7 +697,7 @@ function QuickAddPanel({
                               {clsState === "partial" && <Minus className="w-3 h-3 text-white" strokeWidth={3} />}
                             </button>
                             <button
-                              onClick={() => toggleClass(clsKey)}
+                              onClick={() => toggleBulk(cls.allItemIds)}
                               className="flex items-center gap-2 flex-1 min-w-0 text-left"
                             >
                               <Tag className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />
@@ -702,10 +707,15 @@ function QuickAddPanel({
                               <span className="text-xs text-neutral-400 flex-shrink-0">
                                 ({cls.items.length})
                               </span>
+                            </button>
+                            <button
+                              onClick={() => toggleClass(clsKey)}
+                              className="p-1 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors flex-shrink-0"
+                            >
                               {clsExpanded ? (
-                                <ChevronUp className="w-3.5 h-3.5 text-neutral-400 ml-auto flex-shrink-0" />
+                                <ChevronUp className="w-3.5 h-3.5 text-neutral-400" />
                               ) : (
-                                <ChevronDown className="w-3.5 h-3.5 text-neutral-400 ml-auto flex-shrink-0" />
+                                <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
                               )}
                             </button>
                           </div>
