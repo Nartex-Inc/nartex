@@ -1434,7 +1434,9 @@ function CataloguePageContent() {
             headRow.push(`$/${pdfCommonUnit}`);
             if (showDetails) {
               headRow.push("$/Cs");
-              headRow.push("%Exp");
+            }
+            if (showDetails || selectedPriceList?.code === "01-EXP") {
+              headRow.push(selectedPriceList?.code === "01-EXP" ? "%Exp (vs. IND)" : "%Exp");
             }
           }
         });
@@ -1479,9 +1481,15 @@ function CataloguePageContent() {
                 row.push(ppu ? ppu.toFixed(2) : "-");
                 if (showDetails) {
                   const ppc = calcPricePerCaisse(val || 0, item.caisse);
-                  const expVal = range.columns?.["01-EXP"] ?? null;
-                  const pExp = calcMargin(val, expVal);
                   row.push(ppc ? ppc.toFixed(2) : "-");
+                }
+                if (showDetails || selectedPriceList?.code === "01-EXP") {
+                  const expBaseVal = selectedPriceList?.code === "01-EXP"
+                    ? (range.columns?.["03-IND"] ?? null)
+                    : (range.columns?.["01-EXP"] ?? null);
+                  const pExp = selectedPriceList?.code === "01-EXP"
+                    ? calcMargin(expBaseVal, val)
+                    : calcMargin(val, expBaseVal);
                   row.push(pExp ? `${pExp.toFixed(1)}%` : "-");
                 }
               }
