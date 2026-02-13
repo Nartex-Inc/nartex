@@ -1114,9 +1114,39 @@ function CataloguePageContent() {
 
   // --- HANDLERS ---
   const handlePriceListChange = async (pl: PriceList) => {
-    setSelectedPriceList(pl);
     setOpenDropdown(null);
-    
+
+    // Gate 01-EXP behind biometric auth
+    if (pl.code === "01-EXP") {
+      setIsAuthenticating(true);
+      try {
+        const resp = await fetch("/api/auth/challenge");
+        if (!resp.ok) throw new Error("Challenge fetch failed");
+        const { type, options } = await resp.json();
+        const authResp = type === "authenticate"
+          ? await startAuthentication(options)
+          : await startRegistration(options);
+        const verifyResp = await fetch("/api/auth/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type, response: authResp }),
+        });
+        const verification = await verifyResp.json();
+        if (!verification.verified) {
+          alert("Vérification échouée.");
+          return;
+        }
+      } catch (e) {
+        console.error("Auth error", e);
+        alert("Authentification annulée ou impossible.");
+        return;
+      } finally {
+        setIsAuthenticating(false);
+      }
+    }
+
+    setSelectedPriceList(pl);
+
     if (priceData.length > 0) {
       setLoadingPrices(true);
       const allIds = Array.from(new Set(priceData.map((i) => i.itemId))).join(",");
@@ -1726,9 +1756,9 @@ function CataloguePageContent() {
                 {/* Email Button with Label */}
                 <ActionButton
                   onClick={() => setShowEmailModal(true)}
-                  disabled={priceData.length === 0 || showDetails}
+                  disabled={priceData.length === 0 || showDetails || selectedPriceList?.code === "01-EXP"}
                   icon={Mail}
-                  title={showDetails ? "Désactivé en mode détails" : "Envoyer par courriel"}
+                  title={showDetails || selectedPriceList?.code === "01-EXP" ? "Désactivé pour cette liste" : "Envoyer par courriel"}
                   primary
                   label={!isCompact ? "Envoyer" : undefined}
                 />
@@ -1973,7 +2003,7 @@ function CataloguePageContent() {
                                     <th className="text-right p-4 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/20 whitespace-nowrap">$/Cs</th>
                                   )}
                                   {(showDetails || selectedPriceList?.code === "01-EXP") && isSelectedList && !isCompact && (
-                                    <th className="text-right p-4 font-black text-violet-700 dark:text-violet-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-violet-50/50 dark:bg-violet-900/20 whitespace-nowrap">%Exp</th>
+                                    <th className="text-right p-4 font-black text-violet-700 dark:text-violet-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-violet-50/50 dark:bg-violet-900/20 whitespace-nowrap">{selectedPriceList?.code === "01-EXP" ? "%Exp (vs. IND)" : "%Exp"}</th>
                                   )}
                                   {showDetails && isSelectedList && isCompact && (
                                     <th className="text-right p-3 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/20 whitespace-nowrap">Détails</th>
@@ -2053,7 +2083,9 @@ function CataloguePageContent() {
                                           })()}
                                           {(showDetails || selectedPriceList?.code === "01-EXP") && isSelectedList && !isCompact && (() => {
                                             const selectedPriceVal = priceVal ?? 0;
-                                            const expBaseVal = range.columns?.["01-EXP"] ?? null;
+                                            const expBaseVal = selectedPriceList?.code === "01-EXP"
+                                              ? (range.columns?.["03-IND"] ?? null)
+                                              : (range.columns?.["01-EXP"] ?? null);
                                             const percentExp = calcMargin(selectedPriceVal, expBaseVal);
                                             return (
                                                 <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-violet-50/30 dark:bg-violet-900/10">
@@ -2066,7 +2098,9 @@ function CataloguePageContent() {
                                           {showDetails && isSelectedList && isCompact && (() => {
                                             const selectedPriceVal = priceVal ?? 0;
                                             const ppc = calcPricePerCaisse(selectedPriceVal, item.caisse);
-                                            const expBaseVal = range.columns?.["01-EXP"] ?? null;
+                                            const expBaseVal = selectedPriceList?.code === "01-EXP"
+                                              ? (range.columns?.["03-IND"] ?? null)
+                                              : (range.columns?.["01-EXP"] ?? null);
                                             const percentExp = calcMargin(selectedPriceVal, expBaseVal);
                                             return (
                                               <td className="p-3 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/10">
@@ -2076,7 +2110,7 @@ function CataloguePageContent() {
                                                     <span className="font-mono font-bold">{ppc ? ppc.toFixed(2) : "-"}</span>
                                                   </div>
                                                   <div className="flex justify-end gap-2 text-violet-700 dark:text-violet-400">
-                                                    <span className="opacity-60">%Exp</span>
+                                                    <span className="opacity-60">{selectedPriceList?.code === "01-EXP" ? "%Exp (vs. IND)" : "%Exp"}</span>
                                                     <span className="font-mono font-bold">{percentExp !== null ? `${percentExp.toFixed(1)}%` : "-"}</span>
                                                   </div>
                                                 </div>
