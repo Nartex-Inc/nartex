@@ -179,9 +179,11 @@ export async function GET(request: NextRequest) {
         `SELECT rsd."TableId" AS "itemId", dmh."_costdiff" AS "costdiff"
          FROM ${T.RECORD_SPEC_DATA} rsd
          JOIN ${T.DISCOUNT_MAINTENANCE_HDR} dmh
-           ON CAST(rsd."FieldValue" AS INTEGER) = dmh."DiscountMaintenanceHdrId"
+           ON rsd."FieldValue" = CAST(dmh."DiscountMaintenanceHdrId" AS TEXT)
          WHERE rsd."TableName" = 'items'
            AND rsd."FieldName" = 'DiscountMaintenance'
+           AND rsd."FieldValue" IS NOT NULL
+           AND dmh."DiscountMaintenanceHdrId" IS NOT NULL
            AND rsd."TableId" = ANY($1)`,
         [allItemIds]
       );
