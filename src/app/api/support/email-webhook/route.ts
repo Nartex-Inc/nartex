@@ -35,12 +35,12 @@ interface EmailWebhookPayload {
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify webhook secret (optional but recommended)
+    // Verify webhook secret (required)
     const webhookSecret = request.headers.get("x-webhook-secret");
     const expectedSecret = process.env.EMAIL_WEBHOOK_SECRET;
 
-    if (expectedSecret && webhookSecret !== expectedSecret) {
-      console.warn("Invalid webhook secret");
+    if (!expectedSecret || webhookSecret !== expectedSecret) {
+      console.warn("Invalid or missing webhook secret");
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 

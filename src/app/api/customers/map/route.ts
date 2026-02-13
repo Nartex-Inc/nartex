@@ -112,9 +112,9 @@ export async function GET(req: Request) {
   const endDate = searchParams.get("endDate") ?? new Date().toISOString().slice(0, 10);
 
   // Build query
-  let paramIndex = 4;
+  let paramIndex = 5;
   const conditions: string[] = [];
-  const params: any[] = [gcieid, startDate, endDate];
+  const params: any[] = [gcieid, startDate, endDate, minSales];
 
   if (salesRep) {
     conditions.push(`sr."Name" = $${paramIndex++}`);
@@ -155,7 +155,7 @@ export async function GET(req: Request) {
       AND c."City" IS NOT NULL AND c."City" <> ''
       ${where}
     GROUP BY c."CustId", c."Name", c."Line1", c."City", c."ZipCode", c."tel", sr."Name"
-    HAVING SUM(d."Amount"::float8) >= ${minSales}
+    HAVING SUM(d."Amount"::float8) >= $4
     ORDER BY SUM(d."Amount"::float8) DESC;
   `;
 

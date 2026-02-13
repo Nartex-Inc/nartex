@@ -1,6 +1,19 @@
 // middleware.ts (root level)
 import { withAuth } from "next-auth/middleware";
 
+// API routes that do NOT require authentication
+const PUBLIC_API_PREFIXES = [
+  "/api/auth/",         // NextAuth handlers (login, OAuth callbacks)
+  "/api/signup",        // Registration
+  "/api/health",        // Health check
+  "/api/ping",          // Ping
+  "/api/support/email-webhook", // External email webhook (has its own secret)
+];
+
+function isPublicApiRoute(pathname: string): boolean {
+  return PUBLIC_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
 export default withAuth({
   pages: {
     signIn: "/auth/signin",
@@ -8,12 +21,13 @@ export default withAuth({
   callbacks: {
     authorized({ req, token }) {
       const isLoggedIn = !!token;
-      const isOnDashboard = req.nextUrl.pathname.startsWith("/dashboard");
-      const isOnApi = req.nextUrl.pathname.startsWith("/api");
-      const isOnLanding = req.nextUrl.pathname.startsWith("/landing");
+      const pathname = req.nextUrl.pathname;
+      const isOnDashboard = pathname.startsWith("/dashboard");
+      const isOnApi = pathname.startsWith("/api");
+      const isOnLanding = pathname.startsWith("/landing");
 
-      // API routes handle their own auth
-      if (isOnApi) return true;
+      // Only explicitly public API routes skip auth
+      if (isOnApi) return isPublicApiRoute(pathname) || isLoggedIn;
 
       // Landing page is public
       if (isOnLanding) return true;

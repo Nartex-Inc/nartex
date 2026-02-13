@@ -14,6 +14,9 @@ import { pg } from "./db";
  * Every schema gets the `"schema".` prefix uniformly.
  */
 export function getPrextraTables(schema: string) {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(schema)) {
+    throw new Error(`Invalid Prextra schema name: "${schema}"`);
+  }
   const s = `"${schema}".`;
   return {
     ITEMS: `${s}"Items"`,
