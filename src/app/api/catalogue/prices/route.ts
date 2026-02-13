@@ -267,7 +267,7 @@ export async function GET(request: NextRequest) {
     }
 
     const result = itemsRes.rows.map((item: Record<string, unknown>) => {
-      const iId = item.itemId;
+      const iId = String(item.itemId);
       const itemPrices = pricesMap[iId] || {};
 
       const quantities = Object.keys(itemPrices).map(Number).sort((a, b) => a - b);
