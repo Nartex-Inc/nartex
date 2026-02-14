@@ -513,7 +513,7 @@ export default function ReturnsPage() {
                       return (
                         <tr key={rowId} onClick={() => setOpenId(rowId)} className={cn("group cursor-pointer transition-colors",
                           status === "draft" && "bg-[hsl(var(--bg-surface))] hover:bg-[hsl(var(--bg-elevated))]",
-                          status === "awaiting_physical" && "bg-[hsl(var(--bg-base))] text-white hover:opacity-90",
+                          status === "awaiting_physical" && "bg-black text-white hover:opacity-90",
                           status === "ready" && "bg-[hsl(var(--success))] text-white hover:opacity-90",
                           status === "finalized" && "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))]"
                         )}>
@@ -551,7 +551,7 @@ export default function ReturnsPage() {
                 <span>{sorted.length} retour{sorted.length !== 1 ? "s" : ""}</span>
                 <div className="flex items-center gap-4">
                   <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-[hsl(var(--success))]" />Prêt</span>
-                  <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-[hsl(var(--bg-base))]" />En attente</span>
+                  <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-black" />En attente</span>
                   <span className="flex items-center gap-2"><span className="w-3 h-3 rounded border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]" />Brouillon</span>
                 </div>
               </div>

@@ -369,7 +369,7 @@ const ToggleButton = ({
     className={cn(
       "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
       active 
-        ? "bg-white text-[hsl(var(--text-primary))] shadow-lg"
+        ? "bg-white text-gray-900 shadow-lg"
         : "bg-white/10 border border-white/20 text-white hover:bg-white/20",
       loading && "opacity-70 cursor-wait"
     )}
@@ -403,8 +403,8 @@ const ActionButton = ({
     className={cn(
       "h-10 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed",
       label ? "px-5" : "w-10",
-      primary 
-        ? "bg-white text-[hsl(var(--text-primary))] shadow-lg hover:bg-white/90"
+      primary
+        ? "bg-white text-gray-900 shadow-lg hover:bg-white/90"
         : "bg-white/10 border border-white/20 text-white hover:bg-white/20"
     )}
   >
