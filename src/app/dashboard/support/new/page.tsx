@@ -277,8 +277,8 @@ export default function NewSupportTicketPage() {
   // Loading state
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-neutral-950">
-        <div className="w-8 h-8 border-2 border-neutral-200 border-t-neutral-800 rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-[hsl(var(--bg-surface))]">
+        <div className="w-8 h-8 border-2 border-[hsl(var(--border-default))] border-t-[hsl(var(--text-primary))] rounded-full animate-spin" />
       </div>
     );
   }
@@ -287,24 +287,24 @@ export default function NewSupportTicketPage() {
   if (success) {
     const successPriorityInfo = getPriorityInfo(success.priorite as Priority);
     return (
-      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+      <div className="min-h-screen bg-[hsl(var(--bg-elevated))]">
         <div className="mx-auto max-w-lg px-4 py-20">
-          <div className="bg-white dark:bg-neutral-900 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-800 p-8 text-center">
-            <div className="mx-auto w-16 h-16 rounded-full bg-lime-100 dark:bg-lime-900/30 flex items-center justify-center mb-6">
-              <svg className="w-8 h-8 text-lime-500 dark:text-lime-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="bg-[hsl(var(--bg-surface))] rounded-lg shadow-sm border border-[hsl(var(--border-default))] p-8 text-center">
+            <div className="mx-auto w-16 h-16 rounded-full bg-[hsl(var(--success-muted))] flex items-center justify-center mb-6">
+              <svg className="w-8 h-8 text-[hsl(var(--success))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white mb-2">
+            <h1 className="text-2xl font-semibold text-[hsl(var(--text-primary))] mb-2">
               Demande soumise
             </h1>
-            <p className="text-neutral-600 dark:text-neutral-400 mb-6">
+            <p className="text-[hsl(var(--text-tertiary))] mb-6">
               Notre équipe TI a été notifiée et traitera votre demande.
             </p>
 
-            <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-lg p-6 mb-6">
-              <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-1">Numéro de référence</p>
-              <p className="text-2xl font-mono font-semibold text-neutral-900 dark:text-white mb-3">
+            <div className="bg-[hsl(var(--bg-elevated))] rounded-lg p-6 mb-6">
+              <p className="text-sm text-[hsl(var(--text-tertiary))] mb-1">Numéro de référence</p>
+              <p className="text-2xl font-mono font-semibold text-[hsl(var(--text-primary))] mb-3">
                 {success.code}
               </p>
               <span className={cn(
@@ -319,7 +319,7 @@ export default function NewSupportTicketPage() {
             <div className="flex flex-col gap-3">
               <button
                 onClick={() => router.push("/dashboard/support/tickets")}
-                className="w-full py-2.5 px-4 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-lg text-sm font-medium hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
+                className="w-full py-2.5 px-4 bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] rounded-lg text-sm font-medium hover:opacity-90 transition-colors"
               >
                 Voir mes demandes
               </button>
@@ -339,7 +339,7 @@ export default function NewSupportTicketPage() {
                   setSelectedFiles([]);
                   setActiveSection(1);
                 }}
-                className="w-full py-2.5 px-4 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg text-sm font-medium hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                className="w-full py-2.5 px-4 border border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))] rounded-lg text-sm font-medium hover:bg-[hsl(var(--bg-elevated))] transition-colors"
               >
                 Nouvelle demande
               </button>
@@ -360,15 +360,15 @@ export default function NewSupportTicketPage() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-neutral-50 dark:bg-neutral-950 overflow-hidden">
+    <div className="h-screen flex flex-col bg-[hsl(var(--bg-elevated))] overflow-hidden">
       {/* Sticky progress bar */}
-      <div className="shrink-0 z-10 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800">
+      <div className="shrink-0 z-10 bg-[hsl(var(--bg-surface))] border-b border-[hsl(var(--border-default))]">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-2 flex items-center justify-between">
-          <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+          <p className="text-xs font-medium text-[hsl(var(--text-tertiary))]">
             Étape {currentStep} sur {TOTAL_SECTIONS} — {completionPercentage}%
           </p>
         </div>
-        <div className="h-1.5 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
+        <div className="h-1.5 bg-[hsl(var(--bg-muted))] rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-yellow-400 via-lime-400 to-green-500 transition-all duration-500 ease-out rounded-full"
             style={{ width: `${completionPercentage}%` }}
@@ -382,7 +382,7 @@ export default function NewSupportTicketPage() {
           <div className="mb-4">
             <button
               onClick={() => router.back()}
-              className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-white mb-2 transition-colors"
+              className="inline-flex items-center gap-1.5 text-sm text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-primary))] mb-2 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -391,7 +391,7 @@ export default function NewSupportTicketPage() {
             </button>
             <div className="flex items-start gap-4">
               {activeTenant?.logo && (
-                <div className="shrink-0 w-10 h-10 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center overflow-hidden">
+                <div className="shrink-0 w-10 h-10 rounded-lg bg-[hsl(var(--bg-surface))] border border-[hsl(var(--border-default))] flex items-center justify-center overflow-hidden">
                   <Image
                     src={activeTenant.logo}
                     alt={activeTenant.name}
@@ -402,10 +402,10 @@ export default function NewSupportTicketPage() {
                 </div>
               )}
               <div>
-                <h1 className="text-lg font-semibold text-neutral-900 dark:text-white">
+                <h1 className="text-lg font-semibold text-[hsl(var(--text-primary))]">
                   Soumettre une demande
                 </h1>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                <p className="text-sm text-[hsl(var(--text-tertiary))]">
                   Décrivez votre problème et nous vous aiderons rapidement.
                 </p>
               </div>
@@ -413,8 +413,8 @@ export default function NewSupportTicketPage() {
           </div>
 
           {!hasTenantContext && (
-            <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-              <p className="text-sm text-amber-800 dark:text-amber-200">
+            <div className="mb-4 p-3 bg-[hsl(var(--warning-muted))] border border-[hsl(var(--warning)_/_0.3)] rounded-lg">
+              <p className="text-sm text-[hsl(var(--warning))]">
                 Veuillez sélectionner une organisation dans le menu latéral avant de continuer.
               </p>
             </div>
@@ -462,8 +462,8 @@ export default function NewSupportTicketPage() {
                           className={cn(
                             "flex-1 py-2.5 px-4 rounded-lg text-sm font-medium border transition-all",
                             site === s.value
-                              ? "bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 border-transparent"
-                              : "bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600"
+                              ? "bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] border-transparent"
+                              : "bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))] border-[hsl(var(--border-default))] hover:border-[hsl(var(--border-subtle))]"
                           )}
                         >
                           {s.label}
@@ -617,7 +617,7 @@ export default function NewSupportTicketPage() {
                 isLast
               >
                 <div
-                  className="border-2 border-dashed border-neutral-200 dark:border-neutral-700 rounded-lg p-6 text-center hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors cursor-pointer"
+                  className="border-2 border-dashed border-[hsl(var(--border-default))] rounded-lg p-6 text-center hover:border-[hsl(var(--border-subtle))] transition-colors cursor-pointer"
                   onClick={() => fileInputRef.current?.click()}
                   onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                   onDrop={(e) => {
@@ -639,13 +639,13 @@ export default function NewSupportTicketPage() {
                       }
                     }}
                   />
-                  <svg className="mx-auto h-10 w-10 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="mx-auto h-10 w-10 text-[hsl(var(--text-muted))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 16v-8m0 0l-3 3m3-3l3 3M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
                   </svg>
-                  <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-                    Glissez des fichiers ici ou <span className="text-lime-500 dark:text-lime-400 font-medium">parcourir</span>
+                  <p className="mt-2 text-sm text-[hsl(var(--text-tertiary))]">
+                    Glissez des fichiers ici ou <span className="text-[hsl(var(--accent))] font-medium">parcourir</span>
                   </p>
-                  <p className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
+                  <p className="mt-1 text-xs text-[hsl(var(--text-muted))]">
                     Max 25 Mo par fichier
                   </p>
                 </div>
@@ -653,7 +653,7 @@ export default function NewSupportTicketPage() {
                 {selectedFiles.length > 0 && (
                   <div className="mt-4 space-y-2">
                     {selectedFiles.map((file, idx) => (
-                      <div key={`${file.name}-${idx}`} className="flex items-center gap-3 p-2 rounded-lg bg-neutral-50 dark:bg-neutral-800">
+                      <div key={`${file.name}-${idx}`} className="flex items-center gap-3 p-2 rounded-lg bg-[hsl(var(--bg-elevated))]">
                         {file.type.startsWith("image/") ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -662,20 +662,20 @@ export default function NewSupportTicketPage() {
                             className="w-10 h-10 rounded object-cover shrink-0"
                           />
                         ) : (
-                          <div className="w-10 h-10 rounded bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center shrink-0">
-                            <svg className="w-5 h-5 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <div className="w-10 h-10 rounded bg-[hsl(var(--bg-muted))] flex items-center justify-center shrink-0">
+                            <svg className="w-5 h-5 text-[hsl(var(--text-tertiary))]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-neutral-900 dark:text-white truncate">{file.name}</p>
-                          <p className="text-xs text-neutral-500">{formatFileSize(file.size)}</p>
+                          <p className="text-sm text-[hsl(var(--text-primary))] truncate">{file.name}</p>
+                          <p className="text-xs text-[hsl(var(--text-tertiary))]">{formatFileSize(file.size)}</p>
                         </div>
                         <button
                           type="button"
                           onClick={() => setSelectedFiles((prev) => prev.filter((_, i) => i !== idx))}
-                          className="p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-400 hover:text-red-500 transition-colors"
+                          className="p-1 rounded hover:bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))] transition-colors"
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -687,16 +687,16 @@ export default function NewSupportTicketPage() {
                 )}
 
                 {/* Submit inside Section 5 */}
-                <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-neutral-700">
+                <div className="mt-6 pt-4 border-t border-[hsl(var(--border-default))]">
                   {error && (
-                    <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                      <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+                    <div className="mb-4 p-4 bg-[hsl(var(--danger-muted))] border border-[hsl(var(--danger)_/_0.3)] rounded-lg">
+                      <p className="text-sm text-[hsl(var(--danger))]">{error}</p>
                     </div>
                   )}
                   <button
                     type="submit"
                     disabled={submitting || !hasTenantContext}
-                    className="w-full py-3 px-4 bg-lime-500 hover:bg-lime-600 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 text-neutral-900 rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
+                    className="w-full py-3 px-4 bg-[hsl(var(--accent))] hover:bg-[hsl(var(--accent-hover))] disabled:bg-[hsl(var(--bg-muted))] text-white rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
                   >
                     {submitting ? "Envoi en cours..." : "Soumettre la demande"}
                   </button>
@@ -705,8 +705,8 @@ export default function NewSupportTicketPage() {
 
               {/* Error - shown outside sections too for visibility */}
               {error && activeSection !== 5 && (
-                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                  <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+                <div className="p-4 bg-[hsl(var(--danger-muted))] border border-[hsl(var(--danger)_/_0.3)] rounded-lg">
+                  <p className="text-sm text-[hsl(var(--danger))]">{error}</p>
                 </div>
               )}
 
@@ -715,7 +715,7 @@ export default function NewSupportTicketPage() {
                 <button
                   type="submit"
                   disabled={submitting || !hasTenantContext}
-                  className="w-full py-3 px-4 bg-lime-500 hover:bg-lime-600 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 text-neutral-900 rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
+                  className="w-full py-3 px-4 bg-[hsl(var(--accent))] hover:bg-[hsl(var(--accent-hover))] disabled:bg-[hsl(var(--bg-muted))] text-white rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
                 >
                   {submitting ? "Envoi en cours..." : "Soumettre la demande"}
                 </button>
@@ -744,8 +744,8 @@ export default function NewSupportTicketPage() {
                           : "—"}
                       />
 
-                      <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800">
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">Priorité calculée</p>
+                      <div className="pt-3 border-t border-[hsl(var(--border-subtle))]">
+                        <p className="text-xs text-[hsl(var(--text-tertiary))] mb-2">Priorité calculée</p>
                         {priorityInfo ? (
                           <div className={cn(
                             "inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium",
@@ -754,20 +754,20 @@ export default function NewSupportTicketPage() {
                           )}>
                             <span className={cn(
                               "w-2 h-2 rounded-full",
-                              priorityInfo.priority === "P1" && "bg-red-500",
-                              priorityInfo.priority === "P2" && "bg-orange-500",
-                              priorityInfo.priority === "P3" && "bg-yellow-500",
-                              priorityInfo.priority === "P4" && "bg-green-500"
+                              priorityInfo.priority === "P1" && "bg-[hsl(var(--danger))]",
+                              priorityInfo.priority === "P2" && "bg-[hsl(var(--warning))]",
+                              priorityInfo.priority === "P3" && "bg-[hsl(var(--warning))]",
+                              priorityInfo.priority === "P4" && "bg-[hsl(var(--success))]"
                             )} />
                             {priorityInfo.priority} - {priorityInfo.label}
                           </div>
                         ) : (
-                          <p className="text-sm text-neutral-400 dark:text-neutral-500 italic">
+                          <p className="text-sm text-[hsl(var(--text-muted))] italic">
                             Complétez l'évaluation
                           </p>
                         )}
                         {priorityInfo && (
-                          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-2">
+                          <p className="text-xs text-[hsl(var(--text-tertiary))] mt-2">
                             Délai de réponse cible : {priorityInfo.slaHours}h
                           </p>
                         )}
@@ -781,14 +781,14 @@ export default function NewSupportTicketPage() {
                   <button
                     type="submit"
                     disabled={submitting || !hasTenantContext}
-                    className="w-full py-3 px-4 bg-lime-500 hover:bg-lime-600 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 text-neutral-900 rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
+                    className="w-full py-3 px-4 bg-[hsl(var(--accent))] hover:bg-[hsl(var(--accent-hover))] disabled:bg-[hsl(var(--bg-muted))] text-white rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
                   >
                     {submitting ? "Envoi en cours..." : "Soumettre la demande"}
                   </button>
                   <button
                     type="button"
                     onClick={() => router.back()}
-                    className="w-full mt-2 py-2.5 px-4 text-neutral-600 dark:text-neutral-400 text-sm hover:text-neutral-900 dark:hover:text-white transition-colors"
+                    className="w-full mt-2 py-2.5 px-4 text-[hsl(var(--text-tertiary))] text-sm hover:text-[hsl(var(--text-primary))] transition-colors"
                   >
                     Annuler
                   </button>
@@ -797,10 +797,10 @@ export default function NewSupportTicketPage() {
                 {/* Help Card */}
                 <Card>
                   <CardContent>
-                    <p className="text-sm font-medium text-neutral-900 dark:text-white mb-2">
+                    <p className="text-sm font-medium text-[hsl(var(--text-primary))] mb-2">
                       Besoin d'aide urgente ?
                     </p>
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                    <p className="text-sm text-[hsl(var(--text-tertiary))]">
                       Pour les urgences critiques (arrêt de production), contactez directement le TI au poste 123.
                     </p>
                   </CardContent>
@@ -844,8 +844,8 @@ const CollapsibleSection = React.forwardRef<HTMLDivElement, CollapsibleSectionPr
         <div className={cn(
           "rounded-xl border overflow-hidden transition-colors",
           isUnlocked
-            ? "bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800"
-            : "bg-neutral-50 dark:bg-neutral-900/50 border-neutral-200 dark:border-neutral-800 opacity-50"
+            ? "bg-[hsl(var(--bg-surface))] border-[hsl(var(--border-default))]"
+            : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] opacity-50"
         )}>
           {/* Header */}
           <button
@@ -855,7 +855,7 @@ const CollapsibleSection = React.forwardRef<HTMLDivElement, CollapsibleSectionPr
             className={cn(
               "w-full flex items-center gap-3 px-5 py-4 text-left transition-colors",
               isUnlocked
-                ? "cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
+                ? "cursor-pointer hover:bg-[hsl(var(--bg-elevated))]"
                 : "cursor-not-allowed"
             )}
           >
@@ -863,10 +863,10 @@ const CollapsibleSection = React.forwardRef<HTMLDivElement, CollapsibleSectionPr
             <span className={cn(
               "shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold",
               isComplete
-                ? "bg-lime-500 text-white"
+                ? "bg-[hsl(var(--accent))] text-white"
                 : isUnlocked
-                  ? "bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300"
-                  : "bg-neutral-200 dark:bg-neutral-700 text-neutral-400 dark:text-neutral-500"
+                  ? "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))]"
+                  : "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))]"
             )}>
               {isComplete ? <Check className="w-4 h-4" /> : number}
             </span>
@@ -875,18 +875,18 @@ const CollapsibleSection = React.forwardRef<HTMLDivElement, CollapsibleSectionPr
             <span className={cn(
               "flex-1 text-sm font-semibold",
               isUnlocked
-                ? "text-neutral-900 dark:text-white"
-                : "text-neutral-400 dark:text-neutral-500"
+                ? "text-[hsl(var(--text-primary))]"
+                : "text-[hsl(var(--text-muted))]"
             )}>
               {title}
             </span>
 
             {/* Status icon */}
             {!isUnlocked ? (
-              <Lock className="w-4 h-4 text-neutral-400 dark:text-neutral-500 shrink-0" />
+              <Lock className="w-4 h-4 text-[hsl(var(--text-muted))] shrink-0" />
             ) : (
               <ChevronDown className={cn(
-                "w-4 h-4 text-neutral-400 shrink-0 transition-transform duration-200",
+                "w-4 h-4 text-[hsl(var(--text-muted))] shrink-0 transition-transform duration-200",
                 isActive && "rotate-180"
               )} />
             )}
@@ -902,17 +902,17 @@ const CollapsibleSection = React.forwardRef<HTMLDivElement, CollapsibleSectionPr
                 transition={{ duration: 0.25, ease: "easeInOut" }}
                 className="overflow-hidden"
               >
-                <div className="px-5 pb-5 pt-1 border-t border-neutral-100 dark:border-neutral-800">
+                <div className="px-5 pb-5 pt-1 border-t border-[hsl(var(--border-subtle))]">
                   {children}
 
                   {/* Navigation buttons */}
                   {(!isLast || !isFirst) && (
-                    <div className="flex items-center justify-between mt-6 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+                    <div className="flex items-center justify-between mt-6 pt-4 border-t border-[hsl(var(--border-subtle))]">
                       {!isFirst ? (
                         <button
                           type="button"
                           onClick={onPrev}
-                          className="py-2 px-4 text-sm font-medium text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                          className="py-2 px-4 text-sm font-medium text-[hsl(var(--text-tertiary))] border border-[hsl(var(--border-default))] rounded-lg hover:bg-[hsl(var(--bg-elevated))] transition-colors"
                         >
                           Précédent
                         </button>
@@ -924,7 +924,7 @@ const CollapsibleSection = React.forwardRef<HTMLDivElement, CollapsibleSectionPr
                           type="button"
                           onClick={onNext}
                           disabled={!nextUnlocked}
-                          className="py-2 px-4 text-sm font-medium text-neutral-900 bg-lime-500 rounded-lg hover:bg-lime-600 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 disabled:cursor-not-allowed transition-colors"
+                          className="py-2 px-4 text-sm font-medium text-white bg-[hsl(var(--accent))] rounded-lg hover:bg-[hsl(var(--accent-hover))] disabled:bg-[hsl(var(--bg-muted))] disabled:cursor-not-allowed transition-colors"
                         >
                           Suivant
                         </button>
@@ -947,7 +947,7 @@ const CollapsibleSection = React.forwardRef<HTMLDivElement, CollapsibleSectionPr
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+    <div className="bg-[hsl(var(--bg-surface))] rounded-lg border border-[hsl(var(--border-default))] overflow-hidden">
       {children}
     </div>
   );
@@ -955,8 +955,8 @@ function Card({ children }: { children: React.ReactNode }) {
 
 function CardHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="px-5 py-4 border-b border-neutral-100 dark:border-neutral-800">
-      <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">{children}</h2>
+    <div className="px-5 py-4 border-b border-[hsl(var(--border-subtle))]">
+      <h2 className="text-sm font-semibold text-[hsl(var(--text-primary))]">{children}</h2>
     </div>
   );
 }
@@ -967,10 +967,10 @@ function CardContent({ children }: { children: React.ReactNode }) {
 
 function FieldLabel({ children, required, optional }: { children: React.ReactNode; required?: boolean; optional?: boolean }) {
   return (
-    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
+    <label className="block text-sm font-medium text-[hsl(var(--text-secondary))] mb-1.5">
       {children}
-      {required && <span className="text-red-500 ml-0.5">*</span>}
-      {optional && <span className="text-neutral-400 dark:text-neutral-500 ml-1 font-normal">(optionnel)</span>}
+      {required && <span className="text-[hsl(var(--danger))] ml-0.5">*</span>}
+      {optional && <span className="text-[hsl(var(--text-muted))] ml-1 font-normal">(optionnel)</span>}
     </label>
   );
 }
@@ -979,7 +979,7 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <FieldLabel>{label}</FieldLabel>
-      <div className="px-3 py-2.5 bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-600 dark:text-neutral-400">
+      <div className="px-3 py-2.5 bg-[hsl(var(--bg-elevated))] border border-[hsl(var(--border-default))] rounded-lg text-sm text-[hsl(var(--text-tertiary))]">
         {value}
       </div>
     </div>
@@ -1012,7 +1012,7 @@ function InputField({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         minLength={minLength}
-        className="w-full px-3 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-lime-500/20 focus:border-lime-500 transition-colors"
+        className="w-full px-3 py-2.5 bg-[hsl(var(--bg-surface))] border border-[hsl(var(--border-default))] rounded-lg text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))]/20 focus:border-[hsl(var(--accent))] transition-colors"
       />
     </div>
   );
@@ -1046,9 +1046,9 @@ function TextAreaField({
         placeholder={placeholder}
         minLength={minLength}
         rows={rows}
-        className="w-full px-3 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-lime-500/20 focus:border-lime-500 transition-colors resize-none"
+        className="w-full px-3 py-2.5 bg-[hsl(var(--bg-surface))] border border-[hsl(var(--border-default))] rounded-lg text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))]/20 focus:border-[hsl(var(--accent))] transition-colors resize-none"
       />
-      {hint && <p className="mt-1.5 text-xs text-neutral-500 dark:text-neutral-400">{hint}</p>}
+      {hint && <p className="mt-1.5 text-xs text-[hsl(var(--text-tertiary))]">{hint}</p>}
     </div>
   );
 }
@@ -1077,7 +1077,7 @@ function SelectField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className="w-full px-3 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-lime-500/20 focus:border-lime-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
+        className="w-full px-3 py-2.5 bg-[hsl(var(--bg-surface))] border border-[hsl(var(--border-default))] rounded-lg text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))]/20 focus:border-[hsl(var(--accent))] transition-colors disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
           backgroundRepeat: "no-repeat",
@@ -1121,8 +1121,8 @@ function RadioGroup({
             className={cn(
               "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all",
               value === opt.value
-                ? "bg-lime-50 dark:bg-lime-900/20 border-lime-200 dark:border-lime-800"
-                : "bg-white dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600"
+                ? "bg-[hsl(var(--success-muted))] border-[hsl(var(--success)_/_0.3)]"
+                : "bg-[hsl(var(--bg-surface))] border-[hsl(var(--border-default))] hover:border-[hsl(var(--border-subtle))]"
             )}
           >
             <input
@@ -1131,16 +1131,16 @@ function RadioGroup({
               value={opt.value}
               checked={value === opt.value}
               onChange={() => onChange(opt.value)}
-              className="mt-0.5 w-4 h-4 text-lime-500 border-neutral-300 dark:border-neutral-600 focus:ring-lime-500"
+              className="mt-0.5 w-4 h-4 text-[hsl(var(--accent))] border-[hsl(var(--border-default))] focus:ring-[hsl(var(--accent))]"
             />
             <div>
               <p className={cn(
                 "text-sm font-medium",
-                value === opt.value ? "text-lime-900 dark:text-lime-100" : "text-neutral-900 dark:text-white"
+                value === opt.value ? "text-[hsl(var(--success))]" : "text-[hsl(var(--text-primary))]"
               )}>
                 {opt.label}
               </p>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+              <p className="text-xs text-[hsl(var(--text-tertiary))] mt-0.5">
                 {opt.description}
               </p>
             </div>
@@ -1154,8 +1154,8 @@ function RadioGroup({
 function SummaryRow({ label, value }: { label: string; value: string | undefined }) {
   return (
     <div className="flex justify-between items-start gap-2">
-      <span className="text-xs text-neutral-500 dark:text-neutral-400">{label}</span>
-      <span className="text-sm text-neutral-900 dark:text-white text-right">{value || "—"}</span>
+      <span className="text-xs text-[hsl(var(--text-tertiary))]">{label}</span>
+      <span className="text-sm text-[hsl(var(--text-primary))] text-right">{value || "—"}</span>
     </div>
   );
 }

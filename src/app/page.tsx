@@ -171,8 +171,8 @@ function LoginForm() {
 
   if (status === "loading") {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-zinc-950">
-        <LoadingSpinner className="h-8 w-8 text-emerald-500" />
+      <div className="fixed inset-0 flex items-center justify-center bg-[hsl(var(--bg-base))]">
+        <LoadingSpinner className="h-8 w-8 text-[hsl(var(--accent))]" />
       </div>
     );
   }
@@ -199,24 +199,24 @@ function LoginForm() {
 
   return (
     /* Non-scrollable viewport container */
-    <div className="fixed inset-0 overflow-hidden bg-zinc-950 text-gray-100 font-sans antialiased">
+    <div className="fixed inset-0 overflow-hidden bg-[hsl(var(--bg-base))] text-[hsl(var(--text-primary))] font-sans antialiased">
       <ParticleField />
 
       {/* Soft brand spotlights (the gradient you liked) + slightly lighter black overlay to brighten stars */}
       <div className="pointer-events-none absolute inset-0 -z-[5] bg-black/55" />
-      <div className="pointer-events-none absolute -top-24 -left-24 w-[36rem] h-[36rem] rounded-full bg-emerald-600/12 blur-3xl -z-[4]" />
-      <div className="pointer-events-none absolute -bottom-24 -right-24 w-[36rem] h-[36rem] rounded-full bg-teal-500/12 blur-3xl -z-[4]" />
+      <div className="pointer-events-none absolute -top-24 -left-24 w-[36rem] h-[36rem] rounded-full bg-[hsl(var(--accent)/0.12)] blur-3xl -z-[4]" />
+      <div className="pointer-events-none absolute -bottom-24 -right-24 w-[36rem] h-[36rem] rounded-full bg-[hsl(var(--accent)/0.12)] blur-3xl -z-[4]" />
 
       {/* Header */}
       <header className="relative z-10 h-16 px-8">
         <div className="h-full max-w-6xl mx-auto flex items-center justify-between">
           <Link href="/" className="relative group">
-            <div className="absolute -inset-2 bg-gradient-to-r from-emerald-600 to-green-600 rounded-lg blur-xl opacity-0 group-hover:opacity-20 transition-opacity duration-500" />
+            <div className="absolute -inset-2 bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(var(--accent-hover))] rounded-lg blur-xl opacity-0 group-hover:opacity-20 transition-opacity duration-500" />
             <NartexLogo className="relative h-5 w-auto text-foreground/90 group-hover:text-foreground transition-colors" />
           </Link>
-          <div className="hidden md:flex items-center gap-3 text-xs text-zinc-500">
+          <div className="hidden md:flex items-center gap-3 text-xs text-[hsl(var(--text-tertiary))]">
             <span className="inline-flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--accent))] animate-pulse" />
               <span>Plateforme de gestion d'entreprise unifiée</span>
             </span>
           </div>
@@ -234,25 +234,25 @@ function LoginForm() {
               </span>
               <span className="mt-1 block">
                 <span className="inline-flex items-baseline gap-2">
-                  <NartexLogo className="inline h-[42px] w-auto text-emerald-400 align-baseline" />
+                  <NartexLogo className="inline h-[42px] w-auto text-[hsl(var(--accent))] align-baseline" />
                   <span className="text-white/90" style={{ fontSize: "clamp(28px, 4.5vw, 48px)" }}>— le CRM unifié</span>
                 </span>
               </span>
             </h1>
 
-            <p className="mt-4 text-zinc-400 text-sm leading-relaxed max-w-[46ch]">
+            <p className="mt-4 text-[hsl(var(--text-muted))] text-sm leading-relaxed max-w-[46ch]">
               Centralisez contacts, opportunités et opérations. Nartex transforme vos données en visuels convaincants,
               orchestre vos processus, et accélère vos équipes—du premier lead jusqu’au revenu récurrent.
             </p>
 
-            <div className="mt-6 grid grid-cols-3 gap-4 text-xs text-zinc-400">
+            <div className="mt-6 grid grid-cols-3 gap-4 text-xs text-[hsl(var(--text-muted))]">
               {[
                 { k: "Fiabilité", v: "SOC 2 • ISO 27001" },
                 { k: "Performance", v: "Edge-first, <50 ms" },
                 { k: "Intégrations", v: "Suite 365 • Google" },
               ].map((i, idx) => (
-                <div key={idx} className="rounded-xl border border-zinc-800/60 bg-zinc-950/40 backdrop-blur-sm p-3">
-                  <div className="text-zinc-300">{i.k}</div>
+                <div key={idx} className="rounded-xl border border-[hsl(var(--border-default))]/60 bg-[hsl(var(--bg-base))]/40 backdrop-blur-sm p-3">
+                  <div className="text-[hsl(var(--text-secondary))]">{i.k}</div>
                   <div className="mt-1 font-mono text-[10px] tracking-wider">{i.v}</div>
                 </div>
               ))}
@@ -262,10 +262,10 @@ function LoginForm() {
           {/* Right: Auth card */}
           <section className="w-full">
             <div className="relative">
-              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-emerald-700/20 via-teal-600/15 to-emerald-700/20 blur-xl opacity-70" />
-              <div className="relative rounded-2xl border border-zinc-800/60 bg-zinc-950/60 backdrop-blur-2xl shadow-2xl shadow-black/30 p-8">
-                <h2 className="text-center text-2xl font-semibold text-white">Connexion sécurisée</h2>
-                <p className="text-center text-zinc-500 text-sm mt-1">
+              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-[hsl(var(--accent)/0.2)] via-[hsl(var(--accent)/0.15)] to-[hsl(var(--accent)/0.2)] blur-xl opacity-70" />
+              <div className="relative rounded-2xl border border-[hsl(var(--border-default))]/60 bg-[hsl(var(--bg-base))]/60 backdrop-blur-2xl shadow-2xl shadow-black/30 p-8">
+                <h2 className="text-center text-2xl font-semibold text-[hsl(var(--text-primary))]">Connexion sécurisée</h2>
+                <p className="text-center text-[hsl(var(--text-tertiary))] text-sm mt-1">
                   Accédez à votre espace de travail et à vos données clients, en toute sécurité.
                 </p>
 
@@ -285,11 +285,11 @@ function LoginForm() {
       </main>
 
       {/* Footer */}
-      <footer className="h-16 px-8 text-center text-xs text-zinc-500 relative z-10">
+      <footer className="h-16 px-8 text-center text-xs text-[hsl(var(--text-tertiary))] relative z-10">
         <div className="h-full max-w-6xl mx-auto flex items-center justify-center gap-4 font-mono tracking-widest">
           <span>© {new Date().getFullYear()} NARTEX</span>
-          <span className="text-zinc-700">|</span>
-          <Link href="/privacy" className="hover:text-zinc-300 transition-colors">Confidentialité</Link>
+          <span className="text-[hsl(var(--text-muted))]">|</span>
+          <Link href="/privacy" className="hover:text-[hsl(var(--text-secondary))] transition-colors">Confidentialité</Link>
         </div>
       </footer>
 
@@ -326,14 +326,14 @@ function AuthForm({
   return (
     <>
       {error && (
-        <div className="mt-6 bg-red-950/30 border border-red-900/50 text-red-400 px-4 py-3 rounded-lg text-sm text-center" role="alert">
+        <div className="mt-6 bg-[hsl(var(--danger-muted))] border border-[hsl(var(--danger)/0.5)] text-[hsl(var(--danger))] px-4 py-3 rounded-lg text-sm text-center" role="alert">
           {error}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-5">
         <div>
-          <label htmlFor="email" className="block text-[11px] font-medium text-zinc-400 mb-2 uppercase tracking-wider">
+          <label htmlFor="email" className="block text-[11px] font-medium text-[hsl(var(--text-muted))] mb-2 uppercase tracking-wider">
             Adresse e-mail
           </label>
           <input
@@ -344,16 +344,16 @@ function AuthForm({
             required
             placeholder="vous@entreprise.com"
             autoComplete="email"
-            className="w-full px-4 py-3 bg-zinc-900/60 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/40 focus:bg-zinc-900/70 transition-all text-sm"
+            className="w-full px-4 py-3 bg-[hsl(var(--bg-surface))]/60 border border-[hsl(var(--border-default))] rounded-lg text-[hsl(var(--text-primary))] placeholder-[hsl(var(--text-muted))] focus:ring-2 focus:ring-[hsl(var(--accent))]/40 focus:border-[hsl(var(--accent))]/40 focus:bg-[hsl(var(--bg-surface))]/70 transition-all text-sm"
           />
         </div>
 
         <div>
           <div className="flex justify-between items-center mb-2">
-            <label htmlFor="password" className="block text-[11px] font-medium text-zinc-400 uppercase tracking-wider">
+            <label htmlFor="password" className="block text-[11px] font-medium text-[hsl(var(--text-muted))] uppercase tracking-wider">
               Mot de passe
             </label>
-            <Link href="/forgot-password" className="text-[11px] text-emerald-400 hover:text-emerald-300 transition-colors">
+            <Link href="/forgot-password" className="text-[11px] text-[hsl(var(--accent))] hover:text-[hsl(var(--accent-hover))] transition-colors">
               Oublié ?
             </Link>
           </div>
@@ -366,13 +366,13 @@ function AuthForm({
               required
               autoComplete="current-password"
               placeholder="••••••••••••"
-              className="w-full px-4 py-3 bg-zinc-900/60 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/40 focus:bg-zinc-900/70 transition-all pr-12 text-sm"
+              className="w-full px-4 py-3 bg-[hsl(var(--bg-surface))]/60 border border-[hsl(var(--border-default))] rounded-lg text-[hsl(var(--text-primary))] placeholder-[hsl(var(--text-muted))] focus:ring-2 focus:ring-[hsl(var(--accent))]/40 focus:border-[hsl(var(--accent))]/40 focus:bg-[hsl(var(--bg-surface))]/70 transition-all pr-12 text-sm"
             />
             <button
               type="button"
               aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
               onClick={() => setShowPassword((v) => !v)}
-              className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-500 hover:text-zinc-300 transition-colors"
+              className="absolute inset-y-0 right-0 pr-4 flex items-center text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-secondary))] transition-colors"
             >
               {showPassword ? <EyeOffIcon /> : <EyeIcon />}
             </button>
@@ -382,7 +382,7 @@ function AuthForm({
         <button
           type="submit"
           disabled={loading}
-          className="w-full group relative overflow-hidden py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-500 rounded-lg text-white font-semibold text-sm transition-all shadow-lg hover:shadow-emerald-500/30 disabled:opacity-50"
+          className="w-full group relative overflow-hidden py-3 px-4 bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(var(--accent-hover))] rounded-lg text-white font-semibold text-sm transition-all shadow-lg hover:shadow-[hsl(var(--accent))]/30 disabled:opacity-50"
         >
           <span className="relative z-10 flex items-center justify-center">{loading ? <LoadingSpinner /> : "Se connecter"}</span>
           <div className="absolute inset-0 bg-gradient-to-t from-white/15 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -391,10 +391,10 @@ function AuthForm({
 
       <div className="relative my-6">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-zinc-800" />
+          <div className="w-full border-t border-[hsl(var(--border-default))]" />
         </div>
         <div className="relative flex justify-center">
-          <span className="px-3 bg-zinc-950/60 text-zinc-500 uppercase tracking-wider text-[10px]">ou</span>
+          <span className="px-3 bg-[hsl(var(--bg-base))]/60 text-[hsl(var(--text-tertiary))] uppercase tracking-wider text-[10px]">ou</span>
         </div>
       </div>
 
@@ -406,9 +406,9 @@ function AuthForm({
           <button
             key={provider}
             onClick={() => handleSSOLogin(provider)}
-            className="w-full group relative overflow-hidden inline-flex justify-center items-center py-3 px-4 bg-zinc-900/60 border border-zinc-800 hover:border-zinc-700 rounded-lg text-sm font-medium text-zinc-300 transition-all"
+            className="w-full group relative overflow-hidden inline-flex justify-center items-center py-3 px-4 bg-[hsl(var(--bg-surface))]/60 border border-[hsl(var(--border-default))] hover:border-[hsl(var(--border-default))]/80 rounded-lg text-sm font-medium text-[hsl(var(--text-secondary))] transition-all"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[hsl(var(--accent))]/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <span className="relative z-10 flex items-center justify-center">
               {icon} <span className="ml-3">{label}</span>
             </span>
@@ -416,9 +416,9 @@ function AuthForm({
         ))}
       </div>
 
-      <p className="mt-6 text-center text-zinc-500 text-[12px]">
+      <p className="mt-6 text-center text-[hsl(var(--text-tertiary))] text-[12px]">
         Pas encore de compte ?{" "}
-        <Link href="/signup" className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">
+        <Link href="/signup" className="text-[hsl(var(--accent))] hover:text-[hsl(var(--accent-hover))] font-medium transition-colors">
           Créer un compte
         </Link>
       </p>
@@ -428,7 +428,7 @@ function AuthForm({
 
 /* ---------------- Page Export ---------------- */
 const PremiumLoginPage: NextPage = () => (
-  <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-zinc-950"><LoadingSpinner className="h-8 w-8 text-emerald-500" /></div>}>
+  <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-[hsl(var(--bg-base))]"><LoadingSpinner className="h-8 w-8 text-[hsl(var(--accent))]" /></div>}>
     <LoginForm />
   </Suspense>
 );

@@ -10,9 +10,9 @@ export const metadata: Metadata = {
 
 export default function PrivacyPolicyPage() {
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
-      <header className="bg-white dark:bg-gray-950/50 border-b border-gray-200 dark:border-gray-800 py-4 px-6">
-        <Link href="/" className="font-bold text-xl text-gray-800 dark:text-gray-100">
+    <div className="bg-[hsl(var(--bg-base))] min-h-screen">
+      <header className="bg-[hsl(var(--bg-surface))] border-b border-[hsl(var(--border-default))] py-4 px-6">
+        <Link href="/" className="font-bold text-xl text-[hsl(var(--text-primary))]">
           Nartex
         </Link>
       </header>
@@ -24,7 +24,7 @@ export default function PrivacyPolicyPage() {
           <p>
             Bienvenue sur Nartex. Nous nous engageons à protéger votre vie privée. Cette politique de confidentialité explique comment nous collectons, utilisons, divulguons et protégeons vos informations lorsque vous utilisez notre plateforme.
           </p>
-          
+
           <h2>1. Informations que nous collectons</h2>
           <p>
             Nous pouvons collecter des informations personnelles que vous nous fournissez directement lorsque vous vous inscrivez ou utilisez nos services, telles que :
@@ -32,7 +32,7 @@ export default function PrivacyPolicyPage() {
           <ul>
             <li>Nom et Prénom</li>
             <li>Adresse e-mail</li>
-            <li>Informations de base du profil fournies par les fournisseurs d'authentification (Google, Microsoft), telles que votre photo de profil.</li>
+            <li>Informations de base du profil fournies par les fournisseurs d&apos;authentification (Google, Microsoft), telles que votre photo de profil.</li>
           </ul>
 
           <h2>2. Comment nous utilisons vos informations</h2>
@@ -56,12 +56,12 @@ export default function PrivacyPolicyPage() {
           <p>
             Nous utilisons des mesures de sécurité administratives, techniques et physiques pour protéger vos informations personnelles.
           </p>
-          
+
           <h2>5. Vos droits</h2>
           <p>
-            Vous avez le droit d'accéder, de corriger ou de supprimer vos données personnelles. Vous pouvez gérer votre compte et vos données depuis votre tableau de bord.
+            Vous avez le droit d&apos;accéder, de corriger ou de supprimer vos données personnelles. Vous pouvez gérer votre compte et vos données depuis votre tableau de bord.
           </p>
-          
+
           <h2>6. Contact</h2>
           <p>
             Si vous avez des questions concernant cette politique de confidentialité, veuillez nous contacter à :

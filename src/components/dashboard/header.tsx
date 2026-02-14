@@ -38,13 +38,13 @@ export function Header({
         "bg-[hsl(var(--bg-base))]/85 backdrop-blur-lg backdrop-saturate-[1.1]",
         "border-b",
         scrolled
-          ? "border-[hsl(var(--border-subtle))] shadow-sm shadow-black/5"
+          ? "border-[hsl(var(--border-subtle))] shadow-sm"
           : "border-transparent"
       )}
     >
       {/* Centered container */}
       <div className="mx-auto max-w-screen-2xl">
-        <div className="flex h-12 items-center justify-between px-4 lg:px-6">
+        <div className="flex h-14 items-center justify-between px-4 lg:px-6">
           {/* ─────────────────────────────────────────────────────────────────────
              Left Section: Mobile Menu + Logo
              ───────────────────────────────────────────────────────────────────── */}

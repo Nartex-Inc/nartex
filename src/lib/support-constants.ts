@@ -142,29 +142,29 @@ export function getPriorityInfo(priority: Priority): PriorityInfo {
     P1: {
       priority: "P1",
       label: "Critique",
-      color: "text-red-600 dark:text-red-400",
-      bgColor: "bg-red-100 dark:bg-red-900/30",
+      color: "text-[hsl(var(--danger))]",
+      bgColor: "bg-[hsl(var(--danger-muted))]",
       slaHours: 2,
     },
     P2: {
       priority: "P2",
       label: "Haute",
-      color: "text-orange-600 dark:text-orange-400",
-      bgColor: "bg-orange-100 dark:bg-orange-900/30",
+      color: "text-[hsl(var(--warning))]",
+      bgColor: "bg-[hsl(var(--warning-muted))]",
       slaHours: 4,
     },
     P3: {
       priority: "P3",
       label: "Moyenne",
-      color: "text-yellow-600 dark:text-yellow-400",
-      bgColor: "bg-yellow-100 dark:bg-yellow-900/30",
+      color: "text-[hsl(var(--warning))]",
+      bgColor: "bg-[hsl(var(--warning-muted))]",
       slaHours: 24,
     },
     P4: {
       priority: "P4",
       label: "Basse",
-      color: "text-green-600 dark:text-green-400",
-      bgColor: "bg-green-100 dark:bg-green-900/30",
+      color: "text-[hsl(var(--success))]",
+      bgColor: "bg-[hsl(var(--success-muted))]",
       slaHours: 72,
     },
   };
@@ -224,11 +224,11 @@ export function getEntiteForTenant(tenantSlug: string | null | undefined): strin
 // =============================================================================
 
 export const TICKET_STATUSES = [
-  { value: "nouveau", label: "Nouveau", color: "text-blue-600 dark:text-blue-400", bgColor: "bg-blue-100 dark:bg-blue-900/30" },
-  { value: "en_cours", label: "En cours", color: "text-purple-600 dark:text-purple-400", bgColor: "bg-purple-100 dark:bg-purple-900/30" },
-  { value: "en_attente", label: "En attente", color: "text-yellow-600 dark:text-yellow-400", bgColor: "bg-yellow-100 dark:bg-yellow-900/30" },
-  { value: "resolu", label: "Résolu", color: "text-green-600 dark:text-green-400", bgColor: "bg-green-100 dark:bg-green-900/30" },
-  { value: "ferme", label: "Fermé", color: "text-neutral-600 dark:text-neutral-400", bgColor: "bg-neutral-100 dark:bg-neutral-900/30" },
+  { value: "nouveau", label: "Nouveau", color: "text-[hsl(var(--info))]", bgColor: "bg-[hsl(var(--info-muted))]" },
+  { value: "en_cours", label: "En cours", color: "text-[hsl(var(--accent))]", bgColor: "bg-[hsl(var(--accent-muted))]" },
+  { value: "en_attente", label: "En attente", color: "text-[hsl(var(--warning))]", bgColor: "bg-[hsl(var(--warning-muted))]" },
+  { value: "resolu", label: "Résolu", color: "text-[hsl(var(--success))]", bgColor: "bg-[hsl(var(--success-muted))]" },
+  { value: "ferme", label: "Fermé", color: "text-[hsl(var(--text-muted))]", bgColor: "bg-[hsl(var(--bg-muted))]" },
 ] as const;
 
 export type TicketStatus = typeof TICKET_STATUSES[number]["value"];

@@ -25,24 +25,24 @@ const LoadingAnimation: React.FC<LoadingAnimationProps> = ({
       <div className="flex flex-col items-center space-y-8">
         {/* Spinner Container */}
         <div className="relative w-28 h-28">
-          {/* Outer glow ring — accent color */}
-          <div className="absolute inset-0 rounded-full blur-xl bg-[hsl(var(--accent-current))]/20" />
+          {/* Outer glow ring */}
+          <div className="absolute inset-0 rounded-full blur-xl bg-[hsl(var(--accent))]/20" />
 
           {/* Outer static ring */}
-          <div className="absolute inset-0 rounded-full border-4 border-[hsl(var(--accent-current))]/10" />
+          <div className="absolute inset-0 rounded-full border-4 border-[hsl(var(--accent))]/10" />
 
-          {/* Primary spinning ring — accent color */}
+          {/* Primary spinning ring */}
           <div
-            className="absolute inset-0 rounded-full border-4 border-[hsl(var(--accent-current))] border-t-transparent animate-spin"
+            className="absolute inset-0 rounded-full border-4 border-[hsl(var(--accent))] border-t-transparent animate-spin"
             style={{
               animationDuration: "1s",
               animationTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
             }}
           />
 
-          {/* Secondary spinning ring (reverse, smaller) — Teal for contrast */}
+          {/* Secondary spinning ring (reverse, smaller) — Info color for contrast */}
           <div
-            className="absolute inset-3 rounded-full border-4 border-teal-400 dark:border-teal-400 border-b-transparent animate-spin"
+            className="absolute inset-3 rounded-full border-4 border-[hsl(var(--info))] border-b-transparent animate-spin"
             style={{
               animationDuration: "1.5s",
               animationTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
@@ -50,10 +50,10 @@ const LoadingAnimation: React.FC<LoadingAnimationProps> = ({
             }}
           />
 
-          {/* Inner pulsing dot — accent color */}
+          {/* Inner pulsing dot */}
           <div className="absolute inset-0 flex items-center justify-center">
             <div
-              className="w-3 h-3 rounded-full animate-pulse bg-[hsl(var(--accent-current))]"
+              className="w-3 h-3 rounded-full animate-pulse bg-[hsl(var(--accent))]"
               style={{
                 animationDuration: "1s",
               }}
@@ -73,12 +73,12 @@ const LoadingAnimation: React.FC<LoadingAnimationProps> = ({
           )}
         </div>
 
-        {/* Loading dots animation — accent color */}
+        {/* Loading dots animation */}
         <div className="flex items-center gap-1.5">
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="w-2 h-2 rounded-full animate-bounce bg-[hsl(var(--accent-current))]/60"
+              className="w-2 h-2 rounded-full animate-bounce bg-[hsl(var(--accent))]/60"
               style={{
                 animationDelay: `${i * 0.15}s`,
                 animationDuration: "0.6s",

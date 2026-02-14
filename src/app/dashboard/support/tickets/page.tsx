@@ -203,16 +203,16 @@ export default function SupportTicketsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 font-sans">
+    <div className="min-h-screen bg-[hsl(var(--bg-elevated))] font-sans">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <header className="mb-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-white">
+              <h1 className="text-2xl font-semibold tracking-tight text-[hsl(var(--text-primary))]">
                 Billets de support
               </h1>
-              <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+              <p className="mt-1 text-sm text-[hsl(var(--text-tertiary))]">
                 {viewMode === "history"
                   ? "Billets résolus et fermés"
                   : isGestionnaire
@@ -229,8 +229,8 @@ export default function SupportTicketsPage() {
                 className={cn(
                   "inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium shadow-sm transition-colors",
                   viewMode === "history"
-                    ? "bg-amber-600 text-white hover:bg-amber-700"
-                    : "border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                    ? "bg-[hsl(var(--warning))] text-white hover:opacity-90"
+                    : "border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))]"
                 )}
               >
                 {viewMode === "history" ? (
@@ -247,7 +247,7 @@ export default function SupportTicketsPage() {
               </button>
               <button
                 onClick={() => router.push("/dashboard/support/new")}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium shadow-sm hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] text-sm font-medium shadow-sm hover:opacity-90 transition-colors"
               >
                 <Plus className="h-4 w-4" />
                 Nouveau billet
@@ -268,12 +268,12 @@ export default function SupportTicketsPage() {
         <div className="mb-6 space-y-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-muted))]" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Rechercher par code, sujet, utilisateur..."
-                className="w-full h-10 pl-9 pr-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white transition-shadow"
+                className="w-full h-10 pl-9 pr-4 rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--text-primary))] transition-shadow"
               />
             </div>
             <button
@@ -281,8 +281,8 @@ export default function SupportTicketsPage() {
               className={cn(
                 "inline-flex items-center gap-2 px-4 h-10 rounded-lg border text-sm font-medium transition-colors",
                 hasActiveFilters
-                  ? "border-neutral-900 dark:border-white bg-neutral-900 dark:bg-white text-white dark:text-neutral-900"
-                  : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                  ? "border-[hsl(var(--text-primary))] bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))]"
+                  : "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))]"
               )}
             >
               <Filter className="h-4 w-4" />
@@ -290,7 +290,7 @@ export default function SupportTicketsPage() {
             </button>
             <button
               onClick={() => mutate()}
-              className="inline-flex items-center justify-center h-10 w-10 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+              className="inline-flex items-center justify-center h-10 w-10 rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] transition-colors"
               title="Rafraîchir"
             >
               <RotateCcw className="h-4 w-4" />
@@ -298,7 +298,7 @@ export default function SupportTicketsPage() {
             {hasActiveFilters && (
               <button
                 onClick={resetFilters}
-                className="inline-flex items-center justify-center h-10 w-10 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                className="inline-flex items-center justify-center h-10 w-10 rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--danger))] transition-colors"
                 title="Réinitialiser"
               >
                 <X className="h-4 w-4" />
@@ -307,13 +307,13 @@ export default function SupportTicketsPage() {
           </div>
 
           {showFilters && (
-            <div className="flex flex-wrap items-center gap-3 p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+            <div className="flex flex-wrap items-center gap-3 p-4 rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]">
               <div className="flex items-center gap-2">
-                <label className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Statut</label>
+                <label className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Statut</label>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="h-9 px-3 rounded-md border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-sm text-neutral-900 dark:text-white focus:outline-none"
+                  className="h-9 px-3 rounded-md border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] focus:outline-none"
                 >
                   <option value="all">Tous</option>
                   {TICKET_STATUSES.map((s) => (
@@ -322,11 +322,11 @@ export default function SupportTicketsPage() {
                 </select>
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Priorité</label>
+                <label className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Priorité</label>
                 <select
                   value={priorityFilter}
                   onChange={(e) => setPriorityFilter(e.target.value)}
-                  className="h-9 px-3 rounded-md border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-sm text-neutral-900 dark:text-white focus:outline-none"
+                  className="h-9 px-3 rounded-md border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] focus:outline-none"
                 >
                   <option value="all">Toutes</option>
                   <option value="P1">P1 - Critique</option>
@@ -340,11 +340,11 @@ export default function SupportTicketsPage() {
         </div>
 
         {/* Table */}
-        <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm overflow-hidden">
+        <div className="rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm overflow-hidden">
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-24">
-              <Loader2 className="h-8 w-8 text-neutral-400 animate-spin mb-3" />
-              <p className="text-sm text-neutral-500">Chargement...</p>
+              <Loader2 className="h-8 w-8 text-[hsl(var(--text-muted))] animate-spin mb-3" />
+              <p className="text-sm text-[hsl(var(--text-tertiary))]">Chargement...</p>
             </div>
           )}
 
@@ -353,18 +353,18 @@ export default function SupportTicketsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-neutral-200 dark:border-neutral-800">
-                      <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wide">Code</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wide">Sujet</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wide">Demandeur</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wide">Catégorie</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wide">Priorité</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wide">Statut</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wide">Créé</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wide">Actions</th>
+                    <tr className="border-b border-[hsl(var(--border-default))]">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Code</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Sujet</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Demandeur</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Catégorie</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Priorité</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Statut</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Créé</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                  <tbody className="divide-y divide-[hsl(var(--border-subtle))]">
                     {filteredTickets.map((ticket) => {
                       const priorityInfo = getPriorityInfo(ticket.priorite as Priority);
                       const statusInfo = TICKET_STATUSES.find((s) => s.value === ticket.statut);
@@ -374,26 +374,26 @@ export default function SupportTicketsPage() {
                         <tr
                           key={ticket.id}
                           onClick={() => setSelectedId(ticket.id)}
-                          className="group cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                          className="group cursor-pointer hover:bg-[hsl(var(--bg-elevated))] transition-colors"
                         >
-                          <td className="px-4 py-3 font-mono font-medium text-neutral-900 dark:text-white whitespace-nowrap">
+                          <td className="px-4 py-3 font-mono font-medium text-[hsl(var(--text-primary))] whitespace-nowrap">
                             {ticket.code}
                           </td>
                           <td className="px-4 py-3 max-w-[200px]">
-                            <div className="font-medium text-neutral-900 dark:text-white truncate">{ticket.sujet}</div>
+                            <div className="font-medium text-[hsl(var(--text-primary))] truncate">{ticket.sujet}</div>
                             {ticket.commentsCount > 0 && (
-                              <div className="flex items-center gap-1 mt-0.5 text-xs text-neutral-500">
+                              <div className="flex items-center gap-1 mt-0.5 text-xs text-[hsl(var(--text-tertiary))]">
                                 <MessageSquare className="h-3 w-3" />
                                 {ticket.commentsCount}
                               </div>
                             )}
                           </td>
                           <td className="px-4 py-3">
-                            <div className="text-neutral-900 dark:text-white">{ticket.userName}</div>
-                            <div className="text-xs text-neutral-500">{ticket.site}</div>
+                            <div className="text-[hsl(var(--text-primary))]">{ticket.userName}</div>
+                            <div className="text-xs text-[hsl(var(--text-tertiary))]">{ticket.site}</div>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
-                            <span className="inline-flex items-center rounded-md bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                            <span className="inline-flex items-center rounded-md bg-[hsl(var(--bg-muted))] px-2 py-0.5 text-xs font-medium text-[hsl(var(--text-secondary))]">
                               {categoryLabel}
                             </span>
                           </td>
@@ -408,7 +408,7 @@ export default function SupportTicketsPage() {
                               {statusInfo?.label || ticket.statut}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-neutral-500 whitespace-nowrap">
+                          <td className="px-4 py-3 text-[hsl(var(--text-tertiary))] whitespace-nowrap">
                             {new Date(ticket.createdAt).toLocaleDateString("fr-CA")}
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -417,7 +417,7 @@ export default function SupportTicketsPage() {
                                 e.stopPropagation();
                                 setSelectedId(ticket.id);
                               }}
-                              className="p-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                              className="p-1.5 rounded-md hover:bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-primary))] transition-colors"
                               title="Voir"
                             >
                               <Eye className="h-4 w-4" />
@@ -430,14 +430,14 @@ export default function SupportTicketsPage() {
                 </table>
 
                 {filteredTickets.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-24 text-neutral-400">
+                  <div className="flex flex-col items-center justify-center py-24 text-[hsl(var(--text-muted))]">
                     <AlertTriangle className="h-10 w-10 mb-3 opacity-50" />
                     <p className="text-sm">Aucun billet trouvé</p>
                   </div>
                 )}
               </div>
 
-              <div className="px-4 py-3 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50 text-xs text-neutral-500">
+              <div className="px-4 py-3 border-t border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-xs text-[hsl(var(--text-tertiary))]">
                 {filteredTickets.length} billet{filteredTickets.length !== 1 ? "s" : ""}
               </div>
             </>
@@ -467,21 +467,21 @@ function StatCard({ label, value, variant = "default" }: { label: string; value:
   return (
     <div className={cn(
       "px-4 py-3 rounded-lg border",
-      variant === "default" && "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900",
-      variant === "info" && "border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-950/30",
-      variant === "success" && "border-green-200 dark:border-green-900/50 bg-green-50 dark:bg-green-950/30",
-      variant === "warning" && "border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30"
+      variant === "default" && "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]",
+      variant === "info" && "border-[hsl(var(--info)_/_0.3)] bg-[hsl(var(--info-muted))]",
+      variant === "success" && "border-[hsl(var(--success)_/_0.3)] bg-[hsl(var(--success-muted))]",
+      variant === "warning" && "border-[hsl(var(--warning)_/_0.3)] bg-[hsl(var(--warning-muted))]"
     )}>
       <div className={cn(
         "text-2xl font-semibold tabular-nums",
-        variant === "default" && "text-neutral-900 dark:text-white",
-        variant === "info" && "text-blue-700 dark:text-blue-400",
-        variant === "success" && "text-green-700 dark:text-green-400",
-        variant === "warning" && "text-amber-700 dark:text-amber-400"
+        variant === "default" && "text-[hsl(var(--text-primary))]",
+        variant === "info" && "text-[hsl(var(--info))]",
+        variant === "success" && "text-[hsl(var(--success))]",
+        variant === "warning" && "text-[hsl(var(--warning))]"
       )}>
         {value}
       </div>
-      <div className="text-xs text-neutral-500 mt-0.5">{label}</div>
+      <div className="text-xs text-[hsl(var(--text-tertiary))] mt-0.5">{label}</div>
     </div>
   );
 }
@@ -627,8 +627,8 @@ function TicketDetailModal({
   if (isLoading || !ticket) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div className="bg-white dark:bg-neutral-900 rounded-xl p-8">
-          <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
+        <div className="bg-[hsl(var(--bg-surface))] rounded-xl p-8">
+          <Loader2 className="h-8 w-8 animate-spin text-[hsl(var(--text-muted))]" />
         </div>
       </div>
     );
@@ -641,12 +641,12 @@ function TicketDetailModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 backdrop-blur-sm p-4">
-      <div className="relative w-[90vw] max-w-7xl my-8 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800">
+      <div className="relative w-[90vw] max-w-7xl my-8 bg-[hsl(var(--bg-surface))] rounded-xl shadow-2xl border border-[hsl(var(--border-default))]">
         {/* Header */}
-        <div className="flex items-start justify-between p-6 border-b border-neutral-200 dark:border-neutral-800">
+        <div className="flex items-start justify-between p-6 border-b border-[hsl(var(--border-default))]">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <span className="font-mono font-semibold text-lg text-neutral-900 dark:text-white">{ticket.code}</span>
+              <span className="font-mono font-semibold text-lg text-[hsl(var(--text-primary))]">{ticket.code}</span>
               <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold", priorityInfo.bgColor, priorityInfo.color)}>
                 {priorityInfo.priority} - {priorityInfo.label}
               </span>
@@ -669,7 +669,7 @@ function TicketDetailModal({
                   </button>
 
                   {showStatusDropdown && (
-                    <div className="absolute top-full left-0 mt-1 py-1 bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 z-10 min-w-[160px]">
+                    <div className="absolute top-full left-0 mt-1 py-1 bg-[hsl(var(--bg-surface))] rounded-lg shadow-lg border border-[hsl(var(--border-default))] z-10 min-w-[160px]">
                       {TICKET_STATUSES.filter((s) => s.value !== ticket.statut).map((s) => (
                         <button
                           key={s.value}
@@ -677,7 +677,7 @@ function TicketDetailModal({
                             updateStatus(s.value);
                             setShowStatusDropdown(false);
                           }}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))]"
                         >
                           <StatusIcon status={s.value} />
                           {s.label}
@@ -693,11 +693,11 @@ function TicketDetailModal({
                 </span>
               )}
             </div>
-            <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">{ticket.sujet}</h2>
+            <h2 className="text-xl font-semibold text-[hsl(var(--text-primary))]">{ticket.sujet}</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
+            className="p-2 rounded-lg hover:bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-primary))] transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
@@ -719,8 +719,8 @@ function TicketDetailModal({
 
           {/* Description */}
           <div>
-            <h3 className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Description</h3>
-            <div className="p-4 rounded-lg bg-neutral-50 dark:bg-neutral-800 text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">
+            <h3 className="text-sm font-medium text-[hsl(var(--text-secondary))] mb-2">Description</h3>
+            <div className="p-4 rounded-lg bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-secondary))] whitespace-pre-wrap">
               {ticket.description}
             </div>
           </div>
@@ -728,7 +728,7 @@ function TicketDetailModal({
           {/* Ticket-level Attachments */}
           {ticket.attachments && ticket.attachments.filter((a) => !a.commentId).length > 0 && (
             <div>
-              <h3 className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2 flex items-center gap-2">
+              <h3 className="text-sm font-medium text-[hsl(var(--text-secondary))] mb-2 flex items-center gap-2">
                 <Paperclip className="h-4 w-4" />
                 Pièces jointes ({ticket.attachments.filter((a) => !a.commentId).length})
               </h3>
@@ -742,26 +742,26 @@ function TicketDetailModal({
 
           {/* Impact Assessment */}
           <div>
-            <h3 className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Évaluation</h3>
+            <h3 className="text-sm font-medium text-[hsl(var(--text-secondary))] mb-2">Évaluation</h3>
             <div className="flex gap-4">
-              <div className="flex-1 p-3 rounded-lg bg-neutral-50 dark:bg-neutral-800 text-center">
-                <div className="text-xs text-neutral-500 mb-1">Impact</div>
-                <div className="text-sm font-medium text-neutral-900 dark:text-white capitalize">{ticket.impact}</div>
+              <div className="flex-1 p-3 rounded-lg bg-[hsl(var(--bg-elevated))] text-center">
+                <div className="text-xs text-[hsl(var(--text-tertiary))] mb-1">Impact</div>
+                <div className="text-sm font-medium text-[hsl(var(--text-primary))] capitalize">{ticket.impact}</div>
               </div>
-              <div className="flex-1 p-3 rounded-lg bg-neutral-50 dark:bg-neutral-800 text-center">
-                <div className="text-xs text-neutral-500 mb-1">Portée</div>
-                <div className="text-sm font-medium text-neutral-900 dark:text-white capitalize">{ticket.portee}</div>
+              <div className="flex-1 p-3 rounded-lg bg-[hsl(var(--bg-elevated))] text-center">
+                <div className="text-xs text-[hsl(var(--text-tertiary))] mb-1">Portée</div>
+                <div className="text-sm font-medium text-[hsl(var(--text-primary))] capitalize">{ticket.portee}</div>
               </div>
-              <div className="flex-1 p-3 rounded-lg bg-neutral-50 dark:bg-neutral-800 text-center">
-                <div className="text-xs text-neutral-500 mb-1">Urgence</div>
-                <div className="text-sm font-medium text-neutral-900 dark:text-white capitalize">{ticket.urgence}</div>
+              <div className="flex-1 p-3 rounded-lg bg-[hsl(var(--bg-elevated))] text-center">
+                <div className="text-xs text-[hsl(var(--text-tertiary))] mb-1">Urgence</div>
+                <div className="text-sm font-medium text-[hsl(var(--text-primary))] capitalize">{ticket.urgence}</div>
               </div>
             </div>
           </div>
 
           {/* Comments Section */}
           <div>
-            <h3 className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-3 flex items-center gap-2">
+            <h3 className="text-sm font-medium text-[hsl(var(--text-secondary))] mb-3 flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
               Conversation ({ticket.comments?.length || 0})
             </h3>
@@ -777,28 +777,28 @@ function TicketDetailModal({
                       className={cn(
                         "p-4 rounded-lg",
                         comment.isInternal
-                          ? "bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800"
+                          ? "bg-[hsl(var(--warning-muted))] border border-[hsl(var(--warning)_/_0.3)]"
                           : isMyComment
-                          ? "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800"
-                          : "bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
+                          ? "bg-[hsl(var(--info-muted))] border border-[hsl(var(--info)_/_0.3)]"
+                          : "bg-[hsl(var(--bg-elevated))] border border-[hsl(var(--border-default))]"
                       )}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm text-neutral-900 dark:text-white">
+                          <span className="font-medium text-sm text-[hsl(var(--text-primary))]">
                             {comment.userName}
                           </span>
                           {comment.isInternal && (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200">
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-[hsl(var(--warning-muted))] text-[hsl(var(--warning))]">
                               Note interne
                             </span>
                           )}
                         </div>
-                        <span className="text-xs text-neutral-500">
+                        <span className="text-xs text-[hsl(var(--text-tertiary))]">
                           {new Date(comment.createdAt).toLocaleString("fr-CA")}
                         </span>
                       </div>
-                      <p className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">
+                      <p className="text-sm text-[hsl(var(--text-secondary))] whitespace-pre-wrap">
                         {comment.content}
                       </p>
                       {comment.attachments && comment.attachments.length > 0 && (
@@ -812,7 +812,7 @@ function TicketDetailModal({
                   );
                 })
               ) : (
-                <p className="text-sm text-neutral-500 italic py-4 text-center">
+                <p className="text-sm text-[hsl(var(--text-tertiary))] italic py-4 text-center">
                   Aucun commentaire pour le moment
                 </p>
               )}
@@ -825,7 +825,7 @@ function TicketDetailModal({
                 onChange={(e) => setCommentContent(e.target.value)}
                 placeholder={isGestionnaire ? "Ajouter une réponse ou une note..." : "Ajouter un commentaire..."}
                 rows={3}
-                className="w-full px-3 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-colors resize-none"
+                className="w-full px-3 py-2.5 bg-[hsl(var(--bg-surface))] border border-[hsl(var(--border-default))] rounded-lg text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--success)_/_0.2)] focus:border-[hsl(var(--success))] transition-colors resize-none"
               />
 
               {/* Comment file chips */}
@@ -834,15 +834,15 @@ function TicketDetailModal({
                   {commentFiles.map((file, idx) => (
                     <span
                       key={`${file.name}-${idx}`}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-neutral-100 dark:bg-neutral-800 text-xs text-neutral-700 dark:text-neutral-300"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[hsl(var(--bg-muted))] text-xs text-[hsl(var(--text-secondary))]"
                     >
                       <Paperclip className="h-3 w-3" />
                       <span className="max-w-[120px] truncate">{file.name}</span>
-                      <span className="text-neutral-400">({formatFileSize(file.size)})</span>
+                      <span className="text-[hsl(var(--text-muted))]">({formatFileSize(file.size)})</span>
                       <button
                         type="button"
                         onClick={() => setCommentFiles((prev) => prev.filter((_, i) => i !== idx))}
-                        className="ml-0.5 hover:text-red-500 transition-colors"
+                        className="ml-0.5 hover:text-[hsl(var(--danger))] transition-colors"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -869,7 +869,7 @@ function TicketDetailModal({
                   <button
                     type="button"
                     onClick={() => commentFileInputRef.current?.click()}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-[hsl(var(--text-tertiary))] hover:bg-[hsl(var(--bg-muted))] transition-colors"
                     title="Joindre un fichier"
                   >
                     <Paperclip className="h-3.5 w-3.5" />
@@ -877,22 +877,22 @@ function TicketDetailModal({
                   </button>
                   {isGestionnaire && (
                     <>
-                      <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400 cursor-pointer">
+                      <label className="flex items-center gap-2 text-sm text-[hsl(var(--text-tertiary))] cursor-pointer">
                         <input
                           type="checkbox"
                           checked={isInternalComment}
                           onChange={(e) => setIsInternalComment(e.target.checked)}
-                          className="w-4 h-4 rounded border-neutral-300 text-amber-600 focus:ring-amber-500"
+                          className="w-4 h-4 rounded border-[hsl(var(--border-default))] text-[hsl(var(--warning))] focus:ring-[hsl(var(--warning))]"
                         />
                         Note interne
                       </label>
 
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-neutral-500">Changer statut:</span>
+                        <span className="text-xs text-[hsl(var(--text-tertiary))]">Changer statut:</span>
                         <select
                           value={newStatus}
                           onChange={(e) => setNewStatus(e.target.value)}
-                          className="h-8 px-2 text-xs rounded border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+                          className="h-8 px-2 text-xs rounded border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))]"
                         >
                           <option value="">Aucun changement</option>
                           {TICKET_STATUSES.filter((s) => s.value !== ticket.statut).map((s) => (
@@ -907,7 +907,7 @@ function TicketDetailModal({
                 <button
                   type="submit"
                   disabled={submittingComment || !commentContent.trim()}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 text-white rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[hsl(var(--success))] hover:opacity-90 disabled:bg-[hsl(var(--bg-muted))] text-white rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
                 >
                   {submittingComment ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -922,13 +922,13 @@ function TicketDetailModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-neutral-200 dark:border-neutral-800">
+        <div className="flex items-center justify-between p-6 border-t border-[hsl(var(--border-default))]">
           <div>
             {isGestionnaire && (
               <button
                 onClick={handleDelete}
                 disabled={deleting}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 dark:border-red-800 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[hsl(var(--danger)_/_0.3)] text-sm font-medium text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))] transition-colors disabled:opacity-50"
               >
                 {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                 Supprimer
@@ -937,7 +937,7 @@ function TicketDetailModal({
           </div>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            className="px-4 py-2 rounded-lg border border-[hsl(var(--border-default))] text-sm font-medium text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] transition-colors"
           >
             Fermer
           </button>
@@ -950,11 +950,11 @@ function TicketDetailModal({
 function InfoItem({ icon: Icon, label, value, subvalue }: { icon: React.ElementType; label: string; value: string; subvalue?: string }) {
   return (
     <div className="flex items-start gap-3">
-      <Icon className="h-4 w-4 text-neutral-400 mt-0.5" />
+      <Icon className="h-4 w-4 text-[hsl(var(--text-muted))] mt-0.5" />
       <div>
-        <div className="text-xs text-neutral-500">{label}</div>
-        <div className="text-neutral-900 dark:text-white">{value}</div>
-        {subvalue && <div className="text-xs text-neutral-500">{subvalue}</div>}
+        <div className="text-xs text-[hsl(var(--text-tertiary))]">{label}</div>
+        <div className="text-[hsl(var(--text-primary))]">{value}</div>
+        {subvalue && <div className="text-xs text-[hsl(var(--text-tertiary))]">{subvalue}</div>}
       </div>
     </div>
   );
@@ -976,7 +976,7 @@ function AttachmentCard({ attachment, compact }: { attachment: TicketAttachment;
         target="_blank"
         rel="noopener noreferrer"
         className={cn(
-          "group relative block rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors",
+          "group relative block rounded-lg overflow-hidden border border-[hsl(var(--border-default))] hover:border-[hsl(var(--border-subtle))] transition-colors",
           compact ? "w-20 h-20" : "w-28 h-28"
         )}
         title={attachment.fileName}
@@ -1000,21 +1000,21 @@ function AttachmentCard({ attachment, compact }: { attachment: TicketAttachment;
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
-        "flex items-center gap-2 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors",
+        "flex items-center gap-2 rounded-lg border border-[hsl(var(--border-default))] hover:bg-[hsl(var(--bg-elevated))] transition-colors",
         compact ? "px-2 py-1.5" : "px-3 py-2"
       )}
       title={attachment.fileName}
     >
-      <FileText className={cn("shrink-0 text-neutral-400", compact ? "h-3.5 w-3.5" : "h-4 w-4")} />
+      <FileText className={cn("shrink-0 text-[hsl(var(--text-muted))]", compact ? "h-3.5 w-3.5" : "h-4 w-4")} />
       <div className="min-w-0 flex-1">
-        <p className={cn("truncate text-neutral-900 dark:text-white", compact ? "text-xs" : "text-sm")}>
+        <p className={cn("truncate text-[hsl(var(--text-primary))]", compact ? "text-xs" : "text-sm")}>
           {attachment.fileName}
         </p>
         {!compact && (
-          <p className="text-xs text-neutral-500">{formatFileSize(attachment.fileSize)}</p>
+          <p className="text-xs text-[hsl(var(--text-tertiary))]">{formatFileSize(attachment.fileSize)}</p>
         )}
       </div>
-      <Download className={cn("shrink-0 text-neutral-400", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
+      <Download className={cn("shrink-0 text-[hsl(var(--text-muted))]", compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
     </a>
   );
 }

@@ -29,14 +29,14 @@ const getStatusBadgeVariant = (status: NewProductRequestStatus): "default" | "de
 
 export function NewProductRequestsTable({ requests }: { requests: NewProductRequest[] }) {
   return (
-    <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
+    <div className="rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))] shadow-sm">
       <div className="p-5 flex items-center justify-between">
-        <h2 className="text-xl font-semibold tracking-tight">Demandes de Nouveaux Produits</h2>
-        <Link href="/dashboard/product-requests" className="text-sm font-medium text-primary hover:underline">
+        <h2 className="text-xl font-semibold tracking-tight text-[hsl(var(--text-primary))]">Demandes de Nouveaux Produits</h2>
+        <Link href="/dashboard/product-requests" className="text-sm font-medium text-[hsl(var(--accent))] hover:underline">
           Voir tout →
         </Link>
       </div>
-      <div className="border-t">
+      <div className="border-t border-[hsl(var(--border-default))]">
         <Table>
           <TableHeader>
             <TableRow>

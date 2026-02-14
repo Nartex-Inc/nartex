@@ -318,11 +318,8 @@ function NavLink({
       {expanded && (
         <span className="truncate leading-none">{item.title}</span>
       )}
-      {active && expanded && (
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 bg-[hsl(var(--accent))] rounded-r-full" />
-      )}
-      {active && !expanded && (
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 bg-[hsl(var(--accent))] rounded-r-full" />
+      {active && (
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[hsl(var(--accent))] rounded-r-full transition-all duration-200 shadow-[0_0_8px_hsl(var(--accent)/0.4)]" />
       )}
     </Link>
   );
@@ -427,7 +424,7 @@ export function Sidebar({
           2. Navigation Content
           ───────────────────────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
-        <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-10">
           {filteredNavGroups.map((group) => (
             <NavGroup key={group.title} title={group.title} expanded={expanded}>
               {group.items.map((item) => (
@@ -452,7 +449,8 @@ export function Sidebar({
           <button
             onClick={toggleSidebar}
             className={cn(
-              "flex items-center justify-center w-full rounded-lg transition-colors",
+              "flex items-center justify-center w-full rounded-lg transition-all duration-200",
+              "border border-[hsl(var(--border-subtle))] hover:border-[hsl(var(--border-default))]",
               "hover:bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-primary))]",
               "h-8"
             )}

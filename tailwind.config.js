@@ -20,13 +20,15 @@ module.exports = {
     extend: {
       fontFamily: {
         sans: [
-          'var(--font-poppins)', 
-          'Arial', 
-          'Helvetica', 
+          'var(--font-sans)',
+          'Inter',
+          'system-ui',
+          '-apple-system',
           'sans-serif'
         ],
         mono: [
-          'var(--font-geist-mono)', 
+          'var(--font-mono)',
+          'JetBrains Mono',
           'monospace'
         ]
       },
@@ -53,10 +55,9 @@ module.exports = {
           foreground: 'hsl(var(--muted-foreground))'
         },
         // --- DYNAMIC ACCENT CONFIGURATION ---
-        // Maps directly to the CSS variables set by AccentColorProvider
         accent: {
-          DEFAULT: 'var(--accent-current)', 
-          foreground: '#ffffff',            
+          DEFAULT: 'var(--accent-current)',
+          foreground: '#ffffff',
           muted: 'var(--accent-muted-current)'
         },
         popover: {
@@ -84,6 +85,14 @@ module.exports = {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)'
+      },
+      boxShadow: {
+        'xs': 'var(--shadow-xs)',
+        'sm': 'var(--shadow-sm)',
+        'md': 'var(--shadow-md)',
+        'lg': 'var(--shadow-lg)',
+        'xl': 'var(--shadow-xl)',
+        '2xl': 'var(--shadow-2xl)',
       },
       keyframes: {
         'accordion-down': {

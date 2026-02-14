@@ -10,17 +10,17 @@ import {
   NewProductRequest
 } from './types';
 
-// --- AWS-inspired color palette ---
+// --- Theme-token color palette ---
 export const colors = {
-  primary: "#1D8102",
-  primaryHover: "#176802",
-  primaryLight: "#EAFBEA",
-  success: "#1D8102",
-  successLight: "#EAFBEA",
-  warning: "#FF9900",
-  warningLight: "#FFF8E6",
-  danger: "#D13212",
-  dangerLight: "#FFF1ED",
+  primary: "hsl(var(--accent))",
+  primaryHover: "hsl(var(--accent-hover))",
+  primaryLight: "hsl(var(--accent-muted))",
+  success: "hsl(var(--success))",
+  successLight: "hsl(var(--success-muted))",
+  warning: "hsl(var(--warning))",
+  warningLight: "hsl(var(--warning-muted))",
+  danger: "hsl(var(--danger))",
+  dangerLight: "hsl(var(--danger-muted))",
 };
 
 // --- Mock Data ---
@@ -50,10 +50,10 @@ export const mockApprovalRequestsData: ApprovalRequest[] = [
 ];
 
 export const mockRecentActivityData: RecentActivityItem[] = [
-    { id: "act1", type: "project_submission", text: `Nouveau projet <span class="font-medium text-green-600 dark:text-green-400">EcoLube Bio+</span> soumis par Sophie Dubois.`, timestamp: "Il y a 30 minutes", iconType: 'project', colorClass: 'text-green-600 dark:text-green-400', bgColorClass: 'bg-green-50 dark:bg-green-500/20', ringColorClass: 'bg-green-500' },
-    { id: "act2", type: "task_update", text: `<span class="font-medium text-amber-600 dark:text-amber-400">'Analyse de marché'</span> (QuadraShield MP) est en retard.`, timestamp: "Il y a 1 heure", iconType: 'alert', colorClass: 'text-amber-600 dark:text-amber-400', bgColorClass: 'bg-amber-100 dark:bg-amber-500/20', ringColorClass: 'bg-amber-500' },
-    { id: "act3", type: "approval_request", text: `<span class="font-medium text-green-600 dark:text-green-400">Approbation budget</span> requise pour 'QuadraShield MP'.`, timestamp: "Il y a 2 heures", iconType: 'approval', colorClass: 'text-green-600 dark:text-green-400', bgColorClass: 'bg-green-100 dark:bg-green-500/20', ringColorClass: 'bg-green-500' },
-    { id: "act4", type: "user_join", text: `<span class="font-medium text-purple-600 dark:text-purple-400">Martin Désy</span> a rejoint le projet <span class="font-medium text-purple-500 dark:text-purple-300">SintoMax Gear Oil X</span>.`, timestamp: "Hier", iconType: 'user_added', colorClass: 'text-purple-600 dark:text-purple-400', bgColorClass: 'bg-purple-100 dark:bg-purple-500/20', ringColorClass: 'bg-purple-500' },
+    { id: "act1", type: "project_submission", text: `Nouveau projet <span class="font-medium text-[hsl(var(--success))]">EcoLube Bio+</span> soumis par Sophie Dubois.`, timestamp: "Il y a 30 minutes", iconType: 'project', colorClass: 'text-[hsl(var(--success))]', bgColorClass: 'bg-[hsl(var(--success-muted))]', ringColorClass: 'bg-[hsl(var(--success))]' },
+    { id: "act2", type: "task_update", text: `<span class="font-medium text-[hsl(var(--warning))]">'Analyse de marché'</span> (QuadraShield MP) est en retard.`, timestamp: "Il y a 1 heure", iconType: 'alert', colorClass: 'text-[hsl(var(--warning))]', bgColorClass: 'bg-[hsl(var(--warning-muted))]', ringColorClass: 'bg-[hsl(var(--warning))]' },
+    { id: "act3", type: "approval_request", text: `<span class="font-medium text-[hsl(var(--success))]">Approbation budget</span> requise pour 'QuadraShield MP'.`, timestamp: "Il y a 2 heures", iconType: 'approval', colorClass: 'text-[hsl(var(--success))]', bgColorClass: 'bg-[hsl(var(--success-muted))]', ringColorClass: 'bg-[hsl(var(--success))]' },
+    { id: "act4", type: "user_join", text: `<span class="font-medium text-[hsl(var(--info))]">Martin Désy</span> a rejoint le projet <span class="font-medium text-[hsl(var(--info))]">SintoMax Gear Oil X</span>.`, timestamp: "Hier", iconType: 'user_added', colorClass: 'text-[hsl(var(--info))]', bgColorClass: 'bg-[hsl(var(--accent-muted))]', ringColorClass: 'bg-[hsl(var(--info))]' },
 ];
 
 export const mockNewProductRequestsData: NewProductRequest[] = [

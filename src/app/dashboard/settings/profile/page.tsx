@@ -28,12 +28,12 @@ import { DEPARTEMENTS } from "@/lib/support-constants";
 // ============================================================================
 
 const AVAILABLE_ROLES = [
-  { value: "Gestionnaire", label: "Gestionnaire", description: "Accès complet", color: "bg-purple-500/20 text-purple-400 border-purple-500/30", icon: Crown },
-  { value: "Analyste", label: "Analyste", description: "Rapports et analyses", color: "bg-blue-500/20 text-blue-400 border-blue-500/30", icon: BarChart3 },
-  { value: "Verificateur", label: "Vérificateur", description: "Validation", color: "bg-green-500/20 text-green-400 border-green-500/30", icon: CheckCircle },
-  { value: "Facturation", label: "Facturation", description: "Facturation et crédits", color: "bg-amber-500/20 text-amber-400 border-amber-500/30", icon: Receipt },
-  { value: "Expert", label: "Expert", description: "Retours terrain", color: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30", icon: Sparkles },
-  { value: "user", label: "Utilisateur", description: "Accès standard", color: "bg-slate-500/20 text-slate-400 border-slate-500/30", icon: User },
+  { value: "Gestionnaire", label: "Gestionnaire", description: "Accès complet", color: "bg-[hsl(var(--accent))]/20 text-[hsl(var(--accent))] border-[hsl(var(--accent))]/30", icon: Crown },
+  { value: "Analyste", label: "Analyste", description: "Rapports et analyses", color: "bg-[hsl(var(--info))]/20 text-[hsl(var(--info))] border-[hsl(var(--info))]/30", icon: BarChart3 },
+  { value: "Verificateur", label: "Vérificateur", description: "Validation", color: "bg-[hsl(var(--success))]/20 text-[hsl(var(--success))] border-[hsl(var(--success))]/30", icon: CheckCircle },
+  { value: "Facturation", label: "Facturation", description: "Facturation et crédits", color: "bg-[hsl(var(--warning))]/20 text-[hsl(var(--warning))] border-[hsl(var(--warning))]/30", icon: Receipt },
+  { value: "Expert", label: "Expert", description: "Retours terrain", color: "bg-[hsl(var(--info))]/20 text-[hsl(var(--info))] border-[hsl(var(--info))]/30", icon: Sparkles },
+  { value: "user", label: "Utilisateur", description: "Accès standard", color: "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))] border-[hsl(var(--border-default))]", icon: User },
 ] as const;
 
 function getRoleConfig(roleValue: string) {
@@ -251,9 +251,9 @@ function ProfilePage() {
 
       {/* Messages */}
       {error && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20">
-          <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-          <p className="text-sm text-red-400">{error}</p>
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-[hsl(var(--danger-muted))] border border-[hsl(var(--danger)/0.2)]">
+          <AlertCircle className="w-5 h-5 text-[hsl(var(--danger))] flex-shrink-0" />
+          <p className="text-sm text-[hsl(var(--danger))]">{error}</p>
         </div>
       )}
 

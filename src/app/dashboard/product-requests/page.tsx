@@ -7,7 +7,7 @@ import { mockNewProductRequestsData } from "@/lib/data"; // Assuming you want to
 export default function ProductRequestsPage() {
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-6">All Product Requests</h1>
+      <h1 className="text-2xl font-bold mb-6 text-[hsl(var(--text-primary))]">Demandes de nouveaux produits</h1>
       {/* 
         You are now correctly importing the component.
         You can use it here and pass the required 'requests' prop.

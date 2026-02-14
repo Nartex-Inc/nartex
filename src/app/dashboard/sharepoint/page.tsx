@@ -146,7 +146,7 @@ function highlightName(text: string, q: string): React.ReactNode {
       mark ? (
         <mark
           key={`${origStart}-${origEnd}-hl`}
-          className="bg-yellow-200/70 dark:bg-yellow-600/40 rounded px-0.5"
+          className="bg-[hsl(var(--warning-muted))] rounded px-0.5"
         >
           {slice}
         </mark>
@@ -356,7 +356,7 @@ export default function SharePointPage() {
 
   return (
     <main
-      className={`h-screen overflow-hidden ${inter.className} bg-white text-slate-900 dark:bg-black dark:text-white`}
+      className={`h-screen overflow-hidden ${inter.className} bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))]`}
     >
       <SharePointStructure />
     </main>
@@ -659,8 +659,7 @@ function SharePointStructure() {
         <span
           key="edit"
           className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium
-          border-emerald-500/30 bg-emerald-500/10 text-emerald-700
-          dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-300"
+          border-[hsl(var(--success))]/30 bg-[hsl(var(--success-muted))] text-[hsl(var(--success))]"
         >
           <Edit className="h-3 w-3" />
           {editLen} groupe{editLen > 1 ? "s" : ""}
@@ -672,8 +671,7 @@ function SharePointStructure() {
         <span
           key="read"
           className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium
-          border-sky-500/30 bg-sky-500/10 text-sky-700
-          dark:border-sky-400/20 dark:bg-sky-500/10 dark:text-sky-300"
+          border-[hsl(var(--info))]/30 bg-[hsl(var(--info-muted))] text-[hsl(var(--info))]"
         >
           <Eye className="h-3 w-3" />
           {readLen} groupe{readLen > 1 ? "s" : ""}
@@ -698,15 +696,15 @@ function SharePointStructure() {
         <div
           className={[
             "group flex items-center gap-2 rounded-lg px-3 py-1.5 transition-all",
-            "hover:bg-slate-100 dark:hover:bg-white/5 border border-transparent",
+            "hover:bg-[hsl(var(--bg-elevated))] border border-transparent",
             isSelected
-              ? "bg-slate-100 dark:bg-white/10 dark:border-white/10"
+              ? "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))]"
               : "",
             node.restricted
-              ? "pl-[calc(theme(spacing.3)+2px)] border-l-2 border-amber-500/40"
+              ? "pl-[calc(theme(spacing.3)+2px)] border-l-2 border-[hsl(var(--warning))]/40"
               : "",
             node.highSecurity
-              ? "pl-[calc(theme(spacing.3)+2px)] border-l-2 border-red-500/40"
+              ? "pl-[calc(theme(spacing.3)+2px)] border-l-2 border-[hsl(var(--danger))]/40"
               : "",
           ].join(" ")}
           style={{ paddingLeft: visualDepth * 20 + 12 }}
@@ -720,7 +718,7 @@ function SharePointStructure() {
         >
           {hasChildren && (
             <span
-              className="text-slate-500 dark:text-muted-foreground/70 transition-transform"
+              className="text-[hsl(var(--text-tertiary))] transition-transform"
               style={{ transform: isExpanded ? "rotate(90deg)" : "none" }}
             >
               <ChevronRight className="h-3.5 w-3.5" />
@@ -728,23 +726,22 @@ function SharePointStructure() {
           )}
 
           {node.type === "site" && (
-            <Building2 className="h-4 w-4 text-violet-600 dark:text-purple-400" />
+            <Building2 className="h-4 w-4 text-[hsl(var(--info))]" />
           )}
           {node.type === "library" && (
             <span className="text-base">{node.icon || "📁"}</span>
           )}
           {(!node.type || node.type === "folder") &&
             (isExpanded ? (
-              <FolderOpen className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+              <FolderOpen className="h-3.5 w-3.5 text-[hsl(var(--info))]" />
             ) : (
-              <Folder className="h-3.5 w-3.5 text-slate-500 dark:text-muted-foreground/70" />
+              <Folder className="h-3.5 w-3.5 text-[hsl(var(--text-tertiary))]" />
             ))}
 
           {isEditing ? (
             <input
               className="flex-1 rounded border px-2 py-0.5 text-sm outline-none
-              bg-white border-blue-500 text-slate-900
-              dark:bg-gray-900 dark:text-white"
+              bg-[hsl(var(--bg-surface))] border-[hsl(var(--info))] text-[hsl(var(--text-primary))]"
               value={editingName}
               onChange={(e) => setEditingName(e.target.value)}
               onKeyDown={(e) => {
@@ -759,17 +756,17 @@ function SharePointStructure() {
               className={[
                 "font-medium text-sm flex items-center gap-1",
                 node.type === "library"
-                  ? "text-slate-900 dark:text-white"
-                  : "text-slate-800 dark:text-gray-200",
+                  ? "text-[hsl(var(--text-primary))]"
+                  : "text-[hsl(var(--text-primary))]",
               ].join(" ")}
               onDoubleClick={() => node.id !== "root" && startRenaming(node)}
             >
               {highlightName(node.name, query)}
               {node.restricted && (
-                <Lock className="h-3 w-3 text-amber-500 dark:text-amber-400" />
+                <Lock className="h-3 w-3 text-[hsl(var(--warning))]" />
               )}
               {node.highSecurity && (
-                <Shield className="h-3 w-3 text-red-500 dark:text-red-400" />
+                <Shield className="h-3 w-3 text-[hsl(var(--danger))]" />
               )}
             </span>
           )}
@@ -781,7 +778,7 @@ function SharePointStructure() {
           <div className="ml-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
             <button
               data-node-action
-              className="rounded-md p-1 text-xs text-slate-600 hover:bg-slate-200/60 dark:text-gray-300 dark:hover:bg-white/10"
+              className="rounded-md p-1 text-xs text-[hsl(var(--text-tertiary))] hover:bg-[hsl(var(--bg-elevated))]"
               title="Ajouter un sous-dossier"
               onClick={() => startCreating(node.id === "root" ? null : node.id)}
             >
@@ -791,7 +788,7 @@ function SharePointStructure() {
               <>
                 <button
                   data-node-action
-                  className="rounded-md p-1 text-xs text-slate-600 hover:bg-slate-200/60 dark:text-gray-300 dark:hover:bg-white/10"
+                  className="rounded-md p-1 text-xs text-[hsl(var(--text-tertiary))] hover:bg-[hsl(var(--bg-elevated))]"
                   title="Renommer (F2)"
                   onClick={() => startRenaming(node)}
                 >
@@ -799,7 +796,7 @@ function SharePointStructure() {
                 </button>
                 <button
                   data-node-action
-                  className="rounded-md p-1 text-xs text-red-600 hover:bg-red-500/10 dark:text-red-400"
+                  className="rounded-md p-1 text-xs text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))]"
                   title="Supprimer"
                   onClick={() => deleteNode(node)}
                 >
@@ -822,11 +819,10 @@ function SharePointStructure() {
             style={{ paddingLeft: (visualDepth + 1) * 20 + 12 }}
           >
             <div className="flex items-center gap-2">
-              <Folder className="h-3.5 w-3.5 text-slate-500 dark:text-muted-foreground/70" />
+              <Folder className="h-3.5 w-3.5 text-[hsl(var(--text-tertiary))]" />
               <input
                 className="flex-1 rounded border px-2 py-0.5 text-sm outline-none
-                bg-white border-blue-500 text-slate-900
-                dark:bg-gray-900 dark:text-white"
+                bg-[hsl(var(--bg-surface))] border-[hsl(var(--info))] text-[hsl(var(--text-primary))]"
                 placeholder="Nouveau dossier"
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
@@ -866,7 +862,7 @@ function SharePointStructure() {
 
   if (error) {
     return (
-      <div className="p-6 text-sm rounded-xl border bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/40">
+      <div className="p-6 text-sm rounded-xl border bg-[hsl(var(--danger-muted))] text-[hsl(var(--danger))] border-[hsl(var(--danger))]/30">
         Erreur de chargement des dossiers. Réessayez.
       </div>
     );
@@ -883,11 +879,11 @@ function SharePointStructure() {
   return (
     <div className="h-full flex flex-col">
       {/* Header (no gradient background; respects global theme button) */}
-      <div className="flex-shrink-0 px-6 py-4 border-b border-slate-200 dark:border-gray-800 bg-white/80 backdrop-blur-sm dark:bg-black/10">
+      <div className="flex-shrink-0 px-6 py-4 border-b border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]/80 backdrop-blur-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-3xl font-bold tracking-tight">
             Structure SharePoint
-            <span className="text-blue-600 dark:text-blue-500">.</span>
+            <span className="text-[hsl(var(--info))]">.</span>
           </h1>
 
           <div className="flex items-center gap-3">
@@ -897,9 +893,8 @@ function SharePointStructure() {
                 value={selectedGroup}
                 onChange={(e) => setSelectedGroup(e.target.value)}
                 className="w-56 md:w-64 rounded-lg border px-3 py-1.5 text-sm
-                           border-slate-200 bg-white text-slate-700
-                           focus:outline-none focus:ring-2 focus:ring-blue-500/40
-                           dark:border-white/10 dark:bg-white/[0.02] dark:text-gray-200"
+                           border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))]
+                           focus:outline-none focus:ring-2 focus:ring-[hsl(var(--info))]/40"
                 aria-label="Filtre par groupe de sécurité"
                 title="Filtrer par groupe de sécurité"
               >
@@ -920,18 +915,16 @@ function SharePointStructure() {
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Rechercher un dossier…"
                 className="w-64 md:w-80 rounded-lg border px-3 py-1.5 text-sm
-                           border-slate-200 bg-white text-slate-700 placeholder:text-slate-400
-                           focus:outline-none focus:ring-2 focus:ring-blue-500/40
-                           dark:border-white/10 dark:bg-white/[0.02] dark:text-gray-200
-                           dark:placeholder:text-gray-500"
+                           border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))] placeholder:text-[hsl(var(--text-muted))]
+                           focus:outline-none focus:ring-2 focus:ring-[hsl(var(--info))]/40"
                 aria-label="Recherche"
               />
               {query && (
                 <button
                   type="button"
                   onClick={() => setQuery("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400
-                             hover:text-slate-600 dark:hover:text-gray-300"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[hsl(var(--text-muted))]
+                             hover:text-[hsl(var(--text-secondary))]"
                   aria-label="Effacer la recherche"
                   title="Effacer"
                 >
@@ -942,8 +935,7 @@ function SharePointStructure() {
 
             <button
               className="rounded-lg px-3 py-1.5 text-sm font-medium
-                         border border-slate-200 bg-white text-slate-700 hover:bg-slate-50
-                         dark:border-white/10 dark:bg-white/[0.02] dark:text-gray-300 dark:hover:bg-white/[0.05] transition-colors"
+                         border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] transition-colors"
               onClick={() => startCreating("root")}
             >
               Ajouter un dossier racine
@@ -959,14 +951,14 @@ function SharePointStructure() {
             <div className="mb-4">
               <CardTitle
                 icon={
-                  <Folder className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  <Folder className="h-5 w-5 text-[hsl(var(--info))]" />
                 }
               >
-                <span className="text-slate-900 dark:text-white">
+                <span className="text-[hsl(var(--text-primary))]">
                   Arborescence des dossiers
                 </span>
               </CardTitle>
-              <p className="mt-1 text-xs text-slate-500 dark:text-gray-400">
+              <p className="mt-1 text-xs text-[hsl(var(--text-muted))]">
                 Double-cliquez ou appuyez sur F2 pour renommer. Permissions
                 éditables au niveau 3.
               </p>
@@ -979,11 +971,10 @@ function SharePointStructure() {
               {creatingInId === "root" && (
                 <div className="mt-1" style={{ paddingLeft: 12 }}>
                   <div className="flex items-center gap-2">
-                    <Folder className="h-3.5 w-3.5 text-slate-500 dark:text-muted-foreground/70" />
+                    <Folder className="h-3.5 w-3.5 text-[hsl(var(--text-tertiary))]" />
                     <input
                       className="flex-1 rounded border px-2 py-0.5 text-sm outline-none
-                      bg-white border-blue-500 text-slate-900
-                      dark:bg-gray-900 dark:text-white"
+                      bg-[hsl(var(--bg-surface))] border-[hsl(var(--info))] text-[hsl(var(--text-primary))]"
                       placeholder="Nouveau dossier"
                       value={newFolderName}
                       onChange={(e) => setNewFolderName(e.target.value)}
@@ -1007,41 +998,40 @@ function SharePointStructure() {
         </div>
 
         {/* Right rail */}
-        <div className="w-96 border-l border-slate-200 p-6 overflow-y-auto dark:border-gray-800 bg-white/60 backdrop-blur-sm dark:bg-black/20">
+        <div className="w-96 border-l border-[hsl(var(--border-default))] p-6 overflow-y-auto bg-[hsl(var(--bg-surface))]/60 backdrop-blur-sm">
           <div className="space-y-4">
             {selected && selected.id !== "root" && (
               <Card className="space-y-3">
                 <CardTitle
                   icon={
-                    <Settings2 className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    <Settings2 className="h-5 w-5 text-[hsl(var(--info))]" />
                   }
                 >
                   {selectedGroup && (
                     <div
                       className="text-xs rounded-md px-2 py-1 border
-                                    bg-blue-50 text-blue-700 border-blue-200
-                                    dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-400/20"
+                                    bg-[hsl(var(--info-muted))] text-[hsl(var(--info))] border-[hsl(var(--info))]/30"
                     >
                       {groupFiltered.totalMatches} dossier
                       {groupFiltered.totalMatches !== 1 ? "s" : ""} accessibles
                       pour « {selectedGroup} »
                     </div>
                   )}
-                  <span className="text-slate-900 dark:text-white">
+                  <span className="text-[hsl(var(--text-primary))]">
                     Détails du dossier
                   </span>
                 </CardTitle>
-                <div className="text-sm space-y-2 text-slate-700 dark:text-gray-300">
+                <div className="text-sm space-y-2 text-[hsl(var(--text-secondary))]">
                   <div className="flex items-center gap-2">
-                    <span className="text-slate-500 dark:text-gray-400">
+                    <span className="text-[hsl(var(--text-muted))]">
                       Nom :
                     </span>
-                    <span className="font-medium text-slate-900 dark:text-white">
+                    <span className="font-medium text-[hsl(var(--text-primary))]">
                       {selected.name}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-slate-500 dark:text-gray-400">
+                    <span className="text-[hsl(var(--text-muted))]">
                       Type :
                     </span>
                     <span className="font-mono text-xs">
@@ -1049,7 +1039,7 @@ function SharePointStructure() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-slate-500 dark:text-gray-400">
+                    <span className="text-[hsl(var(--text-muted))]">
                       Niveau :
                     </span>
                     <span className="font-mono text-xs">{selected.depth}</span>
@@ -1074,26 +1064,26 @@ function SharePointStructure() {
             <Card>
               <CardTitle
                 icon={
-                  <Star className="h-5 w-5 text-yellow-500 dark:text-yellow-400" />
+                  <Star className="h-5 w-5 text-[hsl(var(--warning))]" />
                 }
               >
-                <span className="text-slate-900 dark:text-white">Légende</span>
+                <span className="text-[hsl(var(--text-primary))]">Légende</span>
               </CardTitle>
               <div className="mt-4 space-y-2 text-xs">
-                <div className="flex items-center gap-3 text-slate-700 dark:text-gray-300">
-                  <Lock className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />
+                <div className="flex items-center gap-3 text-[hsl(var(--text-secondary))]">
+                  <Lock className="h-3.5 w-3.5 text-[hsl(var(--warning))]" />
                   <span>Accès restreint</span>
                 </div>
-                <div className="flex items-center gap-3 text-slate-700 dark:text-gray-300">
-                  <Shield className="h-3.5 w-3.5 text-red-500 dark:text-red-400" />
+                <div className="flex items-center gap-3 text-[hsl(var(--text-secondary))]">
+                  <Shield className="h-3.5 w-3.5 text-[hsl(var(--danger))]" />
                   <span>Haute sécurité</span>
                 </div>
-                <div className="flex items-center gap-3 text-slate-700 dark:text-gray-300">
-                  <Edit className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                <div className="flex items-center gap-3 text-[hsl(var(--text-secondary))]">
+                  <Edit className="h-3.5 w-3.5 text-[hsl(var(--success))]" />
                   <span>Groupes ayant l&apos;édition</span>
                 </div>
-                <div className="flex items-center gap-3 text-slate-700 dark:text-gray-300">
-                  <Eye className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
+                <div className="flex items-center gap-3 text-[hsl(var(--text-secondary))]">
+                  <Eye className="h-3.5 w-3.5 text-[hsl(var(--info))]" />
                   <span>Groupes en lecture</span>
                 </div>
               </div>
@@ -1103,41 +1093,41 @@ function SharePointStructure() {
             <Card>
               <CardTitle
                 icon={
-                  <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  <Users className="h-5 w-5 text-[hsl(var(--info))]" />
                 }
               >
-                <span className="text-slate-900 dark:text-white">
+                <span className="text-[hsl(var(--text-primary))]">
                   Groupes de sécurité
                 </span>
               </CardTitle>
-              <div className="mt-4 space-y-2 text-xs text-slate-700 dark:text-gray-300">
+              <div className="mt-4 space-y-2 text-xs text-[hsl(var(--text-secondary))]">
                 <div>
-                  <span className="font-medium text-slate-900 dark:text-gray-200">
+                  <span className="font-medium text-[hsl(var(--text-primary))]">
                     Standard :
                   </span>
-                  <p className="text-slate-600 dark:text-gray-400">
+                  <p className="text-[hsl(var(--text-tertiary))]">
                     SG-[DEPT]-ALL
                   </p>
                 </div>
                 <div>
-                  <span className="font-medium text-slate-900 dark:text-gray-200">
+                  <span className="font-medium text-[hsl(var(--text-primary))]">
                     Exécutif :
                   </span>
-                  <p className="text-slate-600 dark:text-gray-400">
+                  <p className="text-[hsl(var(--text-tertiary))]">
                     SG-[DEPT]-EXECUTIF
                   </p>
                 </div>
-                <div className="border-t border-slate-200 pt-2 dark:border-white/10">
-                  <span className="font-medium text-slate-900 dark:text-gray-200">
+                <div className="border-t border-[hsl(var(--border-default))] pt-2">
+                  <span className="font-medium text-[hsl(var(--text-primary))]">
                     Spéciaux :
                   </span>
-                  <p className="text-slate-600 dark:text-gray-400">
+                  <p className="text-[hsl(var(--text-tertiary))]">
                     SG-CFO, SG-PRESIDENT
                   </p>
-                  <p className="text-slate-600 dark:text-gray-400">
+                  <p className="text-[hsl(var(--text-tertiary))]">
                     SG-DIRECTION-ALL
                   </p>
-                  <p className="text-slate-600 dark:text-gray-400">
+                  <p className="text-[hsl(var(--text-tertiary))]">
                     SG-DIRECTION-EXECUTIF
                   </p>
                 </div>
@@ -1180,12 +1170,11 @@ function PermissionsInlineViewer({
   const highSecurity = !!effectiveNode.highSecurity;
 
   return (
-    <div className="rounded-xl border p-3 space-y-3 border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/[0.02]">
+    <div className="rounded-xl border p-3 space-y-3 border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))]">
       {isInherited && (
         <div
           className="text-xs rounded-lg px-2 py-1 border
-          text-amber-700 bg-amber-50 border-amber-200
-          dark:text-amber-400 dark:bg-amber-500/10 dark:border-amber-400/20"
+          text-[hsl(var(--warning))] bg-[hsl(var(--warning-muted))] border-[hsl(var(--warning))]/30"
         >
           Permissions héritées
           {parentWithPerms ? ` de "${parentWithPerms.name}"` : ""}
@@ -1193,14 +1182,13 @@ function PermissionsInlineViewer({
       )}
 
       <div className="grid gap-2">
-        <label className="text-xs text-slate-600 dark:text-gray-400">
+        <label className="text-xs text-[hsl(var(--text-tertiary))]">
           Groupes (édition) — {editGroups.length} groupe
           {editGroups.length !== 1 ? "s" : ""}
         </label>
         <div
           className="rounded-lg border px-3 py-2 min-h-[32px]
-          bg-white border-slate-200 text-slate-800
-          dark:bg-gray-950/80 dark:border-gray-800 dark:text-gray-300"
+          bg-[hsl(var(--bg-surface))] border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]"
         >
           {editGroups.length > 0 ? (
             <div className="space-y-1">
@@ -1211,7 +1199,7 @@ function PermissionsInlineViewer({
               ))}
             </div>
           ) : (
-            <div className="text-xs text-slate-500 dark:text-gray-500">
+            <div className="text-xs text-[hsl(var(--text-muted))]">
               (aucun)
             </div>
           )}
@@ -1219,14 +1207,13 @@ function PermissionsInlineViewer({
       </div>
 
       <div className="grid gap-2">
-        <label className="text-xs text-slate-600 dark:text-gray-400">
+        <label className="text-xs text-[hsl(var(--text-tertiary))]">
           Groupes (lecture) — {readGroups.length} groupe
           {readGroups.length !== 1 ? "s" : ""}
         </label>
         <div
           className="rounded-lg border px-3 py-2 min-h-[32px]
-          bg-white border-slate-200 text-slate-800
-          dark:bg-gray-950/80 dark:border-gray-800 dark:text-gray-300"
+          bg-[hsl(var(--bg-surface))] border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))]"
         >
           {readGroups.length > 0 ? (
             <div className="space-y-1">
@@ -1237,7 +1224,7 @@ function PermissionsInlineViewer({
               ))}
             </div>
           ) : (
-            <div className="text-xs text-slate-500 dark:text-gray-500">
+            <div className="text-xs text-[hsl(var(--text-muted))]">
               (aucun)
             </div>
           )}
@@ -1245,23 +1232,23 @@ function PermissionsInlineViewer({
       </div>
 
       <div className="flex items-center gap-4">
-        <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-gray-300">
+        <label className="flex items-center gap-2 text-xs text-[hsl(var(--text-secondary))]">
           <input type="checkbox" checked={restricted} readOnly disabled />
           Accès restreint
         </label>
-        <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-gray-300">
+        <label className="flex items-center gap-2 text-xs text-[hsl(var(--text-secondary))]">
           <input type="checkbox" checked={highSecurity} readOnly disabled />
           Haute sécurité
         </label>
       </div>
 
       {node.depth === 3 ? (
-        <p className="text-xs text-slate-500 dark:text-gray-500">
+        <p className="text-xs text-[hsl(var(--text-muted))]">
           Utilisez le bouton <Settings2 className="inline h-3 w-3" /> pour
           modifier les permissions.
         </p>
       ) : node.depth && node.depth > 3 ? (
-        <p className="text-xs text-slate-500 dark:text-gray-500">
+        <p className="text-xs text-[hsl(var(--text-muted))]">
           Les permissions sont héritées du dossier parent de niveau 3.
         </p>
       ) : null}
@@ -1381,17 +1368,16 @@ function PermissionModal({
       >
         <div
           className="w-full max-w-lg rounded-2xl border max-h-[90vh] overflow-y-auto
-            bg-white border-slate-200 p-5 text-slate-900
-            dark:bg-gray-950 dark:border-gray-800 dark:text-white"
+            bg-[hsl(var(--bg-surface))] border-[hsl(var(--border-default))] p-5 text-[hsl(var(--text-primary))]"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-medium tracking-wide flex items-center gap-2">
-              <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <Shield className="h-5 w-5 text-[hsl(var(--info))]" />
               Éditer les permissions (Niveau 3)
             </h3>
             <button
-              className="rounded-md p-1 text-slate-500 hover:bg-slate-100 dark:text-gray-400 dark:hover:bg-white/10"
+              className="rounded-md p-1 text-[hsl(var(--text-muted))] hover:bg-[hsl(var(--bg-elevated))]"
               onClick={onClose}
               title="Fermer"
             >
@@ -1402,14 +1388,14 @@ function PermissionModal({
           <div className="mt-4 space-y-3">
             <div className="grid gap-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs text-slate-600 dark:text-gray-400">
+                <label className="text-xs text-[hsl(var(--text-tertiary))]">
                   Groupes (édition)
                 </label>
                 <button
                   className="text-xs px-2 py-0.5 rounded
-                  bg-emerald-100 text-emerald-700 hover:bg-emerald-200
+                  bg-[hsl(var(--success-muted))] text-[hsl(var(--success))] hover:bg-[hsl(var(--success-muted))]
                   disabled:opacity-50 disabled:cursor-not-allowed
-                  dark:bg-emerald-600/20 dark:text-emerald-400 dark:hover:bg-emerald-600/30 transition-colors"
+                  transition-colors"
                   onClick={addEditGroup}
                   disabled={!canAddEditGroup}
                   title={
@@ -1428,8 +1414,7 @@ function PermissionModal({
                     <div key={index} className="flex gap-2">
                       <select
                         className="flex-1 rounded-lg px-3 py-2 text-sm outline-none
-                        bg-white border border-slate-300 text-slate-900 focus:border-blue-500
-                        dark:bg-gray-950 dark:border-gray-800 dark:text-white"
+                        bg-[hsl(var(--bg-surface))] border border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:border-[hsl(var(--info))]"
                         value={group}
                         onChange={(e) => updateEditGroup(index, e.target.value)}
                       >
@@ -1444,7 +1429,7 @@ function PermissionModal({
                       </select>
                       {editGroups.length > 1 && (
                         <button
-                          className="rounded-lg p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+                          className="rounded-lg p-2 text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))]"
                           onClick={() => removeEditGroup(index)}
                           title="Supprimer"
                         >
@@ -1459,14 +1444,14 @@ function PermissionModal({
 
             <div className="grid gap-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs text-slate-600 dark:text-gray-400">
+                <label className="text-xs text-[hsl(var(--text-tertiary))]">
                   Groupes (lecture)
                 </label>
                 <button
                   className="text-xs px-2 py-0.5 rounded
-                  bg-sky-100 text-sky-700 hover:bg-sky-200
+                  bg-[hsl(var(--info-muted))] text-[hsl(var(--info))] hover:bg-[hsl(var(--info-muted))]
                   disabled:opacity-50 disabled:cursor-not-allowed
-                  dark:bg-sky-600/20 dark:text-sky-400 dark:hover:bg-sky-600/30 transition-colors"
+                  transition-colors"
                   onClick={addReadGroup}
                   disabled={!canAddReadGroup}
                   title={
@@ -1485,8 +1470,7 @@ function PermissionModal({
                     <div key={index} className="flex gap-2">
                       <select
                         className="flex-1 rounded-lg px-3 py-2 text-sm outline-none
-                        bg-white border border-slate-300 text-slate-900 focus:border-blue-500
-                        dark:bg-gray-950 dark:border-gray-800 dark:text-white"
+                        bg-[hsl(var(--bg-surface))] border border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:border-[hsl(var(--info))]"
                         value={group}
                         onChange={(e) => updateReadGroup(index, e.target.value)}
                       >
@@ -1501,7 +1485,7 @@ function PermissionModal({
                       </select>
                       {readGroups.length > 1 && (
                         <button
-                          className="rounded-lg p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+                          className="rounded-lg p-2 text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))]"
                           onClick={() => removeReadGroup(index)}
                           title="Supprimer"
                         >
@@ -1515,7 +1499,7 @@ function PermissionModal({
             </div>
 
             <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-gray-300">
+              <label className="flex items-center gap-2 text-sm text-[hsl(var(--text-secondary))]">
                 <input
                   type="checkbox"
                   checked={restricted}
@@ -1523,7 +1507,7 @@ function PermissionModal({
                 />
                 Accès restreint
               </label>
-              <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-gray-300">
+              <label className="flex items-center gap-2 text-sm text-[hsl(var(--text-secondary))]">
                 <input
                   type="checkbox"
                   checked={highSecurity}
@@ -1534,8 +1518,7 @@ function PermissionModal({
             </div>
             <div
               className="text-xs rounded-lg p-2 border
-              bg-slate-50 text-slate-600 border-slate-200
-              dark:bg-gray-900 dark:text-gray-500 dark:border-gray-800"
+              bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-tertiary))] border-[hsl(var(--border-default))]"
             >
               Ces permissions s&apos;appliqueront à ce dossier et seront
               héritées par tous ses sous-dossiers.
@@ -1545,14 +1528,13 @@ function PermissionModal({
           <div className="mt-5 flex justify-end gap-2">
             <button
               className="rounded-lg border px-3 py-1.5 text-sm
-              border-slate-200 text-slate-700 hover:bg-slate-50
-              dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/10"
+              border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))]"
               onClick={onClose}
             >
               Annuler
             </button>
             <button
-              className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+              className="inline-flex items-center gap-1 rounded-lg bg-[hsl(var(--info))] px-3 py-1.5 text-sm font-medium text-white hover:bg-[hsl(var(--info))]/80"
               onClick={() =>
                 onSubmit({
                   restricted,
@@ -1593,7 +1575,7 @@ function PermissionsButton({
     <>
       <button
         data-node-action
-        className="rounded-md p-1 text-xs text-blue-600 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-500/10"
+        className="rounded-md p-1 text-xs text-[hsl(var(--info))] hover:bg-[hsl(var(--info-muted))]"
         title="Éditer permissions (Niveau 3)"
         onClick={() => setOpen(true)}
       >
@@ -1624,10 +1606,10 @@ function PermissionsButton({
 ============================================================================= */
 function AccessDenied() {
   return (
-    <div className="fixed inset-0 flex items-center justify-center p-4 bg-slate-50 dark:bg-black">
-      <div className="max-w-lg rounded-xl border p-8 text-center bg-white text-slate-800 border-slate-200 dark:bg-gray-900 dark:text-white dark:border-gray-800">
+    <div className="fixed inset-0 flex items-center justify-center p-4 bg-[hsl(var(--bg-elevated))]">
+      <div className="max-w-lg rounded-xl border p-8 text-center bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))] border-[hsl(var(--border-default))]">
         <h3 className="mb-2 text-xl font-bold">Accès restreint</h3>
-        <p className="text-sm text-slate-600 dark:text-gray-400">
+        <p className="text-sm text-[hsl(var(--text-tertiary))]">
           Vous ne disposez pas des autorisations nécessaires pour consulter ces
           données. Veuillez contacter votre département TI pour de l&apos;aide.
         </p>

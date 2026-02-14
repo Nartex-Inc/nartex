@@ -131,7 +131,7 @@ export default function DashboardLayout({
           />
 
           {/* Page content */}
-          <main className="flex-1 pt-1 lg:pt-2">{children}</main>
+          <main className="flex-1 pt-1 lg:pt-2 page-enter">{children}</main>
         </div>
       </div>
     </AccentColorProvider>

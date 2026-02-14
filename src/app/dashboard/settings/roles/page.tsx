@@ -33,42 +33,42 @@ const AVAILABLE_ROLES = [
     value: "Gestionnaire",
     label: "Gestionnaire",
     description: "Accès complet à toutes les fonctionnalités et paramètres",
-    color: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+    color: "bg-[hsl(var(--accent))]/20 text-[hsl(var(--accent))] border-[hsl(var(--accent))]/30",
     icon: Crown,
   },
   {
     value: "Analyste",
     label: "Analyste",
     description: "Accès aux rapports, analyses et tableaux de bord",
-    color: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+    color: "bg-[hsl(var(--info))]/20 text-[hsl(var(--info))] border-[hsl(var(--info))]/30",
     icon: BarChart3,
   },
   {
     value: "Verificateur",
     label: "Vérificateur",
     description: "Vérification et validation des retours et documents",
-    color: "bg-green-500/20 text-green-400 border-green-500/30",
+    color: "bg-[hsl(var(--success))]/20 text-[hsl(var(--success))] border-[hsl(var(--success))]/30",
     icon: CheckCircle,
   },
   {
     value: "Facturation",
     label: "Facturation",
     description: "Gestion de la facturation et des crédits",
-    color: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+    color: "bg-[hsl(var(--warning))]/20 text-[hsl(var(--warning))] border-[hsl(var(--warning))]/30",
     icon: Receipt,
   },
   {
     value: "Expert",
     label: "Expert",
     description: "Gestion des retours terrain et interventions client",
-    color: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
+    color: "bg-[hsl(var(--info))]/20 text-[hsl(var(--info))] border-[hsl(var(--info))]/30",
     icon: Sparkles,
   },
   {
     value: "user",
     label: "Utilisateur",
     description: "Accès standard aux fonctionnalités de base",
-    color: "bg-slate-500/20 text-slate-400 border-slate-500/30",
+    color: "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))] border-[hsl(var(--border-default))]",
     icon: User,
   },
 ] as const;
@@ -97,7 +97,7 @@ function getRoleConfig(roleValue: string) {
     value: roleValue,
     label: roleValue,
     description: "Rôle personnalisé",
-    color: "bg-gray-500/20 text-gray-400 border-gray-500/30",
+    color: "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))] border-[hsl(var(--border-default))]",
     icon: User,
   };
 }
@@ -110,15 +110,15 @@ function SectionCard({ title, description, icon: Icon, children, accentColor }: 
   accentColor: string;
 }) {
   return (
-    <div className="bg-[#1a1a2e]/80 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden">
-      <div className="p-6 border-b border-white/10">
+    <div className="bg-[hsl(var(--bg-elevated))]/80 backdrop-blur-sm rounded-2xl border border-[hsl(var(--border-subtle))] overflow-hidden">
+      <div className="p-6 border-b border-[hsl(var(--border-subtle))]">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}20` }}>
             <Icon className="w-5 h-5" style={{ color: accentColor }} />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">{title}</h2>
-            {description && <p className="text-sm text-white/50">{description}</p>}
+            <h2 className="text-lg font-semibold text-[hsl(var(--text-primary))]">{title}</h2>
+            {description && <p className="text-sm text-[hsl(var(--text-muted))]">{description}</p>}
           </div>
         </div>
       </div>
@@ -152,17 +152,17 @@ function RoleSelector({ currentRole, onRoleChange, disabled, accentColor }: {
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
         className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
-          disabled ? "opacity-50 cursor-not-allowed bg-white/5 border-white/10" : "bg-white/5 border-white/10 hover:border-white/20 cursor-pointer"
+          disabled ? "opacity-50 cursor-not-allowed bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-subtle))]" : "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-subtle))] hover:border-[hsl(var(--border-default))] cursor-pointer"
         }`}
       >
         <RoleBadge role={currentRole} />
-        {!disabled && <ChevronDown className={`w-4 h-4 text-white/50 transition-transform ${isOpen ? "rotate-180" : ""}`} />}
+        {!disabled && <ChevronDown className={`w-4 h-4 text-[hsl(var(--text-muted))] transition-transform ${isOpen ? "rotate-180" : ""}`} />}
       </button>
 
       {isOpen && !disabled && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-          <div className="absolute right-0 mt-2 w-80 bg-[#1a1a2e] border border-white/10 rounded-xl shadow-xl z-20 overflow-hidden max-h-96 overflow-y-auto">
+          <div className="absolute right-0 mt-2 w-80 bg-[hsl(var(--bg-elevated))] border border-[hsl(var(--border-subtle))] rounded-xl shadow-xl z-20 overflow-hidden max-h-96 overflow-y-auto">
             {AVAILABLE_ROLES.map((role) => {
               const Icon = role.icon;
               const isSelected = currentRole === role.value;
@@ -170,17 +170,17 @@ function RoleSelector({ currentRole, onRoleChange, disabled, accentColor }: {
                 <button
                   key={role.value}
                   onClick={() => { onRoleChange(role.value); setIsOpen(false); }}
-                  className={`w-full flex items-start gap-3 p-3 text-left transition-colors ${isSelected ? "bg-white/10" : "hover:bg-white/5"}`}
+                  className={`w-full flex items-start gap-3 p-3 text-left transition-colors ${isSelected ? "bg-[hsl(var(--bg-muted))]" : "hover:bg-[hsl(var(--bg-muted))]/50"}`}
                 >
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: isSelected ? `${accentColor}20` : "rgba(255,255,255,0.1)" }}>
-                    <Icon className="w-4 h-4" style={{ color: isSelected ? accentColor : "white" }} />
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: isSelected ? `${accentColor}20` : "hsl(var(--bg-muted))" }}>
+                    <Icon className="w-4 h-4" style={{ color: isSelected ? accentColor : "hsl(var(--text-primary))" }} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-white">{role.label}</span>
+                      <span className="text-sm font-medium text-[hsl(var(--text-primary))]">{role.label}</span>
                       {isSelected && <Check className="w-4 h-4" style={{ color: accentColor }} />}
                     </div>
-                    <p className="text-xs text-white/50 mt-0.5">{role.description}</p>
+                    <p className="text-xs text-[hsl(var(--text-muted))] mt-0.5">{role.description}</p>
                   </div>
                 </button>
               );
@@ -204,12 +204,12 @@ function UserRow({ user, currentUserEmail, onRoleChange, onEditProfile, isUpdati
   const isProtectedAdmin = ADMIN_EMAILS.includes(user.email);
 
   return (
-    <div className="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/10 hover:border-white/20 transition-colors">
+    <div className="flex items-center gap-4 p-4 bg-[hsl(var(--bg-muted))] rounded-xl border border-[hsl(var(--border-subtle))] hover:border-[hsl(var(--border-default))] transition-colors">
       <div className="relative flex-shrink-0">
         {user.image ? (
           <img src={user.image} alt={user.name} className="w-12 h-12 rounded-xl object-cover" />
         ) : (
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-medium" style={{ backgroundColor: `${accentColor}40` }}>
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center text-[hsl(var(--text-primary))] font-medium" style={{ backgroundColor: `${accentColor}40` }}>
             {user.name?.charAt(0)?.toUpperCase() || "?"}
           </div>
         )}
@@ -221,25 +221,25 @@ function UserRow({ user, currentUserEmail, onRoleChange, onEditProfile, isUpdati
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-medium text-white truncate">{user.name}</h3>
-          {isSelf && <span className="px-2 py-0.5 text-xs rounded-full bg-white/10 text-white/70">Vous</span>}
+          <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] truncate">{user.name}</h3>
+          {isSelf && <span className="px-2 py-0.5 text-xs rounded-full bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))]">Vous</span>}
         </div>
-        <p className="text-sm text-white/50 truncate">{user.email}</p>
+        <p className="text-sm text-[hsl(var(--text-muted))] truncate">{user.email}</p>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
         {onEditProfile && (
           <button
             onClick={() => onEditProfile(user.id)}
-            className="p-2 rounded-lg bg-white/5 border border-white/10 hover:border-white/20 hover:bg-white/10 transition-colors"
+            className="p-2 rounded-lg bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))] hover:border-[hsl(var(--border-default))] hover:bg-[hsl(var(--bg-elevated))] transition-colors"
             title="Modifier le profil"
           >
-            <Pencil className="w-4 h-4 text-white/50 hover:text-white/80" />
+            <Pencil className="w-4 h-4 text-[hsl(var(--text-muted))]" />
           </button>
         )}
         {isUpdating ? (
           <div className="flex items-center gap-2 px-3 py-2">
-            <Loader2 className="w-4 h-4 animate-spin text-white/50" />
-            <span className="text-sm text-white/50">Mise à jour...</span>
+            <Loader2 className="w-4 h-4 animate-spin text-[hsl(var(--text-muted))]" />
+            <span className="text-sm text-[hsl(var(--text-muted))]">Mise à jour...</span>
           </div>
         ) : (
           <RoleSelector
@@ -334,11 +334,11 @@ export default function RolesPage() {
   if (!isLoading && !userIsAdmin) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: "#ef444420" }}>
-          <AlertCircle className="w-8 h-8 text-red-400" />
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: "hsl(var(--danger) / 0.12)" }}>
+          <AlertCircle className="w-8 h-8 text-[hsl(var(--danger))]" />
         </div>
-        <h2 className="text-xl font-semibold text-white mb-2">Accès non autorisé</h2>
-        <p className="text-white/50 text-center max-w-md">
+        <h2 className="text-xl font-semibold text-[hsl(var(--text-primary))] mb-2">Accès non autorisé</h2>
+        <p className="text-[hsl(var(--text-muted))] text-center max-w-md">
           Vous n&apos;avez pas les droits nécessaires pour accéder à cette page.
         </p>
       </div>
@@ -348,14 +348,14 @@ export default function RolesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Gestion des rôles</h1>
-        <p className="text-white/50 mt-1">Gérez les permissions et les rôles des utilisateurs</p>
+        <h1 className="text-2xl font-bold text-[hsl(var(--text-primary))]">Gestion des rôles</h1>
+        <p className="text-[hsl(var(--text-muted))] mt-1">Gérez les permissions et les rôles des utilisateurs</p>
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20">
-          <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-          <p className="text-sm text-red-400">{error}</p>
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-[hsl(var(--danger-muted))] border border-[hsl(var(--danger)/0.2)]">
+          <AlertCircle className="w-5 h-5 text-[hsl(var(--danger))] flex-shrink-0" />
+          <p className="text-sm text-[hsl(var(--danger))]">{error}</p>
         </div>
       )}
 
@@ -367,28 +367,28 @@ export default function RolesPage() {
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-[#1a1a2e]/80 backdrop-blur-sm rounded-xl border border-white/10 p-4">
+        <div className="bg-[hsl(var(--bg-elevated))]/80 backdrop-blur-sm rounded-xl border border-[hsl(var(--border-subtle))] p-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}20` }}>
               <Users className="w-5 h-5" style={{ color: accentColor }} />
             </div>
             <div>
-              <p className="text-2xl font-bold text-white">{users.length}</p>
-              <p className="text-xs text-white/50">Total</p>
+              <p className="text-2xl font-bold text-[hsl(var(--text-primary))]">{users.length}</p>
+              <p className="text-xs text-[hsl(var(--text-muted))]">Total</p>
             </div>
           </div>
         </div>
         {AVAILABLE_ROLES.slice(0, 3).map((role) => {
           const Icon = role.icon;
           return (
-            <div key={role.value} className="bg-[#1a1a2e]/80 backdrop-blur-sm rounded-xl border border-white/10 p-4">
+            <div key={role.value} className="bg-[hsl(var(--bg-elevated))]/80 backdrop-blur-sm rounded-xl border border-[hsl(var(--border-subtle))] p-4">
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${role.color.split(" ")[0]}`}>
                   <Icon className={`w-5 h-5 ${role.color.split(" ")[1]}`} />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-white">{roleStats[role.value] || 0}</p>
-                  <p className="text-xs text-white/50">{role.label}s</p>
+                  <p className="text-2xl font-bold text-[hsl(var(--text-primary))]">{roleStats[role.value] || 0}</p>
+                  <p className="text-xs text-[hsl(var(--text-muted))]">{role.label}s</p>
                 </div>
               </div>
             </div>
@@ -399,26 +399,26 @@ export default function RolesPage() {
       <SectionCard title="Utilisateurs" description="Cliquez sur le rôle pour le modifier" icon={UserCog} accentColor={accentColor}>
         <div className="mb-6">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[hsl(var(--text-muted))]" />
             <input
               type="text"
               placeholder="Rechercher..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-white/30"
+              className="w-full pl-12 pr-4 py-3 bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))] rounded-xl text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:border-[hsl(var(--border-default))]"
             />
           </div>
         </div>
 
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-white/50 mb-4" />
-            <p className="text-white/50">Chargement...</p>
+            <Loader2 className="w-8 h-8 animate-spin text-[hsl(var(--text-muted))] mb-4" />
+            <p className="text-[hsl(var(--text-muted))]">Chargement...</p>
           </div>
         ) : filteredUsers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12">
-            <Users className="w-12 h-12 text-white/20 mb-4" />
-            <p className="text-white/50">{searchQuery ? "Aucun résultat" : "Aucun utilisateur"}</p>
+            <Users className="w-12 h-12 text-[hsl(var(--text-muted))] mb-4" />
+            <p className="text-[hsl(var(--text-muted))]">{searchQuery ? "Aucun résultat" : "Aucun utilisateur"}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -442,17 +442,17 @@ export default function RolesPage() {
           {AVAILABLE_ROLES.map((role) => {
             const Icon = role.icon;
             return (
-              <div key={role.value} className="p-4 bg-white/5 rounded-xl border border-white/10">
+              <div key={role.value} className="p-4 bg-[hsl(var(--bg-muted))] rounded-xl border border-[hsl(var(--border-subtle))]">
                 <div className="flex items-center gap-3 mb-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${role.color.split(" ")[0]}`}>
                     <Icon className={`w-5 h-5 ${role.color.split(" ")[1]}`} />
                   </div>
                   <div>
-                    <h3 className="font-medium text-white">{role.label}</h3>
-                    <p className="text-xs text-white/50">{role.value}</p>
+                    <h3 className="font-medium text-[hsl(var(--text-primary))]">{role.label}</h3>
+                    <p className="text-xs text-[hsl(var(--text-muted))]">{role.value}</p>
                   </div>
                 </div>
-                <p className="text-sm text-white/70">{role.description}</p>
+                <p className="text-sm text-[hsl(var(--text-secondary))]">{role.description}</p>
               </div>
             );
           })}

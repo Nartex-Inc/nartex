@@ -61,17 +61,17 @@ function isUserAuthorized(
 }
 
 const AccessDenied = ({ role, email }: { role: string | undefined; email: string | undefined | null }) => (
-  <div className="fixed inset-0 flex items-center justify-center p-4 bg-neutral-900">
-    <div className="bg-white dark:bg-neutral-800 rounded-2xl p-10 max-w-lg text-center shadow-2xl">
-      <div className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center bg-red-100 dark:bg-red-900/30">
-        <Lock className="w-10 h-10 text-red-500" />
+  <div className="fixed inset-0 flex items-center justify-center p-4 bg-[hsl(var(--bg-base))]">
+    <div className="bg-[hsl(var(--bg-surface))] rounded-2xl p-10 max-w-lg text-center shadow-2xl">
+      <div className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center bg-[hsl(var(--danger-muted))]">
+        <Lock className="w-10 h-10 text-[hsl(var(--danger))]" />
       </div>
-      <h3 className="text-2xl font-bold text-neutral-900 dark:text-white mb-3">Accès restreint</h3>
-      <p className="text-neutral-600 dark:text-neutral-400 leading-relaxed mb-4">
+      <h3 className="text-2xl font-bold text-[hsl(var(--text-primary))] mb-3">Accès restreint</h3>
+      <p className="text-[hsl(var(--text-secondary))] leading-relaxed mb-4">
         Vous ne disposez pas des autorisations nécessaires pour accéder aux listes de prix.
         Seuls les rôles <strong>Gestionnaire</strong> et <strong>Expert</strong> peuvent y accéder.
       </p>
-      <div className="bg-neutral-100 dark:bg-neutral-700 p-4 rounded-lg text-left text-xs font-mono text-neutral-500 dark:text-neutral-400">
+      <div className="bg-[hsl(var(--bg-muted))] p-4 rounded-lg text-left text-xs font-mono text-[hsl(var(--text-tertiary))]">
         <p>DEBUG INFO:</p>
         <p>Email: {email || "Not Found"}</p>
         <p>Role Detected: {role || "Undefined/Null"}</p>
@@ -342,7 +342,7 @@ const ToggleSwitch = ({
     )}>
       <div className={cn(
         "w-5 h-5 rounded-full shadow-md transition-transform",
-        enabled ? "translate-x-5 bg-neutral-900" : "translate-x-0 bg-white"
+        enabled ? "translate-x-5 bg-[hsl(var(--bg-base))]" : "translate-x-0 bg-white"
       )} />
     </div>
   </button>
@@ -369,7 +369,7 @@ const ToggleButton = ({
     className={cn(
       "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
       active 
-        ? "bg-white text-neutral-900 shadow-lg" 
+        ? "bg-white text-[hsl(var(--text-primary))] shadow-lg"
         : "bg-white/10 border border-white/20 text-white hover:bg-white/20",
       loading && "opacity-70 cursor-wait"
     )}
@@ -404,7 +404,7 @@ const ActionButton = ({
       "h-10 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed",
       label ? "px-5" : "w-10",
       primary 
-        ? "bg-white text-neutral-900 shadow-lg hover:bg-white/90" 
+        ? "bg-white text-[hsl(var(--text-primary))] shadow-lg hover:bg-white/90"
         : "bg-white/10 border border-white/20 text-white hover:bg-white/20"
     )}
   >
@@ -460,7 +460,7 @@ const FilterDropdown = ({
     {openDropdown === id && (
       <>
         <div className="fixed inset-0 z-[999998]" onClick={() => setOpenDropdown(null)} />
-        <div className="absolute z-[999999] top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-2xl overflow-hidden max-h-64 overflow-y-auto">
+        <div className="absolute z-[999999] top-full left-0 right-0 mt-2 bg-[hsl(var(--bg-surface))] rounded-xl border border-[hsl(var(--border-default))] shadow-2xl overflow-hidden max-h-64 overflow-y-auto">
           {/* Clear option */}
           {onClear && clearLabel && (
             <button
@@ -468,7 +468,7 @@ const FilterDropdown = ({
                 onClear();
                 setOpenDropdown(null);
               }}
-              className="w-full px-4 py-3 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-800 text-neutral-500 dark:text-neutral-400 italic"
+              className="w-full px-4 py-3 text-left text-sm hover:bg-[hsl(var(--bg-elevated))] transition-colors flex items-center gap-2 border-b border-[hsl(var(--border-subtle))] text-[hsl(var(--text-tertiary))] italic"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               {clearLabel}
@@ -578,9 +578,9 @@ function QuickAddPanel({
   return (
     <div className="fixed inset-0 z-[999999] flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
-      <div className="relative w-full sm:max-w-5xl bg-white dark:bg-neutral-900 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 sm:animate-in sm:zoom-in-95">
+      <div className="relative w-full sm:max-w-5xl bg-[hsl(var(--bg-surface))] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 sm:animate-in sm:zoom-in-95">
         <div className="sm:hidden flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-700" />
+          <div className="w-10 h-1 rounded-full bg-[hsl(var(--border-default))]" />
         </div>
 
         <div className="p-4 sm:p-6">
@@ -592,16 +592,16 @@ function QuickAddPanel({
               <Search className="w-6 h-6" style={{ color: accentColor }} />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-bold text-neutral-900 dark:text-white">
+              <h3 className="text-lg font-bold text-[hsl(var(--text-primary))]">
                 Recherche rapide
               </h3>
-              <p className="text-sm text-neutral-500">Ajoutez des articles à votre liste</p>
+              <p className="text-sm text-[hsl(var(--text-tertiary))]">Ajoutez des articles à votre liste</p>
             </div>
             <button
               onClick={onClose}
-              className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+              className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-[hsl(var(--bg-elevated))] transition-colors"
             >
-              <X className="w-5 h-5 text-neutral-400" />
+              <X className="w-5 h-5 text-[hsl(var(--text-muted))]" />
             </button>
           </div>
 
@@ -611,10 +611,10 @@ function QuickAddPanel({
               type="search"
               className={cn(
                 "w-full h-14 pl-5 pr-12 rounded-2xl text-base font-medium",
-                "bg-neutral-100 dark:bg-neutral-800",
+                "bg-[hsl(var(--bg-muted))]",
                 "border-2 border-transparent focus:border-current",
                 "outline-none transition-all duration-300",
-                "placeholder:text-neutral-400"
+                "placeholder:text-[hsl(var(--text-muted))]"
               )}
               style={{ borderColor: query ? accentColor : "transparent" }}
               placeholder="Code, description, catégorie ou classe..."
@@ -638,7 +638,7 @@ function QuickAddPanel({
                 return (
                   <div key={cat.categoryName}>
                     {/* Category row */}
-                    <div className="flex items-center gap-2 py-2.5 px-2 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
+                    <div className="flex items-center gap-2 py-2.5 px-2 rounded-xl hover:bg-[hsl(var(--bg-elevated))] transition-colors">
                       <button
                         onClick={() => toggleBulk(cat.allItemIds)}
                         className="w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200"
@@ -655,22 +655,22 @@ function QuickAddPanel({
                         onClick={() => toggleBulk(cat.allItemIds)}
                         className="flex items-center gap-2 flex-1 min-w-0 text-left"
                       >
-                        <Layers className="w-4 h-4 text-neutral-400 flex-shrink-0" />
-                        <span className="font-semibold text-sm text-neutral-900 dark:text-white truncate">
+                        <Layers className="w-4 h-4 text-[hsl(var(--text-muted))] flex-shrink-0" />
+                        <span className="font-semibold text-sm text-[hsl(var(--text-primary))] truncate">
                           {cat.categoryName}
                         </span>
-                        <span className="text-xs text-neutral-400 flex-shrink-0">
+                        <span className="text-xs text-[hsl(var(--text-muted))] flex-shrink-0">
                           ({cat.allItemIds.length})
                         </span>
                       </button>
                       <button
                         onClick={() => toggleCategory(cat.categoryName)}
-                        className="p-1 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors flex-shrink-0"
+                        className="p-1 rounded-md hover:bg-[hsl(var(--bg-muted))] transition-colors flex-shrink-0"
                       >
                         {catExpanded ? (
-                          <ChevronUp className="w-4 h-4 text-neutral-400" />
+                          <ChevronUp className="w-4 h-4 text-[hsl(var(--text-muted))]" />
                         ) : (
-                          <ChevronDown className="w-4 h-4 text-neutral-400" />
+                          <ChevronDown className="w-4 h-4 text-[hsl(var(--text-muted))]" />
                         )}
                       </button>
                     </div>
@@ -683,7 +683,7 @@ function QuickAddPanel({
                       return (
                         <div key={clsKey} className="ml-5">
                           {/* Class row */}
-                          <div className="flex items-center gap-2 py-2 px-2 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
+                          <div className="flex items-center gap-2 py-2 px-2 rounded-xl hover:bg-[hsl(var(--bg-elevated))] transition-colors">
                             <button
                               onClick={() => toggleBulk(cls.allItemIds)}
                               className="w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200"
@@ -700,22 +700,22 @@ function QuickAddPanel({
                               onClick={() => toggleBulk(cls.allItemIds)}
                               className="flex items-center gap-2 flex-1 min-w-0 text-left"
                             >
-                              <Tag className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />
-                              <span className="font-medium text-sm text-neutral-700 dark:text-neutral-300 truncate">
+                              <Tag className="w-3.5 h-3.5 text-[hsl(var(--text-muted))] flex-shrink-0" />
+                              <span className="font-medium text-sm text-[hsl(var(--text-secondary))] truncate">
                                 {cls.className}
                               </span>
-                              <span className="text-xs text-neutral-400 flex-shrink-0">
+                              <span className="text-xs text-[hsl(var(--text-muted))] flex-shrink-0">
                                 ({cls.items.length})
                               </span>
                             </button>
                             <button
                               onClick={() => toggleClass(clsKey)}
-                              className="p-1 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors flex-shrink-0"
+                              className="p-1 rounded-md hover:bg-[hsl(var(--bg-muted))] transition-colors flex-shrink-0"
                             >
                               {clsExpanded ? (
-                                <ChevronUp className="w-3.5 h-3.5 text-neutral-400" />
+                                <ChevronUp className="w-3.5 h-3.5 text-[hsl(var(--text-muted))]" />
                               ) : (
-                                <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
+                                <ChevronDown className="w-3.5 h-3.5 text-[hsl(var(--text-muted))]" />
                               )}
                             </button>
                           </div>
@@ -731,8 +731,8 @@ function QuickAddPanel({
                                   "w-full flex items-center gap-3 py-2 px-2 ml-5 rounded-xl transition-all duration-200",
                                   "text-left active:scale-[0.99]",
                                   isSelected
-                                    ? "bg-neutral-100 dark:bg-neutral-800"
-                                    : "hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
+                                    ? "bg-[hsl(var(--bg-muted))]"
+                                    : "hover:bg-[hsl(var(--bg-elevated))]"
                                 )}
                               >
                                 <div
@@ -748,7 +748,7 @@ function QuickAddPanel({
                                   <span className="font-mono font-bold text-xs" style={{ color: accentColor }}>
                                     {item.itemCode}
                                   </span>
-                                  <span className="text-xs text-neutral-500 dark:text-neutral-400 ml-2 truncate">
+                                  <span className="text-xs text-[hsl(var(--text-tertiary))] ml-2 truncate">
                                     {item.description}
                                   </span>
                                 </div>
@@ -764,13 +764,13 @@ function QuickAddPanel({
             </div>
           ) : query.length > 1 && !searching ? (
             <div className="py-12 text-center">
-              <Inbox className="w-12 h-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" />
-              <p className="text-neutral-500">Aucun résultat trouvé</p>
+              <Inbox className="w-12 h-12 text-[hsl(var(--text-muted))] mx-auto mb-3" />
+              <p className="text-[hsl(var(--text-tertiary))]">Aucun résultat trouvé</p>
             </div>
           ) : null}
         </div>
 
-        <div className="p-4 sm:p-6 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/80">
+        <div className="p-4 sm:p-6 border-t border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-elevated))]">
           <button
             onClick={handleAdd}
             disabled={selectedIds.size === 0}
@@ -874,7 +874,7 @@ function ItemMultiSelect({
         <Portal>
           <div
             ref={dropdownRef}
-            className="fixed z-[999999] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-700 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            className="fixed z-[999999] bg-[hsl(var(--bg-surface))] rounded-2xl shadow-2xl border border-[hsl(var(--border-default))] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
             style={{
               top: triggerRef.current ? triggerRef.current.getBoundingClientRect().bottom + 8 : 0,
               left: triggerRef.current ? triggerRef.current.getBoundingClientRect().left : 0,
@@ -885,18 +885,18 @@ function ItemMultiSelect({
             {/* Clear all option */}
             <button
               onClick={clearAll}
-              className="w-full px-4 py-3 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors flex items-center gap-2 border-b border-neutral-100 dark:border-neutral-800 text-neutral-500 dark:text-neutral-400 italic"
+              className="w-full px-4 py-3 text-left text-sm hover:bg-[hsl(var(--bg-elevated))] transition-colors flex items-center gap-2 border-b border-[hsl(var(--border-subtle))] text-[hsl(var(--text-tertiary))] italic"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               Tous les articles
             </button>
 
-            <div className="p-3 border-b border-neutral-100 dark:border-neutral-800">
-              <div className="flex items-center gap-2 bg-neutral-100 dark:bg-neutral-800 rounded-xl px-4">
-                <Filter className="w-4 h-4 text-neutral-400" />
+            <div className="p-3 border-b border-[hsl(var(--border-subtle))]">
+              <div className="flex items-center gap-2 bg-[hsl(var(--bg-muted))] rounded-xl px-4">
+                <Filter className="w-4 h-4 text-[hsl(var(--text-muted))]" />
                 <input
                   autoFocus
-                  className="flex-1 py-3 bg-transparent text-sm outline-none text-neutral-900 dark:text-white placeholder:text-neutral-400"
+                  className="flex-1 py-3 bg-transparent text-sm outline-none text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))]"
                   placeholder="Filtrer les articles..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -912,8 +912,8 @@ function ItemMultiSelect({
                     onClick={() => toggleSelection(item.itemId)}
                     className={cn(
                       "w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200",
-                      "text-left hover:bg-neutral-50 dark:hover:bg-neutral-800",
-                      selectedIds.has(item.itemId) && "bg-neutral-100 dark:bg-neutral-800"
+                      "text-left hover:bg-[hsl(var(--bg-elevated))]",
+                      selectedIds.has(item.itemId) && "bg-[hsl(var(--bg-muted))]"
                     )}
                   >
                     <div
@@ -933,14 +933,14 @@ function ItemMultiSelect({
                       <div className="font-mono font-bold text-sm" style={{ color: accentColor }}>
                         {item.itemCode}
                       </div>
-                      <div className="text-xs text-neutral-500 truncate">{item.description}</div>
+                      <div className="text-xs text-[hsl(var(--text-tertiary))] truncate">{item.description}</div>
                     </div>
                   </button>
                 ))
               ) : (
                 <div className="py-8 text-center">
-                  <Inbox className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
-                  <span className="text-sm text-neutral-400">Aucun article</span>
+                  <Inbox className="w-8 h-8 text-[hsl(var(--text-muted))] mx-auto mb-2" />
+                  <span className="text-sm text-[hsl(var(--text-muted))]">Aucun article</span>
                 </div>
               )}
             </div>
@@ -978,9 +978,9 @@ function EmailModal({
   return (
     <div className="fixed inset-0 z-[999999] flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
-      <div className="relative w-full sm:max-w-md bg-white dark:bg-neutral-900 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 sm:animate-in sm:zoom-in-95">
+      <div className="relative w-full sm:max-w-md bg-[hsl(var(--bg-surface))] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 sm:animate-in sm:zoom-in-95">
         <div className="sm:hidden flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-700" />
+          <div className="w-10 h-1 rounded-full bg-[hsl(var(--border-default))]" />
         </div>
 
         <div className="p-6">
@@ -992,10 +992,10 @@ function EmailModal({
               <Mail className="w-7 h-7" style={{ color: accentColor }} />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
+              <h3 className="text-xl font-bold text-[hsl(var(--text-primary))]">
                 Envoyer par courriel
               </h3>
-              <p className="text-sm text-neutral-500">La liste sera jointe en PDF</p>
+              <p className="text-sm text-[hsl(var(--text-tertiary))]">La liste sera jointe en PDF</p>
             </div>
           </div>
 
@@ -1004,10 +1004,10 @@ function EmailModal({
             type="email"
             className={cn(
               "w-full h-14 px-5 rounded-2xl text-base font-medium",
-              "bg-neutral-100 dark:bg-neutral-800",
+              "bg-[hsl(var(--bg-muted))]",
               "border-2 border-transparent focus:border-current",
               "outline-none transition-all duration-300",
-              "placeholder:text-neutral-400"
+              "placeholder:text-[hsl(var(--text-muted))]"
             )}
             style={{ borderColor: email ? accentColor : "transparent" }}
             placeholder="nom@exemple.com"
@@ -1020,7 +1020,7 @@ function EmailModal({
           <button
             onClick={onClose}
             disabled={sending}
-            className="flex-1 h-14 rounded-2xl font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition-all hover:bg-neutral-200 dark:hover:bg-neutral-700 disabled:opacity-50"
+            className="flex-1 h-14 rounded-2xl font-semibold bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))] transition-all hover:bg-[hsl(var(--bg-elevated))] disabled:opacity-50"
           >
             Annuler
           </button>
@@ -1680,7 +1680,7 @@ function CataloguePageContent() {
   const canAddSelection = selectedProduct || selectedItemIds.size > 0;
 
   return (
-    <div className="fixed inset-0 z-[99990] flex bg-neutral-900">
+    <div className="fixed inset-0 z-[99990] flex bg-[hsl(var(--bg-base))]">
       <div className="relative w-full h-full flex flex-col animate-in fade-in duration-300">
         
         {/* ===================== HEADER - NEW STREAMLINED LAYOUT ===================== */}
@@ -1735,17 +1735,17 @@ function CataloguePageContent() {
                   {openDropdown === 'pricelist' && (
                     <>
                       <div className="fixed inset-0 z-[999998]" onClick={() => setOpenDropdown(null)} />
-                      <div className="absolute z-[999999] top-full left-0 mt-2 bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-2xl overflow-hidden w-80 max-h-96 overflow-y-auto">
+                      <div className="absolute z-[999999] top-full left-0 mt-2 bg-[hsl(var(--bg-surface))] rounded-xl border border-[hsl(var(--border-default))] shadow-2xl overflow-hidden w-80 max-h-96 overflow-y-auto">
                         {priceLists.map(list => (
                           <button
                             key={list.priceId}
                             onClick={() => handlePriceListChange(list)}
                             className={cn(
-                              "w-full px-4 py-3 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors flex items-center justify-between",
-                              selectedPriceList?.priceId === list.priceId && "bg-neutral-100 dark:bg-neutral-800"
+                              "w-full px-4 py-3 text-left text-sm hover:bg-[hsl(var(--bg-elevated))] transition-colors flex items-center justify-between",
+                              selectedPriceList?.priceId === list.priceId && "bg-[hsl(var(--bg-muted))]"
                             )}
                           >
-                            <span className="truncate text-neutral-900 dark:text-white">{abbreviateColumnName(list.code)} - {list.name}</span>
+                            <span className="truncate text-[hsl(var(--text-primary))]">{abbreviateColumnName(list.code)} - {list.name}</span>
                             {selectedPriceList?.priceId === list.priceId && <Check className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} />}
                           </button>
                         ))}
@@ -1842,12 +1842,12 @@ function CataloguePageContent() {
                         key={prod.prodId}
                         onClick={() => handleProductChange(prod)}
                         className={cn(
-                          "w-full px-4 py-3 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors flex items-center justify-between",
-                          selectedProduct?.prodId === prod.prodId && "bg-neutral-100 dark:bg-neutral-800"
+                          "w-full px-4 py-3 text-left text-sm hover:bg-[hsl(var(--bg-elevated))] transition-colors flex items-center justify-between",
+                          selectedProduct?.prodId === prod.prodId && "bg-[hsl(var(--bg-muted))]"
                         )}
                       >
-                        <span className="text-neutral-900 dark:text-white">{prod.name}</span>
-                        <span className="text-xs text-neutral-500 bg-neutral-200 dark:bg-neutral-700 px-2 py-0.5 rounded">{prod.itemCount}</span>
+                        <span className="text-[hsl(var(--text-primary))]">{prod.name}</span>
+                        <span className="text-xs text-[hsl(var(--text-tertiary))] bg-[hsl(var(--bg-muted))] px-2 py-0.5 rounded">{prod.itemCount}</span>
                       </button>
                     )}
                   />
@@ -1870,12 +1870,12 @@ function CataloguePageContent() {
                         key={type.itemTypeId}
                         onClick={() => handleTypeChange(type)}
                         className={cn(
-                          "w-full px-4 py-3 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors flex items-center justify-between",
-                          selectedType?.itemTypeId === type.itemTypeId && "bg-neutral-100 dark:bg-neutral-800"
+                          "w-full px-4 py-3 text-left text-sm hover:bg-[hsl(var(--bg-elevated))] transition-colors flex items-center justify-between",
+                          selectedType?.itemTypeId === type.itemTypeId && "bg-[hsl(var(--bg-muted))]"
                         )}
                       >
-                        <span className="text-neutral-900 dark:text-white">{type.description}</span>
-                        <span className="text-xs text-neutral-500 bg-neutral-200 dark:bg-neutral-700 px-2 py-0.5 rounded">{type.itemCount}</span>
+                        <span className="text-[hsl(var(--text-primary))]">{type.description}</span>
+                        <span className="text-xs text-[hsl(var(--text-tertiary))] bg-[hsl(var(--bg-muted))] px-2 py-0.5 rounded">{type.itemCount}</span>
                       </button>
                     )}
                   />
@@ -1906,7 +1906,7 @@ function CataloguePageContent() {
         </header>
 
         {/* ===================== CONTENT - ORIGINAL TABLE FORMAT ===================== */}
-        <main className="flex-1 overflow-auto bg-neutral-100 dark:bg-neutral-950">
+        <main className="flex-1 overflow-auto bg-[hsl(var(--bg-muted))]">
           {loadingPrices ? (
             <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
               <div className="relative">
@@ -1920,8 +1920,8 @@ function CataloguePageContent() {
                 />
               </div>
               <div className="text-center">
-                <p className="text-xl font-bold text-neutral-700 dark:text-neutral-200">Chargement des prix</p>
-                <p className="text-neutral-500 mt-1">Veuillez patienter...</p>
+                <p className="text-xl font-bold text-[hsl(var(--text-secondary))]">Chargement des prix</p>
+                <p className="text-[hsl(var(--text-tertiary))] mt-1">Veuillez patienter...</p>
               </div>
             </div>
           ) : priceError ? (
@@ -1931,7 +1931,7 @@ function CataloguePageContent() {
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold" style={{ color: accentColor }}>Erreur</p>
-                <p className="text-neutral-500 mt-2 max-w-md">{priceError}</p>
+                <p className="text-[hsl(var(--text-tertiary))] mt-2 max-w-md">{priceError}</p>
                 <button onClick={() => handleLoadSelection()} className="mt-6 px-6 py-3 rounded-2xl text-sm font-bold border-2 transition-all hover:scale-105 active:scale-95" style={{ borderColor: accentColor, color: accentColor }}>
                   <RefreshCw className="w-4 h-4 inline mr-2" />Réessayer
                 </button>
@@ -1946,7 +1946,7 @@ function CataloguePageContent() {
                 return (
                   <div key={categoryName} className="space-y-4">
                     {/* ===== CATEGORY HEADER ===== */}
-                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-neutral-900 to-neutral-800 dark:from-neutral-800 dark:to-neutral-700 shadow-xl">
+                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[hsl(var(--bg-base))] to-[hsl(var(--bg-surface))] shadow-xl">
                       <div className="absolute inset-0 pointer-events-none overflow-hidden">
                         <div className="absolute -top-20 -right-20 w-40 h-40 rounded-full blur-3xl" style={{ backgroundColor: `${accentColor}30` }} />
                         <div className="absolute -bottom-10 -left-10 w-32 h-32 rounded-full bg-white/5 blur-2xl" />
@@ -1982,7 +1982,7 @@ function CataloguePageContent() {
                 const commonUnit = getCommonUnit(classItems);
 
                 return (
-                  <section key={className} className="bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden shadow-lg border border-neutral-200/50 dark:border-neutral-800">
+                  <section key={className} className="bg-[hsl(var(--bg-surface))] rounded-2xl overflow-hidden shadow-lg border border-[hsl(var(--border-default))]">
                     <div className="relative px-5 py-3 sm:px-6 sm:py-4" style={{ backgroundColor: accentColor }}>
                       <div className="absolute inset-0 overflow-hidden pointer-events-none">
                         <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
@@ -2005,40 +2005,40 @@ function CataloguePageContent() {
                     <div className="overflow-x-auto">
                       <table className={cn("w-full border-collapse", isCompact ? "text-xs" : "text-sm")}>
                         <thead>
-                          <tr className="bg-neutral-50 dark:bg-neutral-800/50">
+                          <tr className="bg-[hsl(var(--bg-elevated))]">
                             {/* Remove column header */}
-                            <th className={cn("w-10 text-center font-black text-neutral-400 dark:text-neutral-500 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-2" : "p-3")}></th>
-                            <th className={cn("text-left font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700 sticky left-0 bg-neutral-50 dark:bg-neutral-800/50 z-10", isCompact ? "p-3" : "p-4")}>
+                            <th className={cn("w-10 text-center font-black text-[hsl(var(--text-muted))] border-b-2 border-[hsl(var(--border-default))]", isCompact ? "p-2" : "p-3")}></th>
+                            <th className={cn("text-left font-black text-[hsl(var(--text-secondary))] border-b-2 border-[hsl(var(--border-default))] sticky left-0 bg-[hsl(var(--bg-elevated))] z-10", isCompact ? "p-3" : "p-4")}>
                               <div className="flex items-center gap-2">
                                 <Package className={cn(isCompact ? "w-4 h-4" : "w-5 h-5", "opacity-50")} />Article
                               </div>
                             </th>
-                            <th className={cn("text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-3" : "p-4")}>Cs</th>
-                            <th className={cn("text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-3" : "p-4")}>Fmt</th>
-                            <th className={cn("text-center font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700", isCompact ? "p-3" : "p-4")}>Qty</th>
+                            <th className={cn("text-center font-black text-[hsl(var(--text-secondary))] border-b-2 border-[hsl(var(--border-default))]", isCompact ? "p-3" : "p-4")}>Cs</th>
+                            <th className={cn("text-center font-black text-[hsl(var(--text-secondary))] border-b-2 border-[hsl(var(--border-default))]", isCompact ? "p-3" : "p-4")}>Fmt</th>
+                            <th className={cn("text-center font-black text-[hsl(var(--text-secondary))] border-b-2 border-[hsl(var(--border-default))]", isCompact ? "p-3" : "p-4")}>Qty</th>
                             {standardColumns.map((colCode) => {
                               const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
                               const displayName = abbreviateColumnName(colCode);
                               return (
                                 <Fragment key={colCode}>
-                                  <th className={cn("text-right font-black border-b-2 border-neutral-200 dark:border-neutral-700 whitespace-nowrap", isCompact ? "p-3" : "p-4", isSelectedList ? "text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-900/20" : "text-neutral-600 dark:text-neutral-300")}>{displayName}</th>
+                                  <th className={cn("text-right font-black border-b-2 border-[hsl(var(--border-default))] whitespace-nowrap", isCompact ? "p-3" : "p-4", isSelectedList ? "text-[hsl(var(--warning))] bg-[hsl(var(--warning-muted))]" : "text-[hsl(var(--text-secondary))]")}>{displayName}</th>
                                   {/* $/Unit column - ALWAYS VISIBLE for selected price list */}
                                   {isSelectedList && (
-                                    <th className={cn("text-right font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/20 whitespace-nowrap", isCompact ? "p-3" : "p-4")}>$/{commonUnit}</th>
+                                    <th className={cn("text-right font-black text-[hsl(var(--info))] border-b-2 border-[hsl(var(--border-default))] bg-[hsl(var(--info-muted))]/50 whitespace-nowrap", isCompact ? "p-3" : "p-4")}>$/{commonUnit}</th>
                                   )}
                                   {showDetails && isSelectedList && !isCompact && (
-                                    <th className="text-right p-4 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/20 whitespace-nowrap">$/Cs</th>
+                                    <th className="text-right p-4 font-black text-[hsl(var(--info))] border-b-2 border-[hsl(var(--border-default))] bg-[hsl(var(--info-muted))]/50 whitespace-nowrap">$/Cs</th>
                                   )}
                                   {(showDetails || selectedPriceList?.code === "01-EXP") && isSelectedList && !isCompact && (
-                                    <th className="text-right p-4 font-black text-violet-700 dark:text-violet-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-violet-50/50 dark:bg-violet-900/20 whitespace-nowrap">{selectedPriceList?.code === "01-EXP" ? "%Exp (vs. IND)" : "%Exp"}</th>
+                                    <th className="text-right p-4 font-black text-[hsl(var(--info))] border-b-2 border-[hsl(var(--border-default))] bg-[hsl(var(--info-muted))] whitespace-nowrap">{selectedPriceList?.code === "01-EXP" ? "%Exp (vs. IND)" : "%Exp"}</th>
                                   )}
                                   {showDetails && isSelectedList && isCompact && (
-                                    <th className="text-right p-3 font-black text-sky-700 dark:text-sky-400 border-b-2 border-neutral-200 dark:border-neutral-700 bg-sky-50/50 dark:bg-sky-900/20 whitespace-nowrap">Détails</th>
+                                    <th className="text-right p-3 font-black text-[hsl(var(--info))] border-b-2 border-[hsl(var(--border-default))] bg-[hsl(var(--info-muted))]/50 whitespace-nowrap">Détails</th>
                                   )}
                                 </Fragment>
                               );
                             })}
-                            {hasPDS && <th className={cn("text-right font-black text-neutral-600 dark:text-neutral-300 border-b-2 border-neutral-200 dark:border-neutral-700 whitespace-nowrap", isCompact ? "p-3" : "p-4")}>{abbreviateColumnName("08-PDS")}</th>}
+                            {hasPDS && <th className={cn("text-right font-black text-[hsl(var(--text-secondary))] border-b-2 border-[hsl(var(--border-default))] whitespace-nowrap", isCompact ? "p-3" : "p-4")}>{abbreviateColumnName("08-PDS")}</th>}
                           </tr>
                         </thead>
                         <tbody>
@@ -2046,46 +2046,46 @@ function CataloguePageContent() {
                             <Fragment key={item.itemId}>
                               {item.ranges.map((range, rIdx) => {
                                 const isFirstRowOfItem = rIdx === 0;
-                                const rowBg = itemIndex % 2 === 0 ? "bg-white dark:bg-neutral-900" : "bg-neutral-50/70 dark:bg-neutral-800/30";
+                                const rowBg = itemIndex % 2 === 0 ? "bg-[hsl(var(--bg-surface))]" : "bg-[hsl(var(--bg-elevated))]";
 
                                 return (
-                                  <tr key={range.id} className={cn("transition-colors duration-200 group", rowBg, "hover:bg-amber-50/50 dark:hover:bg-amber-900/10")}>
+                                  <tr key={range.id} className={cn("transition-colors duration-200 group", rowBg, "hover:bg-[hsl(var(--bg-elevated))]")}>
                                     {/* Remove button cell */}
-                                    <td className={cn("border-b border-neutral-100 dark:border-neutral-800 align-top text-center", isCompact ? "p-2" : "p-3", rowBg, "group-hover:bg-amber-50/50 dark:group-hover:bg-amber-900/10")}>
+                                    <td className={cn("border-b border-[hsl(var(--border-subtle))] align-top text-center", isCompact ? "p-2" : "p-3", rowBg, "group-hover:bg-[hsl(var(--bg-elevated))]")}>
                                       {isFirstRowOfItem && (
                                         <button
                                           onClick={() => handleRemoveItem(item.itemId)}
-                                          className="w-6 h-6 rounded-md flex items-center justify-center text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                                          className="w-6 h-6 rounded-md flex items-center justify-center text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))] transition-all"
                                           title="Retirer cet article"
                                         >
                                           <Minus className="w-4 h-4" />
                                         </button>
                                       )}
                                     </td>
-                                    <td className={cn("border-b border-neutral-100 dark:border-neutral-800 align-top sticky left-0 z-10", isCompact ? "p-3" : "p-4", rowBg, "group-hover:bg-amber-50/50 dark:group-hover:bg-amber-900/10")}>
+                                    <td className={cn("border-b border-[hsl(var(--border-subtle))] align-top sticky left-0 z-10", isCompact ? "p-3" : "p-4", rowBg, "group-hover:bg-[hsl(var(--bg-elevated))]")}>
                                       {isFirstRowOfItem && (
                                         <div className="flex flex-col gap-0.5">
                                           <span className={cn("font-mono font-black tracking-tight", isCompact ? "text-sm" : "text-base")} style={{ color: accentColor }}>{item.itemCode}</span>
-                                          <span className={cn("text-neutral-500 truncate max-w-[200px]", isCompact ? "text-[10px]" : "text-xs")} title={item.description}>{item.description}</span>
+                                          <span className={cn("text-[hsl(var(--text-tertiary))] truncate max-w-[200px]", isCompact ? "text-[10px]" : "text-xs")} title={item.description}>{item.description}</span>
                                         </div>
                                       )}
                                     </td>
-                                    <td className={cn("text-center border-b border-neutral-100 dark:border-neutral-800 align-top", isCompact ? "p-3" : "p-4")}>
-                                      {isFirstRowOfItem && <span className="font-bold text-neutral-900 dark:text-white">{item.caisse ? Math.round(item.caisse) : "-"}</span>}
+                                    <td className={cn("text-center border-b border-[hsl(var(--border-subtle))] align-top", isCompact ? "p-3" : "p-4")}>
+                                      {isFirstRowOfItem && <span className="font-bold text-[hsl(var(--text-primary))]">{item.caisse ? Math.round(item.caisse) : "-"}</span>}
                                     </td>
-                                    <td className={cn("text-center border-b border-neutral-100 dark:border-neutral-800 align-top", isCompact ? "p-3" : "p-4")}>
-                                      {isFirstRowOfItem && <span className="font-medium text-neutral-700 dark:text-neutral-300 px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg inline-block text-xs">{item.format || "-"}</span>}
+                                    <td className={cn("text-center border-b border-[hsl(var(--border-subtle))] align-top", isCompact ? "p-3" : "p-4")}>
+                                      {isFirstRowOfItem && <span className="font-medium text-[hsl(var(--text-secondary))] px-2 py-1 bg-[hsl(var(--bg-muted))] rounded-lg inline-block text-xs">{item.format || "-"}</span>}
                                     </td>
-                                    <td className={cn("text-center border-b border-neutral-100 dark:border-neutral-800", isCompact ? "p-3" : "p-4")}>
-                                      <span className="font-mono font-bold text-neutral-900 dark:text-white">{range.qtyMin}</span>
+                                    <td className={cn("text-center border-b border-[hsl(var(--border-subtle))]", isCompact ? "p-3" : "p-4")}>
+                                      <span className="font-mono font-bold text-[hsl(var(--text-primary))]">{range.qtyMin}</span>
                                     </td>
                                     {standardColumns.map((colCode) => {
                                       const priceVal = range.columns ? range.columns[colCode] : colCode === selectedPriceList?.code ? range.unitPrice : null;
                                       const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
                                       return (
                                         <Fragment key={colCode}>
-                                          <td className={cn("text-right border-b border-neutral-100 dark:border-neutral-800", isCompact ? "p-3" : "p-4", isSelectedList && "bg-amber-50/30 dark:bg-amber-900/10")}>
-                                            <span className={cn("font-mono font-bold whitespace-nowrap", isSelectedList ? "text-amber-700 dark:text-amber-400" : "text-neutral-700 dark:text-neutral-300")}>
+                                          <td className={cn("text-right border-b border-[hsl(var(--border-subtle))]", isCompact ? "p-3" : "p-4", isSelectedList && "bg-[hsl(var(--warning-muted))]/50")}>
+                                            <span className={cn("font-mono font-bold whitespace-nowrap", isSelectedList ? "text-[hsl(var(--warning))]" : "text-[hsl(var(--text-secondary))]")}>
                                               {priceVal !== null && priceVal !== undefined ? <AnimatedPrice value={priceVal} /> : "-"}
                                             </span>
                                           </td>
@@ -2094,8 +2094,8 @@ function CataloguePageContent() {
                                             const selectedPriceVal = priceVal ?? 0;
                                             const ppu = calcPricePerUnit(selectedPriceVal, item.format);
                                             return (
-                                              <td className={cn("text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/10", isCompact ? "p-3" : "p-4")}>
-                                                <span className="font-mono font-bold text-sky-700 dark:text-sky-400">{ppu ? ppu.toFixed(2) : "-"}</span>
+                                              <td className={cn("text-right border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--info-muted))]/30", isCompact ? "p-3" : "p-4")}>
+                                                <span className="font-mono font-bold text-[hsl(var(--info))]">{ppu ? ppu.toFixed(2) : "-"}</span>
                                               </td>
                                             );
                                           })()}
@@ -2103,8 +2103,8 @@ function CataloguePageContent() {
                                             const selectedPriceVal = priceVal ?? 0;
                                             const ppc = calcPricePerCaisse(selectedPriceVal, item.caisse);
                                             return (
-                                                <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/10">
-                                                  <span className="font-mono text-sky-700 dark:text-sky-400">{ppc ? ppc.toFixed(2) : "-"}</span>
+                                                <td className="p-4 text-right border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--info-muted))]/30">
+                                                  <span className="font-mono text-[hsl(var(--info))]">{ppc ? ppc.toFixed(2) : "-"}</span>
                                                 </td>
                                             );
                                           })()}
@@ -2117,8 +2117,8 @@ function CataloguePageContent() {
                                               ? calcMargin(expBaseVal, selectedPriceVal)
                                               : calcMargin(selectedPriceVal, expBaseVal);
                                             return (
-                                                <td className="p-4 text-right border-b border-neutral-100 dark:border-neutral-800 bg-violet-50/30 dark:bg-violet-900/10">
-                                                  <span className={cn("font-mono font-bold", percentExp && percentExp < 0 ? "text-red-600 dark:text-red-400" : "text-violet-700 dark:text-violet-400")}>
+                                                <td className="p-4 text-right border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--info-muted))]/50">
+                                                  <span className={cn("font-mono font-bold", percentExp && percentExp < 0 ? "text-[hsl(var(--danger))]" : "text-[hsl(var(--info))]")}>
                                                     {percentExp !== null ? `${percentExp.toFixed(1)}%` : "-"}
                                                   </span>
                                                 </td>
@@ -2134,13 +2134,13 @@ function CataloguePageContent() {
                                               ? calcMargin(expBaseVal, selectedPriceVal)
                                               : calcMargin(selectedPriceVal, expBaseVal);
                                             return (
-                                              <td className="p-3 text-right border-b border-neutral-100 dark:border-neutral-800 bg-sky-50/30 dark:bg-sky-900/10">
+                                              <td className="p-3 text-right border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--info-muted))]/30">
                                                 <div className="space-y-1 text-[10px]">
-                                                  <div className="flex justify-end gap-2 text-sky-700 dark:text-sky-400">
+                                                  <div className="flex justify-end gap-2 text-[hsl(var(--info))]">
                                                     <span className="opacity-60">$/Cs</span>
                                                     <span className="font-mono font-bold">{ppc ? ppc.toFixed(2) : "-"}</span>
                                                   </div>
-                                                  <div className="flex justify-end gap-2 text-violet-700 dark:text-violet-400">
+                                                  <div className="flex justify-end gap-2 text-[hsl(var(--info))]">
                                                     <span className="opacity-60">{selectedPriceList?.code === "01-EXP" ? "%Exp (vs. IND)" : "%Exp"}</span>
                                                     <span className="font-mono font-bold">{percentExp !== null ? `${percentExp.toFixed(1)}%` : "-"}</span>
                                                   </div>
@@ -2154,8 +2154,8 @@ function CataloguePageContent() {
                                     {hasPDS && (() => {
                                       const p = range.columns?.["08-PDS"] ?? null;
                                       return (
-                                        <td className={cn("text-right border-b border-neutral-100 dark:border-neutral-800", isCompact ? "p-3" : "p-4")}>
-                                          <span className="font-mono font-bold text-neutral-700 dark:text-neutral-300">{p !== null ? <AnimatedPrice value={p} /> : "-"}</span>
+                                        <td className={cn("text-right border-b border-[hsl(var(--border-subtle))]", isCompact ? "p-3" : "p-4")}>
+                                          <span className="font-mono font-bold text-[hsl(var(--text-secondary))]">{p !== null ? <AnimatedPrice value={p} /> : "-"}</span>
                                         </td>
                                       );
                                     })()}
@@ -2164,7 +2164,7 @@ function CataloguePageContent() {
                               })}
                               {itemIndex < classItems.length - 1 && (
                                 <tr className="h-1.5">
-                                  <td colSpan={100} className="bg-neutral-200 dark:bg-neutral-800 border-none" />
+                                  <td colSpan={100} className="bg-[hsl(var(--bg-muted))] border-none" />
                                 </tr>
                               )}
                             </Fragment>
@@ -2186,9 +2186,9 @@ function CataloguePageContent() {
                 <Inbox className="w-14 h-14" style={{ color: `${accentColor}40` }} />
               </div>
               <div className="text-center max-w-md">
-                <p className="text-2xl font-bold text-neutral-700 dark:text-neutral-200">Aucun prix sélectionné</p>
-                <p className="text-neutral-500 mt-3">
-                  Utilisez le bouton <span className="inline-flex items-center gap-1 px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg"><Plus className="w-4 h-4" /> Ajouter</span> pour sélectionner des catégories ou utilisez la <span className="inline-flex items-center gap-1 px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg"><Search className="w-4 h-4" /> Recherche</span> pour ajouter des articles individuels.
+                <p className="text-2xl font-bold text-[hsl(var(--text-secondary))]">Aucun prix sélectionné</p>
+                <p className="text-[hsl(var(--text-tertiary))] mt-3">
+                  Utilisez le bouton <span className="inline-flex items-center gap-1 px-2 py-1 bg-[hsl(var(--bg-muted))] rounded-lg"><Plus className="w-4 h-4" /> Ajouter</span> pour sélectionner des catégories ou utilisez la <span className="inline-flex items-center gap-1 px-2 py-1 bg-[hsl(var(--bg-muted))] rounded-lg"><Search className="w-4 h-4" /> Recherche</span> pour ajouter des articles individuels.
                 </p>
               </div>
             </div>
@@ -2197,21 +2197,21 @@ function CataloguePageContent() {
 
         {/* ===================== FOOTER ===================== */}
         {!loadingPrices && itemsWithPrices.length > 0 && (
-          <footer className="flex-shrink-0 bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-800 px-4 py-3 sm:px-6 z-20">
+          <footer className="flex-shrink-0 bg-[hsl(var(--bg-surface))] border-t border-[hsl(var(--border-default))] px-4 py-3 sm:px-6 z-20">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="px-4 py-2 rounded-xl font-bold text-sm" style={{ backgroundColor: `${accentColor}15`, color: accentColor }}>
                   {itemsWithPrices.length} article(s)
                 </div>
                 {showDetails && (
-                  <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-semibold text-sm">
+                  <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-[hsl(var(--info-muted))] text-[hsl(var(--info))] font-semibold text-sm">
                     <Eye className="w-4 h-4" />Mode détaillé
                   </div>
                 )}
               </div>
-              <div className="flex items-center gap-2 text-sm text-neutral-500">
+              <div className="flex items-center gap-2 text-sm text-[hsl(var(--text-tertiary))]">
                 <span className="hidden sm:inline">Liste:</span>
-                <span className="font-bold text-neutral-700 dark:text-neutral-300">{abbreviateColumnName(selectedPriceList?.code || "")}</span>
+                <span className="font-bold text-[hsl(var(--text-secondary))]">{abbreviateColumnName(selectedPriceList?.code || "")}</span>
               </div>
             </div>
           </footer>
@@ -2236,7 +2236,7 @@ export default function CataloguePage() {
 
   if (!mounted || status === "loading") {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-neutral-900">
+      <div className="fixed inset-0 flex items-center justify-center bg-[hsl(var(--bg-base))]">
         <Loader2 className="w-8 h-8 animate-spin text-white" />
       </div>
     );

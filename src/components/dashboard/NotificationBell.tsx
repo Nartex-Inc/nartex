@@ -120,7 +120,7 @@ export function NotificationBell() {
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
+            <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-[hsl(var(--danger))] rounded-full">
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
@@ -158,7 +158,7 @@ export function NotificationBell() {
                   e.preventDefault();
                   dismissAll();
                 }}
-                className="text-xs text-[hsl(var(--text-muted))] hover:text-red-400 hover:underline"
+                className="text-xs text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))] hover:underline"
               >
                 Tout effacer
               </button>
@@ -213,7 +213,7 @@ export function NotificationBell() {
                       e.stopPropagation();
                       dismissNotification(notification.id);
                     }}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-muted))] hover:text-red-400 shrink-0"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))] shrink-0"
                     title="Supprimer"
                   >
                     <X className="h-3.5 w-3.5" />

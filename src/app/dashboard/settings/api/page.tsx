@@ -136,11 +136,11 @@ function CreateKeyModal({
 
         {newKey ? (
           <div className="space-y-4">
-            <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+            <div className="p-4 rounded-xl bg-[hsl(var(--warning-muted))] border border-[hsl(var(--warning)/0.2)]">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                <AlertTriangle className="h-5 w-5 text-[hsl(var(--warning))] shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-[13px] font-medium text-amber-600 dark:text-amber-400">
+                  <p className="text-[13px] font-medium text-[hsl(var(--warning))]">
                     Copiez votre clé maintenant
                   </p>
                   <p className="text-[12px] text-[hsl(var(--text-muted))] mt-1">
@@ -162,8 +162,8 @@ function CreateKeyModal({
                   onClick={handleCopy}
                   className={cn(
                     "px-3 py-2 rounded-lg transition-colors shrink-0",
-                    copied 
-                      ? "bg-emerald-500/10 text-emerald-500"
+                    copied
+                      ? "bg-[hsl(var(--success-muted))] text-[hsl(var(--success))]"
                       : "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))]"
                   )}
                 >
@@ -231,7 +231,7 @@ function CreateKeyModal({
             </div>
 
             {error && (
-              <p className="text-[13px] text-red-500">{error}</p>
+              <p className="text-[13px] text-[hsl(var(--danger))]">{error}</p>
             )}
 
             <div className="flex gap-3 pt-2">
@@ -358,7 +358,7 @@ export default function ApiSettingsPage() {
           border: "1px solid hsl(var(--warning) / 0.3)",
         }}
       >
-        <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+        <AlertTriangle className="h-5 w-5 text-[hsl(var(--warning))] shrink-0 mt-0.5" />
         <div>
           <p className="text-[14px] font-semibold text-[hsl(var(--text-primary))]">
             Gardez vos clés API confidentielles
@@ -459,7 +459,7 @@ export default function ApiSettingsPage() {
                         className={cn(
                           "p-2 rounded-lg transition-colors",
                           copiedId === apiKey.id
-                            ? "text-emerald-500"
+                            ? "text-[hsl(var(--success))]"
                             : "text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))]"
                         )}
                         title="Copier le préfixe"

@@ -94,8 +94,8 @@ export default function TeamSettingsPage() {
                     className={cn(
                       "px-2.5 py-1 rounded-md text-[11px] font-medium",
                       member.status === "active"
-                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                        : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                        ? "bg-[hsl(var(--success-muted))] text-[hsl(var(--success))]"
+                        : "bg-[hsl(var(--warning-muted))] text-[hsl(var(--warning))]"
                     )}
                   >
                     {member.status === "active" ? "Actif" : "En attente"}

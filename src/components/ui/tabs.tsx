@@ -28,7 +28,16 @@ export function TabsList({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <div className={cn("flex gap-2", className)}>{children}</div>;
+  return (
+    <div
+      className={cn(
+        "inline-flex gap-1 rounded-xl bg-[hsl(var(--bg-muted))] p-1",
+        className
+      )}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function TabsTrigger({
@@ -46,8 +55,10 @@ export function TabsTrigger({
     <button
       onClick={() => ctx.set(value)}
       className={cn(
-        "rounded-md px-3 py-1.5 text-sm",
-        active ? "font-semibold border" : "opacity-70 hover:opacity-100",
+        "rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-200",
+        active
+          ? "bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))] shadow-sm"
+          : "text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-secondary))]",
         className
       )}
     >

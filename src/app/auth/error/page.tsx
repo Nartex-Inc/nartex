@@ -36,11 +36,11 @@ function AuthErrorContent() {
     }
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-6">
-            <div className="bg-gray-800 p-8 rounded-lg shadow-xl text-center max-w-md w-full">
-                <h1 className="text-2xl font-bold mb-4 text-red-400">Erreur d'Authentification</h1>
-                <p className="mb-6">{errorMessage}</p>
-                <Link href="/" className="mt-4 inline-block bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded">
+        <div className="min-h-screen flex flex-col items-center justify-center bg-[hsl(var(--bg-base))] text-[hsl(var(--text-primary))] p-6">
+            <div className="bg-[hsl(var(--bg-surface))] border border-[hsl(var(--border-default))] p-8 rounded-2xl shadow-xl text-center max-w-md w-full">
+                <h1 className="text-2xl font-bold mb-4 text-[hsl(var(--danger))]">Erreur d&apos;Authentification</h1>
+                <p className="mb-6 text-[hsl(var(--text-secondary))]">{errorMessage}</p>
+                <Link href="/" className="mt-4 inline-block bg-[hsl(var(--accent))] hover:bg-[hsl(var(--accent-hover))] text-white font-bold py-2.5 px-5 rounded-xl transition-colors">
                     Retour à la page de connexion
                 </Link>
             </div>
@@ -50,7 +50,7 @@ function AuthErrorContent() {
 
 export default function AuthErrorPage() {
     return (
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">Chargement des informations d'erreur...</div>}>
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[hsl(var(--bg-base))] text-[hsl(var(--text-primary))]">Chargement des informations d&apos;erreur...</div>}>
             <AuthErrorContent />
         </Suspense>
     );

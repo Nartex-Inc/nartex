@@ -263,16 +263,16 @@ function Switch({ checked, onCheckedChange, label, disabled }: { checked: boolea
         onClick={() => !disabled && onCheckedChange(!checked)}
         className={cn(
           "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200",
-          checked ? "bg-neutral-900 dark:bg-white" : "bg-neutral-200 dark:bg-neutral-700",
+          checked ? "bg-[hsl(var(--text-primary))]" : "bg-[hsl(var(--bg-muted))]",
           disabled && "opacity-50 cursor-not-allowed"
         )}
       >
         <span className={cn(
           "pointer-events-none block h-4 w-4 rounded-full shadow-sm transition-transform duration-200",
-          checked ? "translate-x-4 bg-white dark:bg-neutral-900" : "translate-x-0 bg-white dark:bg-neutral-400"
+          checked ? "translate-x-4 bg-[hsl(var(--bg-surface))]" : "translate-x-0 bg-[hsl(var(--bg-surface))]"
         )} />
       </button>
-      {label && <span className={cn("text-sm font-medium", disabled ? "text-neutral-400" : "text-neutral-700 dark:text-neutral-300")}>{label}</span>}
+      {label && <span className={cn("text-sm font-medium", disabled ? "text-[hsl(var(--text-muted))]" : "text-[hsl(var(--text-secondary))]")}>{label}</span>}
     </div>
   );
 }
@@ -281,10 +281,10 @@ function Badge({ children, variant = "default", className }: { children: React.R
   return (
     <span className={cn(
       "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
-      variant === "default" && "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300",
-      variant === "success" && "bg-lime-100 text-lime-800 dark:bg-lime-900/30 dark:text-lime-400",
-      variant === "warning" && "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-      variant === "muted" && "bg-neutral-50 text-neutral-500 dark:bg-neutral-900 dark:text-neutral-500",
+      variant === "default" && "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))]",
+      variant === "success" && "bg-[hsl(var(--success-muted))] text-[hsl(var(--success))]",
+      variant === "warning" && "bg-[hsl(var(--warning-muted))] text-[hsl(var(--warning))]",
+      variant === "muted" && "bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-muted))]",
       className
     )}>
       {children}
@@ -399,15 +399,15 @@ export default function ReturnsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 font-sans">
+    <div className="min-h-screen bg-[hsl(var(--bg-elevated))] font-sans">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
         
         {/* Header */}
         <header className="mb-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-white">Retours</h1>
-              <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{userRole} · Gérez les demandes de retours et les réceptions</p>
+              <h1 className="text-2xl font-semibold tracking-tight text-[hsl(var(--text-primary))]">Retours</h1>
+              <p className="mt-1 text-sm text-[hsl(var(--text-tertiary))]">{userRole} · Gérez les demandes de retours et les réceptions</p>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -415,15 +415,15 @@ export default function ReturnsPage() {
                 className={cn(
                   "inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors",
                   showHistory
-                    ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
-                    : "bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                    ? "bg-[hsl(var(--warning-muted))] text-[hsl(var(--warning))]"
+                    : "bg-[hsl(var(--bg-surface))] border border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] hover:bg-[hsl(var(--bg-elevated))]"
                 )}
               >
                 <History className="h-4 w-4" />
                 {showHistory ? "Historique" : "Actifs"}
               </button>
               {canCreate && (
-                <button onClick={() => setOpenNew(true)} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium shadow-sm hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors">
+                <button onClick={() => setOpenNew(true)} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] text-sm font-medium shadow-sm hover:opacity-90 transition-colors">
                   <Plus className="h-4 w-4" />
                   Nouveau retour
                 </button>
@@ -443,101 +443,101 @@ export default function ReturnsPage() {
         <div className="mb-6 space-y-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} placeholder="Rechercher par client, commande, expert..." className="w-full h-10 pl-9 pr-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white transition-shadow" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-muted))]" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} placeholder="Rechercher par client, commande, expert..." className="w-full h-10 pl-9 pr-4 rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] transition-shadow" />
             </div>
-            <button onClick={() => setShowFilters(!showFilters)} className={cn("inline-flex items-center gap-2 px-4 h-10 rounded-lg border text-sm font-medium transition-colors", hasActiveFilters ? "border-neutral-900 dark:border-white bg-neutral-900 dark:bg-white text-white dark:text-neutral-900" : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800")}>
+            <button onClick={() => setShowFilters(!showFilters)} className={cn("inline-flex items-center gap-2 px-4 h-10 rounded-lg border text-sm font-medium transition-colors", hasActiveFilters ? "border-[hsl(var(--text-primary))] bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))]" : "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))]")}>
               <Filter className="h-4 w-4" />
               Filtres
-              {hasActiveFilters && <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-white dark:bg-neutral-900 text-xs text-neutral-900 dark:text-white">{[cause !== "all", reporter !== "all", dateFrom, dateTo].filter(Boolean).length}</span>}
+              {hasActiveFilters && <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-[hsl(var(--bg-surface))] text-xs text-[hsl(var(--text-primary))]">{[cause !== "all", reporter !== "all", dateFrom, dateTo].filter(Boolean).length}</span>}
             </button>
             <div className="flex items-center gap-2">
-              <button onClick={() => load()} className="inline-flex items-center justify-center h-10 w-10 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors" title="Rafraîchir"><RotateCcw className="h-4 w-4" /></button>
-              {hasActiveFilters && <button onClick={onReset} className="inline-flex items-center justify-center h-10 w-10 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-500 hover:text-red-600 dark:hover:text-red-400 transition-colors" title="Réinitialiser"><X className="h-4 w-4" /></button>}
+              <button onClick={() => load()} className="inline-flex items-center justify-center h-10 w-10 rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] transition-colors" title="Rafraîchir"><RotateCcw className="h-4 w-4" /></button>
+              {hasActiveFilters && <button onClick={onReset} className="inline-flex items-center justify-center h-10 w-10 rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--danger))] transition-colors" title="Réinitialiser"><X className="h-4 w-4" /></button>}
             </div>
           </div>
           {showFilters && (
-            <div className="flex flex-wrap items-center gap-3 p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+            <div className="flex flex-wrap items-center gap-3 p-4 rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]">
               <div className="flex items-center gap-2">
-                <label className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Cause</label>
-                <select value={cause} onChange={(e) => setCause(e.target.value as Cause | "all")} className="h-9 px-3 rounded-md border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-sm text-neutral-900 dark:text-white focus:outline-none">
+                <label className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Cause</label>
+                <select value={cause} onChange={(e) => setCause(e.target.value as Cause | "all")} className="h-9 px-3 rounded-md border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] focus:outline-none">
                   <option value="all">Toutes</option>
                   {CAUSES_IN_ORDER.map((c) => <option key={c} value={c}>{CAUSE_LABEL[c]}</option>)}
                 </select>
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Signaleur</label>
-                <select value={reporter} onChange={(e) => setReporter(e.target.value as Reporter | "all")} className="h-9 px-3 rounded-md border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-sm text-neutral-900 dark:text-white focus:outline-none">
+                <label className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Signaleur</label>
+                <select value={reporter} onChange={(e) => setReporter(e.target.value as Reporter | "all")} className="h-9 px-3 rounded-md border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] focus:outline-none">
                   <option value="all">Tous</option>
                   {(["expert", "transporteur", "client", "autre"] as string[]).map((r) => <option key={r} value={r}>{REPORTER_LABEL[r] ?? r}</option>)}
                 </select>
               </div>
-              <div className="h-6 w-px bg-neutral-200 dark:bg-neutral-700 hidden sm:block" />
+              <div className="h-6 w-px bg-[hsl(var(--border-default))] hidden sm:block" />
               <div className="flex items-center gap-2">
-                <label className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Du</label>
-                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9 px-3 rounded-md border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-sm text-neutral-900 dark:text-white focus:outline-none [color-scheme:light] dark:[color-scheme:dark]" />
+                <label className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Du</label>
+                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-9 px-3 rounded-md border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] focus:outline-none [color-scheme:light] dark:[color-scheme:dark]" />
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Au</label>
-                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9 px-3 rounded-md border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-sm text-neutral-900 dark:text-white focus:outline-none [color-scheme:light] dark:[color-scheme:dark]" />
+                <label className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Au</label>
+                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-9 px-3 rounded-md border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] focus:outline-none [color-scheme:light] dark:[color-scheme:dark]" />
               </div>
             </div>
           )}
         </div>
 
         {/* Table */}
-        <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm overflow-hidden">
-          {loading && <div className="flex flex-col items-center justify-center py-24"><Loader2 className="h-8 w-8 text-neutral-400 animate-spin mb-3" /><p className="text-sm text-neutral-500">Chargement...</p></div>}
-          {error && <div className="flex flex-col items-center justify-center py-24 text-red-600 dark:text-red-400"><p className="text-sm">{error}</p></div>}
+        <div className="rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm overflow-hidden">
+          {loading && <div className="flex flex-col items-center justify-center py-24"><Loader2 className="h-8 w-8 text-[hsl(var(--text-muted))] animate-spin mb-3" /><p className="text-sm text-[hsl(var(--text-tertiary))]">Chargement...</p></div>}
+          {error && <div className="flex flex-col items-center justify-center py-24 text-[hsl(var(--danger))]"><p className="text-sm">{error}</p></div>}
           {!loading && !error && (
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-neutral-200 dark:border-neutral-800">
+                    <tr className="border-b border-[hsl(var(--border-default))]">
                       <SortTh label="ID" sortKey="id" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
                       <SortTh label="Date" sortKey="reportedAt" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
                       <SortTh label="Cause" sortKey="cause" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
                       <SortTh label="Client / Expert" sortKey="client" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
                       <SortTh label="Commande" sortKey="noCommande" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
                       <SortTh label="Tracking" sortKey="tracking" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                      <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wide">Fichiers</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wide">Actions</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Fichiers</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                  <tbody className="divide-y divide-[hsl(var(--border-subtle))]">
                     {sorted.map((row) => {
                       const status = getRowStatus(row);
                       const hasFiles = (row.attachments?.length ?? 0) > 0;
                       const rowId = String(row.id);
                       return (
                         <tr key={rowId} onClick={() => setOpenId(rowId)} className={cn("group cursor-pointer transition-colors",
-                          status === "draft" && "bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800",
-                          status === "awaiting_physical" && "bg-neutral-900 dark:bg-neutral-950 text-white hover:bg-neutral-800 dark:hover:bg-neutral-900",
-                          status === "ready" && "bg-lime-400 dark:bg-lime-500 text-neutral-900 hover:bg-lime-500 dark:hover:bg-lime-400",
-                          status === "finalized" && "bg-neutral-100 dark:bg-neutral-900/50 text-neutral-400 dark:text-neutral-600"
+                          status === "draft" && "bg-[hsl(var(--bg-surface))] hover:bg-[hsl(var(--bg-elevated))]",
+                          status === "awaiting_physical" && "bg-[hsl(var(--bg-base))] text-white hover:opacity-90",
+                          status === "ready" && "bg-[hsl(var(--success))] text-white hover:opacity-90",
+                          status === "finalized" && "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))]"
                         )}>
                           <td className="px-4 py-3 font-mono font-medium whitespace-nowrap">{rowId.replace('R', '')}</td>
                           <td className="px-4 py-3 whitespace-nowrap">{new Date(row.reportedAt).toLocaleDateString("fr-CA")}</td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium",
                               status === "awaiting_physical" && "bg-white/20 text-white",
-                              status === "ready" && "bg-neutral-900/10 text-neutral-900",
-                              status === "draft" && "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400",
-                              status === "finalized" && "bg-neutral-200/50 dark:bg-neutral-800/50 text-neutral-400"
+                              status === "ready" && "bg-[hsl(var(--bg-base))]/10 text-[hsl(var(--text-primary))]",
+                              status === "draft" && "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-tertiary))]",
+                              status === "finalized" && "bg-[hsl(var(--bg-muted))]/50 text-[hsl(var(--text-muted))]"
                             )}>{CAUSE_LABEL[row.cause]}</span>
                           </td>
                           <td className="px-4 py-3 max-w-[200px]">
-                            <div className={cn("font-medium truncate", status === "finalized" && "text-neutral-400")}>{row.client}</div>
-                            <div className={cn("text-xs truncate", status === "awaiting_physical" && "text-white/70", status === "ready" && "text-neutral-900/70", status === "draft" && "text-neutral-500", status === "finalized" && "text-neutral-400")}>{row.expert}</div>
+                            <div className={cn("font-medium truncate", status === "finalized" && "text-[hsl(var(--text-muted))]")}>{row.client}</div>
+                            <div className={cn("text-xs truncate", status === "awaiting_physical" && "text-white/70", status === "ready" && "text-[hsl(var(--text-primary))]/70", status === "draft" && "text-[hsl(var(--text-tertiary))]", status === "finalized" && "text-[hsl(var(--text-muted))]")}>{row.expert}</div>
                           </td>
                           <td className="px-4 py-3 font-mono whitespace-nowrap">{row.noCommande || "—"}</td>
                           <td className="px-4 py-3 whitespace-nowrap">{row.tracking ? <span className="inline-flex items-center gap-1.5"><Truck className="h-3.5 w-3.5 opacity-70" /><span className="font-mono text-xs">{row.tracking}</span></span> : "—"}</td>
-                          <td className="px-4 py-3">{hasFiles && <span className={cn("inline-flex items-center gap-1 text-xs font-medium", status === "awaiting_physical" && "text-white/80", status === "ready" && "text-neutral-900/80")}><Paperclip className="h-3.5 w-3.5" />{row.attachments!.length}</span>}</td>
+                          <td className="px-4 py-3">{hasFiles && <span className={cn("inline-flex items-center gap-1 text-xs font-medium", status === "awaiting_physical" && "text-white/80", status === "ready" && "text-[hsl(var(--text-primary))]/80")}><Paperclip className="h-3.5 w-3.5" />{row.attachments!.length}</span>}</td>
                           <td className="px-4 py-3 text-right">
                             <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button onClick={(e) => { e.stopPropagation(); setOpenId(rowId); }} className={cn("p-1.5 rounded-md transition-colors", status === "awaiting_physical" && "hover:bg-white/20 text-white", status === "ready" && "hover:bg-neutral-900/10 text-neutral-900", (status === "draft" || status === "finalized") && "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500")} title="Voir"><Eye className="h-4 w-4" /></button>
-                              {canCreate && <button onClick={(e) => { e.stopPropagation(); onDelete(rowId); }} className={cn("p-1.5 rounded-md transition-colors", status === "awaiting_physical" && "hover:bg-red-500/30 text-white hover:text-red-200", status === "ready" && "hover:bg-red-500/20 text-neutral-900 hover:text-red-600", (status === "draft" || status === "finalized") && "hover:bg-red-50 dark:hover:bg-red-950 text-neutral-500 hover:text-red-600")} title="Supprimer"><Trash2 className="h-4 w-4" /></button>}
+                              <button onClick={(e) => { e.stopPropagation(); setOpenId(rowId); }} className={cn("p-1.5 rounded-md transition-colors", status === "awaiting_physical" && "hover:bg-white/20 text-white", status === "ready" && "hover:bg-[hsl(var(--bg-base))]/10 text-[hsl(var(--text-primary))]", (status === "draft" || status === "finalized") && "hover:bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-tertiary))]")} title="Voir"><Eye className="h-4 w-4" /></button>
+                              {canCreate && <button onClick={(e) => { e.stopPropagation(); onDelete(rowId); }} className={cn("p-1.5 rounded-md transition-colors", status === "awaiting_physical" && "hover:bg-[hsl(var(--danger))]/30 text-white hover:text-[hsl(var(--danger-muted))]", status === "ready" && "hover:bg-[hsl(var(--danger))]/20 text-[hsl(var(--text-primary))] hover:text-[hsl(var(--danger))]", (status === "draft" || status === "finalized") && "hover:bg-[hsl(var(--danger-muted))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--danger))]")} title="Supprimer"><Trash2 className="h-4 w-4" /></button>}
                             </div>
                           </td>
                         </tr>
@@ -545,14 +545,14 @@ export default function ReturnsPage() {
                     })}
                   </tbody>
                 </table>
-                {sorted.length === 0 && <div className="flex flex-col items-center justify-center py-24 text-neutral-400"><Package className="h-10 w-10 mb-3 opacity-50" /><p className="text-sm">Aucun résultat</p></div>}
+                {sorted.length === 0 && <div className="flex flex-col items-center justify-center py-24 text-[hsl(var(--text-muted))]"><Package className="h-10 w-10 mb-3 opacity-50" /><p className="text-sm">Aucun résultat</p></div>}
               </div>
-              <div className="px-4 py-3 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50 flex items-center justify-between text-xs text-neutral-500">
+              <div className="px-4 py-3 border-t border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] flex items-center justify-between text-xs text-[hsl(var(--text-tertiary))]">
                 <span>{sorted.length} retour{sorted.length !== 1 ? "s" : ""}</span>
                 <div className="flex items-center gap-4">
-                  <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-lime-400 dark:bg-lime-500" />Prêt</span>
-                  <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-neutral-900 dark:bg-neutral-950" />En attente</span>
-                  <span className="flex items-center gap-2"><span className="w-3 h-3 rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900" />Brouillon</span>
+                  <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-[hsl(var(--success))]" />Prêt</span>
+                  <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-[hsl(var(--bg-base))]" />En attente</span>
+                  <span className="flex items-center gap-2"><span className="w-3 h-3 rounded border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]" />Brouillon</span>
                 </div>
               </div>
             </>
@@ -569,18 +569,18 @@ export default function ReturnsPage() {
 function StatCard({ label, value, variant = "default" }: { label: string; value: number; variant?: "default" | "success" | "warning" | "muted" }) {
   return (
     <div className={cn("px-4 py-3 rounded-lg border",
-      variant === "default" && "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900",
-      variant === "success" && "border-lime-200 dark:border-lime-900/50 bg-lime-50 dark:bg-lime-950/30",
-      variant === "warning" && "border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30",
-      variant === "muted" && "border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50"
+      variant === "default" && "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]",
+      variant === "success" && "border-[hsl(var(--success))]/20 bg-[hsl(var(--success-muted))]",
+      variant === "warning" && "border-[hsl(var(--warning))]/20 bg-[hsl(var(--warning-muted))]",
+      variant === "muted" && "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))]"
     )}>
       <div className={cn("text-2xl font-semibold tabular-nums",
-        variant === "default" && "text-neutral-900 dark:text-white",
-        variant === "success" && "text-lime-700 dark:text-lime-400",
-        variant === "warning" && "text-amber-700 dark:text-amber-400",
-        variant === "muted" && "text-neutral-500 dark:text-neutral-400"
+        variant === "default" && "text-[hsl(var(--text-primary))]",
+        variant === "success" && "text-[hsl(var(--success))]",
+        variant === "warning" && "text-[hsl(var(--warning))]",
+        variant === "muted" && "text-[hsl(var(--text-tertiary))]"
       )}>{value}</div>
-      <div className="text-xs text-neutral-500 mt-0.5">{label}</div>
+      <div className="text-xs text-[hsl(var(--text-tertiary))] mt-0.5">{label}</div>
     </div>
   );
 }
@@ -588,10 +588,10 @@ function StatCard({ label, value, variant = "default" }: { label: string; value:
 function SortTh({ label, sortKey, currentKey, dir, onSort }: { label: string; sortKey: SortKey; currentKey: SortKey; dir: SortDir; onSort: (key: SortKey) => void }) {
   const active = sortKey === currentKey;
   return (
-    <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wide cursor-pointer select-none hover:text-neutral-900 dark:hover:text-white transition-colors" onClick={() => onSort(sortKey)}>
+    <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide cursor-pointer select-none hover:text-[hsl(var(--text-primary))] transition-colors" onClick={() => onSort(sortKey)}>
       <span className="inline-flex items-center gap-1.5">
         {label}
-        {active && (dir === "asc" ? <ArrowUpNarrowWide className="h-3.5 w-3.5 text-neutral-900 dark:text-white" /> : <ArrowDownNarrowWide className="h-3.5 w-3.5 text-neutral-900 dark:text-white" />)}
+        {active && (dir === "asc" ? <ArrowUpNarrowWide className="h-3.5 w-3.5 text-[hsl(var(--text-primary))]" /> : <ArrowDownNarrowWide className="h-3.5 w-3.5 text-[hsl(var(--text-primary))]" />)}
       </span>
     </th>
   );
@@ -708,40 +708,40 @@ function DetailModal({
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
 
-      <div className="relative w-[90vw] h-[90vh] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-neutral-200/50 dark:border-neutral-700/50">
+      <div className="relative w-[90vw] h-[90vh] bg-[hsl(var(--bg-surface))] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-[hsl(var(--border-default))]/50">
 
         {/* Header */}
-        <div className="px-8 py-6 border-b border-neutral-100 dark:border-neutral-800 flex items-start justify-between bg-gradient-to-r from-neutral-50 to-white dark:from-neutral-900 dark:to-neutral-900">
+        <div className="px-8 py-6 border-b border-[hsl(var(--border-subtle))] flex items-start justify-between bg-gradient-to-r from-[hsl(var(--bg-elevated))] to-[hsl(var(--bg-surface))]">
           <div className="flex items-center gap-5">
-            <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-neutral-800 to-neutral-900 dark:from-white dark:to-neutral-100 text-white dark:text-neutral-900 flex items-center justify-center font-mono text-xl font-bold shadow-lg">
+            <div className="h-14 w-14 rounded-xl bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] flex items-center justify-center font-mono text-xl font-bold shadow-lg">
               {String(draft.id).replace('R', '')}
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-neutral-900 dark:text-white flex items-center gap-3">
+              <h2 className="text-xl font-semibold text-[hsl(var(--text-primary))] flex items-center gap-3">
                 Retour {String(draft.id)}
                 <Badge>{CAUSE_LABEL[draft.cause]}</Badge>
                 {isDraft && <Badge variant="muted">Brouillon</Badge>}
               </h2>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1 flex items-center gap-2">
+              <p className="text-sm text-[hsl(var(--text-tertiary))] mt-1 flex items-center gap-2">
                 <span className="inline-flex items-center gap-1.5">
                   <Calendar className="h-3.5 w-3.5" />
                   {creatorDate.toLocaleDateString("fr-CA")} à {creatorDate.toLocaleTimeString("fr-CA", { hour: "2-digit", minute: "2-digit" })}
                 </span>
-                <span className="text-neutral-300 dark:text-neutral-600">•</span>
+                <span className="text-[hsl(var(--text-muted))]">•</span>
                 <span>Par {creatorName}</span>
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-all duration-200">
+          <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-primary))] transition-all duration-200">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-neutral-50/50 dark:bg-neutral-950/50">
+        <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-[hsl(var(--bg-elevated))]/50">
 
           {/* Status Controls */}
-          <div className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm space-y-5">
+          <div className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <Switch
                 label="Retour physique requis"
@@ -769,7 +769,7 @@ function DetailModal({
             </div>
 
             {/* Option Toggles */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-5 border-t border-neutral-100 dark:border-neutral-800">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-5 border-t border-[hsl(var(--border-subtle))]">
               <OptionToggle label="Pickup" checked={!!draft.isPickup} onToggle={() => canEdit && setDraft({ ...draft, isPickup: !draft.isPickup })} inputValue={draft.noBill ?? ""} onInputChange={(v) => setDraft({ ...draft, noBill: v })} inputPlaceholder="No. Bill" disabled={!canEdit || !draft.isPickup} />
               <OptionToggle label="Commande" checked={!!draft.isCommande} onToggle={() => canEdit && setDraft({ ...draft, isCommande: !draft.isCommande })} inputValue={draft.noBonCommande ?? ""} onInputChange={(v) => setDraft({ ...draft, noBonCommande: v })} inputPlaceholder="No. Bon" disabled={!canEdit || !draft.isCommande} />
               <OptionToggle label="Réclamation" checked={!!draft.isReclamation} onToggle={() => canEdit && setDraft({ ...draft, isReclamation: !draft.isReclamation })} inputValue={draft.noReclamation ?? ""} onInputChange={(v) => setDraft({ ...draft, noReclamation: v })} inputPlaceholder="No. Récl." disabled={!canEdit || !draft.isReclamation} />
@@ -777,9 +777,9 @@ function DetailModal({
           </div>
 
           {/* Info Fields */}
-          <div className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
-            <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
-              <FileText className="h-4 w-4 text-neutral-400" />
+          <div className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm">
+            <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] mb-4 flex items-center gap-2">
+              <FileText className="h-4 w-4 text-[hsl(var(--text-muted))]" />
               Informations générales
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -795,12 +795,12 @@ function DetailModal({
           </div>
 
           {/* Attachments with Google Drive iFrames */}
-          <section className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
-            <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
-              <Paperclip className="h-4 w-4 text-neutral-400" />
+          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm">
+            <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] mb-4 flex items-center gap-2">
+              <Paperclip className="h-4 w-4 text-[hsl(var(--text-muted))]" />
               Pièces jointes
               {(draft.attachments?.length ?? 0) > 0 && (
-                <span className="ml-auto text-xs font-normal text-neutral-500">{draft.attachments?.length} fichier{(draft.attachments?.length ?? 0) > 1 ? 's' : ''}</span>
+                <span className="ml-auto text-xs font-normal text-[hsl(var(--text-tertiary))]">{draft.attachments?.length} fichier{(draft.attachments?.length ?? 0) > 1 ? 's' : ''}</span>
               )}
             </h3>
             <AttachmentsSection
@@ -814,12 +814,12 @@ function DetailModal({
           </section>
 
           {/* Products */}
-          <section className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
-            <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
-              <Package className="h-4 w-4 text-neutral-400" />
+          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm">
+            <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] mb-4 flex items-center gap-2">
+              <Package className="h-4 w-4 text-[hsl(var(--text-muted))]" />
               Produits (RMA)
               {(draft.products?.length ?? 0) > 0 && (
-                <span className="ml-auto text-xs font-normal text-neutral-500">{draft.products?.length} produit{(draft.products?.length ?? 0) > 1 ? 's' : ''}</span>
+                <span className="ml-auto text-xs font-normal text-[hsl(var(--text-tertiary))]">{draft.products?.length} produit{(draft.products?.length ?? 0) > 1 ? 's' : ''}</span>
               )}
             </h3>
             <div className="space-y-3">
@@ -845,7 +845,7 @@ function DetailModal({
                 />
               ))}
               {(draft.products?.length ?? 0) === 0 && (
-                <div className="py-12 text-center border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl text-neutral-400 text-sm">
+                <div className="py-12 text-center border-2 border-dashed border-[hsl(var(--border-default))] rounded-xl text-[hsl(var(--text-muted))] text-sm">
                   <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   Aucun produit ajouté
                 </div>
@@ -857,9 +857,9 @@ function DetailModal({
           {showVerificationFields && (
             <section className={cn(
               "p-5 rounded-xl border shadow-sm",
-              canVerify ? "border-amber-200 dark:border-amber-800/50 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30" : "border-lime-200 dark:border-lime-800/50 bg-gradient-to-br from-lime-50 to-emerald-50 dark:from-lime-950/30 dark:to-emerald-950/30"
+              canVerify ? "border-[hsl(var(--warning))]/20 bg-[hsl(var(--warning-muted))]" : "border-[hsl(var(--success))]/20 bg-[hsl(var(--success-muted))]"
             )}>
-              <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
+              <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] mb-4 flex items-center gap-2">
                 <CheckCircle className="h-4 w-4" />
                 Vérification physique
                 {canVerify && <Badge variant="warning">À compléter</Badge>}
@@ -867,7 +867,7 @@ function DetailModal({
               </h3>
               
               {/* Verification fields are shown in ProductRow component */}
-              <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-5">
+              <p className="text-sm text-[hsl(var(--text-tertiary))] mb-5">
                 Remplissez les quantités reçues et détruites pour chaque produit ci-dessus.
               </p>
 
@@ -877,7 +877,7 @@ function DetailModal({
                   disabled={busy} 
                   onClick={handleVerify} 
                   className={cn(
-                    "w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-semibold hover:from-amber-600 hover:to-orange-600 transition-all duration-200 shadow-lg shadow-amber-500/25",
+                    "w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-[hsl(var(--warning))] text-white text-sm font-semibold hover:opacity-90 transition-all duration-200 shadow-lg shadow-[hsl(var(--warning))]/25",
                     busy && "opacity-50 cursor-not-allowed"
                   )}
                 >
@@ -890,8 +890,8 @@ function DetailModal({
 
           {/* Verification Info - Show after verification */}
           {isVerified && draft.verifiedBy && !showVerificationFields && (
-            <div className="p-4 rounded-xl border border-lime-200 dark:border-lime-800/50 bg-gradient-to-r from-lime-50 to-emerald-50 dark:from-lime-950/30 dark:to-emerald-950/30">
-              <div className="flex items-center gap-2 text-sm text-lime-700 dark:text-lime-300">
+            <div className="p-4 rounded-xl border border-[hsl(var(--success))]/20 bg-[hsl(var(--success-muted))]">
+              <div className="flex items-center gap-2 text-sm text-[hsl(var(--success))]">
                 <CheckCircle className="h-4 w-4" />
                 <span>Vérifié par {draft.verifiedBy.name} le {draft.verifiedBy.at ? new Date(draft.verifiedBy.at).toLocaleDateString("fr-CA") : ""}</span>
               </div>
@@ -902,9 +902,9 @@ function DetailModal({
           {showFinalizationFields && (
             <section className={cn(
               "p-5 rounded-xl border shadow-sm",
-              canFinalize ? "border-lime-200 dark:border-lime-800/50 bg-gradient-to-br from-lime-50 to-emerald-50 dark:from-lime-950/30 dark:to-emerald-950/30" : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900"
+              canFinalize ? "border-[hsl(var(--success))]/20 bg-[hsl(var(--success-muted))]" : "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]"
             )}>
-              <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-5 flex items-center gap-2">
+              <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] mb-5 flex items-center gap-2">
                 <CreditCard className="h-4 w-4" />
                 Finalisation
                 {canFinalize && <Badge variant="success">À compléter</Badge>}
@@ -941,7 +941,7 @@ function DetailModal({
                   disabled={busy} 
                   onClick={handleFinalize} 
                   className={cn(
-                    "w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-red-500 to-rose-500 text-white text-sm font-semibold hover:from-red-600 hover:to-rose-600 transition-all duration-200 shadow-lg shadow-red-500/25",
+                    "w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-[hsl(var(--danger))] text-white text-sm font-semibold hover:opacity-90 transition-all duration-200 shadow-lg shadow-[hsl(var(--danger))]/25",
                     busy && "opacity-50 cursor-not-allowed"
                   )}
                 >
@@ -954,8 +954,8 @@ function DetailModal({
 
           {/* Finalization Info */}
           {isFinalized && draft.finalizedBy && (
-            <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
-              <div className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+            <div className="p-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
+              <div className="flex items-center gap-2 text-sm text-[hsl(var(--text-tertiary))]">
                 <Check className="h-4 w-4" />
                 <span>Finalisé par {draft.finalizedBy.name} le {draft.finalizedBy.at ? new Date(draft.finalizedBy.at).toLocaleDateString("fr-CA") : ""}</span>
               </div>
@@ -963,17 +963,17 @@ function DetailModal({
           )}
 
           {/* Notes */}
-          <section className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
-            <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
-              <FileText className="h-4 w-4 text-neutral-400" />
+          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm">
+            <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] mb-4 flex items-center gap-2">
+              <FileText className="h-4 w-4 text-[hsl(var(--text-muted))]" />
               Notes internes
             </h3>
             <textarea
               className={cn(
                 "w-full px-4 py-3 rounded-xl border text-sm resize-none focus:outline-none focus:ring-2 transition-all duration-200",
                 isReadOnly
-                  ? "bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed"
-                  : "bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent"
+                  ? "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed"
+                  : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent"
               )}
               rows={4}
               placeholder="Ajoutez des notes internes..."
@@ -985,13 +985,13 @@ function DetailModal({
         </div>
 
         {/* Footer */}
-        <div className="px-8 py-5 border-t border-neutral-100 dark:border-neutral-800 bg-gradient-to-r from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-900 flex items-center justify-end gap-3">
-          <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all duration-200">
+        <div className="px-8 py-5 border-t border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-surface))] flex items-center justify-end gap-3">
+          <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-[hsl(var(--text-tertiary))] hover:bg-[hsl(var(--bg-elevated))] transition-all duration-200">
             Fermer
           </button>
 
           {canEdit && (
-            <button disabled={busy} onClick={handleSave} className={cn("inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-semibold hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-all duration-200 shadow-lg shadow-neutral-900/10 dark:shadow-white/10", busy && "opacity-50 cursor-not-allowed")}>
+            <button disabled={busy} onClick={handleSave} className={cn("inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] text-sm font-semibold hover:opacity-90 transition-all duration-200 shadow-lg", busy && "opacity-50 cursor-not-allowed")}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Enregistrer
             </button>
@@ -1010,14 +1010,14 @@ function OptionToggle({ label, checked, onToggle, inputValue, onInputChange, inp
   label: string; checked: boolean; onToggle: () => void; inputValue: string; onInputChange: (v: string) => void; inputPlaceholder: string; disabled: boolean;
 }) {
   return (
-    <div className={cn("p-4 rounded-xl border transition-all duration-200 shadow-sm", checked ? "border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900" : "border-neutral-200/80 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 opacity-70")}>
+    <div className={cn("p-4 rounded-xl border transition-all duration-200 shadow-sm", checked ? "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]" : "border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-elevated))] opacity-70")}>
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-medium text-neutral-900 dark:text-white">{label}</span>
-        <button type="button" onClick={onToggle} disabled={disabled} className={cn("relative h-5 w-9 rounded-full transition-all duration-200", checked ? "bg-neutral-900 dark:bg-white" : "bg-neutral-200 dark:bg-neutral-700", disabled && "opacity-50 cursor-not-allowed")}>
-          <span className={cn("absolute top-0.5 left-0.5 h-4 w-4 rounded-full transition-transform duration-200 shadow-sm", checked ? "translate-x-4 bg-white dark:bg-neutral-900" : "bg-white dark:bg-neutral-400")} />
+        <span className="text-sm font-medium text-[hsl(var(--text-primary))]">{label}</span>
+        <button type="button" onClick={onToggle} disabled={disabled} className={cn("relative h-5 w-9 rounded-full transition-all duration-200", checked ? "bg-[hsl(var(--text-primary))]" : "bg-[hsl(var(--bg-muted))]", disabled && "opacity-50 cursor-not-allowed")}>
+          <span className={cn("absolute top-0.5 left-0.5 h-4 w-4 rounded-full transition-transform duration-200 shadow-sm", checked ? "translate-x-4 bg-[hsl(var(--bg-surface))]" : "bg-[hsl(var(--bg-surface))]")} />
         </button>
       </div>
-      <input disabled={disabled} value={inputValue} onChange={(e) => onInputChange(e.target.value)} className="w-full h-9 px-3 rounded-lg text-sm border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white placeholder:text-neutral-400 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder={inputPlaceholder} />
+      <input disabled={disabled} value={inputValue} onChange={(e) => onInputChange(e.target.value)} className="w-full h-9 px-3 rounded-lg text-sm border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder={inputPlaceholder} />
     </div>
   );
 }
@@ -1025,9 +1025,9 @@ function OptionToggle({ label, checked, onToggle, inputValue, onInputChange, inp
 function Field({ label, value, onChange, type = "text", icon, disabled }: { label: string; value: string; onChange: (v: string) => void; type?: string; icon?: React.ReactNode; disabled?: boolean }) {
   return (
     <label className="block">
-      <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide mb-2 block">{label}</span>
+      <span className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide mb-2 block">{label}</span>
       <div className="relative">
-        {icon && <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400">{icon}</div>}
+        {icon && <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[hsl(var(--text-muted))]">{icon}</div>}
         <input
           type={type}
           value={value}
@@ -1037,8 +1037,8 @@ function Field({ label, value, onChange, type = "text", icon, disabled }: { labe
             "w-full h-11 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all duration-200 [color-scheme:light] dark:[color-scheme:dark]",
             icon ? "pl-10 pr-4" : "px-4",
             disabled
-              ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed"
-              : "bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent"
+              ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed"
+              : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent"
           )}
         />
       </div>
@@ -1071,12 +1071,12 @@ function ProductRow({ product, showVerificationFields, showFinalizationFields, c
   }, [debouncedCode, showSuggestions]);
 
   return (
-    <div className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 space-y-4 group shadow-sm hover:shadow-md transition-shadow duration-200">
+    <div className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] space-y-4 group shadow-sm hover:shadow-md transition-shadow duration-200">
       {/* Base Product Info */}
       <div className="flex items-center gap-4">
         <div className="relative flex-shrink-0 w-36">
           <input
-            className={cn("w-full h-10 px-3 rounded-lg text-sm font-mono border focus:outline-none focus:ring-2 transition-all duration-200", !canEditBase ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" : "bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent")}
+            className={cn("w-full h-10 px-3 rounded-lg text-sm font-mono border focus:outline-none focus:ring-2 transition-all duration-200", !canEditBase ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed" : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent")}
             placeholder="Code"
             value={product.codeProduit}
             onChange={(e) => { if (canEditBase) { onChange({ ...product, codeProduit: e.target.value }); setShowSuggestions(true); } }}
@@ -1084,42 +1084,42 @@ function ProductRow({ product, showVerificationFields, showFinalizationFields, c
             disabled={!canEditBase}
           />
           {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute z-50 top-full left-0 mt-2 w-72 max-h-48 overflow-y-auto rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-xl">
+            <div className="absolute z-50 top-full left-0 mt-2 w-72 max-h-48 overflow-y-auto rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
               {suggestions.map((s) => (
-                <button key={s.code} className="w-full text-left px-4 py-3 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 border-b border-neutral-100 dark:border-neutral-800 last:border-0 transition-colors duration-150" onClick={() => { onChange({ ...product, codeProduit: s.code, descriptionProduit: s.descr || product.descriptionProduit }); setShowSuggestions(false); }}>
-                  <div className="font-mono font-medium text-neutral-900 dark:text-white">{s.code}</div>
-                  <div className="text-xs text-neutral-500 truncate mt-0.5">{s.descr}</div>
+                <button key={s.code} className="w-full text-left px-4 py-3 text-sm hover:bg-[hsl(var(--bg-elevated))] border-b border-[hsl(var(--border-subtle))] last:border-0 transition-colors duration-150" onClick={() => { onChange({ ...product, codeProduit: s.code, descriptionProduit: s.descr || product.descriptionProduit }); setShowSuggestions(false); }}>
+                  <div className="font-mono font-medium text-[hsl(var(--text-primary))]">{s.code}</div>
+                  <div className="text-xs text-[hsl(var(--text-tertiary))] truncate mt-0.5">{s.descr}</div>
                 </button>
               ))}
             </div>
           )}
         </div>
-        <input className={cn("flex-1 h-10 px-3 rounded-lg text-sm border focus:outline-none focus:ring-2 transition-all duration-200", !canEditBase ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" : "bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent")} placeholder="Description" value={product.descriptionProduit || ""} onChange={(e) => canEditBase && onChange({ ...product, descriptionProduit: e.target.value })} disabled={!canEditBase} />
-        <input className={cn("flex-1 h-10 px-3 rounded-lg text-sm border focus:outline-none focus:ring-2 transition-all duration-200", !canEditBase ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" : "bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent")} placeholder="Raison" value={product.descriptionRetour ?? ""} onChange={(e) => canEditBase && onChange({ ...product, descriptionRetour: e.target.value })} disabled={!canEditBase} />
-        <input type="number" min={0} className={cn("w-24 h-10 px-3 rounded-lg text-sm text-center border focus:outline-none focus:ring-2 transition-all duration-200", !canEditBase ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" : "bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent")} placeholder="Qté" value={product.quantite} onChange={(e) => canEditBase && onChange({ ...product, quantite: Number(e.target.value || 0) })} disabled={!canEditBase} />
-        {canEditBase && <button onClick={onRemove} className="p-2.5 rounded-lg text-neutral-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 opacity-0 group-hover:opacity-100 transition-all duration-200"><Trash2 className="h-4 w-4" /></button>}
+        <input className={cn("flex-1 h-10 px-3 rounded-lg text-sm border focus:outline-none focus:ring-2 transition-all duration-200", !canEditBase ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed" : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent")} placeholder="Description" value={product.descriptionProduit || ""} onChange={(e) => canEditBase && onChange({ ...product, descriptionProduit: e.target.value })} disabled={!canEditBase} />
+        <input className={cn("flex-1 h-10 px-3 rounded-lg text-sm border focus:outline-none focus:ring-2 transition-all duration-200", !canEditBase ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed" : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent")} placeholder="Raison" value={product.descriptionRetour ?? ""} onChange={(e) => canEditBase && onChange({ ...product, descriptionRetour: e.target.value })} disabled={!canEditBase} />
+        <input type="number" min={0} className={cn("w-24 h-10 px-3 rounded-lg text-sm text-center border focus:outline-none focus:ring-2 transition-all duration-200", !canEditBase ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed" : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent")} placeholder="Qté" value={product.quantite} onChange={(e) => canEditBase && onChange({ ...product, quantite: Number(e.target.value || 0) })} disabled={!canEditBase} />
+        {canEditBase && <button onClick={onRemove} className="p-2.5 rounded-lg text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))] opacity-0 group-hover:opacity-100 transition-all duration-200"><Trash2 className="h-4 w-4" /></button>}
       </div>
 
       {/* Verification Fields */}
       {showVerificationFields && (
-        <div className={cn("pt-4 border-t", canEditVerification ? "border-amber-200 dark:border-amber-800/50" : "border-neutral-100 dark:border-neutral-800")}>
+        <div className={cn("pt-4 border-t", canEditVerification ? "border-[hsl(var(--warning))]/20" : "border-[hsl(var(--border-subtle))]")}>
           <div className="flex items-center gap-4 flex-wrap">
             <div className="w-28">
-              <label className="text-xs font-medium text-neutral-500 block mb-1.5">Qté reçue</label>
-              <input type="number" min={0} className={cn("w-full h-10 px-3 rounded-lg text-sm text-center border focus:outline-none focus:ring-2 transition-all duration-200", !canEditVerification ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-neutral-900 dark:text-white focus:ring-amber-500")} value={product.quantiteRecue ?? ""} onChange={(e) => { if (!canEditVerification) return; const qteRecue = Number(e.target.value || 0); const qteDetruite = product.qteDetruite ?? 0; onChange({ ...product, quantiteRecue: qteRecue, qteInventaire: qteRecue - qteDetruite }); }} disabled={!canEditVerification} />
+              <label className="text-xs font-medium text-[hsl(var(--text-tertiary))] block mb-1.5">Qté reçue</label>
+              <input type="number" min={0} className={cn("w-full h-10 px-3 rounded-lg text-sm text-center border focus:outline-none focus:ring-2 transition-all duration-200", !canEditVerification ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed" : "bg-[hsl(var(--warning-muted))] border-[hsl(var(--warning))]/20 text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--warning))]")} value={product.quantiteRecue ?? ""} onChange={(e) => { if (!canEditVerification) return; const qteRecue = Number(e.target.value || 0); const qteDetruite = product.qteDetruite ?? 0; onChange({ ...product, quantiteRecue: qteRecue, qteInventaire: qteRecue - qteDetruite }); }} disabled={!canEditVerification} />
             </div>
             <div className="w-28">
-              <label className="text-xs font-medium text-neutral-500 block mb-1.5">Qté inventaire</label>
-              <input type="number" className="w-full h-10 px-3 rounded-lg text-sm text-center border bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" value={product.qteInventaire ?? ((product.quantiteRecue ?? 0) - (product.qteDetruite ?? 0))} disabled />
+              <label className="text-xs font-medium text-[hsl(var(--text-tertiary))] block mb-1.5">Qté inventaire</label>
+              <input type="number" className="w-full h-10 px-3 rounded-lg text-sm text-center border bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed" value={product.qteInventaire ?? ((product.quantiteRecue ?? 0) - (product.qteDetruite ?? 0))} disabled />
             </div>
             <div className="w-28">
-              <label className="text-xs font-medium text-neutral-500 block mb-1.5">Qté détruite</label>
-              <input type="number" min={0} max={product.quantiteRecue ?? 0} className={cn("w-full h-10 px-3 rounded-lg text-sm text-center border focus:outline-none focus:ring-2 transition-all duration-200", !canEditVerification ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-neutral-900 dark:text-white focus:ring-amber-500")} value={product.qteDetruite ?? ""} onChange={(e) => { if (!canEditVerification) return; const qteDetruite = Math.min(Number(e.target.value || 0), product.quantiteRecue ?? 0); const qteRecue = product.quantiteRecue ?? 0; onChange({ ...product, qteDetruite: qteDetruite, qteInventaire: qteRecue - qteDetruite }); }} disabled={!canEditVerification} />
+              <label className="text-xs font-medium text-[hsl(var(--text-tertiary))] block mb-1.5">Qté détruite</label>
+              <input type="number" min={0} max={product.quantiteRecue ?? 0} className={cn("w-full h-10 px-3 rounded-lg text-sm text-center border focus:outline-none focus:ring-2 transition-all duration-200", !canEditVerification ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed" : "bg-[hsl(var(--warning-muted))] border-[hsl(var(--warning))]/20 text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--warning))]")} value={product.qteDetruite ?? ""} onChange={(e) => { if (!canEditVerification) return; const qteDetruite = Math.min(Number(e.target.value || 0), product.quantiteRecue ?? 0); const qteRecue = product.quantiteRecue ?? 0; onChange({ ...product, qteDetruite: qteDetruite, qteInventaire: qteRecue - qteDetruite }); }} disabled={!canEditVerification} />
             </div>
             {showFinalizationFields && (
               <div className="w-36">
-                <label className="text-xs font-medium text-neutral-500 block mb-1.5">Taux restocking</label>
-                <select className={cn("w-full h-10 px-3 rounded-lg text-sm border focus:outline-none focus:ring-2 transition-all duration-200", !canEditFinalization ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500 cursor-not-allowed" : "bg-neutral-50 dark:bg-neutral-950 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent")} value={`${(product.tauxRestock ?? 0)}%`} onChange={(e) => { if (!canEditFinalization) return; const rate = parseFloat(e.target.value.replace('%', '')); onChange({ ...product, tauxRestock: rate }); }} disabled={!canEditFinalization}>
+                <label className="text-xs font-medium text-[hsl(var(--text-tertiary))] block mb-1.5">Taux restocking</label>
+                <select className={cn("w-full h-10 px-3 rounded-lg text-sm border focus:outline-none focus:ring-2 transition-all duration-200", !canEditFinalization ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed" : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent")} value={`${(product.tauxRestock ?? 0)}%`} onChange={(e) => { if (!canEditFinalization) return; const rate = parseFloat(e.target.value.replace('%', '')); onChange({ ...product, tauxRestock: rate }); }} disabled={!canEditFinalization}>
                   {RESTOCK_RATES.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
@@ -1220,42 +1220,42 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
-      <div className="relative w-[90vw] h-[90vh] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200/50 dark:border-neutral-700/50 overflow-hidden flex flex-col">
+      <div className="relative w-[90vw] h-[90vh] bg-[hsl(var(--bg-surface))] rounded-2xl shadow-2xl border border-[hsl(var(--border-default))]/50 overflow-hidden flex flex-col">
         
         {/* Header */}
-        <div className="px-8 py-6 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-gradient-to-r from-neutral-50 to-white dark:from-neutral-900 dark:to-neutral-900">
+        <div className="px-8 py-6 border-b border-[hsl(var(--border-subtle))] flex items-center justify-between bg-[hsl(var(--bg-surface))]">
           <div className="flex items-center gap-5">
-            <div className="h-12 w-12 rounded-xl bg-neutral-200 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 flex items-center justify-center font-mono text-lg font-medium">{nextId.replace('R', '')}</div>
+            <div className="h-12 w-12 rounded-xl bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-tertiary))] flex items-center justify-center font-mono text-lg font-medium">{nextId.replace('R', '')}</div>
             <div>
-              <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">Nouveau retour</h2>
-              <p className="text-sm text-neutral-500 mt-0.5">{currentUserName}</p>
+              <h2 className="text-xl font-semibold text-[hsl(var(--text-primary))]">Nouveau retour</h2>
+              <p className="text-sm text-[hsl(var(--text-tertiary))] mt-0.5">{currentUserName}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-all duration-200"><X className="h-5 w-5" /></button>
+          <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-primary))] transition-all duration-200"><X className="h-5 w-5" /></button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-neutral-50/50 dark:bg-neutral-950/50">
+        <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-[hsl(var(--bg-elevated))]/50">
           {/* Order Lookup */}
-          <div className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
-            <label className="block text-sm font-medium text-neutral-900 dark:text-white mb-3">Recherche par commande</label>
+          <div className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm">
+            <label className="block text-sm font-medium text-[hsl(var(--text-primary))] mb-3">Recherche par commande</label>
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
-              <input type="text" value={noCommande} onChange={(e) => setNoCommande(e.target.value)} onBlur={onFetchFromOrder} onKeyDown={(e) => e.key === "Enter" && onFetchFromOrder()} placeholder="Entrez un numéro de commande" className="w-full h-12 pl-11 pr-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm font-mono text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" />
-              {orderLookupLoading && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 animate-spin" />}
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-muted))]" />
+              <input type="text" value={noCommande} onChange={(e) => setNoCommande(e.target.value)} onBlur={onFetchFromOrder} onKeyDown={(e) => e.key === "Enter" && onFetchFromOrder()} placeholder="Entrez un numéro de commande" className="w-full h-12 pl-11 pr-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm font-mono text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" />
+              {orderLookupLoading && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-muted))] animate-spin" />}
             </div>
           </div>
 
           {/* Physical Return Toggle */}
-          <div onClick={() => setPhysicalReturn(!physicalReturn)} className={cn("p-5 rounded-xl border cursor-pointer transition-all duration-200 shadow-sm", physicalReturn ? "border-lime-200 dark:border-lime-800/50 bg-gradient-to-br from-lime-50 to-emerald-50 dark:from-lime-950/30 dark:to-emerald-950/30" : "border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800")}>
+          <div onClick={() => setPhysicalReturn(!physicalReturn)} className={cn("p-5 rounded-xl border cursor-pointer transition-all duration-200 shadow-sm", physicalReturn ? "border-[hsl(var(--success))]/20 bg-[hsl(var(--success-muted))]" : "border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] hover:bg-[hsl(var(--bg-elevated))]")}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center", physicalReturn ? "bg-lime-500/20 text-lime-600 dark:text-lime-400" : "bg-neutral-100 dark:bg-neutral-800 text-neutral-400")}>
+                <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center", physicalReturn ? "bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]" : "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))]")}>
                   <Package className="h-5 w-5" />
                 </div>
                 <div>
-                  <div className={cn("text-sm font-medium", physicalReturn ? "text-lime-900 dark:text-lime-100" : "text-neutral-900 dark:text-white")}>Retour physique</div>
-                  <div className="text-xs text-neutral-500 mt-0.5">{physicalReturn ? "Requiert vérification à la réception" : "Retour administratif uniquement"}</div>
+                  <div className={cn("text-sm font-medium", physicalReturn ? "text-[hsl(var(--success))]" : "text-[hsl(var(--text-primary))]")}>Retour physique</div>
+                  <div className="text-xs text-[hsl(var(--text-tertiary))] mt-0.5">{physicalReturn ? "Requiert vérification à la réception" : "Retour administratif uniquement"}</div>
                 </div>
               </div>
               <Switch checked={physicalReturn} onCheckedChange={setPhysicalReturn} />
@@ -1263,33 +1263,33 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
           </div>
 
           {/* Form Fields */}
-          <div className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm space-y-5">
+          <div className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm space-y-5">
             <div className="grid grid-cols-2 gap-4">
-              <FormField label="Date" required><input type="date" value={reportedAt} onChange={(e) => setReportedAt(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200 [color-scheme:light] dark:[color-scheme:dark]" /></FormField>
-              <FormField label="Signalé par" required><select value={reporter} onChange={(e) => setReporter(e.target.value as Reporter)} className="w-full h-11 px-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200">{Object.entries(REPORTER_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></FormField>
-              <FormField label="Cause" required><select value={cause} onChange={(e) => setCause(e.target.value as Cause)} className="w-full h-11 px-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200">{CAUSES_IN_ORDER.map((c) => <option key={c} value={c}>{CAUSE_LABEL[c]}</option>)}</select></FormField>
-              <FormField label="No. client"><input value={noClient} onChange={(e) => setNoClient(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder="12345" /></FormField>
+              <FormField label="Date" required><input type="date" value={reportedAt} onChange={(e) => setReportedAt(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200 [color-scheme:light] dark:[color-scheme:dark]" /></FormField>
+              <FormField label="Signalé par" required><select value={reporter} onChange={(e) => setReporter(e.target.value as Reporter)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200">{Object.entries(REPORTER_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></FormField>
+              <FormField label="Cause" required><select value={cause} onChange={(e) => setCause(e.target.value as Cause)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200">{CAUSES_IN_ORDER.map((c) => <option key={c} value={c}>{CAUSE_LABEL[c]}</option>)}</select></FormField>
+              <FormField label="No. client"><input value={noClient} onChange={(e) => setNoClient(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="12345" /></FormField>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <FormField label="Expert" required><input value={expert} onChange={(e) => setExpert(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder="Nom du représentant" /></FormField>
-              <FormField label="Client" required><input value={client} onChange={(e) => setClient(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder="Nom du client" /></FormField>
+              <FormField label="Expert" required><input value={expert} onChange={(e) => setExpert(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Nom du représentant" /></FormField>
+              <FormField label="Client" required><input value={client} onChange={(e) => setClient(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Nom du client" /></FormField>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <FormField label="Tracking"><input value={tracking} onChange={(e) => setTracking(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm font-mono text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder="1Z999..." /></FormField>
-              <FormField label="Transporteur"><input value={transport} onChange={(e) => setTransport(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder="Purolator" /></FormField>
-              <FormField label="Montant"><input value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder="0.00" /></FormField>
-              <FormField label="Date commande"><input type="date" value={dateCommande} onChange={(e) => setDateCommande(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200 [color-scheme:light] dark:[color-scheme:dark]" /></FormField>
+              <FormField label="Tracking"><input value={tracking} onChange={(e) => setTracking(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm font-mono text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="1Z999..." /></FormField>
+              <FormField label="Transporteur"><input value={transport} onChange={(e) => setTransport(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Purolator" /></FormField>
+              <FormField label="Montant"><input value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="0.00" /></FormField>
+              <FormField label="Date commande"><input type="date" value={dateCommande} onChange={(e) => setDateCommande(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200 [color-scheme:light] dark:[color-scheme:dark]" /></FormField>
             </div>
           </div>
 
           {/* Products */}
-          <section className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
+          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-neutral-900 dark:text-white flex items-center gap-2"><Package className="h-4 w-4 text-neutral-400" />Produits (RMA)</h3>
-              <button onClick={addProduct} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-all duration-200"><Plus className="h-3.5 w-3.5" />Ajouter</button>
+              <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] flex items-center gap-2"><Package className="h-4 w-4 text-[hsl(var(--text-muted))]" />Produits (RMA)</h3>
+              <button onClick={addProduct} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] transition-all duration-200"><Plus className="h-3.5 w-3.5" />Ajouter</button>
             </div>
             {products.length === 0 ? (
-              <div className="py-12 text-center border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl text-neutral-400 text-sm">
+              <div className="py-12 text-center border-2 border-dashed border-[hsl(var(--border-default))] rounded-xl text-[hsl(var(--text-muted))] text-sm">
                 <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 Aucun produit ajouté
               </div>
@@ -1303,10 +1303,10 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
           </section>
 
           {/* Attachments */}
-          <section className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
+          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-neutral-900 dark:text-white flex items-center gap-2"><Paperclip className="h-4 w-4 text-neutral-400" />Pièces jointes</h3>
-              <label className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-all duration-200 cursor-pointer">
+              <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] flex items-center gap-2"><Paperclip className="h-4 w-4 text-[hsl(var(--text-muted))]" />Pièces jointes</h3>
+              <label className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] transition-all duration-200 cursor-pointer">
                 <UploadCloud className="h-3.5 w-3.5" />Ajouter
                 <input type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) { setFilesToUpload((prev) => [...prev, ...Array.from(e.target.files || [])]); e.target.value = ""; } }} />
               </label>
@@ -1314,14 +1314,14 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
             {filesToUpload.length > 0 ? (
               <div className="space-y-2">
                 {filesToUpload.map((f, i) => (
-                  <div key={i} className="flex items-center justify-between px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950">
-                    <div className="flex items-center gap-3 min-w-0"><FileText className="h-4 w-4 text-neutral-400 flex-shrink-0" /><span className="text-sm text-neutral-700 dark:text-neutral-300 truncate">{f.name}</span></div>
-                    <button onClick={() => setFilesToUpload((prev) => prev.filter((_, idx) => idx !== i))} className="p-1.5 rounded-lg text-neutral-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 transition-all duration-200"><X className="h-4 w-4" /></button>
+                  <div key={i} className="flex items-center justify-between px-4 py-3 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))]">
+                    <div className="flex items-center gap-3 min-w-0"><FileText className="h-4 w-4 text-[hsl(var(--text-muted))] flex-shrink-0" /><span className="text-sm text-[hsl(var(--text-secondary))] truncate">{f.name}</span></div>
+                    <button onClick={() => setFilesToUpload((prev) => prev.filter((_, idx) => idx !== i))} className="p-1.5 rounded-lg text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))] transition-all duration-200"><X className="h-4 w-4" /></button>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="py-8 text-center border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl text-neutral-400 text-sm">
+              <div className="py-8 text-center border-2 border-dashed border-[hsl(var(--border-default))] rounded-xl text-[hsl(var(--text-muted))] text-sm">
                 <Paperclip className="h-6 w-6 mx-auto mb-2 opacity-50" />
                 Aucun fichier sélectionné
               </div>
@@ -1329,9 +1329,9 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
           </section>
 
           {/* Notes */}
-          <section className="p-5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
-            <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-4 flex items-center gap-2"><FileText className="h-4 w-4 text-neutral-400" />Notes internes</h3>
-            <textarea className="w-full px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200 resize-none" rows={4} placeholder="Ajoutez des notes internes..." value={description} onChange={(e) => setDescription(e.target.value)} />
+          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm">
+            <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] mb-4 flex items-center gap-2"><FileText className="h-4 w-4 text-[hsl(var(--text-muted))]" />Notes internes</h3>
+            <textarea className="w-full px-4 py-3 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200 resize-none" rows={4} placeholder="Ajoutez des notes internes..." value={description} onChange={(e) => setDescription(e.target.value)} />
           </section>
 
           {/* Options */}
@@ -1343,9 +1343,9 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
         </div>
 
         {/* Footer */}
-        <div className="px-8 py-5 border-t border-neutral-100 dark:border-neutral-800 bg-gradient-to-r from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-900 flex items-center justify-end gap-3">
-          <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all duration-200">Annuler</button>
-          <button disabled={busy} onClick={submit} className={cn("inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-neutral-800 to-neutral-900 dark:from-white dark:to-neutral-100 text-white dark:text-neutral-900 text-sm font-semibold hover:from-neutral-700 hover:to-neutral-800 dark:hover:from-neutral-100 dark:hover:to-neutral-200 transition-all duration-200 shadow-lg shadow-neutral-900/20 dark:shadow-white/20", busy && "opacity-50 cursor-not-allowed")}>
+        <div className="px-8 py-5 border-t border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-surface))] flex items-center justify-end gap-3">
+          <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-[hsl(var(--text-tertiary))] hover:bg-[hsl(var(--bg-elevated))] transition-all duration-200">Annuler</button>
+          <button disabled={busy} onClick={submit} className={cn("inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] text-sm font-semibold hover:opacity-90 transition-all duration-200 shadow-lg", busy && "opacity-50 cursor-not-allowed")}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             Créer le retour
           </button>
@@ -1358,7 +1358,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
 function FormField({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide mb-1.5 block">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</span>
+      <span className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide mb-1.5 block">{label}{required && <span className="text-[hsl(var(--danger))] ml-0.5">*</span>}</span>
       {children}
     </label>
   );
@@ -1380,24 +1380,24 @@ function NewProductRow({ product, onChange, onRemove }: { product: ProductLine; 
   }, [debouncedCode, showSuggestions]);
 
   return (
-    <div className="flex items-center gap-4 p-4 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 group shadow-sm hover:shadow-md transition-shadow duration-200">
+    <div className="flex items-center gap-4 p-4 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] group shadow-sm hover:shadow-md transition-shadow duration-200">
       <div className="relative flex-shrink-0 w-36">
-        <input className="w-full h-10 px-3 rounded-lg text-sm font-mono border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder="Code" value={product.codeProduit} onChange={(e) => { onChange({ ...product, codeProduit: e.target.value }); setShowSuggestions(true); }} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} />
+        <input className="w-full h-10 px-3 rounded-lg text-sm font-mono border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Code" value={product.codeProduit} onChange={(e) => { onChange({ ...product, codeProduit: e.target.value }); setShowSuggestions(true); }} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} />
         {showSuggestions && suggestions.length > 0 && (
-          <div className="absolute z-50 top-full left-0 mt-2 w-72 max-h-48 overflow-y-auto rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-xl">
+          <div className="absolute z-50 top-full left-0 mt-2 w-72 max-h-48 overflow-y-auto rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
             {suggestions.map((s) => (
-              <button key={s.code} className="w-full text-left px-4 py-3 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 border-b border-neutral-100 dark:border-neutral-800 last:border-0 transition-colors duration-150" onClick={() => { onChange({ ...product, codeProduit: s.code, descriptionProduit: s.descr || product.descriptionProduit }); setShowSuggestions(false); }}>
-                <div className="font-mono font-medium text-neutral-900 dark:text-white">{s.code}</div>
-                <div className="text-xs text-neutral-500 truncate mt-0.5">{s.descr}</div>
+              <button key={s.code} className="w-full text-left px-4 py-3 text-sm hover:bg-[hsl(var(--bg-elevated))] border-b border-[hsl(var(--border-subtle))] last:border-0 transition-colors duration-150" onClick={() => { onChange({ ...product, codeProduit: s.code, descriptionProduit: s.descr || product.descriptionProduit }); setShowSuggestions(false); }}>
+                <div className="font-mono font-medium text-[hsl(var(--text-primary))]">{s.code}</div>
+                <div className="text-xs text-[hsl(var(--text-tertiary))] truncate mt-0.5">{s.descr}</div>
               </button>
             ))}
           </div>
         )}
       </div>
-      <input className="flex-1 h-10 px-3 rounded-lg text-sm border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder="Description" value={product.descriptionProduit || ""} onChange={(e) => onChange({ ...product, descriptionProduit: e.target.value })} />
-      <input className="flex-1 h-10 px-3 rounded-lg text-sm border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder="Raison" value={product.descriptionRetour ?? ""} onChange={(e) => onChange({ ...product, descriptionRetour: e.target.value })} />
-      <input type="number" min={0} className="w-24 h-10 px-3 rounded-lg text-sm text-center border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white focus:border-transparent transition-all duration-200" placeholder="Qté" value={product.quantite} onChange={(e) => onChange({ ...product, quantite: Number(e.target.value || 0) })} />
-      <button onClick={onRemove} className="p-2.5 rounded-lg text-neutral-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 opacity-0 group-hover:opacity-100 transition-all duration-200"><Trash2 className="h-4 w-4" /></button>
+      <input className="flex-1 h-10 px-3 rounded-lg text-sm border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Description" value={product.descriptionProduit || ""} onChange={(e) => onChange({ ...product, descriptionProduit: e.target.value })} />
+      <input className="flex-1 h-10 px-3 rounded-lg text-sm border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Raison" value={product.descriptionRetour ?? ""} onChange={(e) => onChange({ ...product, descriptionRetour: e.target.value })} />
+      <input type="number" min={0} className="w-24 h-10 px-3 rounded-lg text-sm text-center border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Qté" value={product.quantite} onChange={(e) => onChange({ ...product, quantite: Number(e.target.value || 0) })} />
+      <button onClick={onRemove} className="p-2.5 rounded-lg text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))] opacity-0 group-hover:opacity-100 transition-all duration-200"><Trash2 className="h-4 w-4" /></button>
     </div>
   );
 }

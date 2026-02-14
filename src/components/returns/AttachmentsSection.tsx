@@ -421,8 +421,8 @@ function UploadZone({
       
       {/* Show error if any */}
       {uploadError && (
-        <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
-          <p className="text-sm text-red-600 dark:text-red-400">{uploadError}</p>
+        <div className="p-3 rounded-lg bg-[hsl(var(--danger-muted))] border border-[hsl(var(--danger)_/_0.3)]">
+          <p className="text-sm text-[hsl(var(--danger))]">{uploadError}</p>
         </div>
       )}
     </div>
