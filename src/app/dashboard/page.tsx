@@ -1,572 +1,28 @@
 // src/app/dashboard/page.tsx
 "use client";
 
-import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  ComposedChart,
-} from "recharts";
-import {
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Calendar,
-  ChevronRight,
-  X as CloseIcon,
-  ArrowUpDown,
-  Sparkles,
-  RotateCcw,
-  Loader2,
-  Lock
-} from "lucide-react";
-import { THEME, CHART_COLORS, ThemeTokens } from "@/lib/theme-tokens";
+import { Calendar, RotateCcw } from "lucide-react";
+import { THEME, CHART_COLORS } from "@/lib/theme-tokens";
 import { useCurrentAccent } from "@/components/accent-color-provider";
-
-/* ═══════════════════════════════════════════════════════════════════════════════
-   Constants
-   ═══════════════════════════════════════════════════════════════════════════════ */
-const RETENTION_THRESHOLD = 300;
-const NEW_CUSTOMER_MIN_SPEND = 30;
-
-// Case-insensitive role checking
-const ALLOWED_ROLES = [
-  "ventes-exec",
-  "ventes_exec",
-  "gestionnaire",
-  "admin",
-  "facturation",
-];
-
-// Bypass emails (always allowed)
-const BYPASS_EMAILS = ["n.labranche@sinto.ca"];
-
-type YoyFilter = "all" | "growth" | "loss";
-
-/* ═══════════════════════════════════════════════════════════════════════════════
-   Types
-   ═══════════════════════════════════════════════════════════════════════════════ */
-type SalesRecord = {
-  salesRepName: string;
-  customerName: string;
-  itemCode: string;
-  invoiceDate: string;   // YYYY-MM (month-level from GROUP BY)
-  firstDate: string;     // YYYY-MM-DD (earliest invoice date in group)
-  salesValue: number;    // SUM of amounts in group
-  txCount: number;       // COUNT of invoice rows in group
-};
-
-type FilterState = {
-  salesReps: string[];
-  itemCodes: string[];
-  customers: string[];
-};
-
-type PerfRow = { 
-  key: string; 
-  prev: number; 
-  curr: number; 
-  rate: number; 
-  delta: number;
-};
-
-/* ═══════════════════════════════════════════════════════════════════════════════
-   Formatters
-   ═══════════════════════════════════════════════════════════════════════════════ */
-const currency = (n: number) =>
-  new Intl.NumberFormat("fr-CA", {
-    style: "currency",
-    currency: "CAD",
-    maximumFractionDigits: 0,
-  }).format(n);
-
-const compactCurrency = (n: number) =>
-  new Intl.NumberFormat("fr-CA", {
-    notation: "compact",
-    compactDisplay: "short",
-    maximumFractionDigits: 1,
-    style: "currency",
-    currency: "CAD",
-  }).format(n);
-
-const percentage = (n: number) =>
-  new Intl.NumberFormat("fr-CA", {
-    style: "percent",
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  }).format(n);
-
-const formatNumber = (n: number) =>
-  new Intl.NumberFormat("fr-CA").format(Math.round(n));
-
-/* ═══════════════════════════════════════════════════════════════════════════════
-   Helper: Check if user is authorized
-   ═══════════════════════════════════════════════════════════════════════════════ */
-function isUserAuthorized(role: string | undefined | null, email: string | undefined | null): boolean {
-  // Check bypass emails first
-  if (email && BYPASS_EMAILS.includes(email.toLowerCase())) {
-    return true;
-  }
-  
-  // Check role (case-insensitive)
-  if (role && ALLOWED_ROLES.includes(role.toLowerCase().trim())) {
-    return true;
-  }
-  
-  return false;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════════
-   Skeleton Components — For loading states inside cards
-   ═══════════════════════════════════════════════════════════════════════════════ */
-const SkeletonPulse = ({ className = "" }: { className?: string }) => (
-  <div 
-    className={`animate-pulse rounded bg-[hsl(var(--bg-muted))] ${className}`}
-  />
-);
-
-const KpiSkeleton = ({ t }: { t: ThemeTokens }) => (
-  <div className="space-y-3">
-    <SkeletonPulse className="h-8 w-24" />
-    <div className="flex items-center gap-2 mt-3">
-      <SkeletonPulse className="h-6 w-16 rounded-md" />
-      <SkeletonPulse className="h-4 w-12" />
-    </div>
-  </div>
-);
-
-// FIX: Added accentColor prop and applied inline style to Loader2
-const ChartSkeleton = ({ height = 280, accentColor }: { height?: number; accentColor: string }) => (
-  <div className="flex items-center justify-center" style={{ height }}>
-    <div className="flex flex-col items-center gap-3">
-      <Loader2 
-        className="h-8 w-8 animate-spin" 
-        style={{ color: accentColor }} 
-      />
-      <span className="text-sm text-[hsl(var(--text-muted))]">Chargement...</span>
-    </div>
-  </div>
-);
-
-/* ═══════════════════════════════════════════════════════════════════════════════
-   Animated Number Component
-   ═══════════════════════════════════════════════════════════════════════════════ */
-const AnimatedNumber = ({
-  value,
-  format,
-  duration = 600,
-}: {
-  value: number;
-  format: (n: number) => string;
-  duration?: number;
-}) => {
-  const [displayValue, setDisplayValue] = useState(0);
-  const previousValueRef = useRef(0);
-  const animationFrameRef = useRef<number | undefined>(undefined);
-
-  useEffect(() => {
-    const startValue = previousValueRef.current;
-    const endValue = value;
-    let startTime: number | null = null;
-
-    const animate = (timestamp: number) => {
-      if (!startTime) startTime = timestamp;
-      const progress = Math.min((timestamp - startTime) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 4);
-      const currentValue = startValue + (endValue - startValue) * eased;
-      setDisplayValue(currentValue);
-      if (progress < 1) {
-        animationFrameRef.current = requestAnimationFrame(animate);
-      } else {
-        setDisplayValue(endValue);
-        previousValueRef.current = endValue;
-      }
-    };
-
-    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-    animationFrameRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-      previousValueRef.current = value;
-    };
-  }, [value, duration]);
-
-  return <>{format(displayValue)}</>;
-};
-
-/* ═══════════════════════════════════════════════════════════════════════════════
-   YOY Change Badge
-   ═══════════════════════════════════════════════════════════════════════════════ */
-const YOYBadge = ({ current, previous }: { current: number; previous: number }) => {
-  const change = previous > 0 ? (current - previous) / previous : 0;
-  const isPositive = change > 0;
-  const isNeutral = Math.abs(change) < 0.001;
-
-  const badgeClass = isNeutral
-    ? "badge-neutral"
-    : isPositive
-    ? "badge-positive"
-    : "badge-negative";
-
-  const Icon = isNeutral ? Minus : isPositive ? TrendingUp : TrendingDown;
-
-  return (
-    <div className="flex items-center gap-2 mt-3">
-      <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${badgeClass}`}>
-        <Icon className="w-2.5 h-2.5" />
-        <span className="font-mono-data">{percentage(Math.abs(change))}</span>
-      </div>
-    </div>
-  );
-};
-
-/* ═══════════════════════════════════════════════════════════════════════════════
-   Custom Tooltip
-   ═══════════════════════════════════════════════════════════════════════════════ */
-function CustomTooltip({ active, payload, label, format = "currency", t }: any) {
-  if (!active || !payload?.length) return null;
-
-  return (
-    <div
-      className="rounded-xl px-4 py-3 text-sm animate-scale-in shadow-lg"
-      style={{
-        background: t.tooltipBg,
-        borderLeft: `3px solid ${t.accent}`,
-      }}
-    >
-      <p className="text-label mb-2">{label}</p>
-      {payload.map((entry: any, index: number) => (
-        <div key={index} className="flex items-center gap-2 py-0.5">
-          <div
-            className="w-2 h-2 rounded-full"
-            style={{ backgroundColor: entry.color }}
-          />
-          <span style={{ color: t.textSecondary }}>{entry.name}:</span>
-          <span className="font-mono-data font-medium" style={{ color: t.textPrimary }}>
-            {format === "number"
-              ? formatNumber(entry.value)
-              : format === "percentage"
-              ? percentage(entry.value)
-              : currency(entry.value)}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════════
-   Custom Legend
-   ═══════════════════════════════════════════════════════════════════════════════ */
-const CustomLegend = ({
-  payload,
-  onLegendClick,
-  selectedItems = [],
-  t,
-}: any) => {
-  return (
-    <ul className="flex flex-col gap-1.5 text-xs">
-      {(payload || []).map((entry: any) => {
-        const isSelected = selectedItems.length === 0 || selectedItems.includes(entry.value);
-        return (
-          <li
-            key={entry.value}
-            className={`flex items-center gap-2 cursor-pointer px-2 py-1.5 rounded-md transition-all duration-200 ${
-              isSelected ? "opacity-100" : "opacity-30"
-            }`}
-            onClick={() => onLegendClick?.(entry.value)}
-            style={{
-              background: isSelected ? t.surface3 : "transparent",
-            }}
-          >
-            <span
-              className="w-2.5 h-2.5 rounded-sm"
-              style={{ backgroundColor: entry.color }}
-            />
-            <span style={{ color: t.textSecondary }}>{entry.value}</span>
-          </li>
-        );
-      })}
-    </ul>
-  );
-};
-
-/* ═══════════════════════════════════════════════════════════════════════════════
-   Aggregation Helpers
-   ═══════════════════════════════════════════════════════════════════════════════ */
-function aggregateData(data: SalesRecord[], key: keyof SalesRecord, topN?: number) {
-  const aggregated = data.reduce((acc, d) => {
-    const groupKey = d[key] as string;
-    acc[groupKey] = (acc[groupKey] || 0) + d.salesValue;
-    return acc;
-  }, {} as Record<string, number>);
-  
-  const sorted = Object.entries(aggregated)
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value);
-  
-  return topN ? sorted.slice(0, topN) : sorted;
-}
-
-function totalsByRep(records: SalesRecord[]) {
-  return records.reduce((acc, r) => {
-    acc[r.salesRepName] = (acc[r.salesRepName] || 0) + r.salesValue;
-    return acc;
-  }, {} as Record<string, number>);
-}
-
-function totalsByRepCustomer(records: SalesRecord[]) {
-  const out: Record<string, Record<string, number>> = {};
-  for (const r of records) {
-    out[r.salesRepName] ??= {};
-    out[r.salesRepName][r.customerName] = (out[r.salesRepName][r.customerName] || 0) + r.salesValue;
-  }
-  return out;
-}
-
-function totalsByKey<T extends keyof SalesRecord>(records: SalesRecord[], key: T) {
-  return records.reduce((acc, r) => {
-    const k = r[key] as unknown as string;
-    acc[k] = (acc[k] || 0) + r.salesValue;
-    return acc;
-  }, {} as Record<string, number>);
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════════
-   UI Components
-   ═══════════════════════════════════════════════════════════════════════════════ */
-
-// Error State
-const ErrorState = ({ message }: { message: string }) => (
-  <div className="fixed inset-0 flex items-center justify-center p-4">
-    <div className="surface-card p-8 max-w-md text-center animate-scale-in">
-      <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center badge-negative">
-        <TrendingDown className="w-8 h-8" />
-      </div>
-      <h3 className="text-title mb-2">Erreur de chargement</h3>
-      <p className="text-caption mb-6">{message}</p>
-      <button
-        onClick={() => window.location.reload()}
-        className="px-6 py-2.5 rounded-lg font-medium transition-all badge-negative hover:opacity-80"
-      >
-        Recharger
-      </button>
-    </div>
-  </div>
-);
-
-// Access Denied
-const AccessDenied = ({ role, email }: { role: string | undefined, email: string | undefined | null }) => (
-  <div className="fixed inset-0 flex items-center justify-center p-4">
-    <div className="surface-card p-10 max-w-lg text-center animate-scale-in">
-      <div className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center surface-inset">
-        <Lock className="w-10 h-10 text-[hsl(var(--danger))]" />
-      </div>
-      <h3 className="text-headline mb-3">Accès restreint</h3>
-      <p className="text-caption leading-relaxed mb-4">
-        Vous ne disposez pas des autorisations nécessaires pour consulter ces données.
-        Veuillez contacter votre département TI pour obtenir l&apos;accès approprié.
-      </p>
-      <div className="bg-[hsl(var(--bg-muted))] p-4 rounded-lg text-left text-xs font-mono text-[hsl(var(--text-secondary))]">
-         <p>DEBUG INFO:</p>
-         <p>Email: {email || "Not Found"}</p>
-         <p>Role Detected: {role || "Undefined/Null"}</p>
-         <p>Allowed: {ALLOWED_ROLES.join(", ")}</p>
-      </div>
-    </div>
-  </div>
-);
-
-// KPI Card
-function KpiCard({
-  title,
-  icon: _Icon,
-  children,
-  className = "",
-  t,
-  onClick,
-  accentColor: _accentColor,
-  isLoading = false,
-}: {
-  title: string;
-  icon?: any;
-  children: React.ReactNode;
-  className?: string;
-  t: ThemeTokens;
-  onClick?: () => void;
-  accentColor?: string;
-  isLoading?: boolean;
-}) {
-  const isClickable = typeof onClick === "function";
-
-  return (
-    <div
-      role={isClickable ? "button" : undefined}
-      tabIndex={isClickable ? 0 : undefined}
-      onClick={onClick}
-      onKeyDown={(e) => isClickable && (e.key === "Enter" || e.key === " ") && onClick?.()}
-      className={`
-        rounded-2xl p-6 transition-all duration-200
-        ${isClickable ? "cursor-pointer" : ""}
-        ${className}
-      `}
-      style={{
-        background: t.surface1,
-      }}
-      onMouseEnter={isClickable ? (e) => { e.currentTarget.style.background = t.surface2; } : undefined}
-      onMouseLeave={isClickable ? (e) => { e.currentTarget.style.background = t.surface1; } : undefined}
-    >
-      <span className="text-[0.625rem] font-semibold uppercase tracking-[0.08em]" style={{ color: t.textMuted }}>{title}</span>
-
-      <div className="mt-3">{isLoading ? <KpiSkeleton t={t} /> : children}</div>
-    </div>
-  );
-}
-
-// Chart Card
-function ChartCard({
-  title,
-  children,
-  className = "",
-  t,
-  action,
-  isLoading = false,
-  height = 320,
-}: {
-  title: React.ReactNode;
-  children: React.ReactNode;
-  className?: string;
-  t: ThemeTokens;
-  action?: React.ReactNode;
-  isLoading?: boolean;
-  height?: number;
-}) {
-  return (
-    <div
-      className={`rounded-2xl pt-6 px-5 pb-5 h-full flex flex-col animate-fade-in ${className}`}
-      style={{
-        background: t.surface1,
-      }}
-    >
-      <div className="flex items-center justify-between mb-5">
-        <h3 className="text-[0.75rem] font-semibold uppercase tracking-[0.08em]" style={{ color: t.textTertiary }}>
-          {title}
-        </h3>
-        {action}
-      </div>
-      <div className="flex-grow">
-        {/* FIX: Passing t.accent to the skeleton */}
-        {isLoading ? <ChartSkeleton height={height} accentColor={t.accent} /> : children}
-      </div>
-    </div>
-  );
-}
-
-// Segmented Control
-function SegmentedControl({
-  options,
-  value,
-  onChange,
-  t,
-}: {
-  options: { key: string; label: string; color?: string }[];
-  value: string;
-  onChange: (key: string) => void;
-  t: ThemeTokens;
-}) {
-  return (
-    <div
-      className="inline-flex rounded-full p-1"
-      style={{ background: t.surface2, border: `1px solid ${t.borderSubtle}` }}
-    >
-      {options.map((opt) => {
-        const active = value === opt.key;
-        return (
-          <button
-            key={opt.key}
-            onClick={() => onChange(opt.key)}
-            className="px-3 py-1.5 rounded-full text-[0.8125rem] font-medium transition-all duration-200"
-            style={{
-              background: active ? (opt.color || t.accent) : "transparent",
-              color: active ? t.void : t.textTertiary,
-            }}
-          >
-            {opt.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-// Modal Base
-function Modal({
-  open,
-  onClose,
-  title,
-  subtitle,
-  children,
-  t,
-  width = "max-w-4xl",
-}: {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  subtitle?: string;
-  children: React.ReactNode;
-  t: ThemeTokens;
-  width?: string;
-}) {
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog">
-      <div
-        className="absolute inset-0 backdrop-blur-sm animate-fade-in"
-        style={{ background: "hsl(0, 0%, 0% / 0.5)" }}
-        onClick={onClose}
-      />
-      <div
-        className={`relative w-full ${width} rounded-2xl overflow-hidden shadow-2xl animate-scale-in`}
-        style={{ background: t.surface1 }}
-      >
-        <div
-          className="flex items-center justify-between px-6 py-4"
-          style={{ borderBottom: `1px solid ${t.borderSubtle}` }}
-        >
-          <div>
-            <h3 className="text-title">{title}</h3>
-            {subtitle && <p className="text-caption mt-0.5">{subtitle}</p>}
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full transition-colors"
-            style={{ color: t.textTertiary }}
-            aria-label="Fermer"
-          >
-            <CloseIcon className="w-5 h-5" />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
+import { currency, percentage, formatNumber } from "@/lib/dashboard-formatters";
+import { RETENTION_THRESHOLD, NEW_CUSTOMER_MIN_SPEND, isUserAuthorized } from "@/lib/dashboard-constants";
+import { totalsByRep, totalsByRepCustomer, totalsByKey } from "@/lib/dashboard-aggregators";
+import { useDashboardData } from "@/hooks/useDashboardData";
+import type { SalesRecord, FilterState, PerfRow, YoyFilter } from "@/types/dashboard";
+import {
+  ErrorState,
+  AccessDenied,
+  KpiCard,
+  AnimatedNumber,
+  YOYBadge,
+  SegmentedControl,
+} from "@/components/dashboard/sales-ui";
+import { DashboardCharts } from "./_components/dashboard-charts";
+import { DashboardModals } from "./_components/dashboard-modals";
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    Main Dashboard Content
@@ -574,169 +30,49 @@ function Modal({
 const DashboardContent = () => {
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  
+
   useEffect(() => setMounted(true), []);
-  
-  // 1. Get the dynamic color from our provider
+
   const { color: accentColor, muted: accentMuted } = useCurrentAccent();
-  
+
   const mode = mounted && resolvedTheme === "light" ? "light" : "dark";
 
-  // 2. Create a dynamic theme object that overrides the static accent
-  // This propagates the user's choice to all components using 't.accent'
   const t = useMemo(() => ({
     ...THEME[mode],
     accent: accentColor,
     accentMuted: accentMuted || (mode === "dark" ? "#1A2A3D" : "#DBEAFE")
   }), [mode, accentColor, accentMuted]);
 
-  // 3. Create dynamic chart colors
-  // Places the user's selected color as the primary chart color (index 0)
   const chartColors = useMemo(() => {
     const baseColors = CHART_COLORS[mode];
     return [accentColor, ...baseColors.filter(c => c !== accentColor)];
   }, [mode, accentColor]);
 
-  // Date ranges
-  const defaultDateRange = useMemo(() => {
-    const end = new Date();
-    const start = new Date();
-    start.setFullYear(start.getFullYear() - 1);
-    return {
-      start: start.toISOString().slice(0, 10),
-      end: end.toISOString().slice(0, 10),
-    };
-  }, []);
+  // Data fetching
+  const {
+    defaultDateRange,
+    activeDateRange,
+    setActiveDateRange,
+    masterData,
+    previousYearData,
+    history3yData,
+    isLoading,
+    error,
+    fetchDashboardData,
+  } = useDashboardData();
 
   // State
-  const [activeDateRange, setActiveDateRange] = useState(defaultDateRange);
   const [stagedDateRange, setStagedDateRange] = useState(defaultDateRange);
   const [stagedSelectedRep, setStagedSelectedRep] = useState("");
   const [showYOYComparison, setShowYOYComparison] = useState(true);
-  const [showAllProducts, setShowAllProducts] = useState(false);
-  const [showAllCustomers, setShowAllCustomers] = useState(false);
   const [filters, setFilters] = useState<FilterState>({ salesReps: [], itemCodes: [], customers: [] });
   const [yoyFilter, setYoyFilter] = useState<YoyFilter>("all");
 
-  // Data state
-  const [masterData, setMasterData] = useState<SalesRecord[] | null>(null);
-  const [previousYearData, setPreviousYearData] = useState<SalesRecord[] | null>(null);
-  const [history3yData, setHistory3yData] = useState<string[] | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
   // Modal states
   const [showRetentionTable, setShowRetentionTable] = useState(false);
-  const [retentionSortAsc, setRetentionSortAsc] = useState(false);
   const [showNewCustomersModal, setShowNewCustomersModal] = useState(false);
-  const [newSortAsc, setNewSortAsc] = useState(false);
-  const [newTab, setNewTab] = useState<"list" | "reps">("list");
   const [showRepGrowthModal, setShowRepGrowthModal] = useState(false);
-  const [repGrowthTab, setRepGrowthTab] = useState<"growth" | "loss">("growth");
   const [showCustomerGrowthModal, setShowCustomerGrowthModal] = useState(false);
-  const [customerGrowthTab, setCustomerGrowthTab] = useState<"growth" | "loss">("growth");
-
-  // Derived date ranges
-  const previousYearDateRange = useMemo(() => {
-    const startDate = new Date(activeDateRange.start);
-    const endDate = new Date(activeDateRange.end);
-    startDate.setFullYear(startDate.getFullYear() - 1);
-    endDate.setFullYear(endDate.getFullYear() - 1);
-    return {
-      start: startDate.toISOString().slice(0, 10),
-      end: endDate.toISOString().slice(0, 10),
-    };
-  }, [activeDateRange]);
-
-  const lookback3y = useMemo(() => {
-    const start = new Date(activeDateRange.start);
-    const end = new Date(activeDateRange.start);
-    start.setFullYear(start.getFullYear() - 3);
-    end.setDate(end.getDate() - 1);
-    return {
-      start: start.toISOString().slice(0, 10),
-      end: end.toISOString().slice(0, 10),
-    };
-  }, [activeDateRange.start]);
-
-  // Cache helpers
-  const getCacheKey = useCallback(
-    () => `dashboard_v2_${activeDateRange.start}_${activeDateRange.end}`,
-    [activeDateRange]
-  );
-
-  const loadFromCache = useCallback(() => {
-    try {
-      const raw = sessionStorage.getItem(getCacheKey());
-      if (!raw) return null;
-      return JSON.parse(raw) as {
-        master: SalesRecord[];
-        previous: SalesRecord[];
-        history3y: string[];
-      };
-    } catch {
-      return null;
-    }
-  }, [getCacheKey]);
-
-  const saveToCache = useCallback(
-    (master: SalesRecord[], previous: SalesRecord[], history3y: string[]) => {
-      try {
-        sessionStorage.setItem(getCacheKey(), JSON.stringify({ master, previous, history3y }));
-      } catch { /* storage full — ignore */ }
-    },
-    [getCacheKey]
-  );
-
-  // Data fetching — serves from cache unless forceRefresh is true
-  const fetchDashboardData = useCallback(
-    async (forceRefresh = false) => {
-      if (!forceRefresh) {
-        const cached = loadFromCache();
-        if (cached) {
-          setMasterData(cached.master);
-          setPreviousYearData(cached.previous);
-          setHistory3yData(cached.history3y);
-          setIsLoading(false);
-          return;
-        }
-      }
-
-      setIsLoading(true);
-      setError(null);
-      try {
-        const [currentRes, prevRes, histRes] = await Promise.all([
-          fetch(`/api/dashboard-data?startDate=${activeDateRange.start}&endDate=${activeDateRange.end}&mode=summary`),
-          fetch(`/api/dashboard-data?startDate=${previousYearDateRange.start}&endDate=${previousYearDateRange.end}&mode=summary`),
-          fetch(`/api/dashboard-data?startDate=${lookback3y.start}&endDate=${lookback3y.end}&mode=customers`),
-        ]);
-
-        if (!currentRes.ok) {
-          const errorData = await currentRes.json().catch(() => ({}));
-          throw new Error(errorData.error || `HTTP ${currentRes.status}`);
-        }
-
-        const master = await currentRes.json();
-        const previous = prevRes.ok ? await prevRes.json() : [];
-        const histBody = histRes.ok ? await histRes.json() : { customers: [] };
-        const history3y: string[] = histBody.customers ?? [];
-
-        setMasterData(master);
-        setPreviousYearData(previous);
-        setHistory3yData(history3y);
-        saveToCache(master, previous, history3y);
-      } catch (err) {
-        setError(err as Error);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [activeDateRange, previousYearDateRange, lookback3y, loadFromCache, saveToCache]
-  );
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
 
   // Derived data
   const allSalesReps = useMemo(
@@ -864,66 +200,6 @@ const DashboardContent = () => {
     return map;
   }, [masterData, chartColors, t]);
 
-  // Chart data
-  const salesByRep = useMemo(() => {
-    const allReps = aggregateData(filteredData, "salesRepName");
-    if (allReps.length <= 8) return allReps;
-    const top = allReps.slice(0, 8);
-    const othersValue = allReps.slice(8).reduce((s, r) => s + r.value, 0);
-    return [...top, { name: "Autres", value: othersValue }];
-  }, [filteredData]);
-
-  const salesByItem = useMemo(
-    () => aggregateData(filteredData, "itemCode", showAllProducts ? undefined : 10),
-    [filteredData, showAllProducts]
-  );
-
-  const salesByCustomer = useMemo(
-    () => aggregateData(filteredData, "customerName", showAllCustomers ? undefined : 10),
-    [filteredData, showAllCustomers]
-  );
-
-  const transactionsByMonth = useMemo(() => {
-    const current = filteredData.reduce((acc, d) => {
-      const m = d.invoiceDate.slice(0, 7);
-      acc[m] = (acc[m] || 0) + d.txCount;
-      return acc;
-    }, {} as Record<string, number>);
-
-    const previous = filteredPreviousData.reduce((acc, d) => {
-      const m = d.invoiceDate.slice(0, 7);
-      const adjusted = m.replace(/^(\d{4})/, (_, y) => String(parseInt(y) + 1));
-      acc[adjusted] = (acc[adjusted] || 0) + d.txCount;
-      return acc;
-    }, {} as Record<string, number>);
-    
-    const allMonths = Array.from(new Set([...Object.keys(current), ...Object.keys(previous)])).sort();
-    return allMonths.map((m) => ({ name: m, current: current[m] || 0, previous: previous[m] || 0 }));
-  }, [filteredData, filteredPreviousData]);
-
-  const salesComparisonByMonth = useMemo(() => {
-    const current = filteredData.reduce((acc, d) => {
-      const m = d.invoiceDate.slice(0, 7);
-      acc[m] = (acc[m] || 0) + d.salesValue;
-      return acc;
-    }, {} as Record<string, number>);
-    
-    const previous = filteredPreviousData.reduce((acc, d) => {
-      const m = d.invoiceDate.slice(0, 7);
-      const adjusted = m.replace(/^(\d{4})/, (_, y) => String(parseInt(y) + 1));
-      acc[adjusted] = (acc[adjusted] || 0) + d.salesValue;
-      return acc;
-    }, {} as Record<string, number>);
-    
-    const allMonths = Array.from(new Set([...Object.keys(current), ...Object.keys(previous)])).sort();
-    return allMonths.map((m) => ({
-      name: m.slice(5),
-      current: current[m] || 0,
-      previous: previous[m] || 0,
-      growth: previous[m] > 0 ? ((current[m] || 0) - previous[m]) / previous[m] : 0,
-    }));
-  }, [filteredData, filteredPreviousData]);
-
   // Retention calculations
   const retentionByRep = useMemo(() => {
     const prev = totalsByRepCustomer(previousYearData ?? []);
@@ -994,9 +270,9 @@ const DashboardContent = () => {
         rows.push({ customer: cust, rep: agg.firstRep, spend: agg.total, orders: agg.orders, firstDate: agg.firstDate });
       }
     });
-    rows.sort((a, b) => (newSortAsc ? a.spend - b.spend : b.spend - a.spend));
+    rows.sort((a, b) => b.spend - a.spend);
     return rows;
-  }, [currentCustomerAgg, prevCustomersSet, newSortAsc]);
+  }, [currentCustomerAgg, prevCustomersSet]);
 
   const newCustomersCount = newCustomersList.length;
 
@@ -1055,7 +331,17 @@ const DashboardContent = () => {
     return { growth, loss, eligible, pct: eligible > 0 ? growth.length / eligible : null };
   }, [filteredDataNoYoy, filteredPreviousDataNoYoy]);
 
-  // Error state only
+  // Modal drill-down callbacks
+  const handleSelectRep = (rep: string) => {
+    setFilters((prev) => ({ ...prev, salesReps: [rep], itemCodes: [], customers: [] }));
+    setStagedSelectedRep(rep);
+  };
+
+  const handleSelectRepAndCustomer = (rep: string, customer: string) => {
+    setFilters((prev) => ({ ...prev, salesReps: [rep], customers: [customer] }));
+    setStagedSelectedRep(rep);
+  };
+
   if (error) return <ErrorState message={error.message} />;
 
   return (
@@ -1260,355 +546,42 @@ const DashboardContent = () => {
         </KpiCard>
       </div>
 
-      {/* Charts - YOY Comparison */}
-      {showYOYComparison && (
-        <div className="grid grid-cols-12 gap-5">
-          <ChartCard title="Comparaison YOY — Chiffre d'affaires" className="col-span-12 lg:col-span-8" t={t} isLoading={isLoading} height={280}>
-            <ResponsiveContainer width="100%" height={280}>
-              <ComposedChart data={salesComparisonByMonth}>
-                <CartesianGrid strokeDasharray="3 3" stroke={t.borderSubtle} strokeOpacity={0.3} />
-                <XAxis dataKey="name" tick={{ fill: t.textTertiary, fontSize: 12 }} stroke={t.borderSubtle} tickLine={false} />
-                <YAxis yAxisId="left" tickFormatter={compactCurrency} tick={{ fill: t.textTertiary, fontSize: 12 }} stroke={t.borderSubtle} tickLine={false} axisLine={false} />
-                <YAxis yAxisId="right" orientation="right" tickFormatter={percentage} tick={{ fill: t.textTertiary, fontSize: 12 }} stroke={t.borderSubtle} tickLine={false} axisLine={false} />
-                <Tooltip content={<CustomTooltip t={t} />} />
-                <Legend wrapperStyle={{ paddingTop: 16, fontSize: 13 }} />
-                <Bar yAxisId="left" dataKey="previous" fill={t.textMuted} name="N-1" radius={[6, 6, 0, 0]} />
-                <Bar yAxisId="left" dataKey="current" fill={t.accent} name="Période actuelle" radius={[6, 6, 0, 0]} />
-                <Line yAxisId="right" type="monotone" dataKey="growth" stroke={t.success} strokeWidth={2.5} dot={{ fill: t.success, r: 3 }} activeDot={{ r: 5 }} name="Croissance %" />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </ChartCard>
+      {/* Charts */}
+      <DashboardCharts
+        t={t}
+        chartColors={chartColors}
+        filteredData={filteredData}
+        filteredPreviousData={filteredPreviousData}
+        salesRepColorMap={salesRepColorMap}
+        filters={filters}
+        totalSales={totalSales}
+        previousTotalSales={previousTotalSales}
+        showYOYComparison={showYOYComparison}
+        isLoading={isLoading}
+        onSelect={handleSelect}
+      />
 
-          <ChartCard title="Performance comparative" className="col-span-12 lg:col-span-4" t={t} isLoading={isLoading}>
-            <div className="space-y-4 h-full flex flex-col justify-between">
-              <div className="p-4 rounded-lg" style={{ background: t.surface2 }}>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-label">Période actuelle</span>
-                  <Sparkles className="w-4 h-4" style={{ color: t.accent }} />
-                </div>
-                <div className="text-[1.25rem] font-bold font-mono-data" style={{ color: t.textPrimary }}>{currency(totalSales)}</div>
-              </div>
-              <div className="p-4 rounded-lg" style={{ background: t.surface2 }}>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-label">Année précédente</span>
-                  <Calendar className="w-4 h-4" style={{ color: t.textTertiary }} />
-                </div>
-                <div className="text-[1.25rem] font-bold font-mono-data" style={{ color: t.textSecondary }}>{currency(previousTotalSales)}</div>
-              </div>
-              <div className="p-4 rounded-lg" style={{ background: `${t.accent}08` }}>
-                <span className="text-label">Variation YOY</span>
-                <div className="text-[1.625rem] font-bold font-mono-data mt-1" style={{ color: t.textPrimary }}>
-                  {previousTotalSales > 0 ? percentage((totalSales - previousTotalSales) / previousTotalSales) : "—"}
-                </div>
-                <div className="text-caption mt-1">Δ {currency(totalSales - previousTotalSales)}</div>
-              </div>
-            </div>
-          </ChartCard>
-        </div>
-      )}
-
-      {/* Main Charts */}
-      <div className="grid grid-cols-12 gap-5">
-        <ChartCard title="Répartition par expert" className="col-span-12 lg:col-span-5" t={t} isLoading={isLoading}>
-          <ResponsiveContainer width="100%" height={320}>
-            <PieChart>
-              <Pie data={salesByRep} dataKey="value" nameKey="name" innerRadius="55%" outerRadius="92%" paddingAngle={2} animationDuration={800}>
-                {salesByRep.map((entry) => (
-                  <Cell
-                    key={`cell-${entry.name}`}
-                    fill={salesRepColorMap[entry.name]}
-                    onClick={(e) => entry.name !== "Autres" && handleSelect("salesReps", entry.name, (e as any).shiftKey)}
-                    className={entry.name === "Autres" ? "" : "cursor-pointer transition-opacity duration-200"}
-                    style={{ opacity: filters.salesReps.length === 0 || filters.salesReps.includes(entry.name) ? 1 : 0.25 }}
-                  />
-                ))}
-              </Pie>
-              <Tooltip content={<CustomTooltip t={t} />} />
-              <Legend
-                layout="vertical"
-                align="right"
-                verticalAlign="middle"
-                wrapperStyle={{ paddingLeft: 16 }}
-                content={(props: any) => {
-                  const patchedPayload = props?.payload?.map((p: any) => ({ ...p, color: salesRepColorMap[p.value] || p.color })) ?? [];
-                  return <CustomLegend payload={patchedPayload} selectedItems={filters.salesReps} onLegendClick={(v: string) => v !== "Autres" && handleSelect("salesReps", v)} t={t} />;
-                }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="Évolution des transactions" className="col-span-12 lg:col-span-7" t={t} isLoading={isLoading}>
-          <ResponsiveContainer width="100%" height={320}>
-            <LineChart data={transactionsByMonth}>
-              <CartesianGrid strokeDasharray="3 3" stroke={t.borderSubtle} strokeOpacity={0.3} />
-              <XAxis dataKey="name" tick={{ fill: t.textTertiary, fontSize: 12 }} stroke={t.borderSubtle} tickLine={false} />
-              <YAxis tick={{ fill: t.textTertiary, fontSize: 12 }} stroke={t.borderSubtle} tickLine={false} axisLine={false} />
-              <Tooltip content={<CustomTooltip format="number" t={t} />} />
-              <Legend wrapperStyle={{ paddingTop: 16, fontSize: 13 }} />
-              {showYOYComparison && <Line type="monotone" dataKey="previous" stroke={t.textMuted} strokeWidth={2} strokeDasharray="5 5" name="N-1" dot={false} />}
-              <Line type="monotone" dataKey="current" stroke={chartColors[1]} strokeWidth={2.5} name="Période actuelle" dot={{ fill: chartColors[1], r: 2.5 }} activeDot={{ r: 4, fill: chartColors[1] }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard
-          title={`Top ${showAllProducts ? "" : "10 "}produits`}
-          className="col-span-12 xl:col-span-6"
-          t={t}
-          isLoading={isLoading}
-          height={360}
-          action={
-            <button onClick={() => setShowAllProducts(!showAllProducts)} className="text-[0.8125rem] flex items-center gap-1 transition-colors" style={{ color: t.accent }}>
-              {showAllProducts ? "Moins" : "Tout voir"}
-              <ChevronRight className={`w-3 h-3 transition-transform ${showAllProducts ? "rotate-90" : ""}`} />
-            </button>
-          }
-        >
-          <ResponsiveContainer width="100%" height={showAllProducts ? Math.max(360, salesByItem.length * 32) : 360}>
-            <BarChart data={salesByItem} layout="vertical" margin={{ left: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={t.borderSubtle} strokeOpacity={0.3} />
-              <XAxis type="number" tickFormatter={compactCurrency} tick={{ fill: t.textTertiary, fontSize: 12 }} stroke={t.borderSubtle} tickLine={false} />
-              <YAxis type="category" dataKey="name" width={90} tick={{ fill: t.textSecondary, fontSize: 12 }} stroke="none" />
-              <Tooltip content={<CustomTooltip t={t} />} />
-              <Bar dataKey="value" radius={[0, 6, 6, 0]} animationDuration={600}>
-                {salesByItem.map((entry, i) => (
-                  <Cell key={`item-${i}`} fill={t.accent} fillOpacity={1 - i * 0.07} onClick={(e) => handleSelect("itemCodes", entry.name, (e as any).shiftKey)} className="cursor-pointer transition-opacity" style={{ opacity: filters.itemCodes.length === 0 || filters.itemCodes.includes(entry.name) ? 1 : 0.25 }} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard
-          title={`Top ${showAllCustomers ? "" : "10 "}clients`}
-          className="col-span-12 xl:col-span-6"
-          t={t}
-          isLoading={isLoading}
-          height={360}
-          action={
-            <button onClick={() => setShowAllCustomers(!showAllCustomers)} className="text-[0.8125rem] flex items-center gap-1 transition-colors" style={{ color: t.accent }}>
-              {showAllCustomers ? "Moins" : "Tout voir"}
-              <ChevronRight className={`w-3 h-3 transition-transform ${showAllCustomers ? "rotate-90" : ""}`} />
-            </button>
-          }
-        >
-          <ResponsiveContainer width="100%" height={showAllCustomers ? Math.max(360, salesByCustomer.length * 32) : 360}>
-            <BarChart data={salesByCustomer} layout="vertical" margin={{ left: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={t.borderSubtle} strokeOpacity={0.3} />
-              <XAxis type="number" tickFormatter={compactCurrency} tick={{ fill: t.textTertiary, fontSize: 12 }} stroke={t.borderSubtle} tickLine={false} />
-              <YAxis type="category" dataKey="name" width={140} tick={{ fill: t.textSecondary, fontSize: 12 }} stroke="none" />
-              <Tooltip content={<CustomTooltip t={t} />} />
-              <Bar dataKey="value" radius={[0, 6, 6, 0]} animationDuration={600}>
-                {salesByCustomer.map((entry, i) => (
-                  <Cell key={`cust-${i}`} fill={chartColors[1]} fillOpacity={1 - i * 0.07} onClick={(e) => handleSelect("customers", entry.name, (e as any).shiftKey)} className="cursor-pointer transition-opacity" style={{ opacity: filters.customers.length === 0 || filters.customers.includes(entry.name) ? 1 : 0.25 }} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
-
-      {/* Modals - Retention */}
-      <Modal open={showRetentionTable} onClose={() => setShowRetentionTable(false)} title="Taux de rétention par représentant" subtitle={`Seuil: ${currency(RETENTION_THRESHOLD)} les deux années`} t={t}>
-        <div className="max-h-[60vh] overflow-auto">
-          <table className="w-full text-[0.875rem]">
-            <thead className="sticky top-0 backdrop-blur-sm" style={{ background: `${t.surface1}ee` }}>
-              <tr style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
-                <th className="text-left px-6 py-3 text-label">Représentant</th>
-                <th className="text-right px-6 py-3 text-label">Éligibles</th>
-                <th className="text-right px-6 py-3 text-label">Retenus</th>
-                <th className="text-right px-6 py-3">
-                  <button onClick={() => setRetentionSortAsc((s) => !s)} className="inline-flex items-center gap-1 text-label hover:opacity-80">
-                    Taux <ArrowUpDown className="w-3 h-3" />
-                  </button>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {Array.from(visibleRepsForRetention)
-                .map((rep) => ({ rep, data: retentionByRep[rep] || { eligible: 0, retained: 0, rate: null } }))
-                .sort((a, b) => {
-                  const aRate = a.data.rate ?? -1;
-                  const bRate = b.data.rate ?? -1;
-                  return retentionSortAsc ? aRate - bRate : bRate - aRate;
-                })
-                .map(({ rep, data }, idx) => (
-                  <tr
-                    key={rep}
-                    className="cursor-pointer transition-colors"
-                    style={{ borderBottom: `1px solid ${t.borderSubtle}`, background: idx % 2 === 1 ? t.surface2 : "transparent" }}
-                    onClick={() => {
-                      setFilters((prev) => ({ ...prev, salesReps: [rep], itemCodes: [], customers: [] }));
-                      setStagedSelectedRep(rep);
-                      setShowRetentionTable(false);
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = t.surface2)}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = idx % 2 === 1 ? t.surface2 : "transparent")}
-                  >
-                    <td className="px-6 py-3" style={{ color: t.textPrimary }}>{rep}</td>
-                    <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textSecondary }}>{formatNumber(data.eligible)}</td>
-                    <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textSecondary }}>{formatNumber(data.retained)}</td>
-                    <td className="px-6 py-3 text-right font-mono-data font-medium" style={{ color: t.textPrimary }}>{data.rate === null ? "—" : percentage(data.rate)}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex items-center justify-between px-6 py-4 text-[0.8125rem]" style={{ borderTop: `1px solid ${t.borderSubtle}`, color: t.textTertiary }}>
-          <span>Moyenne: {retentionAverage.avg === null ? "—" : percentage(retentionAverage.avg)}</span>
-          <button onClick={() => setShowRetentionTable(false)} className="px-3 py-1.5 rounded-full transition-colors" style={{ background: t.surface2, color: t.textSecondary }}>Fermer</button>
-        </div>
-      </Modal>
-
-      {/* New Customers Modal */}
-      <Modal open={showNewCustomersModal} onClose={() => setShowNewCustomersModal(false)} title={`Nouveaux clients (≥ ${currency(NEW_CUSTOMER_MIN_SPEND)})`} subtitle="Aucun achat au cours des 3 dernières années" t={t} width="max-w-5xl">
-        <div className="flex items-center gap-2 px-6 py-3" style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
-          <SegmentedControl options={[{ key: "list", label: "Liste" }, { key: "reps", label: "Par représentant" }]} value={newTab} onChange={(k) => setNewTab(k as "list" | "reps")} t={t} />
-        </div>
-        {newTab === "list" ? (
-          <div className="max-h-[60vh] overflow-auto">
-            <table className="w-full text-[0.875rem]">
-              <thead className="sticky top-0 backdrop-blur-sm" style={{ background: `${t.surface1}ee` }}>
-                <tr style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
-                  <th className="text-left px-6 py-3 text-label">Client</th>
-                  <th className="text-left px-6 py-3 text-label">Expert</th>
-                  <th className="text-right px-6 py-3">
-                    <button onClick={() => setNewSortAsc((s) => !s)} className="inline-flex items-center gap-1 text-label hover:opacity-80">Total <ArrowUpDown className="w-3 h-3" /></button>
-                  </th>
-                  <th className="text-right px-6 py-3 text-label"># cmd</th>
-                  <th className="text-right px-6 py-3 text-label">1ère cmd</th>
-                </tr>
-              </thead>
-              <tbody>
-                {newCustomersList.length === 0 ? (
-                  <tr><td colSpan={5} className="px-6 py-8 text-center" style={{ color: t.textTertiary }}>Aucun nouveau client trouvé.</td></tr>
-                ) : (
-                  newCustomersList.map((row, idx) => (
-                    <tr
-                      key={`${row.customer}-${row.firstDate}`}
-                      className="cursor-pointer transition-colors"
-                      style={{ borderBottom: `1px solid ${t.borderSubtle}`, background: idx % 2 === 1 ? t.surface2 : "transparent" }}
-                      onClick={() => { setFilters((prev) => ({ ...prev, salesReps: [row.rep], customers: [row.customer] })); setStagedSelectedRep(row.rep); setShowNewCustomersModal(false); }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = t.surface2)}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = idx % 2 === 1 ? t.surface2 : "transparent")}
-                    >
-                      <td className="px-6 py-3" style={{ color: t.textPrimary }}>{row.customer}</td>
-                      <td className="px-6 py-3" style={{ color: t.textSecondary }}>{row.rep}</td>
-                      <td className="px-6 py-3 text-right font-mono-data font-medium" style={{ color: t.textPrimary }}>{currency(row.spend)}</td>
-                      <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textSecondary }}>{row.orders}</td>
-                      <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textTertiary }}>{row.firstDate}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="grid grid-cols-12 gap-4 p-6">
-            <div className="col-span-12 lg:col-span-7">
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={newCustomersByRep}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={t.borderSubtle} strokeOpacity={0.3} />
-                  <XAxis dataKey="rep" tick={{ fill: t.textTertiary, fontSize: 12 }} stroke={t.borderSubtle} />
-                  <YAxis tick={{ fill: t.textTertiary, fontSize: 12 }} stroke={t.borderSubtle} />
-                  <Tooltip content={<CustomTooltip format="number" t={t} />} />
-                  <Bar dataKey="count" radius={[6, 6, 0, 0]} fill={t.accent} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="col-span-12 lg:col-span-5">
-              <table className="w-full text-[0.875rem]">
-                <thead>
-                  <tr style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
-                    <th className="text-left px-4 py-2 text-label">Représentant</th>
-                    <th className="text-right px-4 py-2 text-label">Nouveaux</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {newCustomersByRep.map((r) => (
-                    <tr key={r.rep} className="cursor-pointer transition-colors" style={{ borderBottom: `1px solid ${t.borderSubtle}` }} onClick={() => { setFilters((prev) => ({ ...prev, salesReps: [r.rep], customers: [] })); setStagedSelectedRep(r.rep); setShowNewCustomersModal(false); }} onMouseEnter={(e) => (e.currentTarget.style.background = t.surface2)} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                      <td className="px-4 py-2" style={{ color: t.textPrimary }}>{r.rep}</td>
-                      <td className="px-4 py-2 text-right font-mono-data" style={{ color: t.textSecondary }}>{r.count}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-        <div className="flex justify-end px-6 py-4" style={{ borderTop: `1px solid ${t.borderSubtle}` }}>
-          <button onClick={() => setShowNewCustomersModal(false)} className="px-3 py-1.5 rounded-full transition-colors" style={{ background: t.surface2, color: t.textSecondary }}>Fermer</button>
-        </div>
-      </Modal>
-
-      {/* Rep Growth Modal */}
-      <Modal open={showRepGrowthModal} onClose={() => setShowRepGrowthModal(false)} title="Performance YOY des représentants" t={t} width="max-w-5xl">
-        <div className="flex items-center gap-2 px-6 py-3" style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
-          <SegmentedControl options={[{ key: "growth", label: `Croissance (${repsPerf.growth.length})`, color: t.success }, { key: "loss", label: `Baisse (${repsPerf.loss.length})`, color: t.danger }]} value={repGrowthTab} onChange={(k) => setRepGrowthTab(k as "growth" | "loss")} t={t} />
-        </div>
-        <div className="max-h-[60vh] overflow-auto">
-          <table className="w-full text-[0.875rem]">
-            <thead className="sticky top-0 backdrop-blur-sm" style={{ background: `${t.surface1}ee` }}>
-              <tr style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
-                <th className="text-left px-6 py-3 text-label">Représentant</th>
-                <th className="text-right px-6 py-3 text-label">N-1</th>
-                <th className="text-right px-6 py-3 text-label">N</th>
-                <th className="text-right px-6 py-3 text-label">Δ $</th>
-                <th className="text-right px-6 py-3 text-label">Δ %</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(repGrowthTab === "growth" ? repsPerf.growth : repsPerf.loss).map((row, idx) => (
-                <tr key={row.key} style={{ borderBottom: `1px solid ${t.borderSubtle}`, background: idx % 2 === 1 ? t.surface2 : "transparent" }}>
-                  <td className="px-6 py-3" style={{ color: t.textPrimary }}>{row.key}</td>
-                  <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textSecondary }}>{currency(row.prev)}</td>
-                  <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textPrimary }}>{currency(row.curr)}</td>
-                  <td className="px-6 py-3 text-right font-mono-data font-medium" style={{ color: row.delta > 0 ? t.success : t.danger }}>{currency(row.delta)}</td>
-                  <td className="px-6 py-3 text-right font-mono-data font-medium" style={{ color: row.rate > 0 ? t.success : t.danger }}>{percentage(row.rate)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex justify-end px-6 py-4" style={{ borderTop: `1px solid ${t.borderSubtle}` }}>
-          <button onClick={() => setShowRepGrowthModal(false)} className="px-3 py-1.5 rounded-full transition-colors" style={{ background: t.surface2, color: t.textSecondary }}>Fermer</button>
-        </div>
-      </Modal>
-
-      {/* Customer Growth Modal */}
-      <Modal open={showCustomerGrowthModal} onClose={() => setShowCustomerGrowthModal(false)} title="Performance YOY des clients" t={t} width="max-w-5xl">
-        <div className="flex items-center gap-2 px-6 py-3" style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
-          <SegmentedControl options={[{ key: "growth", label: `Croissance (${customersPerf.growth.length})`, color: t.success }, { key: "loss", label: `Baisse (${customersPerf.loss.length})`, color: t.danger }]} value={customerGrowthTab} onChange={(k) => setCustomerGrowthTab(k as "growth" | "loss")} t={t} />
-        </div>
-        <div className="max-h-[60vh] overflow-auto">
-          <table className="w-full text-[0.875rem]">
-            <thead className="sticky top-0 backdrop-blur-sm" style={{ background: `${t.surface1}ee` }}>
-              <tr style={{ borderBottom: `1px solid ${t.borderSubtle}` }}>
-                <th className="text-left px-6 py-3 text-label">Client</th>
-                <th className="text-right px-6 py-3 text-label">N-1</th>
-                <th className="text-right px-6 py-3 text-label">N</th>
-                <th className="text-right px-6 py-3 text-label">Δ $</th>
-                <th className="text-right px-6 py-3 text-label">Δ %</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(customerGrowthTab === "growth" ? customersPerf.growth : customersPerf.loss).map((row, idx) => (
-                <tr key={row.key} style={{ borderBottom: `1px solid ${t.borderSubtle}`, background: idx % 2 === 1 ? t.surface2 : "transparent" }}>
-                  <td className="px-6 py-3" style={{ color: t.textPrimary }}>{row.key}</td>
-                  <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textSecondary }}>{currency(row.prev)}</td>
-                  <td className="px-6 py-3 text-right font-mono-data" style={{ color: t.textPrimary }}>{currency(row.curr)}</td>
-                  <td className="px-6 py-3 text-right font-mono-data font-medium" style={{ color: row.delta > 0 ? t.success : t.danger }}>{currency(row.delta)}</td>
-                  <td className="px-6 py-3 text-right font-mono-data font-medium" style={{ color: row.rate > 0 ? t.success : t.danger }}>{percentage(row.rate)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex justify-end px-6 py-4" style={{ borderTop: `1px solid ${t.borderSubtle}` }}>
-          <button onClick={() => setShowCustomerGrowthModal(false)} className="px-3 py-1.5 rounded-full transition-colors" style={{ background: t.surface2, color: t.textSecondary }}>Fermer</button>
-        </div>
-      </Modal>
+      {/* Modals */}
+      <DashboardModals
+        t={t}
+        showRetentionTable={showRetentionTable}
+        onCloseRetention={() => setShowRetentionTable(false)}
+        retentionByRep={retentionByRep}
+        visibleRepsForRetention={visibleRepsForRetention}
+        retentionAverage={retentionAverage}
+        showNewCustomersModal={showNewCustomersModal}
+        onCloseNewCustomers={() => setShowNewCustomersModal(false)}
+        newCustomersList={newCustomersList}
+        newCustomersByRep={newCustomersByRep}
+        showRepGrowthModal={showRepGrowthModal}
+        onCloseRepGrowth={() => setShowRepGrowthModal(false)}
+        repsPerf={repsPerf}
+        showCustomerGrowthModal={showCustomerGrowthModal}
+        onCloseCustomerGrowth={() => setShowCustomerGrowthModal(false)}
+        customersPerf={customersPerf}
+        onSelectRep={handleSelectRep}
+        onSelectRepAndCustomer={handleSelectRepAndCustomer}
+      />
     </div>
   );
 };
