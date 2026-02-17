@@ -1,7 +1,7 @@
 # ============================
 # Stage 1: Build
 # ============================
-FROM node:18-bullseye AS builder
+FROM --platform=linux/arm64 node:20-bookworm AS builder
 WORKDIR /app
 
 # ---- Build args: ONLY values needed at compile time ----
@@ -78,7 +78,7 @@ RUN node -e "\
 # ============================
 # Stage 2: Runtime
 # ============================
-FROM node:18-bullseye-slim AS runner
+FROM --platform=linux/arm64 node:20-bookworm-slim AS runner
 WORKDIR /app
 
 # =================================================================
