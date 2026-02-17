@@ -64,9 +64,10 @@ type SalesRecord = {
   salesRepName: string;
   customerName: string;
   itemCode: string;
-  itemDescription: string;
-  invoiceDate: string;
-  salesValue: number;
+  invoiceDate: string;   // YYYY-MM (month-level from GROUP BY)
+  firstDate: string;     // YYYY-MM-DD (earliest invoice date in group)
+  salesValue: number;    // SUM of amounts in group
+  txCount: number;       // COUNT of invoice rows in group
 };
 
 type FilterState = {
@@ -660,7 +661,7 @@ const DashboardContent = () => {
 
   // Cache helpers
   const getCacheKey = useCallback(
-    () => `dashboard_${activeDateRange.start}_${activeDateRange.end}`,
+    () => `dashboard_v2_${activeDateRange.start}_${activeDateRange.end}`,
     [activeDateRange]
   );
 
@@ -705,8 +706,8 @@ const DashboardContent = () => {
       setError(null);
       try {
         const [currentRes, prevRes, histRes] = await Promise.all([
-          fetch(`/api/dashboard-data?startDate=${activeDateRange.start}&endDate=${activeDateRange.end}`),
-          fetch(`/api/dashboard-data?startDate=${previousYearDateRange.start}&endDate=${previousYearDateRange.end}`),
+          fetch(`/api/dashboard-data?startDate=${activeDateRange.start}&endDate=${activeDateRange.end}&mode=summary`),
+          fetch(`/api/dashboard-data?startDate=${previousYearDateRange.start}&endDate=${previousYearDateRange.end}&mode=summary`),
           fetch(`/api/dashboard-data?startDate=${lookback3y.start}&endDate=${lookback3y.end}&mode=customers`),
         ]);
 
@@ -850,9 +851,9 @@ const DashboardContent = () => {
 
   // KPIs
   const totalSales = useMemo(() => filteredData.reduce((s, d) => s + d.salesValue, 0), [filteredData]);
-  const transactionCount = filteredData.length;
+  const transactionCount = useMemo(() => filteredData.reduce((s, d) => s + d.txCount, 0), [filteredData]);
   const previousTotalSales = useMemo(() => filteredPreviousData.reduce((s, d) => s + d.salesValue, 0), [filteredPreviousData]);
-  const previousTransactionCount = filteredPreviousData.length;
+  const previousTransactionCount = useMemo(() => filteredPreviousData.reduce((s, d) => s + d.txCount, 0), [filteredPreviousData]);
 
   // Rep color map
   const salesRepColorMap = useMemo(() => {
@@ -885,14 +886,14 @@ const DashboardContent = () => {
   const transactionsByMonth = useMemo(() => {
     const current = filteredData.reduce((acc, d) => {
       const m = d.invoiceDate.slice(0, 7);
-      acc[m] = (acc[m] || 0) + 1;
+      acc[m] = (acc[m] || 0) + d.txCount;
       return acc;
     }, {} as Record<string, number>);
-    
+
     const previous = filteredPreviousData.reduce((acc, d) => {
       const m = d.invoiceDate.slice(0, 7);
       const adjusted = m.replace(/^(\d{4})/, (_, y) => String(parseInt(y) + 1));
-      acc[adjusted] = (acc[adjusted] || 0) + 1;
+      acc[adjusted] = (acc[adjusted] || 0) + d.txCount;
       return acc;
     }, {} as Record<string, number>);
     
@@ -973,12 +974,12 @@ const DashboardContent = () => {
     for (const r of filteredData) {
       const a = map.get(r.customerName);
       if (!a) {
-        map.set(r.customerName, { total: r.salesValue, orders: 1, firstDate: r.invoiceDate, firstRep: r.salesRepName });
+        map.set(r.customerName, { total: r.salesValue, orders: r.txCount, firstDate: r.firstDate, firstRep: r.salesRepName });
       } else {
         a.total += r.salesValue;
-        a.orders += 1;
-        if (r.invoiceDate < a.firstDate) {
-          a.firstDate = r.invoiceDate;
+        a.orders += r.txCount;
+        if (r.firstDate < a.firstDate) {
+          a.firstDate = r.firstDate;
           a.firstRep = r.salesRepName;
         }
       }

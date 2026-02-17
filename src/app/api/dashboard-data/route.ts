@@ -161,6 +161,50 @@ WHERE h."cieid" = $1
     }
   }
 
+  if (mode === "summary") {
+    const SUMMARY_QUERY = `
+SELECT
+  sr."Name"                        AS "salesRepName",
+  c."Name"                         AS "customerName",
+  i."ItemCode"                     AS "itemCode",
+  to_char(h."InvDate", 'YYYY-MM') AS "invoiceDate",
+  MIN(h."InvDate")::text           AS "firstDate",
+  SUM(d."Amount")::float8          AS "salesValue",
+  COUNT(*)::int                    AS "txCount"
+FROM ${T.INV_HEADER} h
+JOIN ${T.SALESREP}   sr ON h."srid"   = sr."SRId"
+JOIN ${T.CUSTOMERS}  c  ON h."custid" = c."CustId"
+JOIN ${T.INV_DETAIL} d  ON h."invnbr" = d."invnbr" AND h."cieid" = d."cieid"
+JOIN ${T.ITEMS}      i  ON d."Itemid" = i."ItemId"
+JOIN ${T.PRODUCTS}   p  ON i."ProdId" = p."ProdId" AND p."CieID" = h."cieid"
+WHERE h."cieid" = $1
+  AND h."InvDate" BETWEEN $2 AND $3
+  AND sr."Name" <> 'OTOPROTEC (004)'
+  AND NOT (
+    CASE
+      WHEN btrim(p."ProdCode") ~ '^[0-9]+$'
+        THEN (btrim(p."ProdCode")::int > 499)
+      ELSE FALSE
+    END
+  )
+GROUP BY sr."Name", c."Name", i."ItemCode", to_char(h."InvDate", 'YYYY-MM');
+`;
+    try {
+      const params: [number, string, string] = [gcieid, startDate, endDate];
+      const { rows } = await pg.query(SUMMARY_QUERY, params);
+      return NextResponse.json(rows);
+    } catch (error: unknown) {
+      console.error("Database query failed in /api/dashboard-data (mode=summary):", error);
+      return NextResponse.json(
+        {
+          error: "Échec de la récupération des données du tableau de bord.",
+          details: getErrorMessage(error),
+        },
+        { status: 500 }
+      );
+    }
+  }
+
   try {
     const params: [number, string, string] = [gcieid, startDate, endDate];
     const { rows } = await pg.query(SQL_QUERY, params);
