@@ -20,6 +20,8 @@ import {
   Receipt,
   Sparkles,
   Pencil,
+  Building2,
+  X,
 } from "lucide-react";
 
 // ============================================================================
@@ -75,6 +77,12 @@ const AVAILABLE_ROLES = [
 
 type RoleValue = (typeof AVAILABLE_ROLES)[number]["value"];
 
+interface TenantInfo {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 interface UserData {
   id: string;
   name: string;
@@ -83,6 +91,7 @@ interface UserData {
   role: string;
   createdAt: string;
   updatedAt: string;
+  tenants: TenantInfo[];
 }
 
 function isAdmin(email: string | null | undefined, role: string | null | undefined): boolean {
@@ -192,12 +201,131 @@ function RoleSelector({ currentRole, onRoleChange, disabled, accentColor }: {
   );
 }
 
-function UserRow({ user, currentUserEmail, onRoleChange, onEditProfile, isUpdating, accentColor }: {
+function TenantBadge({ tenant, onRemove }: { tenant: TenantInfo; onRemove?: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))] border border-[hsl(var(--border-subtle))]">
+      <Building2 className="w-3 h-3" />
+      {tenant.name}
+      {onRemove && (
+        <button onClick={onRemove} className="ml-0.5 hover:text-[hsl(var(--danger))] transition-colors">
+          <X className="w-3 h-3" />
+        </button>
+      )}
+    </span>
+  );
+}
+
+function TenantSelector({ userTenants, allTenants, onSave, disabled, accentColor }: {
+  userTenants: TenantInfo[];
+  allTenants: TenantInfo[];
+  onSave: (tenantIds: string[]) => void;
+  disabled?: boolean;
+  accentColor: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set(userTenants.map((t) => t.id)));
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // Reset selection when userTenants changes (e.g. after save)
+  useEffect(() => {
+    setSelected(new Set(userTenants.map((t) => t.id)));
+    setHasChanges(false);
+  }, [userTenants]);
+
+  const toggleTenant = (tenantId: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(tenantId)) {
+        next.delete(tenantId);
+      } else {
+        next.add(tenantId);
+      }
+      // Check if selection differs from current
+      const currentIds = new Set(userTenants.map((t) => t.id));
+      const changed = next.size !== currentIds.size || [...next].some((id) => !currentIds.has(id));
+      setHasChanges(changed);
+      return next;
+    });
+  };
+
+  const handleSave = () => {
+    onSave(Array.from(selected));
+    setIsOpen(false);
+    setHasChanges(false);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
+          disabled ? "opacity-50 cursor-not-allowed bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-subtle))]" : "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-subtle))] hover:border-[hsl(var(--border-default))] cursor-pointer"
+        }`}
+      >
+        <Building2 className="w-4 h-4 text-[hsl(var(--text-muted))]" />
+        <span className="text-sm text-[hsl(var(--text-secondary))]">
+          {userTenants.length === 0 ? "Aucun" : `${userTenants.length} tenant${userTenants.length > 1 ? "s" : ""}`}
+        </span>
+        {!disabled && <ChevronDown className={`w-4 h-4 text-[hsl(var(--text-muted))] transition-transform ${isOpen ? "rotate-180" : ""}`} />}
+      </button>
+
+      {isOpen && !disabled && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => { setIsOpen(false); setSelected(new Set(userTenants.map((t) => t.id))); setHasChanges(false); }} />
+          <div className="absolute right-0 mt-2 w-72 bg-[hsl(var(--bg-elevated))] border border-[hsl(var(--border-subtle))] rounded-xl shadow-xl z-20 overflow-hidden">
+            <div className="p-3 border-b border-[hsl(var(--border-subtle))]">
+              <p className="text-xs font-medium text-[hsl(var(--text-muted))] uppercase tracking-wider">Tenants</p>
+            </div>
+            <div className="max-h-60 overflow-y-auto">
+              {allTenants.map((tenant) => {
+                const isChecked = selected.has(tenant.id);
+                return (
+                  <button
+                    key={tenant.id}
+                    onClick={() => toggleTenant(tenant.id)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${isChecked ? "bg-[hsl(var(--bg-muted))]" : "hover:bg-[hsl(var(--bg-muted))]/50"}`}
+                  >
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${isChecked ? "border-transparent" : "border-[hsl(var(--border-default))]"}`} style={isChecked ? { backgroundColor: accentColor } : undefined}>
+                      {isChecked && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium text-[hsl(var(--text-primary))]">{tenant.name}</span>
+                      <span className="text-xs text-[hsl(var(--text-muted))] ml-2">{tenant.slug}</span>
+                    </div>
+                  </button>
+                );
+              })}
+              {allTenants.length === 0 && (
+                <p className="px-3 py-4 text-sm text-[hsl(var(--text-muted))] text-center">Aucun tenant disponible</p>
+              )}
+            </div>
+            {hasChanges && (
+              <div className="p-3 border-t border-[hsl(var(--border-subtle))]">
+                <button
+                  onClick={handleSave}
+                  className="w-full px-3 py-2 rounded-lg text-sm font-medium text-white transition-colors"
+                  style={{ backgroundColor: accentColor }}
+                >
+                  Enregistrer
+                </button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function UserRow({ user, currentUserEmail, onRoleChange, onTenantChange, onEditProfile, isUpdating, allTenants, accentColor }: {
   user: UserData;
   currentUserEmail: string;
   onRoleChange: (userId: string, role: RoleValue) => void;
+  onTenantChange: (userId: string, tenantIds: string[]) => void;
   onEditProfile?: (userId: string) => void;
   isUpdating: boolean;
+  allTenants: TenantInfo[];
   accentColor: string;
 }) {
   const isSelf = user.email === currentUserEmail;
@@ -225,6 +353,16 @@ function UserRow({ user, currentUserEmail, onRoleChange, onEditProfile, isUpdati
           {isSelf && <span className="px-2 py-0.5 text-xs rounded-full bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))]">Vous</span>}
         </div>
         <p className="text-sm text-[hsl(var(--text-muted))] truncate">{user.email}</p>
+        {user.tenants.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {user.tenants.map((tenant) => (
+              <TenantBadge key={tenant.id} tenant={tenant} />
+            ))}
+          </div>
+        )}
+        {user.tenants.length === 0 && (
+          <p className="text-xs text-[hsl(var(--warning))] mt-1">Aucun tenant assigné</p>
+        )}
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
         {onEditProfile && (
@@ -242,12 +380,20 @@ function UserRow({ user, currentUserEmail, onRoleChange, onEditProfile, isUpdati
             <span className="text-sm text-[hsl(var(--text-muted))]">Mise à jour...</span>
           </div>
         ) : (
-          <RoleSelector
-            currentRole={user.role}
-            onRoleChange={(role) => onRoleChange(user.id, role)}
-            disabled={isProtectedAdmin && !ADMIN_EMAILS.includes(currentUserEmail)}
-            accentColor={accentColor}
-          />
+          <>
+            <TenantSelector
+              userTenants={user.tenants}
+              allTenants={allTenants}
+              onSave={(tenantIds) => onTenantChange(user.id, tenantIds)}
+              accentColor={accentColor}
+            />
+            <RoleSelector
+              currentRole={user.role}
+              onRoleChange={(role) => onRoleChange(user.id, role)}
+              disabled={isProtectedAdmin && !ADMIN_EMAILS.includes(currentUserEmail)}
+              accentColor={accentColor}
+            />
+          </>
         )}
       </div>
     </div>
@@ -260,6 +406,7 @@ export default function RolesPage() {
   const router = useRouter();
 
   const [users, setUsers] = useState<UserData[]>([]);
+  const [allTenants, setAllTenants] = useState<TenantInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -271,24 +418,32 @@ export default function RolesPage() {
   const userIsAdmin = isAdmin(currentUserEmail, currentUserRole);
 
   useEffect(() => {
-    async function fetchUsers() {
+    async function fetchData() {
       try {
         setIsLoading(true);
         setError(null);
-        const response = await fetch("/api/user/role");
-        if (!response.ok) {
-          const data = await response.json();
+        const [usersRes, tenantsRes] = await Promise.all([
+          fetch("/api/user/role"),
+          fetch("/api/tenants/all"),
+        ]);
+        if (!usersRes.ok) {
+          const data = await usersRes.json();
           throw new Error(data.error || "Erreur lors du chargement");
         }
-        const data = await response.json();
-        setUsers(data.users);
+        const usersData = await usersRes.json();
+        setUsers(usersData.users);
+
+        if (tenantsRes.ok) {
+          const tenantsData = await tenantsRes.json();
+          setAllTenants(tenantsData.tenants);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erreur inconnue");
       } finally {
         setIsLoading(false);
       }
     }
-    fetchUsers();
+    fetchData();
   }, []);
 
   const handleRoleChange = async (userId: string, newRole: RoleValue) => {
@@ -307,6 +462,31 @@ export default function RolesPage() {
       }
       setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
       setSuccessMessage("Rôle mis à jour avec succès");
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur inconnue");
+    } finally {
+      setUpdatingUserId(null);
+    }
+  };
+
+  const handleTenantChange = async (userId: string, tenantIds: string[]) => {
+    try {
+      setUpdatingUserId(userId);
+      setError(null);
+      setSuccessMessage(null);
+      const response = await fetch("/api/user/tenants", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, tenantIds }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Erreur lors de la mise à jour");
+      }
+      const data = await response.json();
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, tenants: data.tenants } : u)));
+      setSuccessMessage("Tenants mis à jour avec succès");
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
@@ -428,8 +608,10 @@ export default function RolesPage() {
                 user={user}
                 currentUserEmail={currentUserEmail}
                 onRoleChange={handleRoleChange}
+                onTenantChange={handleTenantChange}
                 onEditProfile={userIsAdmin ? (userId) => router.push(`/dashboard/settings/profile?userId=${userId}`) : undefined}
                 isUpdating={updatingUserId === user.id}
+                allTenants={allTenants}
                 accentColor={accentColor}
               />
             ))}

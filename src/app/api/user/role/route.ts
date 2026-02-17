@@ -43,7 +43,7 @@ export async function GET() {
       );
     }
 
-    // Fetch all users
+    // Fetch all users with their tenant assignments
     const users = await prisma.user.findMany({
       select: {
         id: true,
@@ -55,6 +55,13 @@ export async function GET() {
         role: true,
         createdAt: true,
         updatedAt: true,
+        tenants: {
+          include: {
+            tenant: {
+              select: { id: true, name: true, slug: true },
+            },
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -68,6 +75,11 @@ export async function GET() {
       role: user.role || "user",
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      tenants: user.tenants.map((ut) => ({
+        id: ut.tenant.id,
+        name: ut.tenant.name,
+        slug: ut.tenant.slug,
+      })),
     }));
 
     return NextResponse.json({ users: transformedUsers });
