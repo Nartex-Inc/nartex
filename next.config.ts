@@ -26,9 +26,6 @@ const nextConfig: NextConfig = {
     return [{ source: "/next/:path*", destination: "/_next/:path*" }];
   },
 
-  // Optional but nice to have in prod
-  compress: true,
-
   // If your repo has type errors that sometimes break CI, uncomment:
   // typescript: { ignoreBuildErrors: true },
 };
