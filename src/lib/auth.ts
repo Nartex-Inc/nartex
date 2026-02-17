@@ -100,14 +100,14 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
 
-    // 2. JWT: Fetch the NEW image from the database + resolve active tenant
+    // 2. JWT: Populate token on sign-in, update on explicit session changes.
+    //    DB queries run ONLY on sign-in and session update — not every request.
     async jwt({ token, user, trigger, session }) {
-      // Handle session updates (role change, tenant switch)
+      // A) Explicit session update (role change, tenant switch from UI)
       if (trigger === "update" && session?.user) {
         if (session.user.role) token.role = session.user.role;
         if (session.user.activeTenantId !== undefined) {
           token.activeTenantId = session.user.activeTenantId;
-          // Re-resolve prextraSchema when tenant changes
           if (session.user.activeTenantId) {
             try {
               const tenant = await prisma.tenant.findUnique({
@@ -122,18 +122,19 @@ export const authOptions: NextAuthOptions = {
             token.prextraSchema = null;
           }
         }
+        return token;
       }
 
+      // B) Initial sign-in — populate token from DB once
       if (user) {
         token.id = user.id;
         token.role = (user as any).role || "user";
         if (user.image) token.picture = user.image;
-      }
 
-      // CRITICAL: Refresh from DB to get the updated image + resolve default tenant
-      if (token.email) {
-         try {
-           const dbUser = await prisma.user.findUnique({
+        // Fetch authoritative role + default tenant from DB
+        if (token.email) {
+          try {
+            const dbUser = await prisma.user.findUnique({
               where: { email: token.email },
               select: {
                 id: true,
@@ -145,42 +146,44 @@ export const authOptions: NextAuthOptions = {
                   take: 1,
                   orderBy: { createdAt: "asc" },
                 },
+              },
+            });
+
+            if (dbUser) {
+              token.id = dbUser.id;
+              token.name = dbUser.name;
+              token.role = dbUser.role as string;
+              if (dbUser.image) token.picture = dbUser.image;
+              if (!token.activeTenantId && dbUser.tenants.length > 0) {
+                token.activeTenantId = dbUser.tenants[0].tenantId;
               }
-           });
-
-           if (dbUser) {
-               token.id = dbUser.id;
-               token.name = dbUser.name;
-               token.role = dbUser.role as string;
-               if (dbUser.image) {
-                 token.picture = dbUser.image;
-               }
-               // Set default tenant on first sign-in (if not already set)
-               if (!token.activeTenantId && dbUser.tenants.length > 0) {
-                 token.activeTenantId = dbUser.tenants[0].tenantId;
-               }
-           }
-         } catch (error) {
-           console.error("Error refreshing user data:", error);
-         }
-      }
-
-      // Ensure activeTenantId is always present on the token
-      if (!token.activeTenantId) token.activeTenantId = null;
-
-      // Resolve prextraSchema if we have a tenant but no schema yet
-      if (token.activeTenantId && token.prextraSchema === undefined) {
-        try {
-          const tenant = await prisma.tenant.findUnique({
-            where: { id: token.activeTenantId as string },
-            select: { prextraSchema: true },
-          });
-          token.prextraSchema = tenant?.prextraSchema ?? null;
-        } catch {
-          token.prextraSchema = null;
+            }
+          } catch (error) {
+            console.error("Error loading user data on sign-in:", error);
+          }
         }
+
+        // Resolve prextraSchema for the active tenant
+        if (token.activeTenantId) {
+          try {
+            const tenant = await prisma.tenant.findUnique({
+              where: { id: token.activeTenantId as string },
+              select: { prextraSchema: true },
+            });
+            token.prextraSchema = tenant?.prextraSchema ?? null;
+          } catch {
+            token.prextraSchema = null;
+          }
+        }
+
+        if (!token.activeTenantId) token.activeTenantId = null;
+        if (!token.prextraSchema) token.prextraSchema = null;
+        return token;
       }
-      if (!token.prextraSchema) token.prextraSchema = null;
+
+      // C) Subsequent requests — use cached token, zero DB queries
+      if (!token.activeTenantId) token.activeTenantId = null;
+      if (token.prextraSchema === undefined) token.prextraSchema = null;
 
       return token;
     },
