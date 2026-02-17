@@ -620,7 +620,7 @@ const DashboardContent = () => {
   // Data state
   const [masterData, setMasterData] = useState<SalesRecord[] | null>(null);
   const [previousYearData, setPreviousYearData] = useState<SalesRecord[] | null>(null);
-  const [history3yData, setHistory3yData] = useState<SalesRecord[] | null>(null);
+  const [history3yData, setHistory3yData] = useState<string[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -671,7 +671,7 @@ const DashboardContent = () => {
       return JSON.parse(raw) as {
         master: SalesRecord[];
         previous: SalesRecord[];
-        history3y: SalesRecord[];
+        history3y: string[];
       };
     } catch {
       return null;
@@ -679,7 +679,7 @@ const DashboardContent = () => {
   }, [getCacheKey]);
 
   const saveToCache = useCallback(
-    (master: SalesRecord[], previous: SalesRecord[], history3y: SalesRecord[]) => {
+    (master: SalesRecord[], previous: SalesRecord[], history3y: string[]) => {
       try {
         sessionStorage.setItem(getCacheKey(), JSON.stringify({ master, previous, history3y }));
       } catch { /* storage full — ignore */ }
@@ -707,7 +707,7 @@ const DashboardContent = () => {
         const [currentRes, prevRes, histRes] = await Promise.all([
           fetch(`/api/dashboard-data?startDate=${activeDateRange.start}&endDate=${activeDateRange.end}`),
           fetch(`/api/dashboard-data?startDate=${previousYearDateRange.start}&endDate=${previousYearDateRange.end}`),
-          fetch(`/api/dashboard-data?startDate=${lookback3y.start}&endDate=${lookback3y.end}`),
+          fetch(`/api/dashboard-data?startDate=${lookback3y.start}&endDate=${lookback3y.end}&mode=customers`),
         ]);
 
         if (!currentRes.ok) {
@@ -717,7 +717,8 @@ const DashboardContent = () => {
 
         const master = await currentRes.json();
         const previous = prevRes.ok ? await prevRes.json() : [];
-        const history3y = histRes.ok ? await histRes.json() : [];
+        const histBody = histRes.ok ? await histRes.json() : { customers: [] };
+        const history3y: string[] = histBody.customers ?? [];
 
         setMasterData(master);
         setPreviousYearData(previous);
@@ -964,7 +965,7 @@ const DashboardContent = () => {
   }, [retentionByRep, visibleRepsForRetention]);
 
   // New customers
-  const prevCustomersSet = useMemo(() => new Set((history3yData ?? []).map((d) => d.customerName)), [history3yData]);
+  const prevCustomersSet = useMemo(() => new Set(history3yData ?? []), [history3yData]);
 
   const currentCustomerAgg = useMemo(() => {
     type Agg = { total: number; orders: number; firstDate: string; firstRep: string };
