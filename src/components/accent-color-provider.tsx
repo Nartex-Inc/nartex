@@ -78,7 +78,7 @@ export const ACCENT_PRESETS: Record<string, AccentPreset> = {
 };
 
 // Default accent for when provider is not available
-const DEFAULT_ACCENT_KEY: AccentColorKey = "green";
+const DEFAULT_ACCENT_KEY: AccentColorKey = "red";
 const DEFAULT_ACCENT = ACCENT_PRESETS[DEFAULT_ACCENT_KEY];
 
 export type AccentColorKey = keyof typeof ACCENT_PRESETS;
