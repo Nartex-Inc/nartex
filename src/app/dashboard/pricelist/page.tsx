@@ -39,7 +39,110 @@ import {
   SlidersHorizontal,
   Lock,
   Download,
+  Languages,
 } from "lucide-react";
+
+/* =========================
+   i18n — FR/EN translations
+========================= */
+type Lang = "fr" | "en";
+
+const i18n = {
+  fr: {
+    viewDetails: "Voir détails",
+    showHideFilters: "Afficher/Masquer les filtres",
+    quickSearchBtn: "Recherche rapide par code",
+    add: "Ajouter",
+    send: "Envoyer",
+    clearAll: "Effacer tout",
+    close: "Fermer",
+    category: "Catégorie",
+    select: "Sélectionner...",
+    allCategories: "Toutes les catégories",
+    classOpt: "Classe (Opt.)",
+    allOpt: "Toutes",
+    allClasses: "Toutes les classes",
+    itemsOpt: "Articles (Opt.)",
+    loadingPrices: "Chargement des prix",
+    pleaseWait: "Veuillez patienter...",
+    error: "Erreur",
+    retry: "Réessayer",
+    noPricesSelected: "Aucun prix sélectionné",
+    articles: "article(s)",
+    classes: "classe(s)",
+    detailedMode: "Mode détaillé",
+    list: "Liste:",
+    sendByEmail: "Envoyer par courriel",
+    pdfAttached: "La liste sera jointe en PDF",
+    cancel: "Annuler",
+    sending: "Envoi...",
+    quickSearchTitle: "Recherche rapide",
+    addToList: "Ajoutez des articles à votre liste",
+    searchPlaceholder: "Code article ou description...",
+    noResults: "Aucun résultat trouvé",
+    withoutClass: "Sans classe",
+    addedItems: "Articles Ajoutés",
+    removeItem: "Retirer cet article",
+    addSelectionTitle: "Ajouter la sélection à la liste",
+    sendEmailTitle: "Envoyer par courriel",
+    emptyStateP1: "Utilisez le bouton",
+    emptyStateP2: "pour sélectionner des catégories ou utilisez la",
+    emptyStateP3: "pour ajouter des articles individuels.",
+    emptyStateAdd: "Ajouter",
+    emptyStateSearch: "Recherche",
+    disabledForList: "Désactivé pour cette liste",
+    downloadPdf: "Télécharger en PDF",
+    download: "Télécharger",
+  },
+  en: {
+    viewDetails: "View details",
+    showHideFilters: "Show/Hide filters",
+    quickSearchBtn: "Quick search by code",
+    add: "Add",
+    send: "Send",
+    clearAll: "Clear all",
+    close: "Close",
+    category: "Category",
+    select: "Select...",
+    allCategories: "All categories",
+    classOpt: "Class (Opt.)",
+    allOpt: "All",
+    allClasses: "All classes",
+    itemsOpt: "Items (Opt.)",
+    loadingPrices: "Loading prices",
+    pleaseWait: "Please wait...",
+    error: "Error",
+    retry: "Retry",
+    noPricesSelected: "No prices selected",
+    articles: "item(s)",
+    classes: "class(es)",
+    detailedMode: "Detailed mode",
+    list: "List:",
+    sendByEmail: "Send by email",
+    pdfAttached: "The list will be attached as PDF",
+    cancel: "Cancel",
+    sending: "Sending...",
+    quickSearchTitle: "Quick search",
+    addToList: "Add items to your list",
+    searchPlaceholder: "Item code or description...",
+    noResults: "No results found",
+    withoutClass: "Without class",
+    addedItems: "Added Items",
+    removeItem: "Remove this item",
+    addSelectionTitle: "Add selection to list",
+    sendEmailTitle: "Send by email",
+    emptyStateP1: "Use the",
+    emptyStateP2: "button to select categories or use the",
+    emptyStateP3: "to add individual items.",
+    emptyStateAdd: "Add",
+    emptyStateSearch: "Search",
+    disabledForList: "Disabled for this list",
+    downloadPdf: "Download as PDF",
+    download: "Download",
+  },
+};
+
+type Translations = (typeof i18n)[Lang];
 
 /* =========================
    Role-Based Access Control
@@ -485,10 +588,14 @@ function QuickAddPanel({
   onAddItems,
   onClose,
   accentColor,
+  langSuffix,
+  t: qt,
 }: {
   onAddItems: (itemIds: number[]) => void;
   onClose: () => void;
   accentColor: string;
+  langSuffix: string;
+  t: Translations;
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Item[]>([]);
@@ -507,7 +614,7 @@ function QuickAddPanel({
       if (query.length > 1) {
         setSearching(true);
         try {
-          const res = await fetch(`/api/catalogue/items?search=${encodeURIComponent(query)}`);
+          const res = await fetch(`/api/catalogue/items?search=${encodeURIComponent(query)}${langSuffix}`);
           if (res.ok) {
             const data: Item[] = await res.json();
             setResults(data);
@@ -593,9 +700,9 @@ function QuickAddPanel({
             </div>
             <div className="flex-1">
               <h3 className="text-lg font-bold text-[hsl(var(--text-primary))]">
-                Recherche rapide
+                {qt.quickSearchTitle}
               </h3>
-              <p className="text-sm text-[hsl(var(--text-tertiary))]">Ajoutez des articles à votre liste</p>
+              <p className="text-sm text-[hsl(var(--text-tertiary))]">{qt.addToList}</p>
             </div>
             <button
               onClick={onClose}
@@ -617,7 +724,7 @@ function QuickAddPanel({
                 "placeholder:text-[hsl(var(--text-muted))]"
               )}
               style={{ borderColor: query ? accentColor : "transparent" }}
-              placeholder="Code, description, catégorie ou classe..."
+              placeholder={qt.searchPlaceholder}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -765,7 +872,7 @@ function QuickAddPanel({
           ) : query.length > 1 && !searching ? (
             <div className="py-12 text-center">
               <Inbox className="w-12 h-12 text-[hsl(var(--text-muted))] mx-auto mb-3" />
-              <p className="text-[hsl(var(--text-tertiary))]">Aucun résultat trouvé</p>
+              <p className="text-[hsl(var(--text-tertiary))]">{qt.noResults}</p>
             </div>
           ) : null}
         </div>
@@ -783,7 +890,7 @@ function QuickAddPanel({
             style={{ backgroundColor: accentColor }}
           >
             <Plus className="w-5 h-5" />
-            Ajouter {selectedIds.size > 0 && `(${selectedIds.size})`}
+            {qt.add} {selectedIds.size > 0 && `(${selectedIds.size})`}
           </button>
         </div>
       </div>
@@ -797,12 +904,16 @@ function ItemMultiSelect({
   onChange,
   disabled,
   accentColor,
+  label,
+  selectLabel,
 }: {
   items: Item[];
   selectedIds: Set<number>;
   onChange: (ids: Set<number>) => void;
   disabled?: boolean;
   accentColor: string;
+  label?: string;
+  selectLabel?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -846,7 +957,7 @@ function ItemMultiSelect({
 
   return (
     <div ref={triggerRef} className="relative flex-1 min-w-0">
-      <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider mb-1.5 block ml-1">Articles (Opt.)</label>
+      <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider mb-1.5 block ml-1">{label || "Articles (Opt.)"}</label>
       <button
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
@@ -860,7 +971,7 @@ function ItemMultiSelect({
       >
         <Tag className="w-4 h-4 text-white/50 flex-shrink-0" />
         <span className={cn("flex-1 truncate text-sm", selectedIds.size > 0 ? "text-white" : "text-white/50")}>
-          {selectedIds.size > 0 ? `${selectedIds.size} article(s)` : "Sélectionner..."}
+          {selectedIds.size > 0 ? `${selectedIds.size} ${selectLabel || "article(s)"}` : "Sélectionner..."}
         </span>
         <ChevronDown
           className={cn(
@@ -957,12 +1068,14 @@ function EmailModal({
   onSend,
   sending,
   accentColor,
+  t: et,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onSend: (email: string) => void;
   sending: boolean;
   accentColor: string;
+  t: Translations;
 }) {
   const [email, setEmail] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -993,9 +1106,9 @@ function EmailModal({
             </div>
             <div>
               <h3 className="text-xl font-bold text-[hsl(var(--text-primary))]">
-                Envoyer par courriel
+                {et.sendByEmail}
               </h3>
-              <p className="text-sm text-[hsl(var(--text-tertiary))]">La liste sera jointe en PDF</p>
+              <p className="text-sm text-[hsl(var(--text-tertiary))]">{et.pdfAttached}</p>
             </div>
           </div>
 
@@ -1022,7 +1135,7 @@ function EmailModal({
             disabled={sending}
             className="flex-1 h-14 rounded-2xl font-semibold bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))] transition-all hover:bg-[hsl(var(--bg-elevated))] disabled:opacity-50"
           >
-            Annuler
+            {et.cancel}
           </button>
           <button
             onClick={() => onSend(email)}
@@ -1038,12 +1151,12 @@ function EmailModal({
             {sending ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                Envoi...
+                {et.sending}
               </>
             ) : (
               <>
                 <Send className="w-5 h-5" />
-                Envoyer
+                {et.send}
               </>
             )}
           </button>
@@ -1101,12 +1214,20 @@ function CataloguePageContent() {
   const [loadingItems, setLoadingItems] = useState(false);
   const [priceError, setPriceError] = useState<string | null>(null);
 
-  // --- INITIAL LOAD ---
+  // --- LANGUAGE ---
+  const [lang, setLang] = useState<Lang>("fr");
+  const t = i18n[lang];
+  /** Append &lang=en (or nothing for fr) to a URL that already has query params */
+  const langQ = lang === "en" ? "&lang=en" : "";
+  /** For URLs with no existing query params */
+  const langQFirst = lang === "en" ? "?lang=en" : "";
+
+  // --- INITIAL LOAD (re-runs when lang changes) ---
   useEffect(() => {
     (async () => {
       try {
         const [prodRes, plRes] = await Promise.all([
-          fetch("/api/catalogue/products"),
+          fetch(`/api/catalogue/products${langQFirst}`),
           fetch("/api/catalogue/pricelists"),
         ]);
         if (prodRes.ok) setProducts(await prodRes.json());
@@ -1114,13 +1235,53 @@ function CataloguePageContent() {
           const pls: PriceList[] = await plRes.json();
           setPriceLists(pls);
           const defaultList = pls.find((p) => p.code.startsWith("03")) || pls[0];
-          if (defaultList) setSelectedPriceList(defaultList);
+          if (defaultList && !selectedPriceList) setSelectedPriceList(defaultList);
         }
       } catch (err) {
         console.error("Init failed", err);
       }
     })();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
+
+  // --- REFETCH EXISTING DATA ON LANGUAGE CHANGE ---
+  const prevLangRef = useRef(lang);
+  useEffect(() => {
+    if (prevLangRef.current === lang) return;
+    prevLangRef.current = lang;
+    const lq = lang === "en" ? "&lang=en" : "";
+    const lqFirst = lang === "en" ? "?lang=en" : "";
+
+    (async () => {
+      // Refetch item types if a product is selected
+      if (selectedProduct) {
+        try {
+          const res = await fetch(`/api/catalogue/itemtypes?prodId=${selectedProduct.prodId}${lq}`);
+          if (res.ok) setItemTypes(await res.json());
+        } catch {}
+      }
+      // Refetch items if a type is selected
+      if (selectedType) {
+        try {
+          const res = await fetch(`/api/catalogue/items?itemTypeId=${selectedType.itemTypeId}${lq}`);
+          if (res.ok) setItems(await res.json());
+        } catch {}
+      }
+      // Refetch price data if any is loaded
+      if (priceData.length > 0 && selectedPriceList) {
+        setLoadingPrices(true);
+        try {
+          const allIds = Array.from(new Set(priceData.map((i) => i.itemId))).join(",");
+          const url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}&itemIds=${allIds}${lq}`;
+          const res = await fetch(url);
+          if (res.ok) setPriceData(await res.json());
+        } finally {
+          setLoadingPrices(false);
+        }
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
 
   // --- HANDLERS ---
   const handlePriceListChange = async (pl: PriceList) => {
@@ -1150,7 +1311,7 @@ function CataloguePageContent() {
       setLoadingPrices(true);
       const allIds = Array.from(new Set(priceData.map((i) => i.itemId))).join(",");
       try {
-        const url = `/api/catalogue/prices?priceId=${pl.priceId}&itemIds=${allIds}`;
+        const url = `/api/catalogue/prices?priceId=${pl.priceId}&itemIds=${allIds}${langQ}`;
         const res = await fetch(url);
         if (res.ok) setPriceData(await res.json());
       } finally {
@@ -1168,7 +1329,7 @@ function CataloguePageContent() {
     
     setLoadingTypes(true);
     try {
-      const res = await fetch(`/api/catalogue/itemtypes?prodId=${prod.prodId}`);
+      const res = await fetch(`/api/catalogue/itemtypes?prodId=${prod.prodId}${langQ}`);
       if (res.ok) setItemTypes(await res.json());
     } finally {
       setLoadingTypes(false);
@@ -1191,7 +1352,7 @@ function CataloguePageContent() {
     
     setLoadingItems(true);
     try {
-      const res = await fetch(`/api/catalogue/items?itemTypeId=${type.itemTypeId}`);
+      const res = await fetch(`/api/catalogue/items?itemTypeId=${type.itemTypeId}${langQ}`);
       if (res.ok) setItems(await res.json());
     } finally {
       setLoadingItems(false);
@@ -1221,6 +1382,7 @@ function CataloguePageContent() {
       let url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}`;
       if (selectedProduct) url += `&prodId=${selectedProduct.prodId}`;
       if (selectedType) url += `&typeId=${selectedType.itemTypeId}`;
+      url += langQ;
       
       const res = await fetch(url);
       if (!res.ok) throw new Error("Erreur lors du chargement des prix");
@@ -1243,7 +1405,7 @@ function CataloguePageContent() {
     setLoadingPrices(true);
     try {
       const idsString = itemIds.join(",");
-      const url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}&itemIds=${idsString}`;
+      const url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}&itemIds=${idsString}${langQ}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error("Erreur fetch items");
       const newItems: ItemPriceData[] = await res.json();
@@ -1383,8 +1545,8 @@ function CataloguePageContent() {
 
       // Group by category then class for PDF
       const groupedForPdf = priceData.reduce((acc, item) => {
-        const categoryKey = item.categoryName || "Articles Ajoutés";
-        const classKey = item.className || "Sans classe";
+        const categoryKey = item.categoryName || t.addedItems;
+        const classKey = item.className || t.withoutClass;
         if (!acc[categoryKey]) acc[categoryKey] = {};
         if (!acc[categoryKey][classKey]) acc[categoryKey][classKey] = [];
         acc[categoryKey][classKey].push(item);
@@ -1415,7 +1577,7 @@ function CataloguePageContent() {
         doc.setTextColor(200, 200, 200);
         doc.setFontSize(7);
         doc.setFont("helvetica", "normal");
-        doc.text(`${Object.keys(classesByCategory).length} classe(s) • ${totalInCategory} article(s)`, pageWidth - 18, finalY + 6.5, { align: "right" });
+        doc.text(`${Object.keys(classesByCategory).length} ${t.classes} • ${totalInCategory} ${t.articles}`, pageWidth - 18, finalY + 6.5, { align: "right" });
         finalY += 13;
 
         for (const [className, classItems] of Object.entries(classesByCategory)) {
@@ -1430,7 +1592,7 @@ function CataloguePageContent() {
           doc.text(className.toUpperCase(), 18, finalY + 5);
           doc.setTextColor(200, 200, 200);
           doc.setFontSize(7);
-          doc.text(`${classItems.length} article(s)`, pageWidth - 18, finalY + 5, { align: "right" });
+          doc.text(`${classItems.length} ${t.articles}`, pageWidth - 18, finalY + 5, { align: "right" });
           finalY += 7;
           classHeaderDrawn = true;
         };
@@ -1667,8 +1829,8 @@ function CataloguePageContent() {
   
   // Group items by Category, then by Class
   const groupedByCategory = itemsWithPrices.reduce((acc, item) => {
-    const categoryKey = item.categoryName || "Articles Ajoutés";
-    const classKey = item.className || "Sans classe";
+    const categoryKey = item.categoryName || t.addedItems;
+    const classKey = item.className || t.withoutClass;
     
     if (!acc[categoryKey]) acc[categoryKey] = {};
     if (!acc[categoryKey][classKey]) acc[categoryKey][classKey] = [];
@@ -1755,39 +1917,49 @@ function CataloguePageContent() {
                 </div>
 
                 {/* Details Toggle Switch */}
-                <ToggleSwitch 
-                  enabled={showDetails} 
-                  onToggle={handleToggleDetails} 
-                  label="Voir détails"
+                <ToggleSwitch
+                  enabled={showDetails}
+                  onToggle={handleToggleDetails}
+                  label={t.viewDetails}
                   loading={isAuthenticating}
                 />
 
+                {/* Language Toggle */}
+                <button
+                  onClick={() => setLang(lang === "fr" ? "en" : "fr")}
+                  className="flex items-center gap-1.5 h-10 px-3 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition-all text-sm font-bold text-white"
+                  title={lang === "fr" ? "Switch to English" : "Passer en français"}
+                >
+                  <Languages className="w-4 h-4" />
+                  <span className="uppercase">{lang === "fr" ? "EN" : "FR"}</span>
+                </button>
+
                 {/* Filters Toggle Button */}
-                <ToggleButton 
-                  active={filtersExpanded} 
-                  onClick={() => setFiltersExpanded(!filtersExpanded)} 
-                  icon={SlidersHorizontal} 
-                  title="Afficher/Masquer les filtres"
+                <ToggleButton
+                  active={filtersExpanded}
+                  onClick={() => setFiltersExpanded(!filtersExpanded)}
+                  icon={SlidersHorizontal}
+                  title={t.showHideFilters}
                 />
               </div>
 
               {/* RIGHT SECTION: Search + Add + Email + Recycle + Close */}
               <div className="flex items-center gap-1.5 sm:gap-2">
                 {/* Search Button */}
-                <ActionButton 
-                  onClick={() => setShowQuickAdd(true)} 
-                  icon={Search} 
-                  title="Recherche rapide par code"
+                <ActionButton
+                  onClick={() => setShowQuickAdd(true)}
+                  icon={Search}
+                  title={t.quickSearchBtn}
                 />
-                
+
                 {/* Email Button with Label */}
                 <ActionButton
                   onClick={() => setShowEmailModal(true)}
                   disabled={priceData.length === 0 || showDetails || selectedPriceList?.code === "01-EXP"}
                   icon={Mail}
-                  title={showDetails || selectedPriceList?.code === "01-EXP" ? "Désactivé pour cette liste" : "Envoyer par courriel"}
+                  title={showDetails || selectedPriceList?.code === "01-EXP" ? t.disabledForList : t.sendEmailTitle}
                   primary
-                  label={!isCompact ? "Envoyer" : undefined}
+                  label={!isCompact ? t.send : undefined}
                 />
 
                 {/* Download PDF Button */}
@@ -1795,27 +1967,27 @@ function CataloguePageContent() {
                   onClick={handleDownloadPDF}
                   disabled={priceData.length === 0}
                   icon={Download}
-                  title="Télécharger en PDF"
+                  title={t.downloadPdf}
                   primary
-                  label={!isCompact ? "Télécharger" : undefined}
+                  label={!isCompact ? t.download : undefined}
                   loading={isDownloading}
                 />
 
                 <div className="w-px h-8 bg-white/20 mx-1 hidden sm:block" />
 
                 {/* CHANGE: Recycle Button (moved before Close, changed icon) */}
-                <ActionButton 
-                  onClick={() => setPriceData([])} 
-                  disabled={priceData.length === 0} 
-                  icon={Recycle} 
-                  title="Effacer tout" 
+                <ActionButton
+                  onClick={() => setPriceData([])}
+                  disabled={priceData.length === 0}
+                  icon={Recycle}
+                  title={t.clearAll}
                 />
 
                 {/* Close Button */}
-                <ActionButton 
-                  onClick={() => router.back()} 
-                  icon={X} 
-                  title="Fermer" 
+                <ActionButton
+                  onClick={() => router.back()}
+                  icon={X}
+                  title={t.close}
                 />
               </div>
             </div>
@@ -1827,16 +1999,16 @@ function CataloguePageContent() {
                   {/* Category Dropdown */}
                   <FilterDropdown
                     id="category"
-                    label="Catégorie"
+                    label={t.category}
                     icon={Layers}
                     value={selectedProduct?.name}
-                    placeholder="Sélectionner..."
+                    placeholder={t.select}
                     options={products}
                     disabled={loadingTypes}
                     openDropdown={openDropdown}
                     setOpenDropdown={setOpenDropdown}
                     onClear={handleClearProduct}
-                    clearLabel="Toutes les catégories"
+                    clearLabel={t.allCategories}
                     renderOption={(prod: Product) => (
                       <button
                         key={prod.prodId}
@@ -1855,16 +2027,16 @@ function CataloguePageContent() {
                   {/* Class Dropdown */}
                   <FilterDropdown
                     id="class"
-                    label="Classe (Opt.)"
+                    label={t.classOpt}
                     icon={Package}
                     value={selectedType?.description}
-                    placeholder="Toutes"
+                    placeholder={t.allOpt}
                     options={itemTypes}
                     disabled={!selectedProduct || loadingItems}
                     openDropdown={openDropdown}
                     setOpenDropdown={setOpenDropdown}
                     onClear={handleClearType}
-                    clearLabel="Toutes les classes"
+                    clearLabel={t.allClasses}
                     renderOption={(type: ItemType) => (
                       <button
                         key={type.itemTypeId}
@@ -1887,6 +2059,8 @@ function CataloguePageContent() {
                     onChange={setSelectedItemIds}
                     disabled={!selectedType}
                     accentColor={accentColor}
+                    label={t.itemsOpt}
+                    selectLabel={t.articles}
                   />
 
                   {/* Add Button */}
@@ -1894,9 +2068,9 @@ function CataloguePageContent() {
                     onClick={handleLoadSelection}
                     disabled={!canAddSelection}
                     icon={Plus}
-                    title="Ajouter la sélection à la liste"
+                    title={t.addSelectionTitle}
                     primary
-                    label={!isCompact ? "Ajouter" : undefined}
+                    label={!isCompact ? t.add : undefined}
                     loading={loadingPrices}
                   />
                 </div>
@@ -1920,8 +2094,8 @@ function CataloguePageContent() {
                 />
               </div>
               <div className="text-center">
-                <p className="text-xl font-bold text-[hsl(var(--text-secondary))]">Chargement des prix</p>
-                <p className="text-[hsl(var(--text-tertiary))] mt-1">Veuillez patienter...</p>
+                <p className="text-xl font-bold text-[hsl(var(--text-secondary))]">{t.loadingPrices}</p>
+                <p className="text-[hsl(var(--text-tertiary))] mt-1">{t.pleaseWait}</p>
               </div>
             </div>
           ) : priceError ? (
@@ -1930,10 +2104,10 @@ function CataloguePageContent() {
                 <AlertCircle className="w-12 h-12" style={{ color: accentColor }} />
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold" style={{ color: accentColor }}>Erreur</p>
+                <p className="text-2xl font-bold" style={{ color: accentColor }}>{t.error}</p>
                 <p className="text-[hsl(var(--text-tertiary))] mt-2 max-w-md">{priceError}</p>
                 <button onClick={() => handleLoadSelection()} className="mt-6 px-6 py-3 rounded-2xl text-sm font-bold border-2 transition-all hover:scale-105 active:scale-95" style={{ borderColor: accentColor, color: accentColor }}>
-                  <RefreshCw className="w-4 h-4 inline mr-2" />Réessayer
+                  <RefreshCw className="w-4 h-4 inline mr-2" />{t.retry}
                 </button>
               </div>
             </div>
@@ -1958,7 +2132,7 @@ function CataloguePageContent() {
                           </div>
                           <div>
                             <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-wide">{categoryName}</h2>
-                            <p className="text-white/50 text-sm mt-0.5">{Object.keys(classesByCategory).length} classe(s) • {totalItemsInCategory} article(s)</p>
+                            <p className="text-white/50 text-sm mt-0.5">{Object.keys(classesByCategory).length} {t.classes} • {totalItemsInCategory} {t.articles}</p>
                           </div>
                         </div>
                         <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white/10 rounded-xl backdrop-blur-sm border border-white/10">
@@ -1992,7 +2166,7 @@ function CataloguePageContent() {
                           <Package className="w-5 h-5 text-white/70" />
                           <div>
                             <h3 className="text-base sm:text-lg font-bold text-white uppercase tracking-wide">{className}</h3>
-                            <p className="text-white/60 text-xs mt-0.5">{classItems.length} article(s)</p>
+                            <p className="text-white/60 text-xs mt-0.5">{classItems.length} {t.articles}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 px-2.5 py-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
@@ -2056,7 +2230,7 @@ function CataloguePageContent() {
                                         <button
                                           onClick={() => handleRemoveItem(item.itemId)}
                                           className="w-6 h-6 rounded-md flex items-center justify-center text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))] transition-all"
-                                          title="Retirer cet article"
+                                          title={t.removeItem}
                                         >
                                           <Minus className="w-4 h-4" />
                                         </button>
@@ -2186,9 +2360,9 @@ function CataloguePageContent() {
                 <Inbox className="w-14 h-14" style={{ color: `${accentColor}40` }} />
               </div>
               <div className="text-center max-w-md">
-                <p className="text-2xl font-bold text-[hsl(var(--text-secondary))]">Aucun prix sélectionné</p>
+                <p className="text-2xl font-bold text-[hsl(var(--text-secondary))]">{t.noPricesSelected}</p>
                 <p className="text-[hsl(var(--text-tertiary))] mt-3">
-                  Utilisez le bouton <span className="inline-flex items-center gap-1 px-2 py-1 bg-[hsl(var(--bg-muted))] rounded-lg"><Plus className="w-4 h-4" /> Ajouter</span> pour sélectionner des catégories ou utilisez la <span className="inline-flex items-center gap-1 px-2 py-1 bg-[hsl(var(--bg-muted))] rounded-lg"><Search className="w-4 h-4" /> Recherche</span> pour ajouter des articles individuels.
+                  {t.emptyStateP1} <span className="inline-flex items-center gap-1 px-2 py-1 bg-[hsl(var(--bg-muted))] rounded-lg"><Plus className="w-4 h-4" /> {t.emptyStateAdd}</span> {t.emptyStateP2} <span className="inline-flex items-center gap-1 px-2 py-1 bg-[hsl(var(--bg-muted))] rounded-lg"><Search className="w-4 h-4" /> {t.emptyStateSearch}</span> {t.emptyStateP3}
                 </p>
               </div>
             </div>
@@ -2201,16 +2375,16 @@ function CataloguePageContent() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="px-4 py-2 rounded-xl font-bold text-sm" style={{ backgroundColor: `${accentColor}15`, color: accentColor }}>
-                  {itemsWithPrices.length} article(s)
+                  {itemsWithPrices.length} {t.articles}
                 </div>
                 {showDetails && (
                   <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-[hsl(var(--info-muted))] text-[hsl(var(--info))] font-semibold text-sm">
-                    <Eye className="w-4 h-4" />Mode détaillé
+                    <Eye className="w-4 h-4" />{t.detailedMode}
                   </div>
                 )}
               </div>
               <div className="flex items-center gap-2 text-sm text-[hsl(var(--text-tertiary))]">
-                <span className="hidden sm:inline">Liste:</span>
+                <span className="hidden sm:inline">{t.list}</span>
                 <span className="font-bold text-[hsl(var(--text-secondary))]">{abbreviateColumnName(selectedPriceList?.code || "")}</span>
               </div>
             </div>
@@ -2219,8 +2393,8 @@ function CataloguePageContent() {
       </div>
 
       {/* ===================== MODALS ===================== */}
-      {showQuickAdd && <QuickAddPanel accentColor={accentColor} onClose={() => setShowQuickAdd(false)} onAddItems={handleAddItems} />}
-      <EmailModal isOpen={showEmailModal} onClose={() => setShowEmailModal(false)} onSend={handleEmailPDF} sending={isSendingEmail} accentColor={accentColor} />
+      {showQuickAdd && <QuickAddPanel accentColor={accentColor} onClose={() => setShowQuickAdd(false)} onAddItems={handleAddItems} langSuffix={langQ} t={t} />}
+      <EmailModal isOpen={showEmailModal} onClose={() => setShowEmailModal(false)} onSend={handleEmailPDF} sending={isSendingEmail} accentColor={accentColor} t={t} />
     </div>
   );
 }

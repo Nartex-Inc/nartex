@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
     const typeId = searchParams.get("typeId");
     const itemId = searchParams.get("itemId");
     const itemIds = searchParams.get("itemIds");
+    const isEn = searchParams.get("lang") === "en";
 
     if (!priceId || (!prodId && !itemIds)) {
       return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
@@ -99,14 +100,36 @@ export async function GET(request: NextRequest) {
     const activeFilter = `AND i."isActive" = true`;
 
     // 5. Fetch Products Info
+    const itemDescr = isEn ? `COALESCE(zdi."Descr", i."Descr")` : `i."Descr"`;
+    const prodName = isEn ? `COALESCE(zdp."Descr", p."Name")` : `p."Name"`;
+    const typeDescr = isEn ? `COALESCE(zdt."Descr", t."descr")` : `t."descr"`;
+
+    const zdJoins = isEn
+      ? `LEFT JOIN ${T.ZDATANAME} zdi
+           ON zdi."TableName" = 'Items' AND zdi."FieldName" = 'descr'
+           AND zdi."cieid" = 2 AND zdi."LangId" = 1
+           AND zdi."Id" = i."ItemId"
+         LEFT JOIN ${T.ZDATANAME} zdp
+           ON zdp."TableName" = 'Products' AND zdp."FieldName" = 'descr'
+           AND zdp."cieid" = 2 AND zdp."LangId" = 1
+           AND zdp."Id" = p."ProdId"
+         LEFT JOIN ${T.ZDATANAME} zdt
+           ON zdt."TableName" = 'itemtype' AND zdt."FieldName" = 'descr'
+           AND zdt."cieid" = 2 AND zdt."LangId" = 1
+           AND zdt."Id" = t."itemtypeid"`
+      : "";
+
     const itemsQuery = `
       SELECT
-        i."ItemId" as "itemId", i."ItemCode" as "itemCode", i."Descr" as "description",
+        i."ItemId" as "itemId", i."ItemCode" as "itemCode",
+        ${itemDescr} as "description",
         i."NetWeight" as "caisse", i."model" as "format", i."volume" as "volume",
-        p."Name" as "categoryName", t."descr" as "className"
+        ${prodName} as "categoryName",
+        ${typeDescr} as "className"
       FROM ${T.ITEMS} i
       LEFT JOIN ${T.PRODUCTS} p ON i."ProdId" = p."ProdId"
       LEFT JOIN ${T.ITEM_TYPE} t ON i."locitemtype" = t."itemtypeid"
+      ${zdJoins}
       WHERE 1=1 ${itemFilterSQL} ${activeFilter}
         AND NOT EXISTS (
           SELECT 1 FROM ${T.RECORD_SPEC_DATA} rsd

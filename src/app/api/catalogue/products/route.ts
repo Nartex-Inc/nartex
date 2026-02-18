@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { pg } from "@/lib/db";
 import { getPrextraTables } from "@/lib/prextra";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
@@ -17,10 +17,26 @@ export async function GET() {
     }
 
     const T = getPrextraTables(schema);
+    const { searchParams } = new URL(request.url);
+    const isEn = searchParams.get("lang") === "en";
+
+    const nameCol = isEn
+      ? `COALESCE(zdp."Descr", p."Name")`
+      : `p."Name"`;
+
+    const zdJoin = isEn
+      ? `LEFT JOIN ${T.ZDATANAME} zdp
+           ON zdp."TableName" = 'Products' AND zdp."FieldName" = 'descr'
+           AND zdp."cieid" = 2 AND zdp."LangId" = 1
+           AND zdp."Id" = p."ProdId"`
+      : "";
+
+    const groupExtra = isEn ? `, zdp."Descr"` : "";
+
     const query = `
       SELECT
         p."ProdId" as "prodId",
-        p."Name" as "name",
+        ${nameCol} as "name",
         COUNT(i."ItemId")::int as "itemCount"
       FROM ${T.PRODUCTS} p
       LEFT JOIN ${T.ITEMS} i ON p."ProdId" = i."ProdId"
@@ -31,10 +47,11 @@ export async function GET() {
             AND rsd."FieldName" IN ('excludecybercat', 'isPriceList')
             AND rsd."FieldValue" = '1'
         )
+      ${zdJoin}
       WHERE p."ProdId" BETWEEN 1 AND 10
-      GROUP BY p."ProdId", p."Name"
+      GROUP BY p."ProdId", p."Name"${groupExtra}
       HAVING COUNT(i."ItemId") > 0
-      ORDER BY p."Name" ASC
+      ORDER BY ${nameCol} ASC
     `;
 
     const { rows } = await pg.query(query);

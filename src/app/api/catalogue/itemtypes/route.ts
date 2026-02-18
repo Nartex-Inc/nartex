@@ -19,18 +19,33 @@ export async function GET(request: NextRequest) {
     const T = getPrextraTables(schema);
     const { searchParams } = new URL(request.url);
     const prodId = searchParams.get("prodId");
+    const isEn = searchParams.get("lang") === "en";
 
     if (!prodId) {
       return NextResponse.json({ error: "prodId requis" }, { status: 400 });
     }
 
+    const descrCol = isEn
+      ? `COALESCE(zdt."Descr", t."descr")`
+      : `t."descr"`;
+
+    const zdJoin = isEn
+      ? `LEFT JOIN ${T.ZDATANAME} zdt
+           ON zdt."TableName" = 'itemtype' AND zdt."FieldName" = 'descr'
+           AND zdt."cieid" = 2 AND zdt."LangId" = 1
+           AND zdt."Id" = t."itemtypeid"`
+      : "";
+
+    const groupExtra = isEn ? `, zdt."Descr"` : "";
+
     const query = `
       SELECT
         t."itemtypeid" as "itemTypeId",
-        t."descr" as "description",
+        ${descrCol} as "description",
         COUNT(i."ItemId")::int as "itemCount"
       FROM ${T.ITEM_TYPE} t
       INNER JOIN ${T.ITEMS} i ON t."itemtypeid" = i."locitemtype"
+      ${zdJoin}
       WHERE i."ProdId" = $1
         AND NOT EXISTS (
           SELECT 1 FROM ${T.RECORD_SPEC_DATA} rsd
@@ -39,9 +54,9 @@ export async function GET(request: NextRequest) {
             AND rsd."FieldName" IN ('excludecybercat', 'isPriceList')
             AND rsd."FieldValue" = '1'
         )
-      GROUP BY t."itemtypeid", t."descr"
+      GROUP BY t."itemtypeid", t."descr"${groupExtra}
       HAVING COUNT(i."ItemId") > 0
-      ORDER BY t."descr" ASC
+      ORDER BY ${descrCol} ASC
     `;
 
     const { rows } = await pg.query(query, [parseInt(prodId, 10)]);
