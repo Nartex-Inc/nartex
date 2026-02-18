@@ -2026,7 +2026,7 @@ function CataloguePageContent() {
                 {/* Email Button with Label */}
                 <ActionButton
                   onClick={() => setShowEmailModal(true)}
-                  disabled={priceData.length === 0 || showDetails || (!isGestionnaire && selectedPriceList?.code === "01-EXP")}
+                  disabled={priceData.length === 0 || (!isGestionnaire && (showDetails || selectedPriceList?.code === "01-EXP"))}
                   icon={Mail}
                   title={!isGestionnaire && (showDetails || selectedPriceList?.code === "01-EXP") ? t.disabledForList : t.sendEmailTitle}
                   primary
