@@ -1295,8 +1295,8 @@ function CataloguePageContent() {
   const handlePriceListChange = async (pl: PriceList) => {
     setOpenDropdown(null);
 
-    // Gate 01-EXP behind biometric auth
-    if (pl.code === "01-EXP") {
+    // Gate 01-EXP behind biometric auth (Gestionnaire bypasses)
+    if (pl.code === "01-EXP" && !isGestionnaire) {
       setIsAuthenticating(true);
       try {
         const verified = await performWebAuthn();
@@ -1511,6 +1511,11 @@ function CataloguePageContent() {
   const handleToggleDetails = async () => {
     if (showDetails) {
       setShowDetails(false);
+      return;
+    }
+    // Gestionnaire bypasses biometric auth
+    if (isGestionnaire) {
+      setShowDetails(true);
       return;
     }
     setIsAuthenticating(true);
@@ -1834,6 +1839,13 @@ function CataloguePageContent() {
   };
 
   const handleEmailPDF = async (recipientEmail: string) => {
+    // Warn Gestionnaire before sending sensitive data
+    if (isGestionnaire && (selectedPriceList?.code === "01-EXP" || showDetails)) {
+      const ok = window.confirm(
+        "Attention : cette liste contient des données sensibles (prix coûtant). Voulez-vous vraiment l'envoyer ?"
+      );
+      if (!ok) return;
+    }
     setIsSendingEmail(true);
     try {
       const doc = await generatePriceListPDF();
@@ -2014,9 +2026,9 @@ function CataloguePageContent() {
                 {/* Email Button with Label */}
                 <ActionButton
                   onClick={() => setShowEmailModal(true)}
-                  disabled={priceData.length === 0 || showDetails || selectedPriceList?.code === "01-EXP"}
+                  disabled={priceData.length === 0 || showDetails || (!isGestionnaire && selectedPriceList?.code === "01-EXP")}
                   icon={Mail}
-                  title={showDetails || selectedPriceList?.code === "01-EXP" ? t.disabledForList : t.sendEmailTitle}
+                  title={!isGestionnaire && (showDetails || selectedPriceList?.code === "01-EXP") ? t.disabledForList : t.sendEmailTitle}
                   primary
                   label={!isCompact ? t.send : undefined}
                 />
