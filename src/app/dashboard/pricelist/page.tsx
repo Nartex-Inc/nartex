@@ -93,6 +93,8 @@ const i18n = {
     disabledForList: "Désactivé pour cette liste",
     downloadPdf: "Télécharger en PDF",
     download: "Télécharger",
+    generateFullList: "Générer Liste complète",
+    generatingProgress: "Chargement {current}/{total}...",
   },
   en: {
     viewDetails: "View details",
@@ -139,6 +141,8 @@ const i18n = {
     disabledForList: "Disabled for this list",
     downloadPdf: "Download as PDF",
     download: "Download",
+    generateFullList: "Generate full list",
+    generatingProgress: "Loading {current}/{total}...",
   },
 };
 
@@ -1175,6 +1179,8 @@ function CataloguePageContent() {
   const router = useRouter();
   const { data: session } = useSession();
   const { color: accentColor } = useCurrentAccent();
+  const userRole = (session as any)?.user?.role;
+  const isGestionnaire = userRole?.toLowerCase().trim() === "gestionnaire";
   const isCompact = useMediaQuery("(max-width: 1024px)");
   const isMobile = useMediaQuery("(max-width: 640px)");
 
@@ -1207,6 +1213,8 @@ function CataloguePageContent() {
   // CHANGE: Filters collapsed by default
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [isGeneratingFullList, setIsGeneratingFullList] = useState(false);
+  const [fullListProgress, setFullListProgress] = useState("");
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   
   const [loadingPrices, setLoadingPrices] = useState(false);
@@ -1424,6 +1432,44 @@ function CataloguePageContent() {
   // NEW: Remove individual item from price list
   const handleRemoveItem = (itemId: number) => {
     setPriceData((prev) => prev.filter((item) => item.itemId !== itemId));
+  };
+
+  // Generate full list across all product categories
+  const handleGenerateFullList = async () => {
+    if (!selectedPriceList) return;
+    setIsGeneratingFullList(true);
+    setLoadingPrices(true);
+    setPriceError(null);
+    setPriceData([]);
+    let accumulated: ItemPriceData[] = [];
+
+    try {
+      for (let i = 0; i < products.length; i++) {
+        const prod = products[i];
+        setFullListProgress(
+          t.generatingProgress
+            .replace("{current}", String(i + 1))
+            .replace("{total}", String(products.length)) +
+            ` — ${prod.name}`
+        );
+
+        const url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}&prodId=${prod.prodId}${langQ}`;
+        const res = await fetch(url);
+        if (!res.ok) continue;
+
+        const newItems: ItemPriceData[] = await res.json();
+        const existingIds = new Set(accumulated.map((item) => item.itemId));
+        const deduped = newItems.filter((item) => !existingIds.has(item.itemId));
+        accumulated = [...accumulated, ...deduped];
+        setPriceData([...accumulated]);
+      }
+    } catch (err: any) {
+      setPriceError(err.message);
+    } finally {
+      setIsGeneratingFullList(false);
+      setLoadingPrices(false);
+      setFullListProgress("");
+    }
   };
 
   const performWebAuthn = async (): Promise<boolean> => {
@@ -1945,6 +1991,19 @@ function CataloguePageContent() {
 
               {/* RIGHT SECTION: Search + Add + Email + Recycle + Close */}
               <div className="flex items-center gap-1.5 sm:gap-2">
+                {/* Generate Full List (Gestionnaire only) */}
+                {isGestionnaire && (
+                  <ActionButton
+                    onClick={handleGenerateFullList}
+                    disabled={isGeneratingFullList || products.length === 0}
+                    icon={Layers}
+                    title={t.generateFullList}
+                    primary
+                    label={!isCompact ? t.generateFullList : undefined}
+                    loading={isGeneratingFullList}
+                  />
+                )}
+
                 {/* Search Button */}
                 <ActionButton
                   onClick={() => setShowQuickAdd(true)}
@@ -2094,7 +2153,9 @@ function CataloguePageContent() {
                 />
               </div>
               <div className="text-center">
-                <p className="text-xl font-bold text-[hsl(var(--text-secondary))]">{t.loadingPrices}</p>
+                <p className="text-xl font-bold text-[hsl(var(--text-secondary))]">
+                  {isGeneratingFullList ? fullListProgress : t.loadingPrices}
+                </p>
                 <p className="text-[hsl(var(--text-tertiary))] mt-1">{t.pleaseWait}</p>
               </div>
             </div>
