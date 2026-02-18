@@ -21,6 +21,35 @@ const ALLOWED_TENANT_ROLES = [
   "admin",
 ];
 
+// ---------------------------------------------------------------------------
+// Server-side query cache — invoice data is historical/immutable, safe to cache
+// ---------------------------------------------------------------------------
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+type CacheEntry = { data: unknown; ts: number };
+const queryCache = new Map<string, CacheEntry>();
+
+function getCached(key: string): unknown | null {
+  const entry = queryCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > CACHE_TTL_MS) {
+    queryCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setCache(key: string, data: unknown) {
+  queryCache.set(key, { data, ts: Date.now() });
+  // Lazy eviction: cap total entries to avoid memory leak
+  if (queryCache.size > 200) {
+    const now = Date.now();
+    for (const [k, v] of queryCache) {
+      if (now - v.ts > CACHE_TTL_MS) queryCache.delete(k);
+    }
+  }
+}
+
 export async function GET(req: Request) {
   // 1) Auth + tenant + schema check
   const auth = await requireSchema();
@@ -91,64 +120,46 @@ export async function GET(req: Request) {
     );
   }
 
-  // 8) Build and execute query with schema-qualified tables
+  // 8) Check mode
+  const mode = searchParams.get("mode");
+  const noCache = searchParams.get("noCache") === "1";
+
+  if (mode !== "customers" && mode !== "summary") {
+    return NextResponse.json(
+      { error: "Paramètre 'mode' requis. Valeurs acceptées : 'summary', 'customers'." },
+      { status: 400 }
+    );
+  }
+
+  // 9) Check server cache
+  const cacheKey = `${schema}:${mode}:${gcieid}:${startDate}:${endDate}`;
+  if (!noCache) {
+    const cached = getCached(cacheKey);
+    if (cached !== null) {
+      return NextResponse.json(cached);
+    }
+  }
+
+  // 10) Build and execute query with schema-qualified tables
   const T = getPrextraTables(schema);
 
-  const SQL_QUERY = `
-SELECT
-  sr."Name"            AS "salesRepName",
-  c."Name"             AS "customerName",
-  i."ItemCode"         AS "itemCode",
-  i."Descr"            AS "itemDescription",
-  h."InvDate"          AS "invoiceDate",
-  d."Amount"::float8   AS "salesValue"
-FROM ${T.INV_HEADER} h
-JOIN ${T.SALESREP}   sr ON h."srid"   = sr."SRId"
-JOIN ${T.CUSTOMERS}  c  ON h."custid" = c."CustId"
-JOIN ${T.INV_DETAIL} d  ON h."invnbr" = d."invnbr" AND h."cieid" = d."cieid"
-JOIN ${T.ITEMS}      i  ON d."Itemid" = i."ItemId"
-JOIN ${T.PRODUCTS}   p  ON i."ProdId" = p."ProdId" AND p."CieID" = h."cieid"
-WHERE h."cieid" = $1
-  AND h."InvDate" BETWEEN $2 AND $3
-  AND sr."Name" <> 'OTOPROTEC (004)'
-  AND NOT (
-    CASE
-      WHEN btrim(p."ProdCode") ~ '^[0-9]+$'
-        THEN (btrim(p."ProdCode")::int > 499)
-      ELSE FALSE
-    END
-  );
-`;
-
-  // 9) Check for mode=customers (lightweight distinct query for new-customer lookback)
-  const mode = searchParams.get("mode");
-
   if (mode === "customers") {
+    // Simplified: only 2 tables needed — "new customer" = no invoices at all
     const CUSTOMERS_QUERY = `
 SELECT DISTINCT c."Name" AS "customerName"
 FROM ${T.INV_HEADER} h
-JOIN ${T.SALESREP}   sr ON h."srid"   = sr."SRId"
-JOIN ${T.CUSTOMERS}  c  ON h."custid" = c."CustId"
-JOIN ${T.INV_DETAIL} d  ON h."invnbr" = d."invnbr" AND h."cieid" = d."cieid"
-JOIN ${T.ITEMS}      i  ON d."Itemid" = i."ItemId"
-JOIN ${T.PRODUCTS}   p  ON i."ProdId" = p."ProdId" AND p."CieID" = h."cieid"
+JOIN ${T.CUSTOMERS} c ON h."custid" = c."CustId"
 WHERE h."cieid" = $1
-  AND h."InvDate" BETWEEN $2 AND $3
-  AND sr."Name" <> 'OTOPROTEC (004)'
-  AND NOT (
-    CASE
-      WHEN btrim(p."ProdCode") ~ '^[0-9]+$'
-        THEN (btrim(p."ProdCode")::int > 499)
-      ELSE FALSE
-    END
-  );
+  AND h."InvDate" BETWEEN $2 AND $3;
 `;
     try {
       const params: [number, string, string] = [gcieid, startDate, endDate];
       const { rows } = await pg.query(CUSTOMERS_QUERY, params);
-      return NextResponse.json({
+      const result = {
         customers: rows.map((r: { customerName: string }) => r.customerName),
-      });
+      };
+      setCache(cacheKey, result);
+      return NextResponse.json(result);
     } catch (error: unknown) {
       console.error("Database query failed in /api/dashboard-data (mode=customers):", error);
       return NextResponse.json(
@@ -161,8 +172,19 @@ WHERE h."cieid" = $1
     }
   }
 
-  if (mode === "summary") {
-    const SUMMARY_QUERY = `
+  // mode === "summary"
+  const SUMMARY_QUERY = `
+WITH valid_products AS (
+  SELECT "ProdId", "CieID"
+  FROM ${T.PRODUCTS}
+  WHERE NOT (
+    CASE
+      WHEN btrim("ProdCode") ~ '^[0-9]+$'
+        THEN btrim("ProdCode")::int > 499
+      ELSE FALSE
+    END
+  )
+)
 SELECT
   sr."Name"                        AS "salesRepName",
   c."Name"                         AS "customerName",
@@ -176,41 +198,19 @@ JOIN ${T.SALESREP}   sr ON h."srid"   = sr."SRId"
 JOIN ${T.CUSTOMERS}  c  ON h."custid" = c."CustId"
 JOIN ${T.INV_DETAIL} d  ON h."invnbr" = d."invnbr" AND h."cieid" = d."cieid"
 JOIN ${T.ITEMS}      i  ON d."Itemid" = i."ItemId"
-JOIN ${T.PRODUCTS}   p  ON i."ProdId" = p."ProdId" AND p."CieID" = h."cieid"
+JOIN valid_products  vp ON i."ProdId" = vp."ProdId" AND vp."CieID" = h."cieid"
 WHERE h."cieid" = $1
   AND h."InvDate" BETWEEN $2 AND $3
   AND sr."Name" <> 'OTOPROTEC (004)'
-  AND NOT (
-    CASE
-      WHEN btrim(p."ProdCode") ~ '^[0-9]+$'
-        THEN (btrim(p."ProdCode")::int > 499)
-      ELSE FALSE
-    END
-  )
 GROUP BY sr."Name", c."Name", i."ItemCode", to_char(h."InvDate", 'YYYY-MM');
 `;
-    try {
-      const params: [number, string, string] = [gcieid, startDate, endDate];
-      const { rows } = await pg.query(SUMMARY_QUERY, params);
-      return NextResponse.json(rows);
-    } catch (error: unknown) {
-      console.error("Database query failed in /api/dashboard-data (mode=summary):", error);
-      return NextResponse.json(
-        {
-          error: "Échec de la récupération des données du tableau de bord.",
-          details: getErrorMessage(error),
-        },
-        { status: 500 }
-      );
-    }
-  }
-
   try {
     const params: [number, string, string] = [gcieid, startDate, endDate];
-    const { rows } = await pg.query(SQL_QUERY, params);
+    const { rows } = await pg.query(SUMMARY_QUERY, params);
+    setCache(cacheKey, rows);
     return NextResponse.json(rows);
   } catch (error: unknown) {
-    console.error("Database query failed in /api/dashboard-data:", error);
+    console.error("Database query failed in /api/dashboard-data (mode=summary):", error);
     return NextResponse.json(
       {
         error: "Échec de la récupération des données du tableau de bord.",

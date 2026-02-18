@@ -78,7 +78,7 @@ export function useDashboardData() {
     [getCacheKey]
   );
 
-  // Data fetching — serves from cache unless forceRefresh is true
+  // Data fetching — sequential with progressive rendering
   const fetchDashboardData = useCallback(
     async (forceRefresh = false) => {
       if (!forceRefresh) {
@@ -94,26 +94,36 @@ export function useDashboardData() {
 
       setIsLoading(true);
       setError(null);
-      try {
-        const [currentRes, prevRes, histRes] = await Promise.all([
-          fetch(`/api/dashboard-data?startDate=${activeDateRange.start}&endDate=${activeDateRange.end}&mode=summary`),
-          fetch(`/api/dashboard-data?startDate=${previousYearDateRange.start}&endDate=${previousYearDateRange.end}&mode=summary`),
-          fetch(`/api/dashboard-data?startDate=${lookback3y.start}&endDate=${lookback3y.end}&mode=customers`),
-        ]);
 
+      const noCache = forceRefresh ? "&noCache=1" : "";
+
+      try {
+        // 1. Current year summary — user sees KPIs immediately
+        const currentRes = await fetch(
+          `/api/dashboard-data?startDate=${activeDateRange.start}&endDate=${activeDateRange.end}&mode=summary${noCache}`
+        );
         if (!currentRes.ok) {
           const errorData = await currentRes.json().catch(() => ({}));
           throw new Error(errorData.error || `HTTP ${currentRes.status}`);
         }
+        const master: SalesRecord[] = await currentRes.json();
+        setMasterData(master);
 
-        const master = await currentRes.json();
-        const previous = prevRes.ok ? await prevRes.json() : [];
+        // 2. Previous year summary — YOY charts appear
+        const prevRes = await fetch(
+          `/api/dashboard-data?startDate=${previousYearDateRange.start}&endDate=${previousYearDateRange.end}&mode=summary${noCache}`
+        );
+        const previous: SalesRecord[] = prevRes.ok ? await prevRes.json() : [];
+        setPreviousYearData(previous);
+
+        // 3. 3-year lookback customers — new customers list
+        const histRes = await fetch(
+          `/api/dashboard-data?startDate=${lookback3y.start}&endDate=${lookback3y.end}&mode=customers${noCache}`
+        );
         const histBody = histRes.ok ? await histRes.json() : { customers: [] };
         const history3y: string[] = histBody.customers ?? [];
-
-        setMasterData(master);
-        setPreviousYearData(previous);
         setHistory3yData(history3y);
+
         saveToCache(master, previous, history3y);
       } catch (err) {
         setError(err as Error);

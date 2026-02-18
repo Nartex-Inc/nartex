@@ -60,8 +60,11 @@ function buildPool(): Pool {
 export const pg = global.pgPool ?? buildPool();
 if (!global.pgPool) {
   global.pgPool = pg;
-  // Disable parallel workers — they amplify load on a micro instance (2 vCPUs).
+  // Session-level tuning for db.t4g.micro (2 vCPU, 1 GB RAM).
   pg.on("connect", (client) => {
     client.query("SET max_parallel_workers_per_gather = 0").catch(() => {});
+    // 8MB work_mem prevents hash aggregate spills to disk.
+    // Worst case: 5 connections × 8MB = 40MB — safe on 1GB instance.
+    client.query("SET work_mem = '8MB'").catch(() => {});
   });
 }
