@@ -16,7 +16,7 @@ function isPublicApiRoute(pathname: string): boolean {
 
 export default withAuth({
   pages: {
-    signIn: "/auth/signin",
+    signIn: "/",
   },
   callbacks: {
     authorized({ req, token }) {
