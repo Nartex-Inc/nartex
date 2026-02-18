@@ -23,11 +23,20 @@ function buildPool(): Pool {
   const ca = candidatePaths.map(readIfExists).find(Boolean);
   const sslWithCA = ca ? { ca, rejectUnauthorized: true } : undefined;
 
+  // Shared safeguards for db.t4g.micro (2 vCPU, 1 GB RAM)
+  const poolDefaults = {
+    max: 5,                       // keep pool small — micro can't handle many connections
+    connectionTimeoutMillis: 5000, // fail fast if pool exhausted (was: wait forever)
+    idleTimeoutMillis: 30000,
+    statement_timeout: 30000,      // kill queries after 30 s (was: unlimited)
+  };
+
   // Connection URL?
   if (/^postgres(ql)?:\/\//i.test(raw)) {
     return new Pool({
       connectionString: raw,
-      ssl: sslWithCA ?? { rejectUnauthorized: false }, // fallback keeps old behavior
+      ssl: sslWithCA ?? { rejectUnauthorized: false },
+      ...poolDefaults,
     });
   }
 
@@ -40,6 +49,7 @@ function buildPool(): Pool {
     port:     Number(s.port ?? 5432),
     database: s.dbInstanceIdentifier ?? s.dbname ?? s.database ?? s.db ?? "postgres",
     ssl:      sslWithCA ?? { rejectUnauthorized: false },
+    ...poolDefaults,
   };
   if (!cfg.user || !cfg.password || !cfg.host) {
     throw new Error("RDS_CREDENTIALS JSON missing username/password/host.");
@@ -48,4 +58,10 @@ function buildPool(): Pool {
 }
 
 export const pg = global.pgPool ?? buildPool();
-if (!global.pgPool) global.pgPool = pg;
+if (!global.pgPool) {
+  global.pgPool = pg;
+  // Disable parallel workers — they amplify load on a micro instance (2 vCPUs).
+  pg.on("connect", (client) => {
+    client.query("SET max_parallel_workers_per_gather = 0").catch(() => {});
+  });
+}
