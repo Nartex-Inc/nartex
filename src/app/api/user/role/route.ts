@@ -44,28 +44,55 @@ export async function GET() {
     }
 
     // Fetch all users with their tenant assignments
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        name: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        image: true,
-        role: true,
-        canManageTickets: true,
-        createdAt: true,
-        updatedAt: true,
-        tenants: {
-          include: {
-            tenant: {
-              select: { id: true, name: true, slug: true },
+    // Try with canManageTickets first; fall back without it if column doesn't exist yet
+    let users;
+    try {
+      users = await prisma.user.findMany({
+        select: {
+          id: true,
+          name: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          image: true,
+          role: true,
+          canManageTickets: true,
+          createdAt: true,
+          updatedAt: true,
+          tenants: {
+            include: {
+              tenant: {
+                select: { id: true, name: true, slug: true },
+              },
             },
           },
         },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+        orderBy: { createdAt: "desc" },
+      });
+    } catch {
+      // Column may not exist yet if migration hasn't run
+      users = (await prisma.user.findMany({
+        select: {
+          id: true,
+          name: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          image: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+          tenants: {
+            include: {
+              tenant: {
+                select: { id: true, name: true, slug: true },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      })).map((u) => ({ ...u, canManageTickets: false as boolean }));
+    }
 
     // Transform to expected format
     const transformedUsers = users.map((user) => ({
@@ -74,7 +101,7 @@ export async function GET() {
       email: user.email,
       image: user.image,
       role: user.role || "user",
-      canManageTickets: user.canManageTickets ?? false,
+      canManageTickets: (user as any).canManageTickets ?? false,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       tenants: user.tenants.map((ut) => ({
@@ -122,11 +149,18 @@ export async function PATCH(request: NextRequest) {
 
     // Support updating canManageTickets independently
     if (userId && canManageTickets !== undefined && role === undefined) {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { canManageTickets: !!canManageTickets },
-      });
-      return NextResponse.json({ message: "Permission mise à jour avec succès" });
+      try {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { canManageTickets: !!canManageTickets },
+        });
+        return NextResponse.json({ message: "Permission mise à jour avec succès" });
+      } catch {
+        return NextResponse.json(
+          { error: "La colonne canManageTickets n'existe pas encore. Migration en attente." },
+          { status: 500 }
+        );
+      }
     }
 
     if (!userId || !role) {

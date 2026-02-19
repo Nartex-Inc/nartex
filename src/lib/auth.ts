@@ -134,27 +134,46 @@ export const authOptions: NextAuthOptions = {
         // Fetch authoritative role + default tenant from DB
         if (token.email) {
           try {
-            const dbUser = await prisma.user.findUnique({
-              where: { email: token.email },
-              select: {
-                id: true,
-                name: true,
-                role: true,
-                image: true,
-                canManageTickets: true,
-                tenants: {
-                  select: { tenantId: true },
-                  take: 1,
-                  orderBy: { createdAt: "asc" },
+            let dbUser;
+            try {
+              dbUser = await prisma.user.findUnique({
+                where: { email: token.email },
+                select: {
+                  id: true,
+                  name: true,
+                  role: true,
+                  image: true,
+                  canManageTickets: true,
+                  tenants: {
+                    select: { tenantId: true },
+                    take: 1,
+                    orderBy: { createdAt: "asc" },
+                  },
                 },
-              },
-            });
+              });
+            } catch {
+              // Fallback if canManageTickets column doesn't exist yet
+              dbUser = await prisma.user.findUnique({
+                where: { email: token.email },
+                select: {
+                  id: true,
+                  name: true,
+                  role: true,
+                  image: true,
+                  tenants: {
+                    select: { tenantId: true },
+                    take: 1,
+                    orderBy: { createdAt: "asc" },
+                  },
+                },
+              });
+            }
 
             if (dbUser) {
               token.id = dbUser.id;
               token.name = dbUser.name;
               token.role = dbUser.role as string;
-              token.canManageTickets = dbUser.canManageTickets ?? false;
+              token.canManageTickets = (dbUser as any).canManageTickets ?? false;
               if (dbUser.image) token.picture = dbUser.image;
               if (!token.activeTenantId && dbUser.tenants.length > 0) {
                 token.activeTenantId = dbUser.tenants[0].tenantId;
