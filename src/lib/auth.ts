@@ -77,17 +77,17 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    // 1. SIGN IN: Force the Database to update with the Google Image
+    // 1. SIGN IN: Force the Database to update with the Google Image + process invitations
     async signIn({ user, account, profile }) {
       if (account?.provider === "google" && user.email) {
         try {
           // Get the image URL directly from the Google profile
           const newImage = (profile as any)?.picture;
-          
+
           if (newImage) {
             await prisma.user.update({
               where: { email: user.email },
-              data: { 
+              data: {
                 image: newImage,
                 emailVerified: new Date() // Trust Google verification
               }
@@ -97,6 +97,52 @@ export const authOptions: NextAuthOptions = {
           console.error("Error syncing Google profile data:", error);
         }
       }
+
+      // Process pending invitation for this email (any OAuth provider)
+      if (user.email) {
+        try {
+          const invitation = await prisma.invitation.findFirst({
+            where: {
+              email: { equals: user.email, mode: "insensitive" },
+              status: "pending",
+              expiresAt: { gt: new Date() },
+            },
+            select: { id: true, role: true, tenantId: true },
+          });
+
+          if (invitation) {
+            // Update user role
+            await prisma.user.update({
+              where: { email: user.email },
+              data: { role: invitation.role },
+            });
+
+            // Upsert UserTenant link
+            const dbUser = await prisma.user.findUnique({
+              where: { email: user.email },
+              select: { id: true },
+            });
+            if (dbUser) {
+              await prisma.userTenant.upsert({
+                where: {
+                  userId_tenantId: { userId: dbUser.id, tenantId: invitation.tenantId },
+                },
+                create: { userId: dbUser.id, tenantId: invitation.tenantId },
+                update: {},
+              });
+            }
+
+            // Mark invitation as accepted
+            await prisma.invitation.update({
+              where: { id: invitation.id },
+              data: { status: "accepted" },
+            });
+          }
+        } catch (error) {
+          console.error("Error processing invitation on sign-in:", error);
+        }
+      }
+
       return true;
     },
 

@@ -22,6 +22,10 @@ import {
   Pencil,
   Building2,
   X,
+  UserPlus,
+  Plus,
+  Trash2,
+  Send,
 } from "lucide-react";
 
 // ============================================================================
@@ -415,6 +419,215 @@ function UserRow({ user, currentUserEmail, onRoleChange, onTenantChange, onToggl
   );
 }
 
+// ============================================================================
+// INVITE USERS MODAL
+// ============================================================================
+
+interface InvitationRow {
+  email: string;
+  role: RoleValue;
+}
+
+function InviteUsersModal({ isOpen, onClose, accentColor }: {
+  isOpen: boolean;
+  onClose: () => void;
+  accentColor: string;
+}) {
+  const { data: session } = useSession();
+  const [rows, setRows] = useState<InvitationRow[]>([{ email: "", role: "user" }]);
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ sent: string[]; skipped: string[] } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const activeTenantId = (session?.user as any)?.activeTenantId;
+
+  const updateRow = (index: number, field: keyof InvitationRow, value: string) => {
+    setRows((prev) => prev.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
+  };
+
+  const addRow = () => {
+    setRows((prev) => [...prev, { email: "", role: "user" }]);
+  };
+
+  const removeRow = (index: number) => {
+    setRows((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  const canAddRow = rows.length < 20 && rows.every((r) => isValidEmail(r.email));
+  const canSend = rows.length > 0 && rows.every((r) => isValidEmail(r.email));
+
+  const handleSend = async () => {
+    setError(null);
+    setResult(null);
+    setSending(true);
+
+    try {
+      const res = await fetch("/api/invitations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invitations: rows }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Erreur lors de l'envoi");
+      } else {
+        setResult(data);
+        setRows([{ email: "", role: "user" }]);
+      }
+    } catch {
+      setError("Erreur de communication avec le serveur");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleClose = () => {
+    setRows([{ email: "", role: "user" }]);
+    setResult(null);
+    setError(null);
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
+
+      {/* Modal */}
+      <div className="relative w-full max-w-2xl mx-4 bg-[hsl(var(--bg-elevated))] border border-[hsl(var(--border-subtle))] rounded-2xl shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-[hsl(var(--border-subtle))]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}20` }}>
+              <UserPlus className="w-5 h-5" style={{ color: accentColor }} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-[hsl(var(--text-primary))]">Inviter des utilisateurs</h2>
+              <p className="text-sm text-[hsl(var(--text-muted))]">Envoyez des invitations par courriel</p>
+            </div>
+          </div>
+          <button onClick={handleClose} className="p-2 rounded-lg hover:bg-[hsl(var(--bg-muted))] transition-colors">
+            <X className="w-5 h-5 text-[hsl(var(--text-muted))]" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 max-h-[60vh] overflow-y-auto">
+          {/* Tenant badge */}
+          {activeTenantId && (
+            <div className="mb-4 flex items-center gap-2 text-xs text-[hsl(var(--text-muted))]">
+              <Building2 className="w-3.5 h-3.5" />
+              <span>Les utilisateurs seront ajoutés au tenant actif</span>
+            </div>
+          )}
+
+          {/* Result message */}
+          {result && (
+            <div className="mb-4 p-4 rounded-xl border" style={{ backgroundColor: `${accentColor}10`, borderColor: `${accentColor}30` }}>
+              <p className="text-sm font-medium" style={{ color: accentColor }}>
+                {result.sent.length} invitation{result.sent.length !== 1 ? "s" : ""} envoyée{result.sent.length !== 1 ? "s" : ""}
+                {result.skipped.length > 0 && (
+                  <span className="text-[hsl(var(--text-muted))] font-normal">
+                    {" "}({result.skipped.length} ignorée{result.skipped.length !== 1 ? "s" : ""} — déjà dans le tenant)
+                  </span>
+                )}
+              </p>
+            </div>
+          )}
+
+          {/* Error message */}
+          {error && (
+            <div className="mb-4 p-4 rounded-xl bg-[hsl(var(--danger-muted))] border border-[hsl(var(--danger)/0.2)]">
+              <p className="text-sm text-[hsl(var(--danger))]">{error}</p>
+            </div>
+          )}
+
+          {/* Invitation rows */}
+          <div className="space-y-3">
+            {rows.map((row, idx) => (
+              <div key={idx} className="flex items-center gap-3">
+                {/* Email input */}
+                <div className="flex-1">
+                  <input
+                    type="email"
+                    placeholder="adresse@courriel.com"
+                    value={row.email}
+                    onChange={(e) => updateRow(idx, "email", e.target.value)}
+                    className="w-full px-3 py-2.5 bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))] rounded-lg text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:border-[hsl(var(--border-default))]"
+                  />
+                </div>
+
+                {/* Role selector (compact) */}
+                <select
+                  value={row.role}
+                  onChange={(e) => updateRow(idx, "role", e.target.value)}
+                  className="px-3 py-2.5 bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))] rounded-lg text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:border-[hsl(var(--border-default))] cursor-pointer"
+                >
+                  {AVAILABLE_ROLES.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+
+                {/* Remove button */}
+                {rows.length > 1 && (
+                  <button
+                    onClick={() => removeRow(idx)}
+                    className="p-2 rounded-lg hover:bg-[hsl(var(--danger-muted))] transition-colors"
+                    title="Retirer"
+                  >
+                    <Trash2 className="w-4 h-4 text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))]" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Add row button */}
+          <button
+            onClick={addRow}
+            disabled={!canAddRow}
+            className={`mt-3 flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+              canAddRow
+                ? "text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-muted))]"
+                : "text-[hsl(var(--text-muted))] opacity-50 cursor-not-allowed"
+            }`}
+          >
+            <Plus className="w-4 h-4" />
+            Ajouter une ligne
+          </button>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-[hsl(var(--border-subtle))]">
+          <button
+            onClick={handleClose}
+            className="px-4 py-2.5 rounded-lg text-sm font-medium text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-muted))] transition-colors"
+          >
+            Fermer
+          </button>
+          <button
+            onClick={handleSend}
+            disabled={!canSend || sending}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ backgroundColor: accentColor }}
+          >
+            {sending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+            Envoyer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RolesPage() {
   const { data: session } = useSession();
   const { color: accentColor } = useCurrentAccent();
@@ -427,6 +640,7 @@ export default function RolesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   const currentUserEmail = session?.user?.email || "";
   const currentUserRole = users.find((u) => u.email === currentUserEmail)?.role;
@@ -566,10 +780,26 @@ export default function RolesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-[hsl(var(--text-primary))]">Gestion des rôles</h1>
-        <p className="text-[hsl(var(--text-muted))] mt-1">Gérez les permissions et les rôles des utilisateurs</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-[hsl(var(--text-primary))]">Gestion des rôles</h1>
+          <p className="text-[hsl(var(--text-muted))] mt-1">Gérez les permissions et les rôles des utilisateurs</p>
+        </div>
+        <button
+          onClick={() => setShowInviteModal(true)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-all hover:opacity-90"
+          style={{ backgroundColor: accentColor }}
+        >
+          <UserPlus className="w-4 h-4" />
+          Inviter des utilisateurs
+        </button>
       </div>
+
+      <InviteUsersModal
+        isOpen={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        accentColor={accentColor}
+      />
 
       {error && (
         <div className="flex items-center gap-3 p-4 rounded-xl bg-[hsl(var(--danger-muted))] border border-[hsl(var(--danger)/0.2)]">

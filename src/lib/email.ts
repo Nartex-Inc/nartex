@@ -818,6 +818,152 @@ export async function sendTicketUpdateEmail(data: TicketUpdateData) {
   }
 }
 
+// =============================================================================
+// INVITATION EMAIL
+// =============================================================================
+
+interface InvitationEmailData {
+  email: string;
+  inviterName: string;
+  tenantName: string;
+  tenantLogo?: string | null;
+  roleLabel: string;
+  token: string;
+}
+
+export async function sendInvitationEmail(data: InvitationEmailData) {
+  if (!isEmailServiceConfigured || !transporter) {
+    console.error("Email transporter not configured. Cannot send invitation email.");
+    throw new Error("Service courriel non disponible.");
+  }
+
+  const signupUrl = `${process.env.NEXTAUTH_URL}/signup?invitation=${data.token}`;
+  const nartexLogoUrl = "https://nartex-static-assets.s3.ca-central-1.amazonaws.com/nartex-logo-white.png";
+  const tenantLogoUrl = getTenantLogoEmailUrl(data.tenantLogo);
+
+  const htmlBody = `
+  <!DOCTYPE html>
+  <html lang="fr">
+  <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Invitation - ${data.tenantName}</title>
+  </head>
+  <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6; -webkit-font-smoothing: antialiased;">
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f3f4f6;">
+          <tr>
+              <td align="center" style="padding: 40px 20px;">
+                  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 560px;">
+
+                      <!-- Tenant Logo Header -->
+                      <tr>
+                          <td align="center" style="padding: 24px 20px; background-color: #0D1117; border-radius: 12px 12px 0 0;">
+                              ${tenantLogoUrl
+                                ? `<img src="${tenantLogoUrl}" alt="${data.tenantName}" width="120" style="display: block; max-width: 120px; height: auto;">`
+                                : `<span style="font-size: 20px; font-weight: 700; color: #ffffff; font-family: Arial, sans-serif;">${data.tenantName}</span>`
+                              }
+                          </td>
+                      </tr>
+
+                      <!-- Main Card -->
+                      <tr>
+                          <td style="background-color: #ffffff; border-radius: 0 0 12px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06); overflow: hidden;">
+                              <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                      <td style="padding: 32px;">
+
+                                          <h1 style="margin: 0 0 24px 0; font-size: 24px; font-weight: 600; color: #111827; text-align: center;">
+                                              Vous êtes invité(e) !
+                                          </h1>
+
+                                          <p style="margin: 0 0 16px; font-size: 15px; color: #374151; line-height: 1.6;">
+                                              Bonjour,
+                                          </p>
+                                          <p style="margin: 0 0 24px; font-size: 15px; color: #374151; line-height: 1.6;">
+                                              <strong>${data.inviterName}</strong> vous invite à rejoindre <strong>${data.tenantName}</strong> sur Nartex en tant que <strong>${data.roleLabel}</strong>.
+                                          </p>
+
+                                          <!-- CTA Button -->
+                                          <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 32px 0;">
+                                              <tr>
+                                                  <td align="center">
+                                                      <!--[if mso]>
+                                                      <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${signupUrl}" style="height:50px;v-text-anchor:middle;width:250px;" arcsize="10%" strokecolor="#1D8102" fillcolor="#1D8102">
+                                                          <w:anchorlock/>
+                                                          <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:17px;font-weight:bold;">
+                                                              Créer mon compte
+                                                          </center>
+                                                      </v:roundrect>
+                                                      <![endif]-->
+                                                      <!--[if !mso]><!-->
+                                                      <a href="${signupUrl}" target="_blank" style="display: inline-block; padding: 14px 32px; background-color: #1D8102; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
+                                                          Créer mon compte
+                                                      </a>
+                                                      <!--<![endif]-->
+                                                  </td>
+                                              </tr>
+                                          </table>
+
+                                          <p style="margin: 0 0 16px; font-size: 13px; color: #6b7280; text-align: center;">
+                                              Cette invitation expire dans 7 jours.
+                                          </p>
+
+                                          <p style="margin: 24px 0 0; font-size: 13px; color: #9ca3af; line-height: 1.5;">
+                                              Si le bouton ne fonctionne pas, copiez et collez ce lien dans votre navigateur :
+                                          </p>
+                                          <p style="margin: 8px 0 0; font-size: 12px; word-break: break-all;">
+                                              <a href="${signupUrl}" style="color: #1D8102; text-decoration: underline;">${signupUrl}</a>
+                                          </p>
+
+                                      </td>
+                                  </tr>
+                              </table>
+                          </td>
+                      </tr>
+
+                      <!-- Footer -->
+                      <tr>
+                          <td align="center" style="padding: 0;">
+                              <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                      <td align="center" style="padding: 20px; background-color: #0D1117; border-radius: 8px;">
+                                          <img src="${nartexLogoUrl}" alt="Nartex" width="80" style="display: block; margin: 0 auto 10px; max-width: 80px; height: auto;">
+                                          <p style="margin: 0 0 4px 0; font-size: 11px; color: #9ca3af;">
+                                              Ce message a été envoyé automatiquement par Nartex.
+                                          </p>
+                                          <p style="margin: 0; font-size: 11px; color: #6b7280;">
+                                              &copy; ${getCurrentYear()} Nartex Inc. &bull; Tous droits réservés.
+                                          </p>
+                                      </td>
+                                  </tr>
+                              </table>
+                          </td>
+                      </tr>
+
+                  </table>
+              </td>
+          </tr>
+      </table>
+  </body>
+  </html>
+  `;
+
+  console.log(`Sending invitation email to ${data.email} for tenant ${data.tenantName}`);
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to: data.email,
+      subject: `[${data.tenantName}] Invitation à rejoindre Nartex`,
+      html: htmlBody,
+    });
+    console.log(`Invitation email sent successfully to ${data.email}`);
+  } catch (error) {
+    console.error(`Failed to send invitation email to ${data.email}:`, error);
+    throw error;
+  }
+}
+
 interface PriceListEmailData {
   to: string;
   pdfBuffer: Buffer;

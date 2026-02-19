@@ -80,7 +80,7 @@ model User {
   password String? @map("password_hash")
 
   // Updated to use the specific Enum from your SQL
-  role UserRole @default(Expert)
+  role UserRole @default(user)
 
   canManageTickets Boolean @default(false) @map("can_manage_tickets")
 
@@ -97,6 +97,7 @@ model User {
   supportTickets      SupportTicket[]
   notifications       Notification[]
   webauthnCredentials WebAuthnCredential[]
+  sentInvitations     Invitation[]
 
   @@index([role])
   @@index([email])
@@ -184,6 +185,7 @@ model Tenant {
   sharePointNodes SharePointNode[]
   returns         Return[]
   supportTickets  SupportTicket[]
+  invitations     Invitation[]
 
   @@map("tenants")
 }
@@ -199,6 +201,28 @@ model UserTenant {
 
   @@id([userId, tenantId])
   @@map("user_tenants")
+}
+
+model Invitation {
+  id        String   @id @default(uuid())
+  email     String
+  role      UserRole @default(user)
+  tenantId  String   @map("tenant_id")
+  invitedBy String   @map("invited_by")
+  token     String   @unique @default(uuid())
+  status    String   @default("pending") // pending, accepted, expired
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inviter User   @relation(fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@index([token])
+  @@index([tenantId])
+  @@index([status])
+  @@map("invitations")
 }
 
 model Project {

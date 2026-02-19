@@ -2,7 +2,7 @@
 export const dynamic = "force-dynamic";
 
 import React, { Suspense, FormEvent, useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { NextPage } from "next";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
@@ -146,6 +146,9 @@ const ParticleField: React.FC = () => {
 /* ---------------- Signup ---------------- */
 function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const invitationToken = searchParams.get("invitation");
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -153,6 +156,22 @@ function SignupForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Invitation context
+  const [invitationData, setInvitationData] = useState<{ tenantName: string; role: string; email: string; status: string } | null>(null);
+
+  useEffect(() => {
+    if (!invitationToken) return;
+    fetch(`/api/invitations/${invitationToken}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.status === "pending") {
+          setInvitationData(data);
+          setEmail(data.email);
+        }
+      })
+      .catch(() => {});
+  }, [invitationToken]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -165,7 +184,12 @@ function SignupForm() {
       const res = await fetch("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, password_confirm: confirmPassword }),
+        body: JSON.stringify({
+          email,
+          password,
+          password_confirm: confirmPassword,
+          ...(invitationToken ? { invitationToken } : {}),
+        }),
       });
       const body = await res.json();
       if (!res.ok || !body.success) {
@@ -183,7 +207,10 @@ function SignupForm() {
   const handleSSOSignUp = (provider: "google" | "azure-ad") => {
     setLoading(true);
     setError(null);
-    signIn(provider, { callbackUrl: "/dashboard" });
+    const callbackUrl = invitationToken
+      ? `/dashboard/welcome?invitation=${invitationToken}`
+      : "/dashboard";
+    signIn(provider, { callbackUrl });
   };
 
   return (
@@ -220,6 +247,14 @@ function SignupForm() {
             <div className="relative">
               <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-[hsl(var(--accent)/0.2)] via-[hsl(var(--accent)/0.15)] to-[hsl(var(--accent)/0.2)] blur-xl opacity-70" />
               <div className="relative rounded-2xl border border-[hsl(var(--border-default))]/60 bg-[hsl(var(--bg-base))]/60 backdrop-blur-2xl shadow-2xl shadow-black/30 p-8">
+                {invitationData && (
+                  <div className="mb-6 p-4 rounded-xl bg-[hsl(var(--accent)/0.1)] border border-[hsl(var(--accent)/0.3)]">
+                    <p className="text-sm text-[hsl(var(--accent))] font-medium text-center">
+                      Vous avez été invité(e) à rejoindre <strong>{invitationData.tenantName}</strong>
+                    </p>
+                  </div>
+                )}
+
                 <h2 className="text-center text-2xl font-semibold text-[hsl(var(--text-primary))]">Créer un compte</h2>
                 <p className="text-center text-[hsl(var(--text-tertiary))] text-sm mt-1">Utilisez votre e-mail ou un fournisseur SSO.</p>
 

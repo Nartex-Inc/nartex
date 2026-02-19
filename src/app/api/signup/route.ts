@@ -30,28 +30,53 @@ export async function POST(req: Request) {
     }
 
     const { email, password } = parsed.data;
+    const invitationToken = (raw as any).invitationToken as string | undefined;
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return NextResponse.json({ success: false, error: "Un compte avec cet e-mail existe déjà." }, { status: 409 });
     }
 
+    // Check for valid invitation
+    let invitation: { id: string; role: any; tenantId: string } | null = null;
+    if (invitationToken) {
+      const found = await prisma.invitation.findUnique({
+        where: { token: invitationToken },
+        select: { id: true, role: true, tenantId: true, status: true, expiresAt: true, email: true },
+      });
+      if (found && found.status === "pending" && found.expiresAt > new Date()) {
+        // Verify the email matches the invitation (case-insensitive)
+        if (found.email.toLowerCase() === email.toLowerCase()) {
+          invitation = { id: found.id, role: found.role, tenantId: found.tenantId };
+        }
+      }
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const verificationToken = randomUUID();
 
-    // --- CHANGED ---: The prisma.user.create call is now much simpler.
-    await prisma.user.create({
+    const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
-        // We set the `name` field to the email as a sensible default.
-        // It can be changed by the user later in a profile page.
-        name: email, 
+        name: email,
         verificationToken,
-        // `firstName` and `lastName` are omitted, and Prisma will
-        // leave them as null since they are optional in the schema.
+        ...(invitation ? { role: invitation.role } : {}),
       },
     });
+
+    // If invitation is valid, create tenant link and mark accepted
+    if (invitation) {
+      await prisma.$transaction([
+        prisma.userTenant.create({
+          data: { userId: user.id, tenantId: invitation.tenantId },
+        }),
+        prisma.invitation.update({
+          where: { id: invitation.id },
+          data: { status: "accepted" },
+        }),
+      ]);
+    }
 
     await sendVerificationEmail(email, verificationToken);
 

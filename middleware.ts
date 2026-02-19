@@ -8,6 +8,7 @@ const PUBLIC_API_PREFIXES = [
   "/api/health",        // Health check
   "/api/ping",          // Ping
   "/api/support/email-webhook", // External email webhook (has its own secret)
+  "/api/invitations/",  // Invitation lookup (unauthenticated users clicking email link)
 ];
 
 function isPublicApiRoute(pathname: string): boolean {

@@ -118,6 +118,29 @@ export const UpdateTicketSchema = z.object({
   assigneA: z.string().nullable().optional(),
 });
 
+// ─── Invitations ─────────────────────────────────────────────────────────────
+
+const InvitationRoleEnum = z.enum([
+  "Gestionnaire",
+  "Analyste",
+  "Verificateur",
+  "Facturation",
+  "Expert",
+  "user",
+]);
+
+const InvitationItemSchema = z.object({
+  email: z.string().email("Format d'e-mail invalide"),
+  role: InvitationRoleEnum,
+});
+
+export const CreateInvitationsSchema = z.object({
+  invitations: z
+    .array(InvitationItemSchema)
+    .min(1, "Au moins une invitation est requise")
+    .max(20, "Maximum 20 invitations à la fois"),
+});
+
 // ─── User Profile ────────────────────────────────────────────────────────────
 
 export const UpdateProfileSchema = z.object({
