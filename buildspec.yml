@@ -158,8 +158,9 @@ phases:
         echo "NEEDS_MIGRATE=${NEEDS_MIGRATE:-true}"
 
       - npx prisma -v
-      - echo "🔧 BUILD – resolve previously failed migration (one-time fix)"
+      - echo "🔧 BUILD – resolve previously failed migrations (one-time fix)"
       - npx prisma migrate resolve --rolled-back 20260213000000_set_nlabranche_gestionnaire --schema=prisma/schema.prisma || true
+      - npx prisma migrate resolve --rolled-back 20260218000000_add_dashboard_indexes --schema=prisma/schema.prisma || true
       - echo "🚀 BUILD – applying prisma migrations (always run – idempotent)"
       - npx prisma migrate deploy --schema=prisma/schema.prisma
       - /usr/bin/env bash -c 'set -euo pipefail; echo "SELECT 1;" | npx prisma db execute --schema=prisma/schema.prisma --stdin'
