@@ -7,8 +7,20 @@ import { randomUUID } from "crypto";
 import { sendVerificationEmail } from "@/lib/email";
 import { SignupSchema } from "@/lib/validations";
 import { getErrorMessage } from "@/lib/auth-helpers";
+import { rateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
+  const ip = getClientIp(req);
+  const { success, retryAfterMs } = rateLimit({
+    key: `signup:${ip}`,
+    limit: 5,
+    windowMs: 15 * 60_000,
+  });
+
+  if (!success) {
+    return rateLimitResponse(retryAfterMs);
+  }
+
   try {
     const raw = await req.json();
     const parsed = SignupSchema.safeParse(raw);

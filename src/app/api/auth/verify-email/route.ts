@@ -1,8 +1,20 @@
 // src/app/api/auth/verify-email/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { rateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
+  const ip = getClientIp(req);
+  const { success, retryAfterMs } = rateLimit({
+    key: `verify-email:${ip}`,
+    limit: 10,
+    windowMs: 15 * 60_000,
+  });
+
+  if (!success) {
+    return rateLimitResponse(retryAfterMs);
+  }
+
   try {
     const { token } = await req.json();
     if (!token || typeof token !== 'string') {
