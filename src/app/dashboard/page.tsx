@@ -606,12 +606,24 @@ export default function DashboardPage() {
     }
   }, [mounted, status, userRole, router]);
 
+  // Redirect "user" role to support
+  useEffect(() => {
+    if (mounted && status === "authenticated" && userRole?.toLowerCase() === "user") {
+      router.replace("/dashboard/support/new");
+    }
+  }, [mounted, status, userRole, router]);
+
   if (!mounted || status === "loading") {
     return null;
   }
 
   // Expert users are always redirected to pricelist, regardless of bypass emails
   if (userRole?.toLowerCase() === "expert") {
+    return null;
+  }
+
+  // "user" role redirected to support
+  if (userRole?.toLowerCase() === "user") {
     return null;
   }
 

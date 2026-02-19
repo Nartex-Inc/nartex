@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireTenant } from "@/lib/auth-helpers";
+import { requireTenant, isGestionnaire } from "@/lib/auth-helpers";
 import { sendTicketUpdateEmail } from "@/lib/email";
 import { TICKET_STATUSES } from "@/lib/support-constants";
 import { notifyTicketComment, notifyTicketStatusChange, notifyTicketReply } from "@/lib/notifications";
@@ -19,18 +19,23 @@ export async function GET(
   try {
     const auth = await requireTenant();
     if (!auth.ok) return auth.response;
-    const { tenantId } = auth;
+    const { user, tenantId } = auth;
 
     const { id } = await params;
 
     // Verify ticket exists and belongs to tenant
     const ticket = await prisma.supportTicket.findFirst({
       where: { id, tenantId },
-      select: { id: true },
+      select: { id: true, userId: true },
     });
 
     if (!ticket) {
       return NextResponse.json({ ok: false, error: "Billet introuvable" }, { status: 404 });
+    }
+
+    // Non-Gestionnaire users can only view comments on their own tickets
+    if (!isGestionnaire(user) && ticket.userId !== user.id) {
+      return NextResponse.json({ ok: false, error: "Accès refusé" }, { status: 403 });
     }
 
     const comments = await prisma.supportTicketComment.findMany({
@@ -98,6 +103,11 @@ export async function POST(
 
     if (!ticket) {
       return NextResponse.json({ ok: false, error: "Billet introuvable" }, { status: 404 });
+    }
+
+    // Non-Gestionnaire users can only comment on their own tickets
+    if (!isGestionnaire(user) && ticket.userId !== user.id) {
+      return NextResponse.json({ ok: false, error: "Accès refusé" }, { status: 403 });
     }
 
     const body = await request.json() as AddCommentPayload;

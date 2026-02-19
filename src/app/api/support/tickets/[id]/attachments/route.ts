@@ -25,7 +25,7 @@ export async function POST(
   try {
     const auth = await requireTenant();
     if (!auth.ok) return auth.response;
-    const { tenantId } = auth;
+    const { user, tenantId } = auth;
 
     const { id } = await params;
 
@@ -37,6 +37,11 @@ export async function POST(
 
     if (!ticket) {
       return NextResponse.json({ ok: false, error: "Billet introuvable" }, { status: 404 });
+    }
+
+    // Non-Gestionnaire users can only upload to their own tickets
+    if (!isGestionnaire(user) && ticket.userId !== user.id) {
+      return NextResponse.json({ ok: false, error: "Accès refusé" }, { status: 403 });
     }
 
     const contentType = request.headers.get("content-type") || "";

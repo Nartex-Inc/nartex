@@ -109,8 +109,8 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: "Support",
     items: [
-      { href: "/dashboard/support/new", title: "Nouveau billet", icon: PlusCircle },
-      { href: "/dashboard/support/tickets", title: "Billets", icon: Ticket },
+      { href: "/dashboard/support/new", title: "Nouveau billet", icon: PlusCircle, allowedRoles: ["Gestionnaire", "user"] },
+      { href: "/dashboard/support/tickets", title: "Billets", icon: Ticket, allowedRoles: ["Gestionnaire", "user"] },
     ],
   },
 ];
