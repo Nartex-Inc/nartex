@@ -89,6 +89,7 @@ interface UserData {
   email: string;
   image: string | null;
   role: string;
+  canManageTickets: boolean;
   createdAt: string;
   updatedAt: string;
   tenants: TenantInfo[];
@@ -318,11 +319,12 @@ function TenantSelector({ userTenants, allTenants, onSave, disabled, accentColor
   );
 }
 
-function UserRow({ user, currentUserEmail, onRoleChange, onTenantChange, onEditProfile, isUpdating, allTenants, accentColor }: {
+function UserRow({ user, currentUserEmail, onRoleChange, onTenantChange, onToggleTickets, onEditProfile, isUpdating, allTenants, accentColor }: {
   user: UserData;
   currentUserEmail: string;
   onRoleChange: (userId: string, role: RoleValue) => void;
   onTenantChange: (userId: string, tenantIds: string[]) => void;
+  onToggleTickets: (userId: string, value: boolean) => void;
   onEditProfile?: (userId: string) => void;
   isUpdating: boolean;
   allTenants: TenantInfo[];
@@ -381,6 +383,19 @@ function UserRow({ user, currentUserEmail, onRoleChange, onTenantChange, onEditP
           </div>
         ) : (
           <>
+            <button
+              onClick={() => onToggleTickets(user.id, !user.canManageTickets)}
+              title={user.canManageTickets ? "Désactiver gestion billets TI" : "Activer gestion billets TI"}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                user.canManageTickets
+                  ? "border-transparent text-white"
+                  : "border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))] hover:border-[hsl(var(--border-default))]"
+              }`}
+              style={user.canManageTickets ? { backgroundColor: accentColor } : undefined}
+            >
+              <Shield className="w-3 h-3" />
+              Billets TI
+            </button>
             <TenantSelector
               userTenants={user.tenants}
               allTenants={allTenants}
@@ -462,6 +477,30 @@ export default function RolesPage() {
       }
       setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
       setSuccessMessage("Rôle mis à jour avec succès");
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur inconnue");
+    } finally {
+      setUpdatingUserId(null);
+    }
+  };
+
+  const handleToggleTickets = async (userId: string, value: boolean) => {
+    try {
+      setUpdatingUserId(userId);
+      setError(null);
+      setSuccessMessage(null);
+      const response = await fetch("/api/user/role", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, canManageTickets: value }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Erreur lors de la mise à jour");
+      }
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, canManageTickets: value } : u)));
+      setSuccessMessage(value ? "Gestion billets TI activée" : "Gestion billets TI désactivée");
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
@@ -609,6 +648,7 @@ export default function RolesPage() {
                 currentUserEmail={currentUserEmail}
                 onRoleChange={handleRoleChange}
                 onTenantChange={handleTenantChange}
+                onToggleTickets={handleToggleTickets}
                 onEditProfile={userIsAdmin ? (userId) => router.push(`/dashboard/settings/profile?userId=${userId}`) : undefined}
                 isUpdating={updatingUserId === user.id}
                 allTenants={allTenants}

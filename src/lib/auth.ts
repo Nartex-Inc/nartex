@@ -141,6 +141,7 @@ export const authOptions: NextAuthOptions = {
                 name: true,
                 role: true,
                 image: true,
+                canManageTickets: true,
                 tenants: {
                   select: { tenantId: true },
                   take: 1,
@@ -153,6 +154,7 @@ export const authOptions: NextAuthOptions = {
               token.id = dbUser.id;
               token.name = dbUser.name;
               token.role = dbUser.role as string;
+              token.canManageTickets = dbUser.canManageTickets ?? false;
               if (dbUser.image) token.picture = dbUser.image;
               if (!token.activeTenantId && dbUser.tenants.length > 0) {
                 token.activeTenantId = dbUser.tenants[0].tenantId;
@@ -196,6 +198,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role as string;
         session.user.activeTenantId = token.activeTenantId as string | null;
         session.user.prextraSchema = token.prextraSchema as string | null;
+        session.user.canManageTickets = token.canManageTickets as boolean;
         session.user.image = token.picture;
       }
       return session;

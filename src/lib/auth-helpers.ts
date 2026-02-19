@@ -139,6 +139,14 @@ export function isGestionnaire(user: AuthUser): boolean {
   return hasRole(user, ["gestionnaire"]);
 }
 
+/**
+ * Check if user has the canManageTickets permission.
+ * No admin bypass — must be explicitly granted.
+ */
+export function canManageTickets(user: AuthUser): boolean {
+  return !!user.canManageTickets;
+}
+
 // ─── Error Helpers ───────────────────────────────────────────────────────────
 
 /**

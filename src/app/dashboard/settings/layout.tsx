@@ -4,6 +4,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { useCurrentAccent } from "@/components/accent-color-provider";
 
@@ -30,7 +31,14 @@ export default function SettingsLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { data: session } = useSession();
   const { color: accentColor } = useCurrentAccent();
+
+  const isGestionnaire = session?.user?.role === "Gestionnaire";
+
+  const visibleTabs = isGestionnaire
+    ? SETTINGS_TABS.filter(t => ["/dashboard/settings/profile", "/dashboard/settings/roles"].includes(t.href))
+    : SETTINGS_TABS.filter(t => t.href === "/dashboard/settings/profile");
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)]">
@@ -61,7 +69,7 @@ export default function SettingsLayout({
                 border: "1px solid hsl(var(--border-subtle))"
               }}
             >
-              {SETTINGS_TABS.map((tab) => {
+              {visibleTabs.map((tab) => {
                 const isActive = pathname === tab.href || 
                   (tab.href === "/dashboard/settings/profile" && pathname === "/dashboard/settings");
                 

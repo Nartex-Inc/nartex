@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireTenant, isGestionnaire } from "@/lib/auth-helpers";
+import { requireTenant, canManageTickets } from "@/lib/auth-helpers";
 import { sendTicketUpdateEmail } from "@/lib/email";
 import { TICKET_STATUSES } from "@/lib/support-constants";
 import { notifyTicketStatusChange } from "@/lib/notifications";
@@ -43,7 +43,7 @@ export async function GET(
     }
 
     // Non-Gestionnaire users can only view their own tickets
-    if (!isGestionnaire(user) && ticket.userId !== user.id) {
+    if (!canManageTickets(user) && ticket.userId !== user.id) {
       return NextResponse.json({ ok: false, error: "Accès refusé" }, { status: 403 });
     }
 
@@ -126,7 +126,7 @@ export async function DELETE(
     const { id } = await params;
 
     // Only Gestionnaire can delete tickets
-    if (!isGestionnaire(user)) {
+    if (!canManageTickets(user)) {
       return NextResponse.json({ ok: false, error: "Accès refusé" }, { status: 403 });
     }
 
@@ -182,7 +182,7 @@ export async function PATCH(
     }
 
     // Non-Gestionnaire users can only update their own tickets
-    if (!isGestionnaire(user) && existingTicket.userId !== user.id) {
+    if (!canManageTickets(user) && existingTicket.userId !== user.id) {
       return NextResponse.json({ ok: false, error: "Accès refusé" }, { status: 403 });
     }
 

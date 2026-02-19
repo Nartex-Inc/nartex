@@ -143,6 +143,7 @@ export default function NewSupportTicketPage() {
   }, [categorie]);
 
   const hasTenantContext = !!activeTenantId && !!activeTenant;
+  const formReady = sectionComplete[1] && sectionComplete[2] && sectionComplete[3] && sectionComplete[4];
 
   // Calculate form completion percentage
   const completionSteps = [
@@ -695,7 +696,7 @@ export default function NewSupportTicketPage() {
                   )}
                   <button
                     type="submit"
-                    disabled={submitting || !hasTenantContext}
+                    disabled={submitting || !hasTenantContext || !formReady}
                     className="w-full py-3 px-4 bg-[hsl(var(--accent))] hover:bg-[hsl(var(--accent-hover))] disabled:bg-[hsl(var(--bg-muted))] text-white rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
                   >
                     {submitting ? "Envoi en cours..." : "Soumettre la demande"}
@@ -714,7 +715,7 @@ export default function NewSupportTicketPage() {
               <div className="lg:hidden">
                 <button
                   type="submit"
-                  disabled={submitting || !hasTenantContext}
+                  disabled={submitting || !hasTenantContext || !formReady}
                   className="w-full py-3 px-4 bg-[hsl(var(--accent))] hover:bg-[hsl(var(--accent-hover))] disabled:bg-[hsl(var(--bg-muted))] text-white rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
                 >
                   {submitting ? "Envoi en cours..." : "Soumettre la demande"}
@@ -780,7 +781,7 @@ export default function NewSupportTicketPage() {
                 <div className="hidden lg:block">
                   <button
                     type="submit"
-                    disabled={submitting || !hasTenantContext}
+                    disabled={submitting || !hasTenantContext || !formReady}
                     className="w-full py-3 px-4 bg-[hsl(var(--accent))] hover:bg-[hsl(var(--accent-hover))] disabled:bg-[hsl(var(--bg-muted))] text-white rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed"
                   >
                     {submitting ? "Envoi en cours..." : "Soumettre la demande"}

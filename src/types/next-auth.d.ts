@@ -10,6 +10,7 @@ declare module "next-auth" {
       departement?: string | null;
       activeTenantId: string | null;
       prextraSchema: string | null;
+      canManageTickets?: boolean;
       firstName?: string | null;
       lastName?: string | null;
       emailVerified?: Date | null;
@@ -22,6 +23,7 @@ declare module "next-auth" {
     departement?: string | null;
     activeTenantId?: string | null;
     prextraSchema?: string | null;
+    canManageTickets?: boolean;
     firstName?: string | null;
     lastName?: string | null;
     emailVerified?: Date | null;
@@ -35,6 +37,7 @@ declare module "next-auth/jwt" {
     departement?: string | null;
     activeTenantId: string | null;
     prextraSchema: string | null;
+    canManageTickets?: boolean;
     firstName?: string | null;
     lastName?: string | null;
     emailVerified?: Date | null;

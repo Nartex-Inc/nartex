@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireTenant, isGestionnaire, getErrorMessage } from "@/lib/auth-helpers";
+import { requireTenant, canManageTickets, getErrorMessage } from "@/lib/auth-helpers";
 import { Buffer } from "buffer";
 import {
   uploadFileToDrive,
@@ -40,7 +40,7 @@ export async function POST(
     }
 
     // Non-Gestionnaire users can only upload to their own tickets
-    if (!isGestionnaire(user) && ticket.userId !== user.id) {
+    if (!canManageTickets(user) && ticket.userId !== user.id) {
       return NextResponse.json({ ok: false, error: "Accès refusé" }, { status: 403 });
     }
 
@@ -212,7 +212,7 @@ export async function DELETE(
     // Check permission: Gestionnaire or ticket owner
     const isOwner = ticket.userId === user.id;
 
-    if (!isGestionnaire(user) && !isOwner) {
+    if (!canManageTickets(user) && !isOwner) {
       return NextResponse.json({ ok: false, error: "Accès refusé" }, { status: 403 });
     }
 

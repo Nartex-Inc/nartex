@@ -53,6 +53,7 @@ export async function GET() {
         email: true,
         image: true,
         role: true,
+        canManageTickets: true,
         createdAt: true,
         updatedAt: true,
         tenants: {
@@ -73,6 +74,7 @@ export async function GET() {
       email: user.email,
       image: user.image,
       role: user.role || "user",
+      canManageTickets: user.canManageTickets ?? false,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       tenants: user.tenants.map((ut) => ({
@@ -116,7 +118,16 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { userId, role } = body;
+    const { userId, role, canManageTickets } = body;
+
+    // Support updating canManageTickets independently
+    if (userId && canManageTickets !== undefined && role === undefined) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { canManageTickets: !!canManageTickets },
+      });
+      return NextResponse.json({ message: "Permission mise à jour avec succès" });
+    }
 
     if (!userId || !role) {
       return NextResponse.json(

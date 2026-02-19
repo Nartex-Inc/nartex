@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireTenant, isGestionnaire } from "@/lib/auth-helpers";
+import { requireTenant, canManageTickets } from "@/lib/auth-helpers";
 import { calculatePriority, getEntiteForTenant, getPriorityInfo, SUPPORT_CATEGORIES, type CategoryKey } from "@/lib/support-constants";
 import { sendTicketNotificationEmail, sendTicketConfirmationEmail } from "@/lib/email";
 import { notifyNewSupportTicket } from "@/lib/notifications";
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const whereClause: Record<string, unknown> = { tenantId };
 
     // Demandeur sees only their own tickets
-    if (!isGestionnaire(user)) {
+    if (!canManageTickets(user)) {
       whereClause.userId = user.id;
     }
 

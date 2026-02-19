@@ -126,8 +126,7 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 export default function SupportTicketsPage() {
   const { data: session } = useSession();
   const router = useRouter();
-  const userRole = (session?.user as any)?.role;
-  const isGestionnaire = userRole === "Gestionnaire" || userRole === "admin";
+  const canManage = session?.user?.canManageTickets === true;
 
   // View mode: active (default) or history (resolved/closed)
   const [viewMode, setViewMode] = React.useState<"active" | "history">("active");
@@ -215,7 +214,7 @@ export default function SupportTicketsPage() {
               <p className="mt-1 text-sm text-[hsl(var(--text-tertiary))]">
                 {viewMode === "history"
                   ? "Billets résolus et fermés"
-                  : isGestionnaire
+                  : canManage
                   ? "Gérez les demandes d'assistance technique"
                   : "Suivez vos demandes d'assistance"}
               </p>
@@ -451,7 +450,7 @@ export default function SupportTicketsPage() {
           ticketId={selectedId}
           onClose={() => setSelectedId(null)}
           onRefresh={() => mutate()}
-          isGestionnaire={isGestionnaire}
+          isGestionnaire={canManage}
           currentUserId={session?.user?.id}
         />
       )}

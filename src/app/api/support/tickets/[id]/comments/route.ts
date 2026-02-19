@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireTenant, isGestionnaire } from "@/lib/auth-helpers";
+import { requireTenant, canManageTickets } from "@/lib/auth-helpers";
 import { sendTicketUpdateEmail } from "@/lib/email";
 import { TICKET_STATUSES } from "@/lib/support-constants";
 import { notifyTicketComment, notifyTicketStatusChange, notifyTicketReply } from "@/lib/notifications";
@@ -34,7 +34,7 @@ export async function GET(
     }
 
     // Non-Gestionnaire users can only view comments on their own tickets
-    if (!isGestionnaire(user) && ticket.userId !== user.id) {
+    if (!canManageTickets(user) && ticket.userId !== user.id) {
       return NextResponse.json({ ok: false, error: "Accès refusé" }, { status: 403 });
     }
 
@@ -83,7 +83,6 @@ export async function POST(
     const { user, tenantId } = auth;
 
     const { id } = await params;
-    const userRole = user.role;
 
     // Verify ticket exists and get details
     const ticket = await prisma.supportTicket.findFirst({
@@ -106,7 +105,7 @@ export async function POST(
     }
 
     // Non-Gestionnaire users can only comment on their own tickets
-    if (!isGestionnaire(user) && ticket.userId !== user.id) {
+    if (!canManageTickets(user) && ticket.userId !== user.id) {
       return NextResponse.json({ ok: false, error: "Accès refusé" }, { status: 403 });
     }
 
@@ -116,8 +115,8 @@ export async function POST(
       return NextResponse.json({ ok: false, error: "Le contenu est requis" }, { status: 400 });
     }
 
-    // Check if user can add internal comments (only Gestionnaire or admin)
-    const canAddInternalComment = userRole === "Gestionnaire" || userRole === "admin";
+    // Check if user can add internal comments (requires canManageTickets permission)
+    const canAddInternalComment = canManageTickets(user);
     const isInternal = canAddInternalComment && body.isInternal === true;
 
     // Create comment

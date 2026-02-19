@@ -8,10 +8,6 @@ import { useTheme } from "next-themes";
 import {
   User,
   Settings,
-  CreditCard,
-  Keyboard,
-  HelpCircle,
-  Sparkles,
   LogOut,
   Sun,
   Moon,
@@ -162,19 +158,6 @@ export function UserNav() {
               Rôles & Permissions
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem className="gap-3 px-2 py-2 rounded-lg text-[13px] font-medium text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] cursor-pointer">
-            <CreditCard className="h-4 w-4" />
-            Facturation
-          </DropdownMenuItem>
-          <DropdownMenuItem className="gap-3 px-2 py-2 rounded-lg text-[13px] font-medium text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] cursor-pointer justify-between">
-            <div className="flex items-center gap-3">
-              <Keyboard className="h-4 w-4" />
-              Raccourcis
-            </div>
-            <kbd className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))] border border-[hsl(var(--border-subtle))]">
-              ?
-            </kbd>
-          </DropdownMenuItem>
         </DropdownMenuGroup>
 
         <DropdownMenuSeparator className="bg-[hsl(var(--border-subtle))]" />
@@ -295,23 +278,6 @@ export function UserNav() {
             </DropdownMenuPortal>
           </DropdownMenuSub>
         </DropdownMenuGroup>
-
-        <DropdownMenuSeparator className="bg-[hsl(var(--border-subtle))]" />
-
-        {/* Help & Support */}
-        <DropdownMenuItem className="gap-3 px-2 py-2 rounded-lg text-[13px] font-medium text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] cursor-pointer">
-          <HelpCircle className="h-4 w-4" />
-          Aide & Support
-        </DropdownMenuItem>
-
-        {/* Upgrade */}
-        <DropdownMenuItem 
-          className="gap-3 px-2 py-2 rounded-lg text-[13px] font-medium cursor-pointer hover:bg-[hsl(var(--bg-elevated))]"
-          style={{ color: currentAccentColor }}
-        >
-          <Sparkles className="h-4 w-4" />
-          Mettre à niveau
-        </DropdownMenuItem>
 
         <DropdownMenuSeparator className="bg-[hsl(var(--border-subtle))]" />
 

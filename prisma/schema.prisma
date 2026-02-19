@@ -82,6 +82,8 @@ model User {
   // Updated to use the specific Enum from your SQL
   role UserRole @default(Expert)
 
+  canManageTickets Boolean @default(false) @map("can_manage_tickets")
+
   verificationToken    String?   @unique @map("verification_token")
   passwordResetToken   String?   @unique @map("password_reset_token")
   passwordResetExpires DateTime? @map("password_reset_expires")
