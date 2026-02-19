@@ -99,8 +99,8 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
 # Set Node.js memory limit to prevent OOM kills
-# ECS task: 1024MB → limit heap to 768MB (leaves room for OS)
-ENV NODE_OPTIONS="--max-old-space-size=768"
+# ECS task: 1536MB → limit heap to 1200MB (leaves room for OS)
+ENV NODE_OPTIONS="--max-old-space-size=1200"
 
 # Your CMD should then run the standalone server
 CMD ["node", "server.js"]
