@@ -101,7 +101,7 @@ async function fetchReturns(params: {
   if (params.dateFrom) usp.set("dateFrom", params.dateFrom);
   if (params.dateTo) usp.set("dateTo", params.dateTo);
   if (params.history) usp.set("history", "true");
-  usp.set("take", String(params.take ?? 200));
+  if (params.take) usp.set("take", String(params.take));
 
   try {
     const res = await fetch(`/api/returns?${usp.toString()}`, { credentials: "include", cache: "no-store" });
@@ -329,7 +329,7 @@ export default function ReturnsPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchReturns({ q: query, cause, reporter, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined, history: showHistory, take: 200 });
+      const data = await fetchReturns({ q: query, cause, reporter, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined, history: showHistory });
       setRows(data);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erreur");
@@ -724,9 +724,9 @@ function DetailModal({
               </h2>
               <div className="flex items-center gap-2.5 mt-1.5">
                 {draft.createdBy?.avatar ? (
-                  <img src={draft.createdBy.avatar} alt="" className="h-6 w-6 rounded-full object-cover ring-1 ring-[hsl(var(--border-default))]" />
+                  <img src={draft.createdBy.avatar} alt="" className="h-12 w-12 rounded-full object-cover ring-2 ring-[hsl(var(--border-default))]" />
                 ) : (
-                  <div className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-semibold text-white" style={{ backgroundColor: "var(--accent-current)" }}>
+                  <div className="h-12 w-12 rounded-full flex items-center justify-center text-lg font-semibold text-white" style={{ backgroundColor: "var(--accent-current)" }}>
                     {(creatorName || "?").charAt(0).toUpperCase()}
                   </div>
                 )}
@@ -898,14 +898,14 @@ function DetailModal({
           )}
 
           {/* Verification Info - Show after verification */}
-          {isVerified && draft.verifiedBy && !showVerificationFields && (
+          {isVerified && draft.verifiedBy && (
             <div className="p-4 rounded-xl border border-[hsl(var(--success))]/20 bg-[hsl(var(--success-muted))]">
               <div className="flex items-center gap-3 text-sm text-[hsl(var(--success))]">
                 <CheckCircle className="h-4 w-4 shrink-0" />
                 {draft.verifiedBy.avatar ? (
-                  <img src={draft.verifiedBy.avatar} alt="" className="h-7 w-7 rounded-full object-cover ring-2 ring-[hsl(var(--success))]/30" />
+                  <img src={draft.verifiedBy.avatar} alt="" className="h-14 w-14 rounded-full object-cover ring-2 ring-[hsl(var(--success))]/30" />
                 ) : (
-                  <div className="h-7 w-7 rounded-full bg-[hsl(var(--success))] flex items-center justify-center text-[11px] font-semibold text-white shrink-0">
+                  <div className="h-14 w-14 rounded-full bg-[hsl(var(--success))] flex items-center justify-center text-xl font-semibold text-white shrink-0">
                     {(draft.verifiedBy.name || "?").charAt(0).toUpperCase()}
                   </div>
                 )}
@@ -974,9 +974,9 @@ function DetailModal({
               <div className="flex items-center gap-3 text-sm text-[hsl(var(--text-tertiary))]">
                 <Check className="h-4 w-4 shrink-0" />
                 {draft.finalizedBy.avatar ? (
-                  <img src={draft.finalizedBy.avatar} alt="" className="h-7 w-7 rounded-full object-cover ring-2 ring-[hsl(var(--border-default))]" />
+                  <img src={draft.finalizedBy.avatar} alt="" className="h-14 w-14 rounded-full object-cover ring-2 ring-[hsl(var(--border-default))]" />
                 ) : (
-                  <div className="h-7 w-7 rounded-full bg-[hsl(var(--text-muted))] flex items-center justify-center text-[11px] font-semibold text-white shrink-0">
+                  <div className="h-14 w-14 rounded-full bg-[hsl(var(--text-muted))] flex items-center justify-center text-xl font-semibold text-white shrink-0">
                     {(draft.finalizedBy.name || "?").charAt(0).toUpperCase()}
                   </div>
                 )}

@@ -54,7 +54,8 @@ export async function GET(request: NextRequest) {
     const dateFrom = searchParams.get("dateFrom");
     const dateTo = searchParams.get("dateTo");
     const history = searchParams.get("history") === "true"; // Archive/History toggle
-    const take = parseInt(searchParams.get("take") || "200", 10);
+    const takeParam = searchParams.get("take");
+    const take = takeParam ? parseInt(takeParam, 10) : undefined;
 
     const userRole = user.role as UserRole | undefined;
     const userName = user.name || "";
