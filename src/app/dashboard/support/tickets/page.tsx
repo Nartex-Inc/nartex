@@ -31,7 +31,21 @@ import {
   Paperclip,
   FileText,
   Download,
+  LayoutList,
+  Columns3,
 } from "lucide-react";
+import {
+  DndContext,
+  DragOverlay,
+  useDraggable,
+  useDroppable,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
 import {
   SUPPORT_CATEGORIES,
@@ -130,6 +144,10 @@ export default function SupportTicketsPage() {
 
   // View mode: active (default) or history (resolved/closed)
   const [viewMode, setViewMode] = React.useState<"active" | "history">("active");
+
+  // Display mode: table or kanban
+  const [displayMode, setDisplayMode] = React.useState<"table" | "kanban">("table");
+  const [kanbanGroupBy, setKanbanGroupBy] = React.useState<"statut" | "priorite">("statut");
 
   // Filters
   const [query, setQuery] = React.useState("");
@@ -294,6 +312,49 @@ export default function SupportTicketsPage() {
             >
               <RotateCcw className="h-4 w-4" />
             </button>
+
+            {/* View toggle */}
+            <div className="inline-flex rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-muted))] p-0.5">
+              <button
+                onClick={() => setDisplayMode("table")}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 h-9 rounded-md text-xs font-medium transition-all",
+                  displayMode === "table"
+                    ? "bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))] shadow-sm"
+                    : "text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-secondary))]"
+                )}
+                title="Vue tableau"
+              >
+                <LayoutList className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Tableau</span>
+              </button>
+              <button
+                onClick={() => setDisplayMode("kanban")}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 h-9 rounded-md text-xs font-medium transition-all",
+                  displayMode === "kanban"
+                    ? "bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))] shadow-sm"
+                    : "text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-secondary))]"
+                )}
+                title="Vue Kanban"
+              >
+                <Columns3 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Kanban</span>
+              </button>
+            </div>
+
+            {/* Kanban group-by selector */}
+            {displayMode === "kanban" && (
+              <select
+                value={kanbanGroupBy}
+                onChange={(e) => setKanbanGroupBy(e.target.value as "statut" | "priorite")}
+                className="h-10 px-3 rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-xs font-medium text-[hsl(var(--text-secondary))] focus:outline-none"
+              >
+                <option value="statut">Par statut</option>
+                <option value="priorite">Par priorité</option>
+              </select>
+            )}
+
             {hasActiveFilters && (
               <button
                 onClick={resetFilters}
@@ -338,110 +399,120 @@ export default function SupportTicketsPage() {
           )}
         </div>
 
-        {/* Table */}
-        <div className="rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm overflow-hidden">
-          {isLoading && (
+        {/* Content */}
+        {isLoading && (
+          <div className="rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
             <div className="flex flex-col items-center justify-center py-24">
               <Loader2 className="h-8 w-8 text-[hsl(var(--text-muted))] animate-spin mb-3" />
               <p className="text-sm text-[hsl(var(--text-tertiary))]">Chargement...</p>
             </div>
-          )}
+          </div>
+        )}
 
-          {!isLoading && (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-[hsl(var(--border-default))]">
-                      <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Code</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Sujet</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Demandeur</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Catégorie</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Priorité</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Statut</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Créé</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[hsl(var(--border-subtle))]">
-                    {filteredTickets.map((ticket) => {
-                      const priorityInfo = getPriorityInfo(ticket.priorite as Priority);
-                      const statusInfo = TICKET_STATUSES.find((s) => s.value === ticket.statut);
-                      const categoryLabel = SUPPORT_CATEGORIES[ticket.categorie as CategoryKey]?.label || ticket.categorie;
+        {!isLoading && displayMode === "table" && (
+          <div className="rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[hsl(var(--border-default))]">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Code</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Sujet</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Demandeur</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Catégorie</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Priorité</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Statut</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Créé</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[hsl(var(--border-subtle))]">
+                  {filteredTickets.map((ticket) => {
+                    const priorityInfo = getPriorityInfo(ticket.priorite as Priority);
+                    const statusInfo = TICKET_STATUSES.find((s) => s.value === ticket.statut);
+                    const categoryLabel = SUPPORT_CATEGORIES[ticket.categorie as CategoryKey]?.label || ticket.categorie;
 
-                      return (
-                        <tr
-                          key={ticket.id}
-                          onClick={() => setSelectedId(ticket.id)}
-                          className="group cursor-pointer hover:bg-[hsl(var(--bg-elevated))] transition-colors"
-                        >
-                          <td className="px-4 py-3 font-mono font-medium text-[hsl(var(--text-primary))] whitespace-nowrap">
-                            {ticket.code}
-                          </td>
-                          <td className="px-4 py-3 max-w-[200px]">
-                            <div className="font-medium text-[hsl(var(--text-primary))] truncate">{ticket.sujet}</div>
-                            {ticket.commentsCount > 0 && (
-                              <div className="flex items-center gap-1 mt-0.5 text-xs text-[hsl(var(--text-tertiary))]">
-                                <MessageSquare className="h-3 w-3" />
-                                {ticket.commentsCount}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="text-[hsl(var(--text-primary))]">{ticket.userName}</div>
-                            <div className="text-xs text-[hsl(var(--text-tertiary))]">{ticket.site}</div>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className="inline-flex items-center rounded-md bg-[hsl(var(--bg-muted))] px-2 py-0.5 text-xs font-medium text-[hsl(var(--text-secondary))]">
-                              {categoryLabel}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold", priorityInfo.bgColor, priorityInfo.color)}>
-                              {priorityInfo.priority}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium", statusInfo?.bgColor, statusInfo?.color)}>
-                              <StatusIcon status={ticket.statut} />
-                              {statusInfo?.label || ticket.statut}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-[hsl(var(--text-tertiary))] whitespace-nowrap">
-                            {new Date(ticket.createdAt).toLocaleDateString("fr-CA")}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedId(ticket.id);
-                              }}
-                              className="p-1.5 rounded-md hover:bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-primary))] transition-colors"
-                              title="Voir"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                    return (
+                      <tr
+                        key={ticket.id}
+                        onClick={() => setSelectedId(ticket.id)}
+                        className="group cursor-pointer hover:bg-[hsl(var(--bg-elevated))] transition-colors"
+                      >
+                        <td className="px-4 py-3 font-mono font-medium text-[hsl(var(--text-primary))] whitespace-nowrap">
+                          {ticket.code}
+                        </td>
+                        <td className="px-4 py-3 max-w-[200px]">
+                          <div className="font-medium text-[hsl(var(--text-primary))] truncate">{ticket.sujet}</div>
+                          {ticket.commentsCount > 0 && (
+                            <div className="flex items-center gap-1 mt-0.5 text-xs text-[hsl(var(--text-tertiary))]">
+                              <MessageSquare className="h-3 w-3" />
+                              {ticket.commentsCount}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-[hsl(var(--text-primary))]">{ticket.userName}</div>
+                          <div className="text-xs text-[hsl(var(--text-tertiary))]">{ticket.site}</div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="inline-flex items-center rounded-md bg-[hsl(var(--bg-muted))] px-2 py-0.5 text-xs font-medium text-[hsl(var(--text-secondary))]">
+                            {categoryLabel}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold", priorityInfo.bgColor, priorityInfo.color)}>
+                            {priorityInfo.priority}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium", statusInfo?.bgColor, statusInfo?.color)}>
+                            <StatusIcon status={ticket.statut} />
+                            {statusInfo?.label || ticket.statut}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-[hsl(var(--text-tertiary))] whitespace-nowrap">
+                          {new Date(ticket.createdAt).toLocaleDateString("fr-CA")}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedId(ticket.id);
+                            }}
+                            className="p-1.5 rounded-md hover:bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-primary))] transition-colors"
+                            title="Voir"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
 
-                {filteredTickets.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-24 text-[hsl(var(--text-muted))]">
-                    <AlertTriangle className="h-10 w-10 mb-3 opacity-50" />
-                    <p className="text-sm">Aucun billet trouvé</p>
-                  </div>
-                )}
-              </div>
+              {filteredTickets.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-24 text-[hsl(var(--text-muted))]">
+                  <AlertTriangle className="h-10 w-10 mb-3 opacity-50" />
+                  <p className="text-sm">Aucun billet trouvé</p>
+                </div>
+              )}
+            </div>
 
-              <div className="px-4 py-3 border-t border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-xs text-[hsl(var(--text-tertiary))]">
-                {filteredTickets.length} billet{filteredTickets.length !== 1 ? "s" : ""}
-              </div>
-            </>
-          )}
-        </div>
+            <div className="px-4 py-3 border-t border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-xs text-[hsl(var(--text-tertiary))]">
+              {filteredTickets.length} billet{filteredTickets.length !== 1 ? "s" : ""}
+            </div>
+          </div>
+        )}
+
+        {!isLoading && displayMode === "kanban" && (
+          <KanbanBoard
+            tickets={filteredTickets}
+            groupBy={kanbanGroupBy}
+            canManage={canManage}
+            onTicketClick={(id) => setSelectedId(id)}
+            onRefresh={() => mutate()}
+          />
+        )}
       </div>
 
       {/* Detail Modal */}
@@ -500,6 +571,246 @@ function StatusIcon({ status }: { status: string }) {
     default:
       return <Circle className="h-3 w-3" />;
   }
+}
+
+// =============================================================================
+// KANBAN BOARD
+// =============================================================================
+
+const PRIORITY_COLUMNS: { value: string; label: string; color: string; bgColor: string }[] = [
+  { value: "P1", label: "P1 - Critique", ...getPriorityInfo("P1") },
+  { value: "P2", label: "P2 - Haute", ...getPriorityInfo("P2") },
+  { value: "P3", label: "P3 - Moyenne", ...getPriorityInfo("P3") },
+  { value: "P4", label: "P4 - Basse", ...getPriorityInfo("P4") },
+];
+
+function KanbanBoard({
+  tickets,
+  groupBy,
+  canManage,
+  onTicketClick,
+  onRefresh,
+}: {
+  tickets: TicketRow[];
+  groupBy: "statut" | "priorite";
+  canManage: boolean;
+  onTicketClick: (id: string) => void;
+  onRefresh: () => void;
+}) {
+  const [activeTicket, setActiveTicket] = React.useState<TicketRow | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor)
+  );
+
+  const columns = groupBy === "statut"
+    ? TICKET_STATUSES.map((s) => ({ value: s.value, label: s.label, color: s.color, bgColor: s.bgColor }))
+    : PRIORITY_COLUMNS;
+
+  const grouped = React.useMemo(() => {
+    const map: Record<string, TicketRow[]> = {};
+    columns.forEach((c) => { map[c.value] = []; });
+    tickets.forEach((t) => {
+      const key = groupBy === "statut" ? t.statut : t.priorite;
+      if (map[key]) map[key].push(t);
+    });
+    return map;
+  }, [tickets, groupBy, columns]);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const ticket = tickets.find((t) => t.id === event.active.id);
+    setActiveTicket(ticket || null);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveTicket(null);
+    const { active, over } = event;
+    if (!over) return;
+
+    const ticketId = active.id as string;
+    const newValue = over.id as string;
+    const ticket = tickets.find((t) => t.id === ticketId);
+    if (!ticket) return;
+
+    const currentValue = groupBy === "statut" ? ticket.statut : ticket.priorite;
+    if (currentValue === newValue) return;
+
+    try {
+      const body = groupBy === "statut" ? { statut: newValue } : { priorite: newValue };
+      const res = await fetch(`/api/support/tickets/${ticketId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (json.ok) onRefresh();
+    } catch (err) {
+      console.error("Failed to update ticket:", err);
+    }
+  };
+
+  return (
+    <DndContext
+      sensors={canManage ? sensors : undefined}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="flex gap-4 overflow-x-auto pb-4">
+        {columns.map((col) => (
+          <KanbanColumn
+            key={col.value}
+            id={col.value}
+            label={col.label}
+            color={col.color}
+            bgColor={col.bgColor}
+            tickets={grouped[col.value] || []}
+            canDrag={canManage}
+            onTicketClick={onTicketClick}
+            groupBy={groupBy}
+          />
+        ))}
+      </div>
+      <DragOverlay dropAnimation={null}>
+        {activeTicket ? <KanbanCard ticket={activeTicket} isOverlay groupBy={groupBy} /> : null}
+      </DragOverlay>
+    </DndContext>
+  );
+}
+
+function KanbanColumn({
+  id,
+  label,
+  color,
+  bgColor,
+  tickets,
+  canDrag,
+  onTicketClick,
+  groupBy,
+}: {
+  id: string;
+  label: string;
+  color: string;
+  bgColor: string;
+  tickets: TicketRow[];
+  canDrag: boolean;
+  onTicketClick: (id: string) => void;
+  groupBy: "statut" | "priorite";
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "flex-shrink-0 w-[280px] min-h-[200px] rounded-xl border transition-colors flex flex-col",
+        isOver
+          ? "border-[hsl(var(--text-primary)_/_0.5)] bg-[hsl(var(--bg-elevated)_/_0.5)]"
+          : "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface)_/_0.3)]"
+      )}
+    >
+      {/* Header */}
+      <div className="px-3 py-2.5 border-b border-[hsl(var(--border-default))]">
+        <div className="flex items-center justify-between">
+          <span className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium", bgColor, color)}>
+            {groupBy === "statut" && <StatusIcon status={id} />}
+            {label}
+          </span>
+          <span className="text-xs tabular-nums font-medium text-[hsl(var(--text-muted))]">
+            {tickets.length}
+          </span>
+        </div>
+      </div>
+      {/* Cards */}
+      <div className="p-2 space-y-2 flex-1">
+        {tickets.map((ticket) => (
+          <KanbanCard
+            key={ticket.id}
+            ticket={ticket}
+            canDrag={canDrag}
+            onTicketClick={onTicketClick}
+            groupBy={groupBy}
+          />
+        ))}
+        {tickets.length === 0 && (
+          <div className="py-8 text-center text-xs text-[hsl(var(--text-muted))]">
+            Aucun billet
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function KanbanCard({
+  ticket,
+  canDrag = false,
+  onTicketClick,
+  isOverlay,
+  groupBy,
+}: {
+  ticket: TicketRow;
+  canDrag?: boolean;
+  onTicketClick?: (id: string) => void;
+  isOverlay?: boolean;
+  groupBy: "statut" | "priorite";
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: ticket.id,
+    disabled: !canDrag,
+  });
+
+  const style: React.CSSProperties | undefined = transform
+    ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
+    : undefined;
+
+  const priorityInfo = getPriorityInfo(ticket.priorite as Priority);
+  const statusInfo = TICKET_STATUSES.find((s) => s.value === ticket.statut);
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...(canDrag ? { ...listeners, ...attributes } : {})}
+      onClick={() => !isDragging && onTicketClick?.(ticket.id)}
+      className={cn(
+        "p-3 rounded-lg border bg-[hsl(var(--bg-surface))] transition-all",
+        isDragging && "opacity-30",
+        isOverlay && "shadow-xl rotate-2 border-[hsl(var(--text-primary)_/_0.5)]",
+        canDrag ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
+        !isOverlay && "hover:shadow-md border-[hsl(var(--border-default))] hover:border-[hsl(var(--text-muted)_/_0.5)]"
+      )}
+    >
+      {/* Top row: code + badge */}
+      <div className="flex items-center justify-between gap-2 mb-1.5">
+        <span className="font-mono text-xs font-medium text-[hsl(var(--text-tertiary))]">{ticket.code}</span>
+        {groupBy === "statut" ? (
+          <span className={cn("inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold", priorityInfo.bgColor, priorityInfo.color)}>
+            {priorityInfo.priority}
+          </span>
+        ) : (
+          <span className={cn("inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium", statusInfo?.bgColor, statusInfo?.color)}>
+            <StatusIcon status={ticket.statut} />
+            {statusInfo?.label}
+          </span>
+        )}
+      </div>
+      {/* Subject */}
+      <p className="text-sm font-medium text-[hsl(var(--text-primary))] line-clamp-2 mb-2">
+        {ticket.sujet}
+      </p>
+      {/* Bottom row: requester + comments */}
+      <div className="flex items-center justify-between text-xs text-[hsl(var(--text-tertiary))]">
+        <span className="truncate max-w-[160px]">{ticket.userName}</span>
+        {ticket.commentsCount > 0 && (
+          <span className="flex items-center gap-0.5 shrink-0">
+            <MessageSquare className="h-3 w-3" />
+            {ticket.commentsCount}
+          </span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // =============================================================================

@@ -158,6 +158,7 @@ export async function DELETE(
 interface UpdateTicketPayload {
   statut?: string;
   assigneA?: string | null;
+  priorite?: string;
 }
 
 export async function PATCH(
@@ -215,6 +216,18 @@ export async function PATCH(
       updateData.assigneA = body.assigneA;
     }
 
+    // Handle priority update (managers only)
+    if (body.priorite && body.priorite !== existingTicket.priorite) {
+      if (!canManageTickets(user)) {
+        return NextResponse.json({ ok: false, error: "Accès refusé" }, { status: 403 });
+      }
+      const validPriorities = ["P1", "P2", "P3", "P4"];
+      if (!validPriorities.includes(body.priorite)) {
+        return NextResponse.json({ ok: false, error: "Priorité invalide" }, { status: 400 });
+      }
+      updateData.priorite = body.priorite;
+    }
+
     const updatedTicket = await prisma.supportTicket.update({
       where: { id },
       data: updateData,
@@ -254,6 +267,7 @@ export async function PATCH(
       data: {
         id: updatedTicket.id,
         statut: updatedTicket.statut,
+        priorite: updatedTicket.priorite,
         assigneA: updatedTicket.assigneA,
         updatedAt: updatedTicket.updatedAt.toISOString(),
       },
