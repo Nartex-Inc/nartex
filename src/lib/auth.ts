@@ -77,72 +77,27 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    // 1. SIGN IN: Force the Database to update with the Google Image + process invitations
+    // 1. SIGN IN: Sync Google profile image for EXISTING users.
+    //    NOTE: For brand-new OAuth users the DB record does not exist yet
+    //    (PrismaAdapter creates it AFTER signIn), so invitation processing
+    //    is handled in the jwt callback where the user is guaranteed to exist.
     async signIn({ user, account, profile }) {
       if (account?.provider === "google" && user.email) {
         try {
-          // Get the image URL directly from the Google profile
           const newImage = (profile as any)?.picture;
-
           if (newImage) {
             await prisma.user.update({
               where: { email: user.email },
               data: {
                 image: newImage,
-                emailVerified: new Date() // Trust Google verification
-              }
+                emailVerified: new Date(),
+              },
             });
           }
-        } catch (error) {
-          console.error("Error syncing Google profile data:", error);
+        } catch {
+          // Expected for brand-new OAuth users — user record doesn't exist yet
         }
       }
-
-      // Process pending invitation for this email (any OAuth provider)
-      if (user.email) {
-        try {
-          const invitation = await prisma.invitation.findFirst({
-            where: {
-              email: { equals: user.email, mode: "insensitive" },
-              status: "pending",
-              expiresAt: { gt: new Date() },
-            },
-            select: { id: true, role: true, tenantId: true },
-          });
-
-          if (invitation) {
-            // Update user role
-            await prisma.user.update({
-              where: { email: user.email },
-              data: { role: invitation.role },
-            });
-
-            // Upsert UserTenant link
-            const dbUser = await prisma.user.findUnique({
-              where: { email: user.email },
-              select: { id: true },
-            });
-            if (dbUser) {
-              await prisma.userTenant.upsert({
-                where: {
-                  userId_tenantId: { userId: dbUser.id, tenantId: invitation.tenantId },
-                },
-                create: { userId: dbUser.id, tenantId: invitation.tenantId },
-                update: {},
-              });
-            }
-
-            // Mark invitation as accepted
-            await prisma.invitation.update({
-              where: { id: invitation.id },
-              data: { status: "accepted" },
-            });
-          }
-        } catch (error) {
-          console.error("Error processing invitation on sign-in:", error);
-        }
-      }
-
       return true;
     },
 
@@ -221,6 +176,52 @@ export const authOptions: NextAuthOptions = {
               token.role = dbUser.role as string;
               token.canManageTickets = (dbUser as any).canManageTickets ?? false;
               if (dbUser.image) token.picture = dbUser.image;
+
+              // Process pending invitation (works for both new and existing users)
+              if (dbUser.tenants.length === 0) {
+                try {
+                  const invitation = await prisma.invitation.findFirst({
+                    where: {
+                      email: { equals: token.email!, mode: "insensitive" },
+                      status: "pending",
+                      expiresAt: { gt: new Date() },
+                    },
+                    select: { id: true, role: true, tenantId: true },
+                  });
+
+                  if (invitation) {
+                    await prisma.user.update({
+                      where: { id: dbUser.id },
+                      data: { role: invitation.role },
+                    });
+                    token.role = invitation.role as string;
+
+                    await prisma.userTenant.upsert({
+                      where: {
+                        userId_tenantId: {
+                          userId: dbUser.id,
+                          tenantId: invitation.tenantId,
+                        },
+                      },
+                      create: {
+                        userId: dbUser.id,
+                        tenantId: invitation.tenantId,
+                      },
+                      update: {},
+                    });
+
+                    await prisma.invitation.update({
+                      where: { id: invitation.id },
+                      data: { status: "accepted" },
+                    });
+
+                    token.activeTenantId = invitation.tenantId;
+                  }
+                } catch (invErr) {
+                  console.error("Error processing invitation in jwt:", invErr);
+                }
+              }
+
               if (!token.activeTenantId && dbUser.tenants.length > 0) {
                 token.activeTenantId = dbUser.tenants[0].tenantId;
               }
@@ -249,6 +250,41 @@ export const authOptions: NextAuthOptions = {
       }
 
       // C) Subsequent requests — use cached token, zero DB queries
+      //    Safety net: one-time DB fallback if activeTenantId was never set
+      if (!token.activeTenantId && token.email && !token._tenantChecked) {
+        token._tenantChecked = true;
+        try {
+          const fbUser = await prisma.user.findUnique({
+            where: { email: token.email as string },
+            select: {
+              id: true,
+              tenants: {
+                select: { tenantId: true },
+                take: 1,
+                orderBy: { createdAt: "asc" },
+              },
+            },
+          });
+          if (fbUser) {
+            token.id = fbUser.id;
+            if (fbUser.tenants[0]) {
+              token.activeTenantId = fbUser.tenants[0].tenantId;
+              try {
+                const t = await prisma.tenant.findUnique({
+                  where: { id: token.activeTenantId as string },
+                  select: { prextraSchema: true },
+                });
+                token.prextraSchema = t?.prextraSchema ?? null;
+              } catch {
+                token.prextraSchema = null;
+              }
+            }
+          }
+        } catch {
+          // Silently continue — will use cached token
+        }
+      }
+
       if (!token.activeTenantId) token.activeTenantId = null;
       if (token.prextraSchema === undefined) token.prextraSchema = null;
 
