@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AttachmentsSection } from "@/components/returns/AttachmentsSection";
+import { ReturnComments } from "@/components/returns/ReturnComments";
 
 import type { ReturnRow, Reporter, Cause, Attachment, ProductLine, ItemSuggestion } from "@/types/returns";
 
@@ -1004,6 +1005,11 @@ function DetailModal({
               onChange={(e) => !isReadOnly && setDraft({ ...draft, description: e.target.value })}
               disabled={isReadOnly}
             />
+          </section>
+
+          {/* Conversation */}
+          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm">
+            <ReturnComments returnCode={String(draft.id)} />
           </section>
         </div>
 

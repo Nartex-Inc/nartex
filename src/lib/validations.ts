@@ -85,6 +85,12 @@ export const UpdateReturnSchema = z.object({
   products: z.array(ReturnProductSchema).optional(),
 });
 
+// ─── Return Comments ────────────────────────────────────────────────────────
+
+export const CreateReturnCommentSchema = z.object({
+  content: z.string().min(1, "Le contenu est requis").max(5000),
+});
+
 // ─── Verify / Finalize / Standby ────────────────────────────────────────────
 
 export const VerifyReturnSchema = z.object({

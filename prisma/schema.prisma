@@ -333,6 +333,7 @@ model Return {
   tenant      Tenant             @relation(fields: [tenantId], references: [id])
   products    ReturnProduct[]
   attachments ReturnAttachment[]
+  comments    ReturnComment[]
 
   @@index([tenantId])
   @@index([tenantId, reportedAt])
@@ -389,6 +390,21 @@ model ReturnAttachment {
   // Indexes for faster lookups
   @@index([returnId])
   @@index([fileId])
+}
+
+model ReturnComment {
+  id        String   @id @default(uuid())
+  returnId  Int      @map("return_id")
+  userId    String   @map("user_id")
+  userName  String   @map("user_name")
+  userImage String?  @map("user_image")
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  return Return @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  @@index([returnId])
+  @@map("return_comments")
 }
 
 ////////////////////////////////////////////////////////////////////////////////

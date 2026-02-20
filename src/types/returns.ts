@@ -49,6 +49,19 @@ export const CAUSE_LABELS: Record<string, string> = {
 };
 
 /* =============================================================================
+   Comments
+============================================================================= */
+
+export interface ReturnComment {
+  id: string;
+  userId: string;
+  userName: string;
+  userImage: string | null;
+  content: string;
+  createdAt: string;
+}
+
+/* =============================================================================
    API Response Types
 ============================================================================= */
 
