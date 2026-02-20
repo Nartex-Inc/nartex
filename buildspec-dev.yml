@@ -1,0 +1,153 @@
+version: 0.2
+
+env:
+  variables:
+    AWS_DEFAULT_REGION: "ca-central-1"
+    AWS_ACCOUNT_ID: "586359898361"
+    IMAGE_REPO_NAME: "nartex-next"
+    CONTAINER_NAME: "nextjs"
+
+  secrets-manager:
+    DATABASE_URL:           nartex/dev/env:DATABASE_URL
+    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: nartex/dev/env:GOOGLE_MAPS_API_KEY
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - export NODE_OPTIONS="--max-old-space-size=4096"
+      - export NEXT_TELEMETRY_DISABLED=1
+
+      - echo "📦 INSTALL – clean cache and prep lockfile"
+      - npm cache clean --force
+      - npm ci --legacy-peer-deps
+
+      - npm install --legacy-peer-deps @simplewebauthn/browser @simplewebauthn/server jspdf jspdf-autotable googleapis @react-google-maps/api
+      - npm install --legacy-peer-deps --save-dev @types/nodemailer
+
+      - node -e "console.log('prisma:',require('./node_modules/prisma/package.json').version,'| @prisma/client:',require('./node_modules/@prisma/client/package.json').version)"
+
+  pre_build:
+    commands:
+      - echo "🔧 PRE_BUILD – patching Dockerfile for memory limits and prisma generation"
+      - |
+        sed -i '/^FROM /a ENV NODE_OPTIONS="--max-old-space-size=4096"' Dockerfile
+        sed -i '/npm run build/i RUN npx prisma generate' Dockerfile
+        echo "⬇️ Patched Dockerfile Preview:"
+        head -n 20 Dockerfile
+        grep -C 2 "npm run build" Dockerfile || true
+
+      - echo "📜 PRE_BUILD – preparing workspace (UI stubs)"
+      - |
+        cat > ci-prebuild.sh << 'SH'
+        set -e
+        node <<'NODE'
+        const fs = require('fs');
+        const p = 'components.json';
+        const j = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p,'utf8')) : {};
+        j.$schema = 'https://ui.shadcn.com/schema.json';
+        j.style = 'default'; j.rsc = true; j.tsx = true;
+        j.tailwind = { config: 'tailwind.config.ts', css: 'src/app/globals.css', baseColor: 'gray', cssVariables: true };
+        j.aliases = { components: '@/components', utils: '@/lib/utils' };
+        j.iconLibrary = 'lucide'; j.components = j.components || []; j.path = 'src/components';
+        fs.writeFileSync(p, JSON.stringify(j, null, 2));
+        NODE
+
+        mkdir -p src/lib src/components/ui src/components/dashboard
+
+        if [ ! -f src/lib/utils.ts ]; then
+          cat > src/lib/utils.ts << 'TS'
+        import type { ClassValue } from "clsx";
+        import clsx from "clsx";
+        import { twMerge } from "tailwind-merge";
+        export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
+        TS
+        fi
+
+        cat > src/components/ui/card.tsx << 'TSX'
+        import * as React from "react";
+        import { cn } from "@/lib/utils";
+        export function Card({ className = "", children }: React.PropsWithChildren<{ className?: string }>) {
+          return <div className={cn("rounded-xl border border-white/10 bg-white/[0.02] p-4", className)}>{children}</div>;
+        }
+        export function CardTitle({ className = "", icon, children }: React.PropsWithChildren<{ className?: string; icon?: React.ReactNode }>) {
+          return <div className={cn("mb-2 flex items-center gap-2 text-sm font-semibold text-gray-200", className)}>{icon}{children}</div>;
+        }
+        export default Card;
+        TSX
+
+        [ -f src/components/nartex-logo.tsx ] || cat > src/components/nartex-logo.tsx << 'TSX'
+        export default function NartexLogo({ className="" }: { className?: string }) {
+          return <span className={className} style={{ fontWeight: 600, letterSpacing: ".05em" }}>nartex</span>;
+        }
+        TSX
+
+        [ -f src/components/dashboard/header.tsx ] || cat > src/components/dashboard/header.tsx << 'TSX'
+        export default function DashboardHeader(){ return <div className="px-4 py-3 text-sm text-muted-foreground">Dashboard Header</div>; }
+        TSX
+
+        [ -f src/components/dashboard/Sidebar.tsx ] || cat > src/components/dashboard/Sidebar.tsx << 'TSX'
+        export default function DashboardSidebar(){ return <aside className="p-4 text-sm text-muted-foreground">Sidebar</aside>; }
+        TSX
+
+        [ -f src/components/dashboard/new-product-requests-table.tsx ] || cat > src/components/dashboard/new-product-requests-table.tsx << 'TSX'
+        export default function NewProductRequestsTable(){ return <div className="p-4 text-sm text-muted-foreground">New product requests (stub)</div>; }
+        TSX
+
+        [ -f src/components/product-requests-table.tsx ] || cat > src/components/product-requests-table.tsx << 'TSX'
+        export default function ProductRequestsTable(){ return <div className="p-4 text sm text-muted-foreground">Product requests (stub)</div>; }
+        TSX
+        SH
+      - chmod +x ci-prebuild.sh
+      - bash ci-prebuild.sh
+
+  build:
+    commands:
+      - npx prisma -v
+      - echo "🚀 BUILD – applying prisma migrations (always run – idempotent)"
+      - npx prisma migrate deploy --schema=prisma/schema.prisma
+      - /usr/bin/env bash -c 'set -euo pipefail; echo "SELECT 1;" | npx prisma db execute --schema=prisma/schema.prisma --stdin'
+      - echo "⚙️ BUILD – generate prisma client (Host)"
+      - npx prisma generate --schema=prisma/schema.prisma
+
+      - echo "🏗 BUILD – resolve commit hash"
+      - COMMIT_HASH=$(git rev-parse --short HEAD)
+      - echo "COMMIT_HASH=$COMMIT_HASH"
+
+      - ECR_IMAGE_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME"
+
+      - echo "🐳 BUILD – docker image (build & tag with dev- prefix)"
+      - |
+        docker build --pull --progress=plain \
+          --build-arg GIT_COMMIT_HASH="$COMMIT_HASH" \
+          --build-arg NEXT_PUBLIC_GOOGLE_MAPS_API_KEY="$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY" \
+          -t "$ECR_IMAGE_URI:dev-$COMMIT_HASH" \
+          -t "$ECR_IMAGE_URI:dev-latest" .
+
+      - echo "🧾 BUILD – write imagedefinitions.json artifact"
+      - |
+        printf '[{"name":"%s","imageUri":"%s"}]\n' \
+          "$CONTAINER_NAME" "$ECR_IMAGE_URI:dev-$COMMIT_HASH" > imagedefinitions.json
+        cat imagedefinitions.json
+
+      - echo "🔑 Login to ECR"
+      - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$ECR_IMAGE_URI"
+
+      - echo "📤 Push images"
+      - docker push "$ECR_IMAGE_URI:dev-$COMMIT_HASH"
+      - docker push "$ECR_IMAGE_URI:dev-latest"
+
+  post_build:
+    commands:
+      - echo "🔄 Force new ECS deployment (dev)"
+      - |
+        aws ecs update-service \
+          --cluster nartex-cluster \
+          --service nartex-dev-service \
+          --force-new-deployment \
+          --region "$AWS_DEFAULT_REGION"
+
+artifacts:
+  files:
+    - imagedefinitions.json
