@@ -578,10 +578,10 @@ function StatusIcon({ status }: { status: string }) {
 // =============================================================================
 
 const PRIORITY_COLUMNS: { value: string; label: string; color: string; bgColor: string }[] = [
-  { value: "P1", label: "P1 - Critique", ...getPriorityInfo("P1") },
-  { value: "P2", label: "P2 - Haute", ...getPriorityInfo("P2") },
-  { value: "P3", label: "P3 - Moyenne", ...getPriorityInfo("P3") },
-  { value: "P4", label: "P4 - Basse", ...getPriorityInfo("P4") },
+  { ...getPriorityInfo("P1"), value: "P1", label: "P1 - Critique" },
+  { ...getPriorityInfo("P2"), value: "P2", label: "P2 - Haute" },
+  { ...getPriorityInfo("P3"), value: "P3", label: "P3 - Moyenne" },
+  { ...getPriorityInfo("P4"), value: "P4", label: "P4 - Basse" },
 ];
 
 function KanbanBoard({
