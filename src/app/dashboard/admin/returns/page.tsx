@@ -1308,7 +1308,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
               <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] flex items-center gap-2"><Paperclip className="h-4 w-4 text-[hsl(var(--text-muted))]" />Pièces jointes</h3>
               <label className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] transition-all duration-200 cursor-pointer">
                 <UploadCloud className="h-3.5 w-3.5" />Ajouter
-                <input type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) { setFilesToUpload((prev) => [...prev, ...Array.from(e.target.files || [])]); e.target.value = ""; } }} />
+                <input type="file" multiple className="hidden" onChange={(e) => { const files = Array.from(e.target.files || []); if (files.length > 0) setFilesToUpload((prev) => [...prev, ...files]); e.target.value = ""; }} />
               </label>
             </div>
             {filesToUpload.length > 0 ? (
