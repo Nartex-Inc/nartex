@@ -3,34 +3,23 @@
 // ONLY Vérificateur role can verify returns
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
 import { parseReturnCode, formatReturnCode } from "@/types/returns";
 import { notifyReturnVerified } from "@/lib/notifications";
+import { requireTenant, requireRoles } from "@/lib/auth-helpers";
+import { VerifyReturnSchema } from "@/lib/validations";
 
 type RouteParams = { params: Promise<{ code: string }> };
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
-
-    const tenantId = session.user.activeTenantId;
-    if (!tenantId) {
-      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
-    }
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { user, tenantId } = auth;
 
     // CRITICAL: Only Vérificateur can verify returns
-    const userRole = (session.user as { role?: string }).role;
-    if (userRole !== "Vérificateur") {
-      return NextResponse.json(
-        { ok: false, error: "Seul un vérificateur peut vérifier les retours" },
-        { status: 403 }
-      );
-    }
+    const roleError = requireRoles(user, ["verificateur"]);
+    if (roleError) return roleError;
 
     const { code } = await params;
     const returnId = parseReturnCode(code);
@@ -80,29 +69,40 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const body = await request.json();
-    const { products } = body;
-
-    if (!products || !Array.isArray(products)) {
+    // Zod validation
+    const raw = await request.json();
+    const parsed = VerifyReturnSchema.safeParse(raw);
+    if (!parsed.success) {
       return NextResponse.json(
-        { ok: false, error: "Liste des produits requise avec quantités reçues" },
+        { ok: false, error: "Données invalides", details: parsed.error.flatten() },
         { status: 400 }
       );
+    }
+    const { products } = parsed.data;
+
+    // Validate: qteDetruite <= quantiteRecue per product
+    for (const p of products) {
+      if (p.qteDetruite > p.quantiteRecue) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: `Produit ${p.codeProduit}: qteDetruite (${p.qteDetruite}) ne peut pas dépasser quantiteRecue (${p.quantiteRecue})`,
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // Update each product with verification data
     for (const p of products) {
-      // Validate: qteInventaire = quantiteRecue - qteDetruite
-      const quantiteRecue = p.quantiteRecue ?? 0;
-      const qteDetruite = p.qteDetruite ?? 0;
-      const qteInventaire = quantiteRecue - qteDetruite;
+      const qteInventaire = p.quantiteRecue - p.qteDetruite;
 
       await prisma.returnProduct.updateMany({
         where: { returnId: ret.id, codeProduit: p.codeProduit },
         data: {
-          quantiteRecue: quantiteRecue,
-          qteInventaire: qteInventaire,
-          qteDetruite: qteDetruite,
+          quantiteRecue: p.quantiteRecue,
+          qteInventaire,
+          qteDetruite: p.qteDetruite,
         },
       });
     }
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       where: { id: returnId },
       data: {
         isVerified: true,
-        verifiedBy: session.user.name || "Vérificateur",
+        verifiedBy: user.name || "Vérificateur",
         verifiedAt: new Date(),
       },
     });
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     notifyReturnVerified({
       returnId,
       returnCode: formatReturnCode(returnId),
-      verifiedBy: session.user.name || "Vérificateur",
+      verifiedBy: user.name || "Vérificateur",
       tenantId,
     }).catch(console.error);
 

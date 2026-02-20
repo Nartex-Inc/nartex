@@ -56,7 +56,8 @@ nartex/
 ├── certs/                      # SSL certificates (RDS)
 ├── Dockerfile                  # Multi-stage Docker build
 ├── docker-compose.yml          # Local dev environment
-├── buildspec.yml               # AWS CodeBuild CI/CD
+├── buildspec.yml               # AWS CodeBuild CI/CD (prod)
+├── buildspec-dev.yml           # AWS CodeBuild CI/CD (dev)
 └── middleware.ts               # Auth guard
 ```
 
@@ -193,6 +194,7 @@ nartex/
 ### Git
 - Commit messages in English, imperative mood
 - Branch naming: `feature/`, `fix/`, `refactor/`
+- **Branches**: `main` (production), `dev` (staging/testing)
 
 ## Commands
 ```bash
@@ -261,6 +263,48 @@ SMTP_PASS=
 - Don't use `any` type - define proper TypeScript interfaces
 - Don't create new UI components - use shadcn/ui first
 
+## Environments
+
+### Production (`main` branch)
+| Resource | Value |
+|----------|-------|
+| **Domain** | `app.nartex.ca` |
+| **Database** | `nartex-db` on RDS (`nartex-db.c7cso4mwwo3r.ca-central-1.rds.amazonaws.com`) |
+| **ECS Service** | `nartex-next-service` (2 tasks) |
+| **ECS Task Def** | `nartex-next-task` |
+| **Secrets** | `nartex/prod/env` in Secrets Manager |
+| **CodeBuild** | `nartex-builder-v3` using `buildspec.yml` |
+| **Docker tag** | `nartex-next:latest` / `nartex-next:<commit>` |
+| **Webhook** | Triggers on push to `main` |
+
+### Dev / Staging (`dev` branch)
+| Resource | Value |
+|----------|-------|
+| **Domain** | `dev.nartex.ca` |
+| **Database** | `nartex-db-dev` on same RDS instance |
+| **ECS Service** | `nartex-dev-service` (1 task) |
+| **ECS Task Def** | `nartex-dev-task` |
+| **Secrets** | `nartex/dev/env` (DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL); OAuth secrets shared from `nartex/prod/env` |
+| **CodeBuild** | `nartex-builder-dev` using `buildspec-dev.yml` |
+| **Docker tag** | `nartex-next:dev-latest` / `nartex-next:dev-<commit>` |
+| **Webhook** | Triggers on push to `dev` |
+
+### Dev Database — Prextra Foreign Tables
+The dev database uses `postgres_fdw` to read Prextra ERP tables directly from the production database (zero data duplication, always in sync). A foreign server `prod_nartex` maps `nartex-db-dev` → `nartex-db` on the same RDS instance. All 19 Prextra tables in the `sinto` schema are imported as foreign tables.
+
+### Deployment Options
+- **Code changes**: Push to `dev` branch → CodeBuild builds Docker image → deploys to `nartex-dev-service` (~10 min)
+- **Secret/config changes**: Update Secrets Manager or task definition → `aws ecs update-service --force-new-deployment` (seconds, no build)
+- **Direct ECS redeployment**: Use when rotating secrets, changing runtime env vars, or restarting tasks — no CodeBuild needed
+
+### Shared Infrastructure
+- **ECR Repository**: `nartex-next` (prod and dev images share the same repo, differentiated by tag prefix)
+- **ECS Cluster**: `nartex-cluster` (both services run in the same cluster)
+- **ALB**: `nartex-api-alb` — host-header rule at priority 2 routes `dev.nartex.ca` to `nartex-next-dev-tg`
+- **ACM Certificate**: `*.nartex.ca` wildcard covers both `app.nartex.ca` and `dev.nartex.ca`
+- **VPC/Subnets**: Same VPC and subnets for both environments
+- **IAM**: `CodeBuildRole` and `nartex-task-execution-role` shared across both
+
 ## Key Files Reference
 | Purpose | File |
 |---------|------|
@@ -274,22 +318,18 @@ SMTP_PASS=
 | Prextra helpers | `src/lib/prextra.ts` |
 | Theme tokens | `src/lib/theme-tokens.ts` |
 | Docker build | `Dockerfile` |
-| CI/CD | `buildspec.yml` |
-
-## Deployment
-- **Registry**: AWS ECR (`nartex-app`)
-- **Orchestration**: AWS ECS
-- **Database**: AWS RDS PostgreSQL (ca-central-1)
-- **Domain**: app.nartex.ca
-- **Build trigger**: AWS CodeBuild via buildspec.yml
+| CI/CD (prod) | `buildspec.yml` |
+| CI/CD (dev) | `buildspec-dev.yml` |
 
 ## Security Notes
-- Production secrets in AWS Secrets Manager
+- Production secrets in AWS Secrets Manager (`nartex/prod/env`)
+- Dev secrets in AWS Secrets Manager (`nartex/dev/env`)
 - RDS SSL certificate in `certs/rds-combined-ca-bundle.pem`
 - Password hashing: bcryptjs
 - JWT-based sessions (stateless)
 - Admin bypass: `n.labranche@sinto.ca`
+- Azure AD client secret: `Entra ID SSO 2026` (expires 02/2028)
 
 ---
-*Last updated: 2026-02-13*
+*Last updated: 2026-02-19*
 *Maintainer: @nlabranche / Nartex-Inc*

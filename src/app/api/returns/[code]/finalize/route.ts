@@ -3,34 +3,23 @@
 // ONLY Facturation role can finalize returns
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
 import { parseReturnCode, formatReturnCode } from "@/types/returns";
 import { notifyReturnFinalized } from "@/lib/notifications";
+import { requireTenant, requireRoles } from "@/lib/auth-helpers";
+import { FinalizeReturnSchema } from "@/lib/validations";
 
 type RouteParams = { params: Promise<{ code: string }> };
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
-
-    const tenantId = session.user.activeTenantId;
-    if (!tenantId) {
-      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
-    }
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { user, tenantId } = auth;
 
     // CRITICAL: Only Facturation can finalize returns
-    const userRole = (session.user as { role?: string }).role;
-    if (userRole !== "Facturation") {
-      return NextResponse.json(
-        { ok: false, error: "Seul le rôle Facturation peut finaliser les retours" },
-        { status: 403 }
-      );
-    }
+    const roleError = requireRoles(user, ["facturation"]);
+    if (roleError) return roleError;
 
     const { code } = await params;
     const returnId = parseReturnCode(code);
@@ -72,42 +61,39 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const body = await request.json();
-    const { 
-      products, 
-      warehouseOrigin, 
-      warehouseDestination,
-      noCredit,
-      noCredit2,
-      noCredit3,
-      creditedTo,
-      creditedTo2,
-      creditedTo3,
-      transportAmount,
-      restockingAmount,
-      chargeTransport,
-      villeShipto,
-    } = body;
+    // Zod validation
+    const raw = await request.json();
+    const parsed = FinalizeReturnSchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { ok: false, error: "Données invalides", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+    const body = parsed.data;
 
     // Calculate total weight and update products with finalization data
     let totalWeight = 0;
-    
-    if (products && Array.isArray(products)) {
-      for (const p of products) {
+
+    if (body.products && Array.isArray(body.products)) {
+      for (const p of body.products) {
+        // Server-side compute: don't trust client qteInventaire
+        const qteInventaire = p.quantiteRecue - p.qteDetruite;
+        // tauxRestock conversion: body sends percentage, DB stores decimal
         const tauxRestock = p.tauxRestock !== undefined ? p.tauxRestock / 100 : null;
-        
+
         await prisma.returnProduct.updateMany({
           where: { returnId: ret.id, codeProduit: p.codeProduit },
           data: {
-            quantiteRecue: p.quantiteRecue ?? 0,
-            qteInventaire: p.qteInventaire ?? 0,
-            qteDetruite: p.qteDetruite ?? 0,
-            tauxRestock: tauxRestock,
+            quantiteRecue: p.quantiteRecue,
+            qteInventaire,
+            qteDetruite: p.qteDetruite,
+            tauxRestock,
           },
         });
 
         // Calculate total weight
-        const product = ret.products.find((pr: { codeProduit: string | null; quantiteRecue: number | null; quantite: number | null; weightProduit: any }) => pr.codeProduit === p.codeProduit);
+        const product = ret.products.find((pr) => pr.codeProduit === p.codeProduit);
         if (product) {
           const qty = p.quantiteRecue ?? product.quantiteRecue ?? product.quantite ?? 0;
           const weight = product.weightProduit ? Number(product.weightProduit) : 0;
@@ -123,20 +109,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         isFinal: true,
         isStandby: false,
         isDraft: false,
-        finalizedBy: session.user.name || "Facturation",
+        finalizedBy: user.name || "Facturation",
         finalizedAt: new Date(),
-        warehouseOrigin: warehouseOrigin ?? ret.warehouseOrigin,
-        warehouseDestination: warehouseDestination ?? ret.warehouseDestination,
-        noCredit: noCredit ?? ret.noCredit,
-        noCredit2: noCredit2 ?? ret.noCredit2,
-        noCredit3: noCredit3 ?? ret.noCredit3,
-        creditedTo: creditedTo ?? ret.creditedTo,
-        creditedTo2: creditedTo2 ?? ret.creditedTo2,
-        creditedTo3: creditedTo3 ?? ret.creditedTo3,
-        villeShipto: villeShipto ?? ret.villeShipto,
+        warehouseOrigin: body.warehouseOrigin ?? ret.warehouseOrigin,
+        warehouseDestination: body.warehouseDestination ?? ret.warehouseDestination,
+        noCredit: body.noCredit ?? ret.noCredit,
+        noCredit2: body.noCredit2 ?? ret.noCredit2,
+        noCredit3: body.noCredit3 ?? ret.noCredit3,
+        creditedTo: body.creditedTo ?? ret.creditedTo,
+        creditedTo2: body.creditedTo2 ?? ret.creditedTo2,
+        creditedTo3: body.creditedTo3 ?? ret.creditedTo3,
+        villeShipto: body.villeShipto ?? ret.villeShipto,
         totalWeight: totalWeight > 0 ? totalWeight : ret.totalWeight,
-        transportAmount: chargeTransport ? transportAmount : null,
-        restockingAmount: restockingAmount ?? ret.restockingAmount,
+        transportAmount: body.chargeTransport ? body.transportAmount : null,
+        restockingAmount: body.restockingAmount ?? ret.restockingAmount,
       },
     });
 
@@ -144,7 +130,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     notifyReturnFinalized({
       returnId,
       returnCode: formatReturnCode(returnId),
-      finalizedBy: session.user.name || "Facturation",
+      finalizedBy: user.name || "Facturation",
       tenantId,
     }).catch(console.error);
 

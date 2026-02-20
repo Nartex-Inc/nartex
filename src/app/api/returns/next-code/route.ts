@@ -2,17 +2,14 @@
 // Get next available return code - GET
 
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
 import { formatReturnCode } from "@/types/returns";
+import { requireTenant } from "@/lib/auth-helpers";
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
 
     // Get max ID
     const maxReturn = await prisma.return.findFirst({

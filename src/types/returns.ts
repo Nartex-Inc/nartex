@@ -190,8 +190,6 @@ export interface ProductInput {
 
 export interface UpdateReturnPayload extends Partial<CreateReturnPayload> {
   isDraft?: boolean;
-  verified?: boolean;   // Allow updating status flags directly
-  finalized?: boolean;
 }
 
 export interface VerifyReturnPayload {

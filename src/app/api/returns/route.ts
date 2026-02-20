@@ -7,7 +7,7 @@ import { formatReturnCode, getReturnStatus } from "@/types/returns";
 import type { ReturnRow, Reporter, Cause } from "@/types/returns";
 import { Prisma } from "@prisma/client";
 import { notifyReturnCreated } from "@/lib/notifications";
-import { requireTenant, normalizeRole } from "@/lib/auth-helpers";
+import { requireTenant, requireRoles, normalizeRole } from "@/lib/auth-helpers";
 import { CreateReturnSchema } from "@/lib/validations";
 
 // User roles
@@ -311,13 +311,9 @@ export async function POST(request: NextRequest) {
     if (!auth.ok) return auth.response;
     const { user, tenantId } = auth;
 
-    // Only Gestionnaire can create returns
-    if (normalizeRole(user.role) !== "gestionnaire") {
-      return NextResponse.json(
-        { ok: false, error: "Seul un gestionnaire peut créer un retour" },
-        { status: 403 }
-      );
-    }
+    // Only Gestionnaire or Analyste can create returns
+    const roleError = requireRoles(user, ["gestionnaire", "analyste"]);
+    if (roleError) return roleError;
 
     const raw = await request.json();
     const parsed = CreateReturnSchema.safeParse(raw);

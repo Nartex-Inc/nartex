@@ -5,7 +5,8 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { parseReturnCode, formatReturnCode, getReturnStatus } from "@/types/returns";
 import type { ReturnRow } from "@/types/returns";
-import { requireTenant, normalizeRole } from "@/lib/auth-helpers";
+import { requireTenant, requireRoles, normalizeRole } from "@/lib/auth-helpers";
+import { UpdateReturnSchema } from "@/lib/validations";
 
 type RouteParams = { params: Promise<{ code: string }> };
 
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // Expert can only see their own returns
     const userName = user.name || "";
-    if (user.role === "Expert" && ret.expert && !ret.expert.toLowerCase().includes(userName.toLowerCase())) {
+    if (normalizeRole(user.role) === "expert" && ret.expert && !ret.expert.toLowerCase().includes(userName.toLowerCase())) {
       return NextResponse.json({ ok: false, error: "Accès non autorisé" }, { status: 403 });
     }
 
@@ -105,9 +106,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         poidsUnitaire: p.weightProduit ? Number(p.weightProduit) : null,
         poidsTotal: p.poids ? Number(p.poids) : null,
       })),
-      // 👇 FIXED: Changed 'filePath' to 'fileId' to match Prisma Schema
       attachments: ret.attachments.map((a) => ({
-        id: a.fileId, 
+        id: a.fileId,
         name: a.fileName,
         url: `https://drive.google.com/file/d/${a.fileId}/preview`,
         downloadUrl: `https://drive.google.com/uc?export=download&id=${a.fileId}`,
@@ -126,6 +126,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 /* =============================================================================
    PUT /api/returns/[code] - Update return
+   Only Gestionnaire/Analyste can edit, and only during DRAFT or ACTIVE phases.
 ============================================================================= */
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
@@ -133,6 +134,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const auth = await requireTenant();
     if (!auth.ok) return auth.response;
     const { user, tenantId } = auth;
+
+    // Role guard: only Gestionnaire/Analyste can update via PUT
+    const roleError = requireRoles(user, ["gestionnaire", "analyste"]);
+    if (roleError) return roleError;
 
     const { code } = await params;
     const returnId = parseReturnCode(code);
@@ -143,81 +148,134 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const ret = await prisma.return.findFirst({
       where: { id: returnId, tenantId },
+      include: { products: true },
     });
 
     if (!ret) {
       return NextResponse.json({ ok: false, error: "Retour non trouvé" }, { status: 404 });
     }
 
-    // Check if return can be edited (except for verifying/finalizing which logic allows)
-    // We allow edits if user is updating status flags specifically or if it's not final
-    const body = await request.json();
-
-    // Expert can only edit their own returns
-    const userName = user.name || "";
-    if (user.role === "Expert" && ret.expert && !ret.expert.toLowerCase().includes(userName.toLowerCase())) {
-      return NextResponse.json({ ok: false, error: "Accès non autorisé" }, { status: 403 });
+    // Phase guard: cannot edit verified or finalized returns via PUT
+    if (ret.isVerified) {
+      return NextResponse.json(
+        { ok: false, error: "Ce retour est vérifié. Utilisez les endpoints dédiés pour les modifications." },
+        { status: 403 }
+      );
+    }
+    if (ret.isFinal) {
+      return NextResponse.json(
+        { ok: false, error: "Ce retour est finalisé. Aucune modification permise." },
+        { status: 403 }
+      );
     }
 
-    // Determine if still a draft
-    const hasRequiredFields =
-      (body.reporter ?? ret.reporter) && 
-      (body.cause ?? ret.cause) && 
-      (body.expert ?? ret.expert) && 
-      (body.client ?? ret.client);
-    
-    // For products, we need to check if we are updating them or if they exist
-    const hasProducts = (body.products && body.products.length > 0) || (await prisma.returnProduct.count({ where: { returnId } })) > 0;
-    
-    const isDraft = body.isDraft ?? !(hasRequiredFields && hasProducts);
+    // Zod validation — strips unknown fields (including any status flags)
+    const raw = await request.json();
+    const parsed = UpdateReturnSchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { ok: false, error: "Données invalides", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+    const body = parsed.data;
+
+    // Determine phase: DRAFT vs ACTIVE
+    const isDraftPhase = ret.isDraft;
+
+    // Build update data conditionally based on phase
+    // DRAFT: all fields editable
+    // ACTIVE: locked fields = client, noClient, amount, transporteur. Products read-only.
+    const updateData: Record<string, unknown> = {};
+
+    // Always editable fields (both DRAFT and ACTIVE)
+    if (body.reporter !== undefined) updateData.reporter = body.reporter;
+    if (body.cause !== undefined) updateData.cause = body.cause;
+    if (body.expert !== undefined) updateData.expert = body.expert;
+    if (body.noCommande !== undefined) updateData.noCommande = body.noCommande;
+    if (body.tracking !== undefined) updateData.noTracking = body.tracking;
+    if (body.dateCommande !== undefined) updateData.dateCommande = body.dateCommande;
+    if (body.description !== undefined) updateData.description = body.description;
+    if (body.physicalReturn !== undefined) updateData.returnPhysical = body.physicalReturn;
+    if (body.isPickup !== undefined) updateData.isPickup = body.isPickup;
+    if (body.isCommande !== undefined) updateData.isCommande = body.isCommande;
+    if (body.isReclamation !== undefined) updateData.isReclamation = body.isReclamation;
+    if (body.noBill !== undefined) updateData.noBill = body.noBill;
+    if (body.noBonCommande !== undefined) updateData.noBonCommande = body.noBonCommande;
+    if (body.noReclamation !== undefined) updateData.noReclamation = body.noReclamation;
+
+    // Draft-only fields (locked once active)
+    if (isDraftPhase) {
+      if (body.client !== undefined) updateData.client = body.client;
+      if (body.noClient !== undefined) updateData.noClient = body.noClient;
+      if (body.amount !== undefined) updateData.amount = body.amount;
+      if (body.transport !== undefined) updateData.transporteur = body.transport;
+    }
+
+    // Compute isDraft status
+    const effectiveReporter = body.reporter ?? ret.reporter;
+    const effectiveCause = body.cause ?? ret.cause;
+    const effectiveExpert = body.expert ?? ret.expert;
+    const effectiveClient = isDraftPhase ? (body.client ?? ret.client) : ret.client;
+    const hasRequiredFields = effectiveReporter && effectiveCause && effectiveExpert && effectiveClient;
+
+    // Check product count for draft calculation
+    const incomingProductCount = body.products?.length;
+    const existingProductCount = ret.products.length;
+    const effectiveProductCount = incomingProductCount !== undefined ? incomingProductCount : existingProductCount;
+    const hasProducts = effectiveProductCount > 0;
+
+    updateData.isDraft = !(hasRequiredFields && hasProducts);
 
     // Update the return
-    // Note: We handle new status flags (verified, finalized, physical)
     const updated = await prisma.return.update({
       where: { id: returnId },
-      data: {
-        reporter: body.reporter ?? ret.reporter,
-        cause: body.cause ?? ret.cause,
-        expert: body.expert ?? ret.expert,
-        client: body.client ?? ret.client,
-        noClient: body.noClient ?? ret.noClient,
-        noCommande: body.noCommande ?? ret.noCommande,
-        noTracking: body.tracking ?? ret.noTracking,
-        amount: body.amount !== undefined ? body.amount : ret.amount,
-        dateCommande: body.dateCommande ?? ret.dateCommande,
-        transporteur: body.transport ?? ret.transporteur,
-        description: body.description ?? ret.description,
-        
-        // Status Flags
-        returnPhysical: body.physicalReturn ?? ret.returnPhysical,
-        isVerified: body.verified ?? ret.isVerified,
-        isFinal: body.finalized ?? ret.isFinal,
-        
-        isPickup: body.isPickup ?? ret.isPickup,
-        isCommande: body.isCommande ?? ret.isCommande,
-        isReclamation: body.isReclamation ?? ret.isReclamation,
-        noBill: body.noBill ?? ret.noBill,
-        noBonCommande: body.noBonCommande ?? ret.noBonCommande,
-        noReclamation: body.noReclamation ?? ret.noReclamation,
-        isDraft,
-      },
+      data: updateData,
     });
 
-    // Update products if provided
-    if (body.products && Array.isArray(body.products)) {
-      // Delete existing products
-      await prisma.returnProduct.deleteMany({ where: { returnId: ret.id } });
+    // Product updates: only allowed in DRAFT phase
+    if (isDraftPhase && body.products && Array.isArray(body.products)) {
+      // Build a map of incoming products by codeProduit
+      const incomingMap = new Map(
+        body.products.map((p) => [p.codeProduit, p])
+      );
+      const existingMap = new Map(
+        ret.products.map((p) => [p.codeProduit, p])
+      );
 
-      // Create new products
-      if (body.products.length > 0) {
-        await prisma.returnProduct.createMany({
-          data: body.products.map((p: { codeProduit: string; descriptionProduit?: string; descriptionRetour?: string; quantite: number }) => ({
-            returnId: ret.id,
-            codeProduit: p.codeProduit,
-            descrProduit: p.descriptionProduit || null,
-            descriptionRetour: p.descriptionRetour || null,
-            quantite: p.quantite || 0,
-          })),
+      // Upsert: update existing, create new
+      for (const [codeProduit, incoming] of incomingMap) {
+        const existing = existingMap.get(codeProduit);
+        if (existing) {
+          // Update existing product — preserve verification data
+          await prisma.returnProduct.update({
+            where: { id: existing.id },
+            data: {
+              descrProduit: incoming.descriptionProduit || existing.descrProduit,
+              descriptionRetour: incoming.descriptionRetour || existing.descriptionRetour,
+              quantite: incoming.quantite ?? existing.quantite,
+            },
+          });
+        } else {
+          // Create new product
+          await prisma.returnProduct.create({
+            data: {
+              returnId: ret.id,
+              codeProduit: incoming.codeProduit,
+              descrProduit: incoming.descriptionProduit || null,
+              descriptionRetour: incoming.descriptionRetour || null,
+              quantite: incoming.quantite || 0,
+            },
+          });
+        }
+      }
+
+      // Delete products that were removed (not in incoming list)
+      const incomingCodes = new Set(incomingMap.keys());
+      const toDelete = ret.products.filter((p) => !incomingCodes.has(p.codeProduit));
+      if (toDelete.length > 0) {
+        await prisma.returnProduct.deleteMany({
+          where: { id: { in: toDelete.map((p) => p.id) } },
         });
       }
     }
@@ -237,6 +295,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
 /* =============================================================================
    DELETE /api/returns/[code] - Delete return
+   Only Gestionnaire can delete (and only if not verified/finalized).
 ============================================================================= */
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
@@ -246,12 +305,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const { user, tenantId } = auth;
 
     // Only Gestionnaire can delete
-    if (user.role !== "Gestionnaire") {
-      return NextResponse.json(
-        { ok: false, error: "Seul un gestionnaire peut supprimer un retour" },
-        { status: 403 }
-      );
-    }
+    const roleError = requireRoles(user, ["gestionnaire"]);
+    if (roleError) return roleError;
 
     const { code } = await params;
     const returnId = parseReturnCode(code);
@@ -277,7 +332,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Delete (cascade will handle products and attachments)
-    // Deleting this ID creates a "gap" that the POST logic in route.ts will automatically fill next time.
     await prisma.return.delete({ where: { id: returnId } });
 
     return NextResponse.json({ ok: true, message: "Retour supprimé" });

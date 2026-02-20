@@ -2,28 +2,20 @@
 // Returns statistics - GET
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
 import { Prisma } from "@prisma/client";
+import { requireTenant, normalizeRole } from "@/lib/auth-helpers";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { user, tenantId } = auth;
 
-    const tenantId = session.user.activeTenantId;
-    if (!tenantId) {
-      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
-    }
-
-    const userRole = (session.user as { role?: string }).role;
-    const userName = session.user.name || "";
+    const userName = user.name || "";
 
     // Base tenant + expert filter
-    const expertFilter: Prisma.ReturnWhereInput = userRole === "Expert"
+    const expertFilter: Prisma.ReturnWhereInput = normalizeRole(user.role) === "expert"
       ? { tenantId, expert: { contains: userName, mode: "insensitive" } }
       : { tenantId };
 

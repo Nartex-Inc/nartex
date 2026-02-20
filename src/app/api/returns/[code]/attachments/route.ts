@@ -1,10 +1,8 @@
 // src/app/api/returns/[code]/attachments/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import prisma from "@/lib/prisma"; 
-import { Buffer } from "buffer"; // Explicit import for safety
+import prisma from "@/lib/prisma";
+import { Buffer } from "buffer";
 import {
   uploadFileToDrive,
   deleteFileFromDrive,
@@ -12,6 +10,7 @@ import {
   getDownloadUrl,
   getViewUrl,
 } from "@/lib/google-drive";
+import { requireTenant, requireRoles } from "@/lib/auth-helpers";
 
 /* =============================================================================
    Helpers
@@ -29,6 +28,7 @@ type RouteContext = {
 
 /* =============================================================================
    GET - List attachments for a return
+   Open to all authenticated users with valid tenant.
 ============================================================================= */
 
 export async function GET(
@@ -36,15 +36,9 @@ export async function GET(
   { params }: RouteContext
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
-
-    const tenantId = session.user.activeTenantId;
-    if (!tenantId) {
-      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
-    }
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { tenantId } = auth;
 
     const { code } = await params;
     const codeRetour = parseCode(code);
@@ -77,10 +71,11 @@ export async function GET(
     }));
 
     return NextResponse.json({ ok: true, attachments: data });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("GET Attachment Error:", error);
+    const message = error instanceof Error ? error.message : "Erreur de chargement";
     return NextResponse.json(
-      { ok: false, error: error.message || "Erreur de chargement" },
+      { ok: false, error: message },
       { status: 500 }
     );
   }
@@ -88,6 +83,7 @@ export async function GET(
 
 /* =============================================================================
    POST - Upload file(s) to Google Drive and link to return
+   Only Gestionnaire/Analyste can upload.
 ============================================================================= */
 
 export async function POST(
@@ -95,19 +91,16 @@ export async function POST(
   { params }: RouteContext
 ) {
   console.log("[Attachments API] POST request received");
-  
-  try {
-    const session = await getServerSession(authOptions);
-    console.log("[Attachments API] Session:", session?.user?.name || "Not authenticated");
-    
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
 
-    const tenantId = session.user.activeTenantId;
-    if (!tenantId) {
-      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
-    }
+  try {
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { user, tenantId } = auth;
+    console.log("[Attachments API] Session:", user.name || "authenticated");
+
+    // Role guard: only Gestionnaire/Analyste can upload
+    const roleError = requireRoles(user, ["gestionnaire", "analyste"]);
+    if (roleError) return roleError;
 
     const { code } = await params;
     console.log("[Attachments API] Return code:", code);
@@ -134,15 +127,16 @@ export async function POST(
     // =========================================================
     if (contentType.includes("multipart/form-data")) {
       console.log("[Attachments API] Processing multipart form data");
-      
+
       let formData;
       try {
         formData = await request.formData();
-      } catch (formError: any) {
+      } catch (formError: unknown) {
+        const msg = formError instanceof Error ? formError.message : "Unknown error";
         console.error("[Attachments API] FormData parsing error:", formError);
-        return NextResponse.json({ ok: false, error: `FormData error: ${formError.message}` }, { status: 400 });
+        return NextResponse.json({ ok: false, error: `FormData error: ${msg}` }, { status: 400 });
       }
-      
+
       const files = formData.getAll("files");
       console.log("[Attachments API] Files received:", files.length);
 
@@ -164,22 +158,20 @@ export async function POST(
       const errors: string[] = [];
 
       for (let i = 0; i < files.length; i++) {
-        const file = files[i] as any;
-        
-        // Check if it's a File-like object (has name, size, arrayBuffer method)
-        // Note: We can't use `instanceof File` because File may not be defined in Node.js
+        const file = files[i] as { arrayBuffer: () => Promise<ArrayBuffer>; name: string; type: string; size: number };
+
         if (!file || typeof file.arrayBuffer !== 'function' || typeof file.name !== 'string') {
-          console.warn(`[Attachments API] Item ${i} is not a valid file object:`, typeof file, file);
+          console.warn(`[Attachments API] Item ${i} is not a valid file object:`, typeof file);
           errors.push(`Item ${i} is not a valid file`);
           continue;
         }
-        
+
         console.log(`[Attachments API] Processing file ${i + 1}/${files.length}: ${file.name} (${file.type || 'unknown'}, ${file.size} bytes)`);
 
         if (file.size > 25 * 1024 * 1024) {
           console.warn(`[Attachments API] File too large: ${file.name}`);
           errors.push(`${file.name}: trop volumineux (max 25MB)`);
-          continue; 
+          continue;
         }
 
         if (file.size === 0) {
@@ -191,12 +183,12 @@ export async function POST(
         let arrayBuffer;
         try {
           arrayBuffer = await file.arrayBuffer();
-        } catch (readError: any) {
+        } catch (readError: unknown) {
           console.error(`[Attachments API] Error reading file ${file.name}:`, readError);
           errors.push(`${file.name}: erreur de lecture`);
           continue;
         }
-        
+
         const buffer = Buffer.from(arrayBuffer);
         console.log(`[Attachments API] Buffer size: ${buffer.length} bytes`);
 
@@ -206,9 +198,10 @@ export async function POST(
         try {
           driveResult = await uploadFileToDrive(buffer, file.name, file.type || 'application/octet-stream');
           console.log(`[Attachments API] Drive upload result:`, driveResult);
-        } catch (driveErr: any) {
+        } catch (driveErr: unknown) {
+          const msg = driveErr instanceof Error ? driveErr.message : "Unknown error";
           console.error("[Attachments API] Google Drive Upload Failed:", driveErr);
-          errors.push(`${file.name}: ${driveErr.message}`);
+          errors.push(`${file.name}: ${msg}`);
           continue;
         }
 
@@ -225,16 +218,15 @@ export async function POST(
           attachment = await prisma.returnAttachment.create({
             data: {
               returnId: ret.id,
-              fileId: driveResult.fileId, // Maps to 'filePath' column
+              fileId: driveResult.fileId,
               fileName: driveResult.fileName,
               mimeType: driveResult.mimeType,
               fileSize: file.size,
             },
           });
           console.log(`[Attachments API] Saved to DB with ID: ${attachment.id}`);
-        } catch (dbErr: any) {
+        } catch (dbErr: unknown) {
           console.error("[Attachments API] Database Save Failed:", dbErr);
-          // Try to clean up the uploaded file
           await deleteFileFromDrive(driveResult.fileId).catch(console.error);
           errors.push(`${file.name}: erreur base de données`);
           continue;
@@ -256,7 +248,7 @@ export async function POST(
       console.log(`[Attachments API] Upload complete. Success: ${uploadedAttachments.length}, Errors: ${errors.length}`);
 
       if (uploadedAttachments.length === 0) {
-        const errorMsg = errors.length > 0 
+        const errorMsg = errors.length > 0
           ? `Aucun fichier uploadé. Erreurs: ${errors.join('; ')}`
           : "Aucun fichier n'a pu être sauvegardé.";
         return NextResponse.json(
@@ -278,7 +270,7 @@ export async function POST(
     // =========================================================
     if (contentType.includes("application/json")) {
       console.log("[Attachments API] Processing JSON body");
-      
+
       const body = await request.json();
       const { fileId, fileName, mimeType, fileSize } = body;
 
@@ -290,7 +282,7 @@ export async function POST(
       const existing = await prisma.returnAttachment.findFirst({
         where: {
           returnId: ret.id,
-          fileId: fileId, // Maps to 'filePath'
+          fileId: fileId,
         },
       });
 
@@ -331,12 +323,12 @@ export async function POST(
     console.log("[Attachments API] Unsupported Content-Type:", contentType);
     return NextResponse.json({ ok: false, error: `Content-Type non supporté: ${contentType}` }, { status: 415 });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[Attachments API] POST Error details:", error);
     return NextResponse.json(
-      { 
-        ok: false, 
-        error: error instanceof Error ? error.message : "Erreur inconnue serveur" 
+      {
+        ok: false,
+        error: error instanceof Error ? error.message : "Erreur inconnue serveur"
       },
       { status: 500 }
     );
@@ -345,6 +337,7 @@ export async function POST(
 
 /* =============================================================================
    DELETE - Remove attachment
+   Only Gestionnaire/Analyste can delete attachments.
 ============================================================================= */
 
 export async function DELETE(
@@ -352,15 +345,13 @@ export async function DELETE(
   { params }: RouteContext
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { user, tenantId } = auth;
 
-    const tenantId = session.user.activeTenantId;
-    if (!tenantId) {
-      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
-    }
+    // Role guard: only Gestionnaire/Analyste can delete attachments
+    const roleError = requireRoles(user, ["gestionnaire", "analyste"]);
+    if (roleError) return roleError;
 
     const { code } = await params;
     const codeRetour = parseCode(code);
@@ -381,11 +372,10 @@ export async function DELETE(
       return NextResponse.json({ ok: false, error: "Retour introuvable" }, { status: 404 });
     }
 
-    // Find attachment using the mapped field (Prisma: fileId -> DB: filePath)
     const attachment = await prisma.returnAttachment.findFirst({
       where: {
         returnId: ret.id,
-        fileId: fileId, 
+        fileId: fileId,
       },
     });
 
@@ -394,7 +384,7 @@ export async function DELETE(
     }
 
     const deleteFromDrive = searchParams.get("deleteFromDrive") !== "false";
-     
+
     if (deleteFromDrive) {
       try {
         await deleteFileFromDrive(fileId);
@@ -410,10 +400,11 @@ export async function DELETE(
       message: "Pièce jointe supprimée",
       deletedFileId: fileId,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Erreur de suppression";
     console.error("DELETE Error:", error);
     return NextResponse.json(
-      { ok: false, error: error.message || "Erreur de suppression" },
+      { ok: false, error: message },
       { status: 500 }
     );
   }

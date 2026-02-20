@@ -16,11 +16,20 @@ const ReporterEnum = z.enum([
 const CauseEnum = z.enum([
   "production",
   "pompe",
+  "autre_cause",
+  "exposition_sinto",
   "transporteur",
   "client",
+  "expert",
   "expedition",
+  "analyse",
   "defect",
   "surplus_inventaire",
+  "prise_commande",
+  "rappel",
+  "redirection",
+  "fournisseur",
+  "autre",
 ]);
 
 const ReturnProductSchema = z.object({
@@ -67,9 +76,6 @@ export const UpdateReturnSchema = z.object({
   transport: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   physicalReturn: z.boolean().optional(),
-  verified: z.boolean().optional(),
-  finalized: z.boolean().optional(),
-  isDraft: z.boolean().optional(),
   isPickup: z.boolean().optional(),
   isCommande: z.boolean().optional(),
   isReclamation: z.boolean().optional(),
@@ -77,6 +83,45 @@ export const UpdateReturnSchema = z.object({
   noBonCommande: z.string().nullable().optional(),
   noReclamation: z.string().nullable().optional(),
   products: z.array(ReturnProductSchema).optional(),
+});
+
+// ─── Verify / Finalize / Standby ────────────────────────────────────────────
+
+export const VerifyReturnSchema = z.object({
+  products: z.array(
+    z.object({
+      codeProduit: z.string().min(1),
+      quantiteRecue: z.number().int().min(0),
+      qteDetruite: z.number().int().min(0),
+    })
+  ).min(1),
+});
+
+export const FinalizeReturnSchema = z.object({
+  products: z.array(
+    z.object({
+      codeProduit: z.string().min(1),
+      quantiteRecue: z.number().int().min(0),
+      qteDetruite: z.number().int().min(0),
+      tauxRestock: z.number().min(0),
+    })
+  ).optional(),
+  warehouseOrigin: z.string().nullable().optional(),
+  warehouseDestination: z.string().nullable().optional(),
+  noCredit: z.string().nullable().optional(),
+  noCredit2: z.string().nullable().optional(),
+  noCredit3: z.string().nullable().optional(),
+  creditedTo: z.string().nullable().optional(),
+  creditedTo2: z.string().nullable().optional(),
+  creditedTo3: z.string().nullable().optional(),
+  transportAmount: z.number().nullable().optional(),
+  restockingAmount: z.number().nullable().optional(),
+  chargeTransport: z.boolean().optional(),
+  villeShipto: z.string().nullable().optional(),
+});
+
+export const StandbyReturnSchema = z.object({
+  action: z.enum(["standby", "reactivate"]),
 });
 
 // ─── Signup ──────────────────────────────────────────────────────────────────

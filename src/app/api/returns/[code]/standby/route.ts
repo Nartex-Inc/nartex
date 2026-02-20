@@ -2,34 +2,23 @@
 // Toggle standby status - POST
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
 import { parseReturnCode, formatReturnCode } from "@/types/returns";
 import { notifyReturnStandby } from "@/lib/notifications";
+import { requireTenant, requireRoles } from "@/lib/auth-helpers";
+import { StandbyReturnSchema } from "@/lib/validations";
 
 type RouteParams = { params: Promise<{ code: string }> };
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ ok: false, error: "Non authentifié" }, { status: 401 });
-    }
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { user, tenantId } = auth;
 
-    const tenantId = session.user.activeTenantId;
-    if (!tenantId) {
-      return NextResponse.json({ ok: false, error: "Aucun tenant actif sélectionné" }, { status: 403 });
-    }
-
-    // Role check
-    const userRole = (session.user as { role?: string }).role;
-    if (!["Gestionnaire", "Facturation"].includes(userRole || "")) {
-      return NextResponse.json(
-        { ok: false, error: "Vous n'êtes pas autorisé à modifier le statut standby" },
-        { status: 403 }
-      );
-    }
+    // Role check: Gestionnaire or Facturation
+    const roleError = requireRoles(user, ["gestionnaire", "facturation"]);
+    if (roleError) return roleError;
 
     const { code } = await params;
     const returnId = parseReturnCode(code);
@@ -46,10 +35,32 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Retour non trouvé" }, { status: 404 });
     }
 
-    const body = await request.json();
-    const { action } = body; // "standby" or "reactivate"
+    // Zod validation
+    const raw = await request.json();
+    const parsed = StandbyReturnSchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { ok: false, error: "Données invalides. Utilisez 'standby' ou 'reactivate'", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+    const { action } = parsed.data;
 
     if (action === "standby") {
+      // Preconditions: must not be draft, must not already be standby
+      if (ret.isDraft && !ret.isStandby) {
+        return NextResponse.json(
+          { ok: false, error: "Impossible de mettre un brouillon en standby" },
+          { status: 400 }
+        );
+      }
+      if (ret.isStandby) {
+        return NextResponse.json(
+          { ok: false, error: "Ce retour est déjà en standby" },
+          { status: 400 }
+        );
+      }
+
       // Put in standby - special state: isFinal=true, isDraft=true, isStandby=true
       await prisma.return.update({
         where: { id: returnId },
@@ -64,7 +75,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       notifyReturnStandby({
         returnId,
         returnCode: formatReturnCode(returnId),
-        userName: session.user.name || session.user.email || "Système",
+        userName: user.name || user.email || "Système",
         tenantId,
       }).catch(console.error);
 
@@ -73,7 +84,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         message: "Retour mis en standby",
         data: { id: formatReturnCode(returnId), status: "standby" },
       });
-    } else if (action === "reactivate") {
+    } else {
+      // reactivate
+      // Precondition: must be in standby
+      if (!ret.isStandby) {
+        return NextResponse.json(
+          { ok: false, error: "Ce retour n'est pas en standby" },
+          { status: 400 }
+        );
+      }
+
       // Reactivate - reset to active state
       await prisma.return.update({
         where: { id: returnId },
@@ -91,11 +111,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         message: "Retour réactivé",
         data: { id: formatReturnCode(returnId), status: "active" },
       });
-    } else {
-      return NextResponse.json(
-        { ok: false, error: "Action invalide. Utilisez 'standby' ou 'reactivate'" },
-        { status: 400 }
-      );
     }
   } catch (error) {
     console.error("POST /api/returns/[code]/standby error:", error);
