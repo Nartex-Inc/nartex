@@ -376,7 +376,7 @@ export default function ReturnsPage() {
     if (!confirm(`Supprimer le retour ${code} ?`)) return;
     const prev = rows;
     setRows((r) => r.filter((x) => String(x.id) !== code));
-    try { await deleteReturn(code); } catch { alert("La suppression a échoué"); setRows(prev); }
+    try { await deleteReturn(code); } catch (e) { alert(e instanceof Error ? e.message : "La suppression a échoué"); setRows(prev); }
   };
 
   const onReset = () => { setQuery(""); setCause("all"); setReporter("all"); setDateFrom(""); setDateTo(""); };
