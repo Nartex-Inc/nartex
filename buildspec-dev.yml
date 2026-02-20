@@ -111,6 +111,9 @@ phases:
       - echo "⚙️ BUILD – generate prisma client (Host)"
       - npx prisma generate --schema=prisma/schema.prisma
 
+      - echo "🔄 Running legacy returns migration"
+      - npx tsx scripts/migrate-legacy-returns.ts
+
       - echo "🏗 BUILD – resolve commit hash"
       - COMMIT_HASH=$(git rev-parse --short HEAD)
       - echo "COMMIT_HASH=$COMMIT_HASH"
