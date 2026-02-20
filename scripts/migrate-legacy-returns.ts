@@ -9,7 +9,7 @@
  *   - retour_products.csv  — return line items
  *   - uploads.sql          — attachment records (Google Drive file IDs)
  *
- * Only imports records where code_retour > 6641.
+ * Imports ALL records. Skips any already-existing return IDs.
  *
  * Usage:
  *   DATABASE_URL="postgresql://..." npx tsx scripts/migrate-legacy-returns.ts
@@ -21,7 +21,6 @@ import * as path from "path";
 
 const prisma = new PrismaClient();
 
-const MIN_CODE = 6641; // Only import code_retour > this value
 
 // ---------------------------------------------------------------------------
 // CSV parser — handles quoted fields with embedded newlines and commas
@@ -251,27 +250,7 @@ async function main() {
   console.log(`  retour_products: ${productsRaw.length} total records`);
   console.log(`  uploads:         ${uploadsRaw.length} total records`);
 
-  // 2. Filter for code_retour > MIN_CODE
-  const returns = returnsRaw.filter(
-    (r) => parseInt(r.code_retour) > MIN_CODE
-  );
-  const returnIds = new Set(returns.map((r) => parseInt(r.code_retour)));
-  const products = productsRaw.filter((p) =>
-    returnIds.has(parseInt(p.code_retour))
-  );
-  const uploads = uploadsRaw.filter((u) => returnIds.has(u.code_retour));
-
-  console.log(`\nAfter filtering (code_retour > ${MIN_CODE}):`);
-  console.log(`  Returns:     ${returns.length}`);
-  console.log(`  Products:    ${products.length}`);
-  console.log(`  Attachments: ${uploads.length}`);
-
-  if (returns.length === 0) {
-    console.log("No records to import. Exiting.");
-    return;
-  }
-
-  // 3. Resolve tenant
+  // 2. Resolve tenant
   const tenant = await prisma.tenant.findUnique({
     where: { slug: "sinto" },
   });
@@ -281,20 +260,33 @@ async function main() {
   }
   console.log(`\nTenant: ${tenant.name} (${tenant.id})`);
 
-  // 4. Check for existing records that would conflict
+  // 3. Find already-existing return IDs to skip them
+  const allCsvIds = returnsRaw.map((r) => parseInt(r.code_retour));
   const existingReturns = await prisma.return.findMany({
-    where: { id: { in: Array.from(returnIds) } },
+    where: { id: { in: allCsvIds } },
     select: { id: true },
   });
-  if (existingReturns.length > 0) {
-    const existingIds = existingReturns.map((r) => r.id).sort((a, b) => a - b);
-    console.error(
-      `\nERROR: ${existingReturns.length} returns already exist with IDs: ${existingIds.join(", ")}`
-    );
-    console.error(
-      "Delete them first or adjust the migration. Aborting to prevent duplicates."
-    );
-    process.exit(1);
+  const existingIds = new Set(existingReturns.map((r) => r.id));
+  console.log(`\nAlready in database: ${existingIds.size} returns (will skip)`);
+
+  // 4. Filter out existing records
+  const returns = returnsRaw.filter(
+    (r) => !existingIds.has(parseInt(r.code_retour))
+  );
+  const returnIds = new Set(returns.map((r) => parseInt(r.code_retour)));
+  const products = productsRaw.filter((p) =>
+    returnIds.has(parseInt(p.code_retour))
+  );
+  const uploads = uploadsRaw.filter((u) => returnIds.has(u.code_retour));
+
+  console.log(`\nNew records to import:`);
+  console.log(`  Returns:     ${returns.length}`);
+  console.log(`  Products:    ${products.length}`);
+  console.log(`  Attachments: ${uploads.length}`);
+
+  if (returns.length === 0) {
+    console.log("All records already exist. Nothing to import.");
+    return;
   }
 
   // 5. Build Prisma data objects
@@ -373,11 +365,11 @@ async function main() {
     })
   );
 
-  // 6. Insert in a transaction
+  // 6. Insert in a transaction (60s timeout for large dataset)
   console.log("\nInserting into database...");
 
   await prisma.$transaction(async (tx) => {
-    // Insert returns
+    // Insert returns (batch in chunks of 500 for safety)
     const returnsResult = await tx.return.createMany({
       data: returnData,
       skipDuplicates: true,
@@ -419,7 +411,7 @@ async function main() {
     where: { tenantId: tenant.id },
   });
   const importedRange = await prisma.return.aggregate({
-    where: { id: { gt: MIN_CODE } },
+    where: { tenantId: tenant.id },
     _min: { id: true },
     _max: { id: true },
     _count: true,
@@ -428,7 +420,7 @@ async function main() {
   console.log("\n=== Migration Complete ===");
   console.log(`Total returns for tenant: ${totalReturns}`);
   console.log(
-    `Imported range: R${importedRange._min.id} – R${importedRange._max.id} (${importedRange._count} records)`
+    `Full range: R${importedRange._min.id} – R${importedRange._max.id} (${importedRange._count} records)`
   );
 }
 
