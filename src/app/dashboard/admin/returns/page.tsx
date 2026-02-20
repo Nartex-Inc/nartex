@@ -83,6 +83,127 @@ const RESTOCK_RATES = ["0%", "10%", "15%", "20%", "25%", "30%", "35%", "40%", "4
 type UserRole = "Gestionnaire" | "Vérificateur" | "Facturation" | "Expert" | "Analyste" | string;
 
 // =============================================================================
+//   SEARCH AUTOCOMPLETE (generic)
+// =============================================================================
+
+function SearchAutocomplete({
+  value,
+  onChange,
+  disabled,
+  className,
+  placeholder,
+  icon,
+  fetchUrl,
+  responseKey,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+  className?: string;
+  placeholder?: string;
+  icon?: React.ReactNode;
+  fetchUrl: string;
+  responseKey: string;
+}) {
+  const [options, setOptions] = React.useState<string[]>([]);
+  const [open, setOpen] = React.useState(false);
+  const [highlightIdx, setHighlightIdx] = React.useState(-1);
+  const wrapperRef = React.useRef<HTMLDivElement>(null);
+  const listRef = React.useRef<HTMLUListElement>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch(fetchUrl, { credentials: "include" })
+      .then((r) => r.json())
+      .then((json) => { if (!cancelled && json.ok && Array.isArray(json[responseKey])) setOptions(json[responseKey]); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [fetchUrl, responseKey]);
+
+  const filtered = React.useMemo(() => {
+    if (!value.trim()) return options;
+    const lower = value.toLowerCase();
+    return options.filter((e) => e.toLowerCase().includes(lower));
+  }, [value, options]);
+
+  React.useEffect(() => { setHighlightIdx(-1); }, [filtered]);
+
+  React.useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  React.useEffect(() => {
+    if (highlightIdx >= 0 && listRef.current) {
+      const item = listRef.current.children[highlightIdx] as HTMLElement | undefined;
+      item?.scrollIntoView({ block: "nearest" });
+    }
+  }, [highlightIdx]);
+
+  const select = (name: string) => { onChange(name); setOpen(false); };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (!open || filtered.length === 0) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); setHighlightIdx((i) => (i + 1) % filtered.length); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setHighlightIdx((i) => (i <= 0 ? filtered.length - 1 : i - 1)); }
+    else if (e.key === "Enter" && highlightIdx >= 0) { e.preventDefault(); select(filtered[highlightIdx]); }
+    else if (e.key === "Escape") { setOpen(false); }
+  };
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <div className="relative">
+        {icon && <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[hsl(var(--text-muted))]">{icon}</div>}
+        <input
+          value={value}
+          onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={onKeyDown}
+          disabled={disabled}
+          placeholder={placeholder}
+          autoComplete="off"
+          className={cn(className, icon && "pl-10")}
+        />
+      </div>
+      {open && filtered.length > 0 && (
+        <ul
+          ref={listRef}
+          className="absolute z-[300] mt-1 w-full max-h-52 overflow-y-auto rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-xl py-1"
+        >
+          {filtered.map((name, idx) => (
+            <li
+              key={name}
+              onMouseDown={() => select(name)}
+              onMouseEnter={() => setHighlightIdx(idx)}
+              className={cn(
+                "px-4 py-2.5 text-sm cursor-pointer transition-colors duration-100",
+                idx === highlightIdx
+                  ? "bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-primary))]"
+                  : "text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))]",
+                name === value && "font-medium text-[hsl(var(--text-primary))]"
+              )}
+            >
+              {name}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function ExpertAutocomplete(props: Omit<React.ComponentProps<typeof SearchAutocomplete>, "fetchUrl" | "responseKey">) {
+  return <SearchAutocomplete {...props} fetchUrl="/api/prextra/experts" responseKey="experts" />;
+}
+
+function SiteAutocomplete(props: Omit<React.ComponentProps<typeof SearchAutocomplete>, "fetchUrl" | "responseKey">) {
+  return <SearchAutocomplete {...props} fetchUrl="/api/prextra/sites" responseKey="sites" />;
+}
+
+// =============================================================================
 //   API UTILS
 // =============================================================================
 
@@ -793,7 +914,20 @@ function DetailModal({
               Informations générales
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <Field label="Expert" value={draft.expert || ""} onChange={(v) => setDraft({ ...draft, expert: v })} disabled={!canEdit} />
+              <label className="block">
+                <span className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide mb-2 block">Expert</span>
+                <ExpertAutocomplete
+                  value={draft.expert || ""}
+                  onChange={(v) => setDraft({ ...draft, expert: v })}
+                  disabled={!canEdit}
+                  className={cn(
+                    "w-full h-11 px-4 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all duration-200",
+                    !canEdit
+                      ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed"
+                      : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent"
+                  )}
+                />
+              </label>
               <Field label="Client" value={draft.client || ""} onChange={(v) => setDraft({ ...draft, client: v })} disabled={!canEdit} />
               <Field label="No. Client" value={draft.noClient ?? ""} onChange={(v) => setDraft({ ...draft, noClient: v })} disabled={!canEdit} />
               <Field label="No. Commande" value={draft.noCommande ?? ""} onChange={(v) => setDraft({ ...draft, noCommande: v })} disabled={!canEdit} />
@@ -929,8 +1063,38 @@ function DetailModal({
               
               {/* Warehouse Transfer */}
               <div className="grid grid-cols-2 gap-4 mb-5">
-                <Field label="Entrepôt origine" value={draft.warehouseOrigin ?? ""} onChange={(v) => setDraft({ ...draft, warehouseOrigin: v })} icon={<Warehouse className="h-4 w-4" />} disabled={!canFinalize} />
-                <Field label="Entrepôt destination" value={draft.warehouseDestination ?? ""} onChange={(v) => setDraft({ ...draft, warehouseDestination: v })} icon={<Warehouse className="h-4 w-4" />} disabled={!canFinalize} />
+                <label className="block">
+                  <span className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide mb-2 block">Entrepôt origine</span>
+                  <SiteAutocomplete
+                    value={draft.warehouseOrigin ?? ""}
+                    onChange={(v) => setDraft({ ...draft, warehouseOrigin: v })}
+                    icon={<Warehouse className="h-4 w-4" />}
+                    disabled={!canFinalize}
+                    placeholder="Sélectionner un entrepôt"
+                    className={cn(
+                      "w-full h-11 px-4 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all duration-200",
+                      !canFinalize
+                        ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed"
+                        : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent"
+                    )}
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide mb-2 block">Entrepôt destination</span>
+                  <SiteAutocomplete
+                    value={draft.warehouseDestination ?? ""}
+                    onChange={(v) => setDraft({ ...draft, warehouseDestination: v })}
+                    icon={<Warehouse className="h-4 w-4" />}
+                    disabled={!canFinalize}
+                    placeholder="Sélectionner un entrepôt"
+                    className={cn(
+                      "w-full h-11 px-4 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all duration-200",
+                      !canFinalize
+                        ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed"
+                        : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent"
+                    )}
+                  />
+                </label>
               </div>
 
               {/* Credits */}
@@ -1300,7 +1464,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
               <FormField label="No. client"><input value={noClient} onChange={(e) => setNoClient(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="12345" /></FormField>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <FormField label="Expert" required><input value={expert} onChange={(e) => setExpert(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Nom du représentant" /></FormField>
+              <FormField label="Expert" required><ExpertAutocomplete value={expert} onChange={setExpert} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Nom du représentant" /></FormField>
               <FormField label="Client" required><input value={client} onChange={(e) => setClient(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Nom du client" /></FormField>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
