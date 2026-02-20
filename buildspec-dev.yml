@@ -108,6 +108,8 @@ phases:
       - echo "🚀 BUILD – applying prisma migrations (always run – idempotent)"
       - npx prisma migrate deploy --schema=prisma/schema.prisma
       - /usr/bin/env bash -c 'set -euo pipefail; echo "SELECT 1;" | npx prisma db execute --schema=prisma/schema.prisma --stdin'
+      - echo "🧹 BUILD – clean literal NULL strings from legacy import"
+      - cat prisma/clean-null-strings.sql | npx prisma db execute --schema=prisma/schema.prisma --stdin
       - echo "⚙️ BUILD – generate prisma client (Host)"
       - npx prisma generate --schema=prisma/schema.prisma
 
