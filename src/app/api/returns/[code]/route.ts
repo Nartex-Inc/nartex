@@ -323,8 +323,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Retour non trouvé" }, { status: 404 });
     }
 
-    // Cannot delete verified or finalized returns
-    if (ret.isVerified || ret.isFinal) {
+    // Cannot delete verified or finalized returns (bypassed on dev for testing)
+    const isDev = process.env.NEXTAUTH_URL?.includes("dev.nartex.ca");
+    if ((ret.isVerified || ret.isFinal) && !isDev) {
       return NextResponse.json(
         { ok: false, error: "Impossible de supprimer un retour vérifié ou finalisé" },
         { status: 400 }
