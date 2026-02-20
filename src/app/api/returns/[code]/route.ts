@@ -10,6 +10,31 @@ import { UpdateReturnSchema } from "@/lib/validations";
 
 type RouteParams = { params: Promise<{ code: string }> };
 
+// Map legacy initiatedBy/verifiedBy/finalizedBy names to emails for avatar lookup
+const LEGACY_USER_MAP: Record<string, string> = {
+  'Suzie Boutin': 's.boutin@sinto.ca',
+  'Hugo Fortin': 'h.fortin@sinto.ca',
+  'Anick Poulin': 'a.poulin@sinto.ca',
+  'Jessica Lessard': 'j.lessard@sinto.ca',
+  'Stéphanie Veilleux': 's.veilleux@sinto.ca',
+  'Nicolas Labranche': 'n.labranche@sinto.ca',
+  'suzie boutin': 's.boutin@sinto.ca',
+  'hugo fortin': 'h.fortin@sinto.ca',
+  'anick poulin': 'a.poulin@sinto.ca',
+  'jessica lessard': 'j.lessard@sinto.ca',
+  'stéphanie veilleux': 's.veilleux@sinto.ca',
+  'nicolas labranche': 'n.labranche@sinto.ca',
+};
+
+function resolveNameToEmail(name: string | null): string | null {
+  if (!name) return null;
+  const trimmed = name.trim();
+  if (LEGACY_USER_MAP[trimmed]) return LEGACY_USER_MAP[trimmed];
+  if (LEGACY_USER_MAP[trimmed.toLowerCase()]) return LEGACY_USER_MAP[trimmed.toLowerCase()];
+  if (trimmed.includes("@")) return trimmed;
+  return null;
+}
+
 /* =============================================================================
    GET /api/returns/[code] - Get single return detail
 ============================================================================= */
@@ -45,7 +70,39 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Accès non autorisé" }, { status: 403 });
     }
 
+    // Look up avatars for initiatedBy, verifiedBy, finalizedBy
+    const emailsToFetch = new Set<string>();
+    const creatorEmail = resolveNameToEmail(ret.initiatedBy);
+    const verifierEmail = resolveNameToEmail(ret.verifiedBy);
+    const finalizerEmail = resolveNameToEmail(ret.finalizedBy);
+    if (creatorEmail) emailsToFetch.add(creatorEmail);
+    if (verifierEmail) emailsToFetch.add(verifierEmail);
+    if (finalizerEmail) emailsToFetch.add(finalizerEmail);
+
+    const avatarMap = new Map<string, { image: string | null; name: string | null }>();
+    if (emailsToFetch.size > 0) {
+      const users = await prisma.user.findMany({
+        where: { email: { in: Array.from(emailsToFetch) } },
+        select: { email: true, image: true, name: true },
+      });
+      users.forEach((u) => {
+        if (u.email) avatarMap.set(u.email, { image: u.image, name: u.name });
+      });
+    }
+
+    const getAvatarInfo = (email: string | null, fallbackName: string) => {
+      if (email && avatarMap.has(email)) {
+        const data = avatarMap.get(email)!;
+        return { name: data.name || fallbackName, avatar: data.image };
+      }
+      return { name: fallbackName, avatar: null };
+    };
+
     // Map to response format
+    const creatorInfo = getAvatarInfo(creatorEmail, ret.initiatedBy || "Système");
+    const verifierInfo = ret.verifiedBy ? getAvatarInfo(verifierEmail, ret.verifiedBy) : null;
+    const finalizerInfo = ret.finalizedBy ? getAvatarInfo(finalizerEmail, ret.finalizedBy) : null;
+
     const response: ReturnRow = {
       id: formatReturnCode(ret.id),
       codeRetour: ret.id,
@@ -85,13 +142,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       transportAmount: ret.transportAmount ? Number(ret.transportAmount) : null,
       restockingAmount: ret.restockingAmount ? Number(ret.restockingAmount) : null,
       createdBy: ret.initiatedBy
-        ? { name: ret.initiatedBy, at: ret.initializedAt?.toISOString() || "" }
+        ? { name: creatorInfo.name, avatar: creatorInfo.avatar, at: ret.initializedAt?.toISOString() || "" }
         : null,
-      verifiedBy: ret.verifiedBy
-        ? { name: ret.verifiedBy, at: ret.verifiedAt?.toISOString() || null }
+      verifiedBy: verifierInfo
+        ? { name: verifierInfo.name, avatar: verifierInfo.avatar, at: ret.verifiedAt?.toISOString() || null }
         : null,
-      finalizedBy: ret.finalizedBy
-        ? { name: ret.finalizedBy, at: ret.finalizedAt?.toISOString() || null }
+      finalizedBy: finalizerInfo
+        ? { name: finalizerInfo.name, avatar: finalizerInfo.avatar, at: ret.finalizedAt?.toISOString() || null }
         : null,
       products: ret.products.map((p) => ({
         id: String(p.id),

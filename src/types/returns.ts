@@ -111,8 +111,8 @@ export interface ReturnRow {
   noBonCommande?: string | null;
   noReclamation?: string | null;
   
-  verifiedBy?: { name: string; at: string | null } | null;
-  finalizedBy?: { name: string; at: string | null } | null;
+  verifiedBy?: { name: string; avatar?: string | null; at: string | null } | null;
+  finalizedBy?: { name: string; avatar?: string | null; at: string | null } | null;
   
   warehouseOrigin?: string | null;
   warehouseDestination?: string | null;

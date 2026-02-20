@@ -711,9 +711,9 @@ function DetailModal({
       <div className="relative w-[90vw] h-[90vh] bg-[hsl(var(--bg-surface))] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-[hsl(var(--border-default))]/50">
 
         {/* Header */}
-        <div className="px-8 py-6 border-b border-[hsl(var(--border-subtle))] flex items-start justify-between bg-gradient-to-r from-[hsl(var(--bg-elevated))] to-[hsl(var(--bg-surface))]">
+        <div className="px-8 py-6 border-b border-[hsl(var(--border-subtle))] flex items-start justify-between" style={{ background: `linear-gradient(to right, var(--accent-muted-current), hsl(var(--bg-surface)))` }}>
           <div className="flex items-center gap-5">
-            <div className="h-14 w-14 rounded-xl bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] flex items-center justify-center font-mono text-xl font-bold shadow-lg">
+            <div className="h-14 w-14 rounded-xl flex items-center justify-center font-mono text-xl font-bold shadow-lg text-white" style={{ backgroundColor: "var(--accent-current)" }}>
               {String(draft.id).replace('R', '')}
             </div>
             <div>
@@ -722,14 +722,23 @@ function DetailModal({
                 <Badge>{CAUSE_LABEL[draft.cause]}</Badge>
                 {isDraft && <Badge variant="muted">Brouillon</Badge>}
               </h2>
-              <p className="text-sm text-[hsl(var(--text-tertiary))] mt-1 flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5" />
-                  {creatorDate.toLocaleDateString("fr-CA")} à {creatorDate.toLocaleTimeString("fr-CA", { hour: "2-digit", minute: "2-digit" })}
-                </span>
-                <span className="text-[hsl(var(--text-muted))]">•</span>
-                <span>Par {creatorName}</span>
-              </p>
+              <div className="flex items-center gap-2.5 mt-1.5">
+                {draft.createdBy?.avatar ? (
+                  <img src={draft.createdBy.avatar} alt="" className="h-6 w-6 rounded-full object-cover ring-1 ring-[hsl(var(--border-default))]" />
+                ) : (
+                  <div className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-semibold text-white" style={{ backgroundColor: "var(--accent-current)" }}>
+                    {(creatorName || "?").charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <p className="text-sm text-[hsl(var(--text-tertiary))] flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5" />
+                    {creatorDate.toLocaleDateString("fr-CA")} à {creatorDate.toLocaleTimeString("fr-CA", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  <span className="text-[hsl(var(--text-muted))]">•</span>
+                  <span>Par {creatorName}</span>
+                </p>
+              </div>
             </div>
           </div>
           <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-primary))] transition-all duration-200">
@@ -891,9 +900,16 @@ function DetailModal({
           {/* Verification Info - Show after verification */}
           {isVerified && draft.verifiedBy && !showVerificationFields && (
             <div className="p-4 rounded-xl border border-[hsl(var(--success))]/20 bg-[hsl(var(--success-muted))]">
-              <div className="flex items-center gap-2 text-sm text-[hsl(var(--success))]">
-                <CheckCircle className="h-4 w-4" />
-                <span>Vérifié par {draft.verifiedBy.name} le {draft.verifiedBy.at ? new Date(draft.verifiedBy.at).toLocaleDateString("fr-CA") : ""}</span>
+              <div className="flex items-center gap-3 text-sm text-[hsl(var(--success))]">
+                <CheckCircle className="h-4 w-4 shrink-0" />
+                {draft.verifiedBy.avatar ? (
+                  <img src={draft.verifiedBy.avatar} alt="" className="h-7 w-7 rounded-full object-cover ring-2 ring-[hsl(var(--success))]/30" />
+                ) : (
+                  <div className="h-7 w-7 rounded-full bg-[hsl(var(--success))] flex items-center justify-center text-[11px] font-semibold text-white shrink-0">
+                    {(draft.verifiedBy.name || "?").charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span>Vérifié par <strong>{draft.verifiedBy.name}</strong> le {draft.verifiedBy.at ? new Date(draft.verifiedBy.at).toLocaleDateString("fr-CA") : ""}</span>
               </div>
             </div>
           )}
@@ -955,9 +971,16 @@ function DetailModal({
           {/* Finalization Info */}
           {isFinalized && draft.finalizedBy && (
             <div className="p-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
-              <div className="flex items-center gap-2 text-sm text-[hsl(var(--text-tertiary))]">
-                <Check className="h-4 w-4" />
-                <span>Finalisé par {draft.finalizedBy.name} le {draft.finalizedBy.at ? new Date(draft.finalizedBy.at).toLocaleDateString("fr-CA") : ""}</span>
+              <div className="flex items-center gap-3 text-sm text-[hsl(var(--text-tertiary))]">
+                <Check className="h-4 w-4 shrink-0" />
+                {draft.finalizedBy.avatar ? (
+                  <img src={draft.finalizedBy.avatar} alt="" className="h-7 w-7 rounded-full object-cover ring-2 ring-[hsl(var(--border-default))]" />
+                ) : (
+                  <div className="h-7 w-7 rounded-full bg-[hsl(var(--text-muted))] flex items-center justify-center text-[11px] font-semibold text-white shrink-0">
+                    {(draft.finalizedBy.name || "?").charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span>Finalisé par <strong>{draft.finalizedBy.name}</strong> le {draft.finalizedBy.at ? new Date(draft.finalizedBy.at).toLocaleDateString("fr-CA") : ""}</span>
               </div>
             </div>
           )}
