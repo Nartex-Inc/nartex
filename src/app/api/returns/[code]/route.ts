@@ -192,8 +192,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (!auth.ok) return auth.response;
     const { user, tenantId } = auth;
 
-    // Role guard: only Gestionnaire/Analyste can update via PUT
-    const roleError = requireRoles(user, ["gestionnaire", "analyste"]);
+    // Role guard: only Gestionnaire/Administrateur/Analyste can update via PUT
+    const roleError = requireRoles(user, ["gestionnaire", "administrateur", "analyste"]);
     if (roleError) return roleError;
 
     const { code } = await params;
@@ -361,8 +361,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     if (!auth.ok) return auth.response;
     const { user, tenantId } = auth;
 
-    // Only Gestionnaire can delete
-    const roleError = requireRoles(user, ["gestionnaire"]);
+    // Only Gestionnaire/Administrateur can delete
+    const roleError = requireRoles(user, ["gestionnaire", "administrateur"]);
     if (roleError) return roleError;
 
     const { code } = await params;

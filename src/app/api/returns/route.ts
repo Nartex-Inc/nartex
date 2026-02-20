@@ -11,7 +11,7 @@ import { requireTenant, requireRoles, normalizeRole } from "@/lib/auth-helpers";
 import { CreateReturnSchema } from "@/lib/validations";
 
 // User roles
-export type UserRole = "Gestionnaire" | "Vérificateur" | "Facturation" | "Expert" | "Analyste";
+export type UserRole = "Gestionnaire" | "Administrateur" | "Vérificateur" | "Facturation" | "Expert" | "Analyste";
 
 // MAPPING: Legacy Name -> New Email
 const LEGACY_USER_MAP: Record<string, string> = {
@@ -75,8 +75,8 @@ export async function GET(request: NextRequest) {
       AND.push({ isFinal: true, isStandby: false });
     } else {
       // ACTIVE MODE: Role-specific filtering (using normalized role comparison)
-      if (normalizedRole === "gestionnaire") {
-        // Gestionnaire sees ALL active returns including drafts
+      if (normalizedRole === "gestionnaire" || normalizedRole === "administrateur") {
+        // Gestionnaire/Administrateur sees ALL active returns including drafts
         AND.push({ isFinal: false });
       } else if (normalizedRole === "verificateur") {
         // Vérificateur ONLY sees returns where:
@@ -312,8 +312,8 @@ export async function POST(request: NextRequest) {
     if (!auth.ok) return auth.response;
     const { user, tenantId } = auth;
 
-    // Only Gestionnaire or Analyste can create returns
-    const roleError = requireRoles(user, ["gestionnaire", "analyste"]);
+    // Only Gestionnaire/Administrateur or Analyste can create returns
+    const roleError = requireRoles(user, ["gestionnaire", "administrateur", "analyste"]);
     if (roleError) return roleError;
 
     const raw = await request.json();

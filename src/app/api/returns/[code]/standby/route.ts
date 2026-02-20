@@ -16,8 +16,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!auth.ok) return auth.response;
     const { user, tenantId } = auth;
 
-    // Role check: Gestionnaire or Facturation
-    const roleError = requireRoles(user, ["gestionnaire", "facturation"]);
+    // Role check: Gestionnaire/Administrateur or Facturation
+    const roleError = requireRoles(user, ["gestionnaire", "administrateur", "facturation"]);
     if (roleError) return roleError;
 
     const { code } = await params;

@@ -10,7 +10,7 @@ import prisma from "@/lib/prisma";
 const ADMIN_EMAILS = ["n.labranche@sinto.ca"];
 
 // Roles that have admin privileges
-const ADMIN_ROLES = ["Gestionnaire"];
+const ADMIN_ROLES = ["Gestionnaire", "Administrateur"];
 
 // Helper to check if user is admin
 function isAdmin(email: string | null | undefined, role: string | null | undefined): boolean {
@@ -173,7 +173,8 @@ export async function PATCH(request: NextRequest) {
     // Valid roles from your Prisma UserRole enum
     const validRoles = [
       "Gestionnaire",
-      "Analyste", 
+      "Administrateur",
+      "Analyste",
       "Verificateur",
       "Facturation",
       "Expert",
@@ -188,11 +189,12 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Prevent admin from demoting themselves if they're the last admin
-    if (currentUser?.id === userId && role !== "Gestionnaire") {
+    if (currentUser?.id === userId && role !== "Gestionnaire" && role !== "Administrateur") {
       const adminCount = await prisma.user.count({
         where: {
           OR: [
             { role: "Gestionnaire" },
+            { role: "Administrateur" },
             { email: { in: ADMIN_EMAILS } },
           ],
         },
@@ -209,7 +211,7 @@ export async function PATCH(request: NextRequest) {
     // Update the user's role - cast to the enum type
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: { role: role as "Gestionnaire" | "Analyste" | "Verificateur" | "Facturation" | "Expert" | "user" },
+      data: { role: role as "Gestionnaire" | "Administrateur" | "Analyste" | "Verificateur" | "Facturation" | "Expert" | "user" },
       select: {
         id: true,
         name: true,

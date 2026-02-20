@@ -98,8 +98,8 @@ export async function POST(
     const { user, tenantId } = auth;
     console.log("[Attachments API] Session:", user.name || "authenticated");
 
-    // Role guard: only Gestionnaire/Analyste can upload
-    const roleError = requireRoles(user, ["gestionnaire", "analyste"]);
+    // Role guard: only Gestionnaire/Administrateur/Analyste can upload
+    const roleError = requireRoles(user, ["gestionnaire", "administrateur", "analyste"]);
     if (roleError) return roleError;
 
     const { code } = await params;
@@ -349,8 +349,8 @@ export async function DELETE(
     if (!auth.ok) return auth.response;
     const { user, tenantId } = auth;
 
-    // Role guard: only Gestionnaire/Analyste can delete attachments
-    const roleError = requireRoles(user, ["gestionnaire", "analyste"]);
+    // Role guard: only Gestionnaire/Administrateur/Analyste can delete attachments
+    const roleError = requireRoles(user, ["gestionnaire", "administrateur", "analyste"]);
     if (roleError) return roleError;
 
     const { code } = await params;

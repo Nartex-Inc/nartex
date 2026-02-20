@@ -94,7 +94,7 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
         title: "Retours", 
         icon: RefreshCcw,
         // 4. EXCEPTION: Explicitly allow Analyste & Vérificateur here
-        allowedRoles: ["Gestionnaire", "Analyste", "Vérificateur"] 
+        allowedRoles: ["Gestionnaire", "Administrateur", "Analyste", "Vérificateur", "Facturation"]
       },
       { href: "/dashboard/admin/collections", title: "Recouvrement", icon: Receipt },
     ],
@@ -109,8 +109,8 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: "Support",
     items: [
-      { href: "/dashboard/support/new", title: "Nouveau billet", icon: PlusCircle, allowedRoles: ["Gestionnaire", "user"] },
-      { href: "/dashboard/support/tickets", title: "Billets", icon: Ticket, allowedRoles: ["Gestionnaire", "user"] },
+      { href: "/dashboard/support/new", title: "Nouveau billet", icon: PlusCircle, allowedRoles: ["Gestionnaire", "Administrateur", "Vérificateur", "Facturation", "user"] },
+      { href: "/dashboard/support/tickets", title: "Billets", icon: Ticket, allowedRoles: ["Gestionnaire", "Administrateur", "Vérificateur", "Facturation", "user"] },
     ],
   },
 ];
@@ -390,7 +390,7 @@ export function Sidebar({
         if (item.allowedRoles) {
           return item.allowedRoles.includes(userRole);
         }
-        return userRole === "Gestionnaire";
+        return userRole === "Gestionnaire" || userRole === "Administrateur";
       });
       return { ...group, items: visibleItems };
     }).filter((group) => group.items.length > 0);

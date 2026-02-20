@@ -136,7 +136,7 @@ export function requireRoles(
  * Check if user is a Gestionnaire or bypass admin.
  */
 export function isGestionnaire(user: AuthUser): boolean {
-  return hasRole(user, ["gestionnaire"]);
+  return hasRole(user, ["gestionnaire", "administrateur"]);
 }
 
 /**
