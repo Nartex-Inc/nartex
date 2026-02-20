@@ -124,7 +124,7 @@ function SectionCard({ title, description, icon: Icon, children, accentColor }: 
   accentColor: string;
 }) {
   return (
-    <div className="bg-[hsl(var(--bg-elevated))]/80 backdrop-blur-sm rounded-2xl border border-[hsl(var(--border-subtle))] overflow-hidden">
+    <div className="bg-[hsl(var(--bg-elevated))]/80 backdrop-blur-sm rounded-2xl border border-[hsl(var(--border-subtle))]">
       <div className="p-6 border-b border-[hsl(var(--border-subtle))]">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}20` }}>

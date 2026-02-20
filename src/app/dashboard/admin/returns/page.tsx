@@ -770,9 +770,9 @@ function DetailModal({
 
             {/* Option Toggles */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-5 border-t border-[hsl(var(--border-subtle))]">
-              <OptionToggle label="Pickup" checked={!!draft.isPickup} onToggle={() => canEdit && setDraft({ ...draft, isPickup: !draft.isPickup })} inputValue={draft.noBill ?? ""} onInputChange={(v) => setDraft({ ...draft, noBill: v })} inputPlaceholder="No. Bill" disabled={!canEdit || !draft.isPickup} />
-              <OptionToggle label="Commande" checked={!!draft.isCommande} onToggle={() => canEdit && setDraft({ ...draft, isCommande: !draft.isCommande })} inputValue={draft.noBonCommande ?? ""} onInputChange={(v) => setDraft({ ...draft, noBonCommande: v })} inputPlaceholder="No. Bon" disabled={!canEdit || !draft.isCommande} />
-              <OptionToggle label="Réclamation" checked={!!draft.isReclamation} onToggle={() => canEdit && setDraft({ ...draft, isReclamation: !draft.isReclamation })} inputValue={draft.noReclamation ?? ""} onInputChange={(v) => setDraft({ ...draft, noReclamation: v })} inputPlaceholder="No. Récl." disabled={!canEdit || !draft.isReclamation} />
+              <OptionToggle label="Pickup" checked={!!draft.isPickup} onToggle={() => canEdit && setDraft({ ...draft, isPickup: !draft.isPickup })} inputValue={draft.noBill ?? ""} onInputChange={(v) => setDraft({ ...draft, noBill: v })} inputPlaceholder="No. Bill" toggleDisabled={!canEdit} inputDisabled={!canEdit || !draft.isPickup} />
+              <OptionToggle label="Commande" checked={!!draft.isCommande} onToggle={() => canEdit && setDraft({ ...draft, isCommande: !draft.isCommande })} inputValue={draft.noBonCommande ?? ""} onInputChange={(v) => setDraft({ ...draft, noBonCommande: v })} inputPlaceholder="No. Bon" toggleDisabled={!canEdit} inputDisabled={!canEdit || !draft.isCommande} />
+              <OptionToggle label="Réclamation" checked={!!draft.isReclamation} onToggle={() => canEdit && setDraft({ ...draft, isReclamation: !draft.isReclamation })} inputValue={draft.noReclamation ?? ""} onInputChange={(v) => setDraft({ ...draft, noReclamation: v })} inputPlaceholder="No. Récl." toggleDisabled={!canEdit} inputDisabled={!canEdit || !draft.isReclamation} />
             </div>
           </div>
 
@@ -1006,18 +1006,18 @@ function DetailModal({
 //   HELPER COMPONENTS
 // =============================================================================
 
-function OptionToggle({ label, checked, onToggle, inputValue, onInputChange, inputPlaceholder, disabled }: {
-  label: string; checked: boolean; onToggle: () => void; inputValue: string; onInputChange: (v: string) => void; inputPlaceholder: string; disabled: boolean;
+function OptionToggle({ label, checked, onToggle, inputValue, onInputChange, inputPlaceholder, toggleDisabled, inputDisabled }: {
+  label: string; checked: boolean; onToggle: () => void; inputValue: string; onInputChange: (v: string) => void; inputPlaceholder: string; toggleDisabled: boolean; inputDisabled: boolean;
 }) {
   return (
     <div className={cn("p-4 rounded-xl border transition-all duration-200 shadow-sm", checked ? "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]" : "border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-elevated))] opacity-70")}>
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-medium text-[hsl(var(--text-primary))]">{label}</span>
-        <button type="button" onClick={onToggle} disabled={disabled} className={cn("relative h-5 w-9 rounded-full transition-all duration-200", checked ? "bg-[hsl(var(--text-primary))]" : "bg-[hsl(var(--bg-muted))]", disabled && "opacity-50 cursor-not-allowed")}>
+        <button type="button" onClick={onToggle} disabled={toggleDisabled} className={cn("relative h-5 w-9 rounded-full transition-all duration-200", checked ? "bg-[hsl(var(--text-primary))]" : "bg-[hsl(var(--bg-muted))]", toggleDisabled && "opacity-50 cursor-not-allowed")}>
           <span className={cn("absolute top-0.5 left-0.5 h-4 w-4 rounded-full transition-transform duration-200 shadow-sm", checked ? "translate-x-4 bg-[hsl(var(--bg-surface))]" : "bg-[hsl(var(--bg-surface))]")} />
         </button>
       </div>
-      <input disabled={disabled} value={inputValue} onChange={(e) => onInputChange(e.target.value)} className="w-full h-9 px-3 rounded-lg text-sm border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder={inputPlaceholder} />
+      <input disabled={inputDisabled} value={inputValue} onChange={(e) => onInputChange(e.target.value)} className="w-full h-9 px-3 rounded-lg text-sm border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder={inputPlaceholder} />
     </div>
   );
 }
@@ -1336,9 +1336,9 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
 
           {/* Options */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <OptionToggle label="Pickup" checked={isPickup} onToggle={() => setIsPickup(!isPickup)} inputValue={noBill} onInputChange={setNoBill} inputPlaceholder="No. Bill" disabled={!isPickup} />
-            <OptionToggle label="Commande" checked={isCommande} onToggle={() => setIsCommande(!isCommande)} inputValue={noBonCommande} onInputChange={setNoBonCommande} inputPlaceholder="No. Bon" disabled={!isCommande} />
-            <OptionToggle label="Réclamation" checked={isReclamation} onToggle={() => setIsReclamation(!isReclamation)} inputValue={noReclamation} onInputChange={setNoReclamation} inputPlaceholder="No. Récl." disabled={!isReclamation} />
+            <OptionToggle label="Pickup" checked={isPickup} onToggle={() => setIsPickup(!isPickup)} inputValue={noBill} onInputChange={setNoBill} inputPlaceholder="No. Bill" toggleDisabled={false} inputDisabled={!isPickup} />
+            <OptionToggle label="Commande" checked={isCommande} onToggle={() => setIsCommande(!isCommande)} inputValue={noBonCommande} onInputChange={setNoBonCommande} inputPlaceholder="No. Bon" toggleDisabled={false} inputDisabled={!isCommande} />
+            <OptionToggle label="Réclamation" checked={isReclamation} onToggle={() => setIsReclamation(!isReclamation)} inputValue={noReclamation} onInputChange={setNoReclamation} inputPlaceholder="No. Récl." toggleDisabled={false} inputDisabled={!isReclamation} />
           </div>
         </div>
 
