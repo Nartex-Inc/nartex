@@ -404,8 +404,8 @@ function Switch({ checked, onCheckedChange, label, disabled }: { checked: boolea
         disabled={disabled}
         onClick={() => !disabled && onCheckedChange(!checked)}
         className={cn(
-          "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200",
-          checked ? "bg-[hsl(var(--text-primary))]" : "bg-[hsl(var(--bg-muted))]",
+          "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 transition-colors duration-200",
+          checked ? "bg-[hsl(var(--text-primary))] border-[hsl(var(--text-primary))]" : "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-strong))]",
           disabled && "opacity-50 cursor-not-allowed"
         )}
       >
@@ -1475,7 +1475,7 @@ function OptionToggle({ label, checked, onToggle, inputValue, onInputChange, inp
     <div className={cn("p-4 rounded-xl border transition-all duration-200 shadow-sm", checked ? "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]" : "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] opacity-70")}>
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-medium text-[hsl(var(--text-primary))]">{label}</span>
-        <button type="button" onClick={onToggle} disabled={toggleDisabled} className={cn("relative h-5 w-9 rounded-full transition-all duration-200", checked ? "bg-[hsl(var(--text-primary))]" : "bg-[hsl(var(--bg-muted))]", toggleDisabled && "opacity-50 cursor-not-allowed")}>
+        <button type="button" onClick={onToggle} disabled={toggleDisabled} className={cn("relative h-5 w-9 rounded-full border-2 transition-all duration-200", checked ? "bg-[hsl(var(--text-primary))] border-[hsl(var(--text-primary))]" : "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-strong))]", toggleDisabled && "opacity-50 cursor-not-allowed")}>
           <span className={cn("absolute top-0.5 left-0.5 h-4 w-4 rounded-full transition-transform duration-200 shadow-sm", checked ? "translate-x-4 bg-[hsl(var(--bg-surface))]" : "bg-[hsl(var(--bg-surface))]")} />
         </button>
       </div>
