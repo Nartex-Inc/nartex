@@ -23,8 +23,8 @@
     /* Background Hierarchy */
     --bg-base: 0 0% 100%;           /* #FFFFFF - Main canvas */
     --bg-surface: 0 0% 98%;         /* #FAFAFA - Cards, panels */
-    --bg-elevated: 0 0% 96%;        /* #F5F5F5 - Hover states, dropdowns */
-    --bg-muted: 0 0% 94%;           /* #F0F0F0 - Subtle backgrounds */
+    --bg-elevated: 0 0% 94%;        /* #F0F0F0 - Hover states, inputs */
+    --bg-muted: 0 0% 91%;           /* #E8E8E8 - Subtle backgrounds */
 
     /* Text Hierarchy — WCAG AAA */
     --text-primary: 0 0% 7%;        /* #121212 - Headlines (17.6:1 on white) */
@@ -32,9 +32,9 @@
     --text-tertiary: 0 0% 38%;      /* #616161 - Secondary info (7.1:1 on white) */
     --text-muted: 0 0% 50%;         /* #808080 - Placeholders (5.3:1 on elevated) */
 
-    /* Border Hierarchy — slightly increased visibility */
-    --border-subtle: 0 0% 91%;      /* #E8E8E8 - Subtle dividers */
-    --border-default: 0 0% 83%;     /* #D4D4D4 - Default borders */
+    /* Border Hierarchy — sharper borders */
+    --border-subtle: 0 0% 86%;      /* #DBDBDB - Subtle dividers */
+    --border-default: 0 0% 76%;     /* #C2C2C2 - Default borders */
     --border-strong: 0 0% 68%;      /* #ADADAD - Emphasized borders */
 
     /* ═══════════════════════════════════════════════════════════════════════════
@@ -113,22 +113,22 @@
        WCAG AAA contrast compliant
        ═══════════════════════════════════════════════════════════════════════════ */
 
-    /* Background Hierarchy - Pure dark greys */
+    /* Background Hierarchy - Pure dark greys (boosted contrast) */
     --bg-base: 0 0% 4%;             /* #0A0A0A - Main canvas */
-    --bg-surface: 0 0% 7%;          /* #121212 - Cards, panels */
-    --bg-elevated: 0 0% 10%;        /* #1A1A1A - Hover states */
-    --bg-muted: 0 0% 14%;           /* #242424 - Subtle backgrounds */
+    --bg-surface: 0 0% 10%;         /* #1A1A1A - Cards, panels */
+    --bg-elevated: 0 0% 14%;        /* #242424 - Hover states, inputs */
+    --bg-muted: 0 0% 18%;           /* #2E2E2E - Subtle backgrounds */
 
     /* Text Hierarchy — WCAG AAA */
     --text-primary: 0 0% 98%;       /* #FAFAFA - Headlines */
     --text-secondary: 0 0% 78%;     /* #C7C7C7 - Body text (10.2:1 on surface) */
-    --text-tertiary: 0 0% 63%;      /* #A1A1A1 - Secondary info (7.4:1 on surface) */
-    --text-muted: 0 0% 50%;         /* #808080 - Placeholders (5.3:1 on elevated) */
+    --text-tertiary: 0 0% 72%;      /* #B8B8B8 - Secondary info, labels */
+    --text-muted: 0 0% 58%;         /* #949494 - Placeholders, icons */
 
-    /* Border Hierarchy — slightly increased visibility */
-    --border-subtle: 0 0% 14%;      /* #242424 - Subtle dividers */
-    --border-default: 0 0% 20%;     /* #333333 - Default borders */
-    --border-strong: 0 0% 30%;      /* #4D4D4D - Emphasized borders */
+    /* Border Hierarchy — boosted visibility */
+    --border-subtle: 0 0% 22%;      /* #383838 - Subtle dividers */
+    --border-default: 0 0% 28%;     /* #474747 - Default borders */
+    --border-strong: 0 0% 36%;      /* #5C5C5C - Emphasized borders */
 
     /* ═══════════════════════════════════════════════════════════════════════════
        ACCENT — SUCCESS GREEN (Brighter for dark mode)
@@ -154,22 +154,22 @@
     --primary-foreground: 0 0% 4%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Shadow Elevation — darker for dark mode */
-    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.15);
-    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.25), 0 1px 2px -1px rgb(0 0 0 / 0.2);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.35), 0 4px 6px -4px rgb(0 0 0 / 0.2);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.4), 0 8px 10px -6px rgb(0 0 0 / 0.2);
-    --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.5);
+    /* Shadow Elevation — slightly more visible for dark mode */
+    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.2);
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.25);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.35), 0 2px 4px -2px rgb(0 0 0 / 0.25);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.25);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.45), 0 8px 10px -6px rgb(0 0 0 / 0.25);
+    --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.55);
 
     /* Sidebar */
-    --sidebar: 0 0% 7%;
+    --sidebar: 0 0% 10%;
     --sidebar-foreground: 0 0% 98%;
     --sidebar-primary: 152 76% 46%;
     --sidebar-primary-foreground: 0 0% 4%;
-    --sidebar-accent: 0 0% 10%;
+    --sidebar-accent: 0 0% 14%;
     --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 0 0% 14%;
+    --sidebar-border: 0 0% 22%;
     --sidebar-ring: 152 76% 46%;
   }
 }
