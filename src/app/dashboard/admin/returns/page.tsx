@@ -926,7 +926,7 @@ function DetailModal({
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
 
-      <div className="relative w-[90vw] h-[90vh] bg-[hsl(var(--bg-surface))] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-[hsl(var(--border-default))]/50">
+      <div className="relative w-[90vw] h-[90vh] bg-[hsl(var(--bg-surface))] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-[hsl(var(--border-default))]">
 
         {/* Header */}
         <div className="px-8 py-6 border-b border-[hsl(var(--border-subtle))] flex items-start justify-between" style={{ background: `linear-gradient(to right, var(--accent-muted-current), hsl(var(--bg-surface)))` }}>
@@ -965,10 +965,10 @@ function DetailModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-[hsl(var(--bg-elevated))]/50">
+        <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-[hsl(var(--bg-base))]">
 
           {/* Status Controls */}
-          <div className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm space-y-5">
+          <div className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <Switch
                 label="Retour physique requis"
@@ -1004,14 +1004,14 @@ function DetailModal({
           </div>
 
           {/* Info Fields */}
-          <div className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm">
+          <div className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
             <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] mb-4 flex items-center gap-2">
-              <FileText className="h-4 w-4 text-[hsl(var(--text-muted))]" />
+              <FileText className="h-4 w-4 text-[hsl(var(--text-tertiary))]" />
               Informations générales
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <label className="block">
-                <span className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide mb-2 block">Expert</span>
+                <span className="text-xs font-medium text-[hsl(var(--text-secondary))] uppercase tracking-wide mb-2 block">Expert</span>
                 <ExpertAutocomplete
                   value={draft.expert || ""}
                   onChange={(v) => setDraft({ ...draft, expert: v })}
@@ -1035,9 +1035,9 @@ function DetailModal({
           </div>
 
           {/* Attachments with Google Drive iFrames */}
-          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm">
+          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
             <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] mb-4 flex items-center gap-2">
-              <Paperclip className="h-4 w-4 text-[hsl(var(--text-muted))]" />
+              <Paperclip className="h-4 w-4 text-[hsl(var(--text-tertiary))]" />
               Pièces jointes
               {(draft.attachments?.length ?? 0) > 0 && (
                 <span className="ml-auto text-xs font-normal text-[hsl(var(--text-tertiary))]">{draft.attachments?.length} fichier{(draft.attachments?.length ?? 0) > 1 ? 's' : ''}</span>
@@ -1054,9 +1054,9 @@ function DetailModal({
           </section>
 
           {/* Products */}
-          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm">
+          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
             <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] mb-4 flex items-center gap-2">
-              <Package className="h-4 w-4 text-[hsl(var(--text-muted))]" />
+              <Package className="h-4 w-4 text-[hsl(var(--text-tertiary))]" />
               Produits (RMA)
               {(draft.products?.length ?? 0) > 0 && (
                 <span className="ml-auto text-xs font-normal text-[hsl(var(--text-tertiary))]">{draft.products?.length} produit{(draft.products?.length ?? 0) > 1 ? 's' : ''}</span>
@@ -1413,9 +1413,9 @@ function DetailModal({
           )}
 
           {/* Notes */}
-          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm">
+          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
             <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] mb-4 flex items-center gap-2">
-              <FileText className="h-4 w-4 text-[hsl(var(--text-muted))]" />
+              <FileText className="h-4 w-4 text-[hsl(var(--text-tertiary))]" />
               Notes internes
             </h3>
             <textarea
@@ -1434,7 +1434,7 @@ function DetailModal({
           </section>
 
           {/* Conversation */}
-          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm">
+          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
             <ReturnComments returnCode={String(draft.id)} />
           </section>
         </div>
@@ -1472,7 +1472,7 @@ function OptionToggle({ label, checked, onToggle, inputValue, onInputChange, inp
   label: string; checked: boolean; onToggle: () => void; inputValue: string; onInputChange: (v: string) => void; inputPlaceholder: string; toggleDisabled: boolean; inputDisabled: boolean;
 }) {
   return (
-    <div className={cn("p-4 rounded-xl border transition-all duration-200 shadow-sm", checked ? "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]" : "border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-elevated))] opacity-70")}>
+    <div className={cn("p-4 rounded-xl border transition-all duration-200 shadow-sm", checked ? "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]" : "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] opacity-70")}>
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-medium text-[hsl(var(--text-primary))]">{label}</span>
         <button type="button" onClick={onToggle} disabled={toggleDisabled} className={cn("relative h-5 w-9 rounded-full transition-all duration-200", checked ? "bg-[hsl(var(--text-primary))]" : "bg-[hsl(var(--bg-muted))]", toggleDisabled && "opacity-50 cursor-not-allowed")}>
@@ -1487,7 +1487,7 @@ function OptionToggle({ label, checked, onToggle, inputValue, onInputChange, inp
 function Field({ label, value, onChange, type = "text", icon, disabled }: { label: string; value: string; onChange: (v: string) => void; type?: string; icon?: React.ReactNode; disabled?: boolean }) {
   return (
     <label className="block">
-      <span className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide mb-2 block">{label}</span>
+      <span className="text-xs font-medium text-[hsl(var(--text-secondary))] uppercase tracking-wide mb-2 block">{label}</span>
       <div className="relative">
         {icon && <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[hsl(var(--text-muted))]">{icon}</div>}
         <input
@@ -1533,7 +1533,7 @@ function ProductRow({ product, showVerificationFields, showFinalizationFields, c
   }, [debouncedCode, showSuggestions]);
 
   return (
-    <div className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] space-y-4 group shadow-sm hover:shadow-md transition-shadow duration-200">
+    <div className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] space-y-4 group shadow-sm hover:shadow-md transition-shadow duration-200">
       {/* Base Product Info */}
       <div className="flex items-center gap-4">
         <div className="relative flex-shrink-0 w-36">
@@ -1695,7 +1695,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
-      <div className="relative w-[90vw] h-[90vh] bg-[hsl(var(--bg-surface))] rounded-2xl shadow-2xl border border-[hsl(var(--border-default))]/50 overflow-hidden flex flex-col">
+      <div className="relative w-[90vw] h-[90vh] bg-[hsl(var(--bg-surface))] rounded-2xl shadow-2xl border border-[hsl(var(--border-default))] overflow-hidden flex flex-col">
         
         {/* Header */}
         <div className="px-8 py-6 border-b border-[hsl(var(--border-subtle))] flex items-center justify-between bg-[hsl(var(--bg-surface))]">
@@ -1710,9 +1710,9 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-[hsl(var(--bg-elevated))]/50">
+        <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-[hsl(var(--bg-base))]">
           {/* Order Lookup */}
-          <div className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm">
+          <div className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
             <label className="block text-sm font-medium text-[hsl(var(--text-primary))] mb-3">Recherche par commande</label>
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-muted))]" />
@@ -1722,7 +1722,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
           </div>
 
           {/* Physical Return Toggle */}
-          <div onClick={() => setPhysicalReturn(!physicalReturn)} className={cn("p-5 rounded-xl border cursor-pointer transition-all duration-200 shadow-sm", physicalReturn ? "border-[hsl(var(--success))]/20 bg-[hsl(var(--success-muted))]" : "border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] hover:bg-[hsl(var(--bg-elevated))]")}>
+          <div onClick={() => setPhysicalReturn(!physicalReturn)} className={cn("p-5 rounded-xl border cursor-pointer transition-all duration-200 shadow-sm", physicalReturn ? "border-[hsl(var(--success))]/20 bg-[hsl(var(--success-muted))]" : "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] hover:bg-[hsl(var(--bg-elevated))]")}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center", physicalReturn ? "bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]" : "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))]")}>
@@ -1738,7 +1738,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
           </div>
 
           {/* Form Fields */}
-          <div className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm space-y-5">
+          <div className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm space-y-5">
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Date" required><input type="date" value={reportedAt} onChange={(e) => setReportedAt(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200 [color-scheme:light] dark:[color-scheme:dark]" /></FormField>
               <FormField label="Signalé par" required><select value={reporter} onChange={(e) => setReporter(e.target.value as Reporter)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200">{Object.entries(REPORTER_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></FormField>
@@ -1758,9 +1758,9 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
           </div>
 
           {/* Products */}
-          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm">
+          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] flex items-center gap-2"><Package className="h-4 w-4 text-[hsl(var(--text-muted))]" />Produits (RMA)</h3>
+              <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] flex items-center gap-2"><Package className="h-4 w-4 text-[hsl(var(--text-tertiary))]" />Produits (RMA)</h3>
               <button onClick={addProduct} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] transition-all duration-200"><Plus className="h-3.5 w-3.5" />Ajouter</button>
             </div>
             {products.length === 0 ? (
@@ -1778,9 +1778,9 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
           </section>
 
           {/* Attachments */}
-          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm">
+          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] flex items-center gap-2"><Paperclip className="h-4 w-4 text-[hsl(var(--text-muted))]" />Pièces jointes</h3>
+              <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] flex items-center gap-2"><Paperclip className="h-4 w-4 text-[hsl(var(--text-tertiary))]" />Pièces jointes</h3>
               <label className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] transition-all duration-200 cursor-pointer">
                 <UploadCloud className="h-3.5 w-3.5" />Ajouter
                 <input type="file" multiple className="hidden" onChange={(e) => { const files = Array.from(e.target.files || []); if (files.length > 0) setFilesToUpload((prev) => [...prev, ...files]); e.target.value = ""; }} />
@@ -1804,8 +1804,8 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
           </section>
 
           {/* Notes */}
-          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] shadow-sm">
-            <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] mb-4 flex items-center gap-2"><FileText className="h-4 w-4 text-[hsl(var(--text-muted))]" />Notes internes</h3>
+          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
+            <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] mb-4 flex items-center gap-2"><FileText className="h-4 w-4 text-[hsl(var(--text-tertiary))]" />Notes internes</h3>
             <textarea className="w-full px-4 py-3 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200 resize-none" rows={4} placeholder="Ajoutez des notes internes..." value={description} onChange={(e) => setDescription(e.target.value)} />
           </section>
 
@@ -1837,7 +1837,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
 function FormField({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide mb-1.5 block">{label}{required && <span className="text-[hsl(var(--danger))] ml-0.5">*</span>}</span>
+      <span className="text-xs font-medium text-[hsl(var(--text-secondary))] uppercase tracking-wide mb-1.5 block">{label}{required && <span className="text-[hsl(var(--danger))] ml-0.5">*</span>}</span>
       {children}
     </label>
   );
@@ -1859,7 +1859,7 @@ function NewProductRow({ product, onChange, onRemove }: { product: ProductLine; 
   }, [debouncedCode, showSuggestions]);
 
   return (
-    <div className="flex items-center gap-4 p-4 rounded-xl border border-[hsl(var(--border-default))]/80 bg-[hsl(var(--bg-surface))] group shadow-sm hover:shadow-md transition-shadow duration-200">
+    <div className="flex items-center gap-4 p-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] group shadow-sm hover:shadow-md transition-shadow duration-200">
       <div className="relative flex-shrink-0 w-36">
         <input className="w-full h-10 px-3 rounded-lg text-sm font-mono border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Code" value={product.codeProduit} onChange={(e) => { onChange({ ...product, codeProduit: e.target.value }); setShowSuggestions(true); }} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} />
         {showSuggestions && suggestions.length > 0 && (
