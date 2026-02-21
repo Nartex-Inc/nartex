@@ -37,6 +37,7 @@ import { AttachmentsSection } from "@/components/returns/AttachmentsSection";
 import { ReturnComments } from "@/components/returns/ReturnComments";
 
 import type { ReturnRow, Reporter, Cause, Attachment, ProductLine, ItemSuggestion } from "@/types/returns";
+import { calculateShippingCost } from "@/types/returns";
 
 // =============================================================================
 //   CONSTANTS & LABELS
@@ -802,6 +803,43 @@ function DetailModal({
   // Show finalization fields for Facturation OR after finalization (readonly)
   const showFinalizationFields = Boolean(canFinalize || isFinalized);
 
+  // Transport section state
+  const [chargeTransport, setChargeTransport] = React.useState(false);
+  const [cityCode, setCityCode] = React.useState<string | null>(null);
+  const [cityName, setCityName] = React.useState<string | null>(null);
+
+  // Compute total weight from products
+  const totalWeight = React.useMemo(() => {
+    return (draft.products ?? []).reduce((sum, p) => {
+      const qty = p.quantiteRecue ?? p.quantite;
+      const w = p.poidsUnitaire ?? 0;
+      return sum + qty * w;
+    }, 0);
+  }, [draft.products]);
+
+  // Auto-fetch city code & calculate shipping when finalization form is shown
+  React.useEffect(() => {
+    if (!showFinalizationFields || !draft.noCommande) return;
+    let cancelled = false;
+    const fetchCity = async () => {
+      try {
+        const res = await fetch(`/api/prextra/city?sonbr=${encodeURIComponent(draft.noCommande!)}&weight=${totalWeight}`, { credentials: "include" });
+        if (!res.ok || cancelled) return;
+        const json = await res.json();
+        if (!json.ok || !json.found || cancelled) return;
+        setCityCode(json.code ?? null);
+        setCityName(json.city ?? null);
+        setDraft(prev => ({
+          ...prev,
+          villeShipto: json.city ?? prev.villeShipto,
+          transportAmount: json.shippingCost ?? prev.transportAmount,
+        }));
+      } catch { /* ignore */ }
+    };
+    fetchCity();
+    return () => { cancelled = true; };
+  }, [showFinalizationFields, draft.noCommande, totalWeight]);
+
   const handleSave = async () => {
     if (!canEdit) return;
     setBusy(true);
@@ -863,6 +901,7 @@ function DetailModal({
         villeShipto: draft.villeShipto,
         transportAmount: draft.transportAmount,
         restockingAmount: draft.restockingAmount,
+        chargeTransport,
       });
       await onRefresh();
       onClose();
@@ -1105,75 +1144,241 @@ function DetailModal({
           {/* Finalization Section - Only for Facturation or after finalization */}
           {showFinalizationFields && (
             <section className={cn(
-              "p-5 rounded-xl border shadow-sm",
+              "p-5 rounded-xl border shadow-sm space-y-6",
               canFinalize ? "border-[hsl(var(--success))]/20 bg-[hsl(var(--success-muted))]" : "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]"
             )}>
-              <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] mb-5 flex items-center gap-2">
+              <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] flex items-center gap-2">
                 <CreditCard className="h-4 w-4" />
                 Finalisation
                 {canFinalize && <Badge variant="success">À compléter</Badge>}
               </h3>
-              
-              {/* Warehouse Transfer */}
-              <div className="grid grid-cols-2 gap-4 mb-5">
-                <label className="block">
-                  <span className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide mb-2 block">Entrepôt origine</span>
-                  <SiteAutocomplete
-                    value={draft.warehouseOrigin ?? ""}
-                    onChange={(v) => setDraft({ ...draft, warehouseOrigin: v })}
-                    icon={<Warehouse className="h-4 w-4" />}
-                    disabled={!canFinalize}
-                    placeholder="Sélectionner un entrepôt"
-                    className={cn(
-                      "w-full h-11 px-4 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all duration-200",
-                      !canFinalize
-                        ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed"
-                        : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent"
-                    )}
-                  />
-                </label>
-                <label className="block">
-                  <span className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide mb-2 block">Entrepôt destination</span>
-                  <SiteAutocomplete
-                    value={draft.warehouseDestination ?? ""}
-                    onChange={(v) => setDraft({ ...draft, warehouseDestination: v })}
-                    icon={<Warehouse className="h-4 w-4" />}
-                    disabled={!canFinalize}
-                    placeholder="Sélectionner un entrepôt"
-                    className={cn(
-                      "w-full h-11 px-4 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all duration-200",
-                      !canFinalize
-                        ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed"
-                        : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent"
-                    )}
-                  />
-                </label>
+
+              {/* Section 1 — Transfert d'inventaire */}
+              <div>
+                <h4 className="text-sm font-bold text-[hsl(var(--text-primary))] mb-3">Transfert d&apos;inventaire</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <label className="block">
+                    <span className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide mb-2 block">Entrepôt de départ</span>
+                    <SiteAutocomplete
+                      value={draft.warehouseOrigin ?? ""}
+                      onChange={(v) => setDraft({ ...draft, warehouseOrigin: v })}
+                      icon={<Warehouse className="h-4 w-4" />}
+                      disabled={!canFinalize}
+                      placeholder="Sélectionner un entrepôt"
+                      className={cn(
+                        "w-full h-11 px-4 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all duration-200",
+                        !canFinalize
+                          ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed"
+                          : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent"
+                      )}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide mb-2 block">Entrepôt de destination</span>
+                    <SiteAutocomplete
+                      value={draft.warehouseDestination ?? ""}
+                      onChange={(v) => setDraft({ ...draft, warehouseDestination: v })}
+                      icon={<Warehouse className="h-4 w-4" />}
+                      disabled={!canFinalize}
+                      placeholder="Sélectionner un entrepôt"
+                      className={cn(
+                        "w-full h-11 px-4 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all duration-200",
+                        !canFinalize
+                          ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed"
+                          : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent"
+                      )}
+                    />
+                  </label>
+                </div>
               </div>
 
-              {/* Credits */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5">
-                <Field label="No. Crédit 1" value={draft.noCredit ?? ""} onChange={(v) => setDraft({ ...draft, noCredit: v })} disabled={!canFinalize} />
-                <Field label="No. Crédit 2" value={draft.noCredit2 ?? ""} onChange={(v) => setDraft({ ...draft, noCredit2: v })} disabled={!canFinalize} />
-                <Field label="No. Crédit 3" value={draft.noCredit3 ?? ""} onChange={(v) => setDraft({ ...draft, noCredit3: v })} disabled={!canFinalize} />
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5">
-                <Field label="Crédité à 1" value={draft.creditedTo ?? ""} onChange={(v) => setDraft({ ...draft, creditedTo: v })} disabled={!canFinalize} />
-                <Field label="Crédité à 2" value={draft.creditedTo2 ?? ""} onChange={(v) => setDraft({ ...draft, creditedTo2: v })} disabled={!canFinalize} />
-                <Field label="Crédité à 3" value={draft.creditedTo3 ?? ""} onChange={(v) => setDraft({ ...draft, creditedTo3: v })} disabled={!canFinalize} />
+              {/* Section 2 — Ajustement à l'entrepôt */}
+              <div>
+                <h4 className="text-sm font-bold text-[hsl(var(--text-primary))] mb-3">Ajustement à l&apos;entrepôt</h4>
+                <div className="overflow-x-auto rounded-lg border border-[hsl(var(--border-default))]">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))]">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase">Code produit</th>
+                        <th className="px-3 py-2 text-center text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase">Qté attendue</th>
+                        <th className="px-3 py-2 text-center text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase">Qté reçue</th>
+                        <th className="px-3 py-2 text-center text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase">Qté inventaire</th>
+                        <th className="px-3 py-2 text-center text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase">Qté détruite</th>
+                        <th className="px-3 py-2 text-center text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase">Taux restocking</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase">Description</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[hsl(var(--border-subtle))]">
+                      {(draft.products ?? []).map((p, idx) => {
+                        const qteRecue = p.quantiteRecue ?? 0;
+                        const qteDetruite = p.qteDetruite ?? 0;
+                        const qteInv = p.qteInventaire ?? (qteRecue - qteDetruite);
+                        return (
+                          <tr key={p.id} className="bg-[hsl(var(--bg-surface))]">
+                            <td className="px-3 py-2 font-mono text-xs text-[hsl(var(--text-primary))]">{p.codeProduit}</td>
+                            <td className="px-3 py-2 text-center text-[hsl(var(--text-secondary))]">{p.quantite}</td>
+                            <td className="px-3 py-2 text-center">
+                              <span className="inline-block px-2 py-0.5 rounded bg-[hsl(var(--success-muted))] text-[hsl(var(--success))] font-medium">{qteRecue}</span>
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              <span className="inline-block px-2 py-0.5 rounded bg-[hsl(var(--success-muted))] text-[hsl(var(--success))] font-medium">{qteInv}</span>
+                            </td>
+                            <td className="px-3 py-2 text-center text-[hsl(var(--text-secondary))]">{qteDetruite}</td>
+                            <td className="px-3 py-2 text-center">
+                              <select
+                                className={cn(
+                                  "h-8 px-2 rounded-md text-xs border focus:outline-none focus:ring-2 transition-all duration-200",
+                                  !canFinalize
+                                    ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed"
+                                    : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))]"
+                                )}
+                                value={`${(p.tauxRestock ?? 0)}%`}
+                                onChange={(e) => {
+                                  if (!canFinalize) return;
+                                  const rate = parseFloat(e.target.value.replace('%', ''));
+                                  const arr = (draft.products ?? []).slice();
+                                  arr[idx] = { ...p, tauxRestock: rate };
+                                  setDraft({ ...draft, products: arr });
+                                }}
+                                disabled={!canFinalize}
+                              >
+                                {RESTOCK_RATES.map(r => <option key={r} value={r}>{r}</option>)}
+                              </select>
+                            </td>
+                            <td className="px-3 py-2 text-xs text-[hsl(var(--text-tertiary))] truncate max-w-[200px]">{p.descriptionProduit}</td>
+                          </tr>
+                        );
+                      })}
+                      {(draft.products ?? []).length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="px-3 py-6 text-center text-[hsl(var(--text-muted))] text-xs">Aucun produit</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
-              {/* Transport & Restocking */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5">
-                <Field label="Ville Ship-to" value={draft.villeShipto ?? ""} onChange={(v) => setDraft({ ...draft, villeShipto: v })} disabled={!canFinalize} />
-                <Field label="Frais transport" value={draft.transportAmount?.toString() ?? ""} onChange={(v) => setDraft({ ...draft, transportAmount: v ? Number(v) : null })} type="number" icon={<DollarSign className="h-4 w-4" />} disabled={!canFinalize} />
-                <Field label="Frais restocking" value={draft.restockingAmount?.toString() ?? ""} onChange={(v) => setDraft({ ...draft, restockingAmount: v ? Number(v) : null })} type="number" icon={<DollarSign className="h-4 w-4" />} disabled={!canFinalize} />
+              {/* Section 3 — Restocking */}
+              <div>
+                <h4 className="text-sm font-bold text-[hsl(var(--text-primary))] mb-3">Restocking</h4>
+                <Field label="Montant chargé pour le restocking" value={draft.restockingAmount?.toString() ?? ""} onChange={(v) => setDraft({ ...draft, restockingAmount: v ? Number(v) : null })} type="number" icon={<DollarSign className="h-4 w-4" />} disabled={!canFinalize} />
+              </div>
+
+              {/* Section 4 — Transport */}
+              <div>
+                <h4 className="text-sm font-bold text-[hsl(var(--text-primary))] mb-3">Transport</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                  <label className="block">
+                    <span className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide mb-2 block">Code de la ville</span>
+                    <input
+                      type="text"
+                      value={cityCode ?? ""}
+                      readOnly
+                      className="w-full h-11 px-4 rounded-xl border text-sm bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide mb-2 block">Ville de livraison</span>
+                    <input
+                      type="text"
+                      value={draft.villeShipto ?? ""}
+                      readOnly
+                      className="w-full h-11 px-4 rounded-xl border text-sm bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide mb-2 block">Poids total</span>
+                    <input
+                      type="text"
+                      value={`${totalWeight.toFixed(2)} lb`}
+                      readOnly
+                      className="w-full h-11 px-4 rounded-xl border text-sm bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed"
+                    />
+                  </label>
+                  <Field label="Montant transport" value={draft.transportAmount?.toString() ?? ""} onChange={(v) => setDraft({ ...draft, transportAmount: v ? Number(v) : null })} type="number" icon={<DollarSign className="h-4 w-4" />} disabled={!canFinalize} />
+                </div>
+                <Switch
+                  label="Facturer le transport"
+                  checked={chargeTransport}
+                  onCheckedChange={setChargeTransport}
+                  disabled={!canFinalize}
+                />
+              </div>
+
+              {/* Section 5 — Crédit */}
+              <div>
+                <h4 className="text-sm font-bold text-[hsl(var(--text-primary))] mb-3">Crédit</h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <span className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide mb-2 block">Personne créditée 1</span>
+                    <select
+                      value={draft.creditedTo ?? ""}
+                      onChange={(e) => canFinalize && setDraft({ ...draft, creditedTo: e.target.value || null })}
+                      disabled={!canFinalize}
+                      className={cn(
+                        "w-full h-11 px-4 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all duration-200",
+                        !canFinalize
+                          ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed"
+                          : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent"
+                      )}
+                    >
+                      <option value="">—</option>
+                      <option value="Client">Client</option>
+                      <option value="Expert">Expert</option>
+                    </select>
+                  </div>
+                  <Field label="No. Crédit 1" value={draft.noCredit ?? ""} onChange={(v) => setDraft({ ...draft, noCredit: v })} disabled={!canFinalize} />
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <span className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide mb-2 block">Personne créditée 2</span>
+                    <select
+                      value={draft.creditedTo2 ?? ""}
+                      onChange={(e) => canFinalize && setDraft({ ...draft, creditedTo2: e.target.value || null })}
+                      disabled={!canFinalize}
+                      className={cn(
+                        "w-full h-11 px-4 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all duration-200",
+                        !canFinalize
+                          ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed"
+                          : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent"
+                      )}
+                    >
+                      <option value="">—</option>
+                      <option value="Client">Client</option>
+                      <option value="Expert">Expert</option>
+                    </select>
+                  </div>
+                  <Field label="No. Crédit 2" value={draft.noCredit2 ?? ""} onChange={(v) => setDraft({ ...draft, noCredit2: v })} disabled={!canFinalize} />
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div>
+                    <span className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide mb-2 block">Personne créditée 3</span>
+                    <select
+                      value={draft.creditedTo3 ?? ""}
+                      onChange={(e) => canFinalize && setDraft({ ...draft, creditedTo3: e.target.value || null })}
+                      disabled={!canFinalize}
+                      className={cn(
+                        "w-full h-11 px-4 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all duration-200",
+                        !canFinalize
+                          ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed"
+                          : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent"
+                      )}
+                    >
+                      <option value="">—</option>
+                      <option value="Client">Client</option>
+                      <option value="Expert">Expert</option>
+                    </select>
+                  </div>
+                  <Field label="No. Crédit 3" value={draft.noCredit3 ?? ""} onChange={(v) => setDraft({ ...draft, noCredit3: v })} disabled={!canFinalize} />
+                </div>
               </div>
 
               {/* Finaliser Button - Only for Facturation */}
               {canFinalize && (
-                <button 
-                  disabled={busy} 
-                  onClick={handleFinalize} 
+                <button
+                  disabled={busy}
+                  onClick={handleFinalize}
                   className={cn(
                     "w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-[hsl(var(--danger))] text-white text-sm font-semibold hover:opacity-90 transition-all duration-200 shadow-lg shadow-[hsl(var(--danger))]/25",
                     busy && "opacity-50 cursor-not-allowed"
