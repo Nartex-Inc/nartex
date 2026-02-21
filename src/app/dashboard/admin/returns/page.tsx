@@ -57,6 +57,7 @@ const CAUSE_LABEL: Record<string, string> = {
   autre_cause: "Autre cause",
   exposition_sinto: "Exposition Sinto",
   transporteur: "Transporteur",
+  client: "Client",
   expert: "Expert",
   expedition: "Expédition",
   analyse: "Analyse",
