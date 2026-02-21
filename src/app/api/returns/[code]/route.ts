@@ -212,13 +212,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ ok: false, error: "Retour non trouvé" }, { status: 404 });
     }
 
-    // Phase guard: cannot edit verified or finalized returns via PUT
-    if (ret.isVerified) {
-      return NextResponse.json(
-        { ok: false, error: "Ce retour est vérifié. Utilisez les endpoints dédiés pour les modifications." },
-        { status: 403 }
-      );
-    }
+    // Phase guard: cannot edit finalized returns via PUT (verified can be reverted to draft by Gestionnaire/Administrateur)
     if (ret.isFinal) {
       return NextResponse.json(
         { ok: false, error: "Ce retour est finalisé. Aucune modification permise." },
@@ -261,8 +255,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (body.noBonCommande !== undefined) updateData.noBonCommande = body.noBonCommande;
     if (body.noReclamation !== undefined) updateData.noReclamation = body.noReclamation;
 
-    // Draft-only fields (locked once active)
-    if (isDraftPhase) {
+    // Draft-only fields (locked once active, unless forcing back to draft)
+    if (isDraftPhase || body.forceDraft) {
       if (body.client !== undefined) updateData.client = body.client;
       if (body.noClient !== undefined) updateData.noClient = body.noClient;
       if (body.amount !== undefined) updateData.amount = body.amount;
@@ -282,7 +276,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const effectiveProductCount = incomingProductCount !== undefined ? incomingProductCount : existingProductCount;
     const hasProducts = effectiveProductCount > 0;
 
-    updateData.isDraft = !(hasRequiredFields && hasProducts);
+    if (body.forceDraft) {
+      // Force back to draft: reset isDraft and undo verification
+      updateData.isDraft = true;
+      updateData.isVerified = false;
+      updateData.verifiedBy = null;
+      updateData.verifiedAt = null;
+    } else {
+      updateData.isDraft = !(hasRequiredFields && hasProducts);
+    }
 
     // Update the return
     const updated = await prisma.return.update({
@@ -290,8 +292,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       data: updateData,
     });
 
-    // Product updates: only allowed in DRAFT phase
-    if (isDraftPhase && body.products && Array.isArray(body.products)) {
+    // Product updates: allowed in DRAFT phase or when forcing back to draft
+    if ((isDraftPhase || body.forceDraft) && body.products && Array.isArray(body.products)) {
       // Build a map of incoming products by codeProduit
       const incomingMap = new Map(
         body.products.map((p) => [p.codeProduit, p])

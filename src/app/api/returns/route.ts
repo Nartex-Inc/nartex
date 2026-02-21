@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
 
     if (history) {
       // HISTORY MODE: Show only finalized returns (for all roles that can see history)
-      AND.push({ isFinal: true, isStandby: false });
+      AND.push({ isFinal: true });
     } else {
       // ACTIVE MODE: Role-specific filtering (using normalized role comparison)
       if (normalizedRole === "gestionnaire" || normalizedRole === "administrateur") {

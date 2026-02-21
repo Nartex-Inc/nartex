@@ -83,6 +83,7 @@ export const UpdateReturnSchema = z.object({
   noBonCommande: z.string().nullable().optional(),
   noReclamation: z.string().nullable().optional(),
   products: z.array(ReturnProductSchema).optional(),
+  forceDraft: z.boolean().optional(),
 });
 
 // ─── Return Comments ────────────────────────────────────────────────────────

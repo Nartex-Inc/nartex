@@ -29,6 +29,8 @@ import {
   Warehouse,
   CreditCard,
   History,
+  Pause,
+  Play,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AttachmentsSection } from "@/components/returns/AttachmentsSection";
@@ -284,6 +286,17 @@ async function finalizeReturn(code: string, data: Record<string, unknown>): Prom
   if (!json.ok) throw new Error(json.error || "Finalisation échouée");
 }
 
+async function standbyReturn(code: string, action: "standby" | "reactivate"): Promise<void> {
+  const res = await fetch(`/api/returns/${encodeURIComponent(code)}/standby`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ action }),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || "Opération échouée");
+}
+
 async function uploadAttachment(returnId: string, file: File): Promise<Attachment> {
   const formData = new FormData();
   formData.append("files", file);
@@ -420,7 +433,7 @@ function Badge({ children, variant = "default", className }: { children: React.R
 
 type SortKey = "id" | "reportedAt" | "reporter" | "cause" | "client" | "noCommande" | "tracking" | "attachments";
 type SortDir = "asc" | "desc";
-type RowStatus = "draft" | "awaiting_physical" | "ready" | "finalized";
+type RowStatus = "draft" | "awaiting_physical" | "ready" | "finalized" | "standby";
 
 export default function ReturnsPage() {
   const { data: session } = useSession();
@@ -501,6 +514,10 @@ export default function ReturnsPage() {
     try { await deleteReturn(code); } catch (e) { alert(e instanceof Error ? e.message : "La suppression a échoué"); setRows(prev); }
   };
 
+  const onStandby = async (code: string, action: "standby" | "reactivate") => {
+    try { await standbyReturn(code, action); await load(); } catch (e) { alert(e instanceof Error ? e.message : "Opération échouée"); }
+  };
+
   const onReset = () => { setQuery(""); setCause("all"); setReporter("all"); setDateFrom(""); setDateTo(""); };
 
   const toggleSort = (key: SortKey) => {
@@ -514,6 +531,7 @@ export default function ReturnsPage() {
   const hasActiveFilters = cause !== "all" || reporter !== "all" || dateFrom || dateTo;
 
   const getRowStatus = (row: ReturnRow): RowStatus => {
+    if (row.standby) return "standby";
     if (row.finalized) return "finalized";
     if (row.isDraft || row.status === "draft") return "draft";
     if (row.physicalReturn && !row.verified) return "awaiting_physical";
@@ -637,7 +655,8 @@ export default function ReturnsPage() {
                           status === "draft" && "bg-[hsl(var(--bg-surface))] hover:bg-[hsl(var(--bg-elevated))]",
                           status === "awaiting_physical" && "bg-black text-white hover:opacity-90",
                           status === "ready" && "bg-[hsl(var(--success))] text-white hover:opacity-90",
-                          status === "finalized" && "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))]"
+                          status === "finalized" && "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))]",
+                          status === "standby" && "bg-purple-600 text-white hover:opacity-90"
                         )}>
                           <td className="px-4 py-3 font-mono font-medium whitespace-nowrap">{rowId.replace('R', '')}</td>
                           <td className="px-4 py-3 whitespace-nowrap">{new Date(row.reportedAt).toLocaleDateString("fr-CA")}</td>
@@ -646,20 +665,27 @@ export default function ReturnsPage() {
                               status === "awaiting_physical" && "bg-white/20 text-white",
                               status === "ready" && "bg-[hsl(var(--bg-base))]/10 text-[hsl(var(--text-primary))]",
                               status === "draft" && "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-tertiary))]",
-                              status === "finalized" && "bg-[hsl(var(--bg-muted))]/50 text-[hsl(var(--text-muted))]"
+                              status === "finalized" && "bg-[hsl(var(--bg-muted))]/50 text-[hsl(var(--text-muted))]",
+                              status === "standby" && "bg-white/20 text-white"
                             )}>{CAUSE_LABEL[row.cause]}</span>
                           </td>
                           <td className="px-4 py-3 max-w-[200px]">
                             <div className={cn("font-medium truncate", status === "finalized" && "text-[hsl(var(--text-muted))]")}>{row.client}</div>
-                            <div className={cn("text-xs truncate", status === "awaiting_physical" && "text-white/70", status === "ready" && "text-[hsl(var(--text-primary))]/70", status === "draft" && "text-[hsl(var(--text-tertiary))]", status === "finalized" && "text-[hsl(var(--text-muted))]")}>{row.expert}</div>
+                            <div className={cn("text-xs truncate", status === "awaiting_physical" && "text-white/70", status === "ready" && "text-[hsl(var(--text-primary))]/70", status === "draft" && "text-[hsl(var(--text-tertiary))]", status === "finalized" && "text-[hsl(var(--text-muted))]", status === "standby" && "text-white/70")}>{row.expert}</div>
                           </td>
                           <td className="px-4 py-3 font-mono whitespace-nowrap">{row.noCommande || "—"}</td>
                           <td className="px-4 py-3 whitespace-nowrap">{row.tracking ? <span className="inline-flex items-center gap-1.5"><Truck className="h-3.5 w-3.5 opacity-70" /><span className="font-mono text-xs">{row.tracking}</span></span> : "—"}</td>
                           <td className="px-4 py-3">{hasFiles && <span className={cn("inline-flex items-center gap-1 text-xs font-medium", status === "awaiting_physical" && "text-white/80", status === "ready" && "text-[hsl(var(--text-primary))]/80")}><Paperclip className="h-3.5 w-3.5" />{row.attachments!.length}</span>}</td>
                           <td className="px-4 py-3 text-right">
                             <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button onClick={(e) => { e.stopPropagation(); setOpenId(rowId); }} className={cn("p-1.5 rounded-md transition-colors", status === "awaiting_physical" && "hover:bg-white/20 text-white", status === "ready" && "hover:bg-[hsl(var(--bg-base))]/10 text-[hsl(var(--text-primary))]", (status === "draft" || status === "finalized") && "hover:bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-tertiary))]")} title="Voir"><Eye className="h-4 w-4" /></button>
-                              {canCreate && <button onClick={(e) => { e.stopPropagation(); onDelete(rowId); }} className={cn("p-1.5 rounded-md transition-colors", status === "awaiting_physical" && "hover:bg-[hsl(var(--danger))]/30 text-white hover:text-[hsl(var(--danger-muted))]", status === "ready" && "hover:bg-[hsl(var(--danger))]/20 text-[hsl(var(--text-primary))] hover:text-[hsl(var(--danger))]", (status === "draft" || status === "finalized") && "hover:bg-[hsl(var(--danger-muted))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--danger))]")} title="Supprimer"><Trash2 className="h-4 w-4" /></button>}
+                              <button onClick={(e) => { e.stopPropagation(); setOpenId(rowId); }} className={cn("p-1.5 rounded-md transition-colors", status === "awaiting_physical" && "hover:bg-white/20 text-white", status === "ready" && "hover:bg-[hsl(var(--bg-base))]/10 text-[hsl(var(--text-primary))]", (status === "draft" || status === "finalized") && "hover:bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-tertiary))]", status === "standby" && "hover:bg-white/20 text-white")} title="Voir"><Eye className="h-4 w-4" /></button>
+                              {canCreate && !showHistory && status !== "draft" && status !== "finalized" && (
+                                <button onClick={(e) => { e.stopPropagation(); onStandby(rowId, "standby"); }} className={cn("p-1.5 rounded-md transition-colors", status === "awaiting_physical" && "hover:bg-white/20 text-white", status === "ready" && "hover:bg-[hsl(var(--bg-base))]/10 text-[hsl(var(--text-primary))]")} title="Mettre en standby"><Pause className="h-4 w-4" /></button>
+                              )}
+                              {canCreate && showHistory && status === "standby" && (
+                                <button onClick={(e) => { e.stopPropagation(); onStandby(rowId, "reactivate"); }} className="p-1.5 rounded-md transition-colors hover:bg-white/20 text-white" title="Réactiver"><Play className="h-4 w-4" /></button>
+                              )}
+                              {canCreate && <button onClick={(e) => { e.stopPropagation(); onDelete(rowId); }} className={cn("p-1.5 rounded-md transition-colors", status === "awaiting_physical" && "hover:bg-[hsl(var(--danger))]/30 text-white hover:text-[hsl(var(--danger-muted))]", status === "ready" && "hover:bg-[hsl(var(--danger))]/20 text-[hsl(var(--text-primary))] hover:text-[hsl(var(--danger))]", (status === "draft" || status === "finalized") && "hover:bg-[hsl(var(--danger-muted))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--danger))]", status === "standby" && "hover:bg-[hsl(var(--danger))]/30 text-white hover:text-[hsl(var(--danger-muted))]")} title="Supprimer"><Trash2 className="h-4 w-4" /></button>}
                             </div>
                           </td>
                         </tr>
@@ -675,6 +701,7 @@ export default function ReturnsPage() {
                   <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-[hsl(var(--success))]" />Prêt</span>
                   <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-black" />En attente</span>
                   <span className="flex items-center gap-2"><span className="w-3 h-3 rounded border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]" />Brouillon</span>
+                  <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-purple-600" />Standby</span>
                 </div>
               </div>
             </>
@@ -755,7 +782,9 @@ function DetailModal({
   const isDraft = Boolean(draft.isDraft);
 
   // Role-based permissions (with normalized comparison)
-  const canEdit = (normalizedRole === "gestionnaire" || normalizedRole === "administrateur") && !isFinalized && !isVerified;
+  const isManager = normalizedRole === "gestionnaire" || normalizedRole === "administrateur";
+  const canEdit = isManager && !isFinalized && !isVerified;
+  const canForceDraft = isManager && !isFinalized;
   const canVerify = normalizedRole === "verificateur" && isPhysical && !isVerified && !isFinalized && !isDraft;
   const canFinalize = normalizedRole === "facturation" && !isFinalized && !isDraft && (!isPhysical || isVerified);
   const isReadOnly = normalizedRole === "expert" || normalizedRole === "analyste" || isFinalized;
@@ -770,6 +799,20 @@ function DetailModal({
     setBusy(true);
     try {
       await updateReturn(String(row.id), { ...draft });
+      await onRefresh();
+      onClose();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Erreur");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!canForceDraft) return;
+    setBusy(true);
+    try {
+      await updateReturn(String(row.id), { ...draft, forceDraft: true });
       await onRefresh();
       onClose();
     } catch (e) {
@@ -1183,6 +1226,13 @@ function DetailModal({
             Fermer
           </button>
 
+          {canForceDraft && (
+            <button disabled={busy} onClick={handleSaveDraft} className={cn("inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))] text-sm font-medium hover:bg-[hsl(var(--bg-elevated))] transition-all duration-200", busy && "opacity-50 cursor-not-allowed")}>
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+              Enregistrer comme brouillon
+            </button>
+          )}
+
           {canEdit && (
             <button disabled={busy} onClick={handleSave} className={cn("inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] text-sm font-semibold hover:opacity-90 transition-all duration-200 shadow-lg", busy && "opacity-50 cursor-not-allowed")}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -1389,14 +1439,27 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
     } finally { setOrderLookupLoading(false); }
   };
 
+  const buildPayload = () => ({
+    reporter, cause, expert: expert.trim(), client: client.trim(), noClient: noClient.trim() || null, noCommande: noCommande.trim() || null, tracking: tracking.trim() || null, amount: amount ? Number(amount) : null, dateCommande: dateCommande || null, transport: transport.trim() || null, description: description.trim() || null, physicalReturn, isPickup, isCommande, isReclamation, noBill: isPickup ? noBill : null, noBonCommande: isCommande ? noBonCommande : null, noReclamation: isReclamation ? noReclamation : null, reportedAt,
+    products: products.map((p) => ({ ...p, codeProduit: p.codeProduit.trim(), descriptionProduit: p.descriptionProduit?.trim() || "", descriptionRetour: p.descriptionRetour?.trim() || "" })),
+  });
+
   const submit = async () => {
     if (!expert.trim() || !client.trim() || !reportedAt) { alert("Expert, client et date de signalement sont requis."); return; }
     setBusy(true);
     try {
-      const createdReturn = await createReturn({
-        reporter, cause, expert: expert.trim(), client: client.trim(), noClient: noClient.trim() || null, noCommande: noCommande.trim() || null, tracking: tracking.trim() || null, amount: amount ? Number(amount) : null, dateCommande: dateCommande || null, transport: transport.trim() || null, description: description.trim() || null, physicalReturn, isPickup, isCommande, isReclamation, noBill: isPickup ? noBill : null, noBonCommande: isCommande ? noBonCommande : null, noReclamation: isReclamation ? noReclamation : null, reportedAt,
-        products: products.map((p) => ({ ...p, codeProduit: p.codeProduit.trim(), descriptionProduit: p.descriptionProduit?.trim() || "", descriptionRetour: p.descriptionRetour?.trim() || "" })),
-      });
+      const createdReturn = await createReturn(buildPayload());
+      if (filesToUpload.length > 0 && createdReturn?.id) {
+        for (const file of filesToUpload) await uploadAttachment(String(createdReturn.id), file);
+      }
+      await onCreated();
+    } catch (e) { alert(e instanceof Error ? e.message : "Erreur à la création"); } finally { setBusy(false); }
+  };
+
+  const submitDraft = async () => {
+    setBusy(true);
+    try {
+      const createdReturn = await createReturn(buildPayload());
       if (filesToUpload.length > 0 && createdReturn?.id) {
         for (const file of filesToUpload) await uploadAttachment(String(createdReturn.id), file);
       }
@@ -1538,6 +1601,10 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
         {/* Footer */}
         <div className="px-8 py-5 border-t border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-surface))] flex items-center justify-end gap-3">
           <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-[hsl(var(--text-tertiary))] hover:bg-[hsl(var(--bg-elevated))] transition-all duration-200">Annuler</button>
+          <button disabled={busy} onClick={submitDraft} className={cn("inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))] text-sm font-medium hover:bg-[hsl(var(--bg-elevated))] transition-all duration-200", busy && "opacity-50 cursor-not-allowed")}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+            Enregistrer comme brouillon
+          </button>
           <button disabled={busy} onClick={submit} className={cn("inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] text-sm font-semibold hover:opacity-90 transition-all duration-200 shadow-lg", busy && "opacity-50 cursor-not-allowed")}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             Créer le retour
