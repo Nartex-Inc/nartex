@@ -72,10 +72,17 @@ const CAUSES_IN_ORDER: Cause[] = [
   "production",
   "transporteur",
   "pompe",
-  "exposition_sinto",
   "expedition",
-  "fournisseur",
+  "defect",
+  "client",
   "expert",
+  "fournisseur",
+  "exposition_sinto",
+  "surplus_inventaire",
+  "prise_commande",
+  "analyse",
+  "rappel",
+  "redirection",
   "autre_cause",
   "autre",
 ];
@@ -444,6 +451,7 @@ export default function ReturnsPage() {
   const canCreate = normalizedUserRole === "gestionnaire" || normalizedUserRole === "administrateur";
 
   const [query, setQuery] = React.useState("");
+  const [submittedQuery, setSubmittedQuery] = React.useState("");
   const [cause, setCause] = React.useState<"all" | Cause>("all");
   const [reporter, setReporter] = React.useState<"all" | Reporter>("all");
   const [dateFrom, setDateFrom] = React.useState("");
@@ -464,14 +472,14 @@ export default function ReturnsPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchReturns({ q: query, cause, reporter, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined, history: showHistory });
+      const data = await fetchReturns({ q: submittedQuery, cause, reporter, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined, history: showHistory });
       setRows(data);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erreur");
     } finally {
       setLoading(false);
     }
-  }, [query, cause, reporter, dateFrom, dateTo, showHistory]);
+  }, [submittedQuery, cause, reporter, dateFrom, dateTo, showHistory]);
 
   React.useEffect(() => { load(); }, [load]);
 
@@ -518,7 +526,7 @@ export default function ReturnsPage() {
     try { await standbyReturn(code, action); await load(); } catch (e) { alert(e instanceof Error ? e.message : "Opération échouée"); }
   };
 
-  const onReset = () => { setQuery(""); setCause("all"); setReporter("all"); setDateFrom(""); setDateTo(""); };
+  const onReset = () => { setQuery(""); setSubmittedQuery(""); setCause("all"); setReporter("all"); setDateFrom(""); setDateTo(""); };
 
   const toggleSort = (key: SortKey) => {
     setSortKey((prevKey) => {
@@ -584,7 +592,7 @@ export default function ReturnsPage() {
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-muted))]" />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} placeholder="Rechercher par client, commande, expert..." className="w-full h-10 pl-9 pr-4 rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] transition-shadow" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") setSubmittedQuery(query); }} placeholder="Rechercher par client, commande, expert..." className="w-full h-10 pl-9 pr-4 rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] transition-shadow" />
             </div>
             <button onClick={() => setShowFilters(!showFilters)} className={cn("inline-flex items-center gap-2 px-4 h-10 rounded-lg border text-sm font-medium transition-colors", hasActiveFilters ? "border-[hsl(var(--text-primary))] bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))]" : "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))]")}>
               <Filter className="h-4 w-4" />
@@ -652,7 +660,7 @@ export default function ReturnsPage() {
                       const rowId = String(row.id);
                       return (
                         <tr key={rowId} onClick={() => setOpenId(rowId)} className={cn("group cursor-pointer transition-colors",
-                          status === "draft" && "bg-[hsl(var(--bg-surface))] hover:bg-[hsl(var(--bg-elevated))]",
+                          status === "draft" && "bg-white text-black hover:bg-gray-100",
                           status === "awaiting_physical" && "bg-black text-white hover:opacity-90",
                           status === "ready" && "bg-[hsl(var(--success))] text-white hover:opacity-90",
                           status === "finalized" && "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))]",
@@ -664,28 +672,28 @@ export default function ReturnsPage() {
                             <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium",
                               status === "awaiting_physical" && "bg-white/20 text-white",
                               status === "ready" && "bg-[hsl(var(--bg-base))]/10 text-[hsl(var(--text-primary))]",
-                              status === "draft" && "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-tertiary))]",
+                              status === "draft" && "bg-gray-200 text-gray-700",
                               status === "finalized" && "bg-[hsl(var(--bg-muted))]/50 text-[hsl(var(--text-muted))]",
                               status === "standby" && "bg-white/20 text-white"
                             )}>{CAUSE_LABEL[row.cause]}</span>
                           </td>
                           <td className="px-4 py-3 max-w-[200px]">
                             <div className={cn("font-medium truncate", status === "finalized" && "text-[hsl(var(--text-muted))]")}>{row.client}</div>
-                            <div className={cn("text-xs truncate", status === "awaiting_physical" && "text-white/70", status === "ready" && "text-[hsl(var(--text-primary))]/70", status === "draft" && "text-[hsl(var(--text-tertiary))]", status === "finalized" && "text-[hsl(var(--text-muted))]", status === "standby" && "text-white/70")}>{row.expert}</div>
+                            <div className={cn("text-xs truncate", status === "awaiting_physical" && "text-white/70", status === "ready" && "text-[hsl(var(--text-primary))]/70", status === "draft" && "text-gray-500", status === "finalized" && "text-[hsl(var(--text-muted))]", status === "standby" && "text-white/70")}>{row.expert}</div>
                           </td>
                           <td className="px-4 py-3 font-mono whitespace-nowrap">{row.noCommande || "—"}</td>
                           <td className="px-4 py-3 whitespace-nowrap">{row.tracking ? <span className="inline-flex items-center gap-1.5"><Truck className="h-3.5 w-3.5 opacity-70" /><span className="font-mono text-xs">{row.tracking}</span></span> : "—"}</td>
                           <td className="px-4 py-3">{hasFiles && <span className={cn("inline-flex items-center gap-1 text-xs font-medium", status === "awaiting_physical" && "text-white/80", status === "ready" && "text-[hsl(var(--text-primary))]/80")}><Paperclip className="h-3.5 w-3.5" />{row.attachments!.length}</span>}</td>
                           <td className="px-4 py-3 text-right">
                             <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button onClick={(e) => { e.stopPropagation(); setOpenId(rowId); }} className={cn("p-1.5 rounded-md transition-colors", status === "awaiting_physical" && "hover:bg-white/20 text-white", status === "ready" && "hover:bg-[hsl(var(--bg-base))]/10 text-[hsl(var(--text-primary))]", (status === "draft" || status === "finalized") && "hover:bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-tertiary))]", status === "standby" && "hover:bg-white/20 text-white")} title="Voir"><Eye className="h-4 w-4" /></button>
+                              <button onClick={(e) => { e.stopPropagation(); setOpenId(rowId); }} className={cn("p-1.5 rounded-md transition-colors", status === "awaiting_physical" && "hover:bg-white/20 text-white", status === "ready" && "hover:bg-[hsl(var(--bg-base))]/10 text-[hsl(var(--text-primary))]", status === "draft" && "hover:bg-gray-200 text-gray-600", status === "finalized" && "hover:bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-tertiary))]", status === "standby" && "hover:bg-white/20 text-white")} title="Voir"><Eye className="h-4 w-4" /></button>
                               {canCreate && !showHistory && status !== "draft" && status !== "finalized" && (
                                 <button onClick={(e) => { e.stopPropagation(); onStandby(rowId, "standby"); }} className={cn("p-1.5 rounded-md transition-colors", status === "awaiting_physical" && "hover:bg-white/20 text-white", status === "ready" && "hover:bg-[hsl(var(--bg-base))]/10 text-[hsl(var(--text-primary))]")} title="Mettre en standby"><Pause className="h-4 w-4" /></button>
                               )}
                               {canCreate && showHistory && status === "standby" && (
                                 <button onClick={(e) => { e.stopPropagation(); onStandby(rowId, "reactivate"); }} className="p-1.5 rounded-md transition-colors hover:bg-white/20 text-white" title="Réactiver"><Play className="h-4 w-4" /></button>
                               )}
-                              {canCreate && <button onClick={(e) => { e.stopPropagation(); onDelete(rowId); }} className={cn("p-1.5 rounded-md transition-colors", status === "awaiting_physical" && "hover:bg-[hsl(var(--danger))]/30 text-white hover:text-[hsl(var(--danger-muted))]", status === "ready" && "hover:bg-[hsl(var(--danger))]/20 text-[hsl(var(--text-primary))] hover:text-[hsl(var(--danger))]", (status === "draft" || status === "finalized") && "hover:bg-[hsl(var(--danger-muted))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--danger))]", status === "standby" && "hover:bg-[hsl(var(--danger))]/30 text-white hover:text-[hsl(var(--danger-muted))]")} title="Supprimer"><Trash2 className="h-4 w-4" /></button>}
+                              {canCreate && <button onClick={(e) => { e.stopPropagation(); onDelete(rowId); }} className={cn("p-1.5 rounded-md transition-colors", status === "awaiting_physical" && "hover:bg-[hsl(var(--danger))]/30 text-white hover:text-[hsl(var(--danger-muted))]", status === "ready" && "hover:bg-[hsl(var(--danger))]/20 text-[hsl(var(--text-primary))] hover:text-[hsl(var(--danger))]", status === "draft" && "hover:bg-red-100 text-gray-500 hover:text-red-600", status === "finalized" && "hover:bg-[hsl(var(--danger-muted))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--danger))]", status === "standby" && "hover:bg-[hsl(var(--danger))]/30 text-white hover:text-[hsl(var(--danger-muted))]")} title="Supprimer"><Trash2 className="h-4 w-4" /></button>}
                             </div>
                           </td>
                         </tr>
@@ -700,7 +708,7 @@ export default function ReturnsPage() {
                 <div className="flex items-center gap-4">
                   <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-[hsl(var(--success))]" />Prêt</span>
                   <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-black" />En attente</span>
-                  <span className="flex items-center gap-2"><span className="w-3 h-3 rounded border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]" />Brouillon</span>
+                  <span className="flex items-center gap-2"><span className="w-3 h-3 rounded border border-gray-300 bg-white" />Brouillon</span>
                   <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-purple-600" />Standby</span>
                 </div>
               </div>
