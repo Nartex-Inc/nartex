@@ -9,7 +9,7 @@ import { Calendar, RotateCcw } from "lucide-react";
 import { THEME, CHART_COLORS } from "@/lib/theme-tokens";
 import { useCurrentAccent } from "@/components/accent-color-provider";
 import { currency, percentage, formatNumber } from "@/lib/dashboard-formatters";
-import { RETENTION_THRESHOLD, NEW_CUSTOMER_MIN_SPEND, isUserAuthorized } from "@/lib/dashboard-constants";
+import { RETENTION_THRESHOLD, NEW_CUSTOMER_MIN_SPEND, isUserAuthorized, isReturnsDashboardUser } from "@/lib/dashboard-constants";
 import { totalsByRep, totalsByRepCustomer, totalsByKey } from "@/lib/dashboard-aggregators";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import type { SalesRecord, FilterState, PerfRow, YoyFilter } from "@/types/dashboard";
@@ -23,6 +23,7 @@ import {
 } from "@/components/dashboard/sales-ui";
 import { DashboardCharts } from "./_components/dashboard-charts";
 import { DashboardModals } from "./_components/dashboard-modals";
+import { ReturnsDashboard } from "./_components/returns-dashboard";
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    Main Dashboard Content
@@ -627,18 +628,21 @@ export default function DashboardPage() {
     return null;
   }
 
-  // Use the centralized authorization check
-  const isAuthorized = isUserAuthorized(userRole, userEmail);
+  // Returns-focused BI dashboard for non-sales roles
+  const showReturnsDashboard = isReturnsDashboardUser(userRole);
 
-  if (status === "unauthenticated" || !isAuthorized) {
-    return <AccessDenied role={userRole} email={userEmail} />;
+  if (!showReturnsDashboard) {
+    const isAuthorized = isUserAuthorized(userRole, userEmail);
+    if (status === "unauthenticated" || !isAuthorized) {
+      return <AccessDenied role={userRole} email={userEmail} />;
+    }
   }
 
   return (
     <main className="min-h-[100svh]">
       <div className="px-4 md:px-8 lg:px-10 py-8 md:py-10">
         <div className="mx-auto w-full max-w-[1920px]">
-          <DashboardContent />
+          {showReturnsDashboard ? <ReturnsDashboard /> : <DashboardContent />}
         </div>
       </div>
     </main>
