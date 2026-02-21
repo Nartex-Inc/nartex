@@ -385,12 +385,16 @@ export function Sidebar({
   }, [isOpen]);
 
   const filteredNavGroups = React.useMemo(() => {
+    // Normalize role: strip accents for comparison (Prisma stores "Verificateur", display uses "Vérificateur")
+    const normalize = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const normalizedUserRole = normalize(userRole);
+
     return NAV_GROUPS.map((group) => {
       const visibleItems = group.items.filter((item) => {
         if (item.allowedRoles) {
-          return item.allowedRoles.includes(userRole);
+          return item.allowedRoles.some((r) => normalize(r) === normalizedUserRole);
         }
-        return userRole === "Gestionnaire";
+        return normalizedUserRole === "gestionnaire";
       });
       return { ...group, items: visibleItems };
     }).filter((group) => group.items.length > 0);
