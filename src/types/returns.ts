@@ -140,6 +140,7 @@ export interface ReturnRow {
   totalWeight?: number | null;
   transportAmount?: number | null;
   restockingAmount?: number | null;
+  chargeTransport?: boolean;
 }
 
 export interface AttachmentResponse {
@@ -233,6 +234,7 @@ export interface FinalizeReturnPayload {
   transportAmount?: number;
   restockingAmount?: number;
   chargeTransport?: boolean;
+  villeShipto?: string;
 }
 
 /* =============================================================================
