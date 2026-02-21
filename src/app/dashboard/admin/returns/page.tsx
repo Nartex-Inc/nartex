@@ -229,8 +229,6 @@ async function fetchReturns(params: {
 }): Promise<ReturnRow[]> {
   const usp = new URLSearchParams();
   if (params.q) usp.set("q", params.q);
-  if (params.cause && params.cause !== "all") usp.set("cause", params.cause);
-  if (params.reporter && params.reporter !== "all") usp.set("reporter", params.reporter);
   if (params.dateFrom) usp.set("dateFrom", params.dateFrom);
   if (params.dateTo) usp.set("dateTo", params.dateTo);
   if (params.history) usp.set("history", "true");
@@ -474,18 +472,23 @@ export default function ReturnsPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchReturns({ q: submittedQuery, cause, reporter, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined, history: showHistory });
+      const data = await fetchReturns({ q: submittedQuery, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined, history: showHistory });
       setRows(data);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erreur");
     } finally {
       setLoading(false);
     }
-  }, [submittedQuery, cause, reporter, dateFrom, dateTo, showHistory]);
+  }, [submittedQuery, dateFrom, dateTo, showHistory]);
 
   React.useEffect(() => { load(); }, [load]);
 
-  const filteredByRole = React.useMemo(() => filterReturnsByRole(rows, userRole, showHistory), [rows, userRole, showHistory]);
+  const filteredByRole = React.useMemo(() => {
+    let result = filterReturnsByRole(rows, userRole, showHistory);
+    if (cause !== "all") result = result.filter((r) => r.cause === cause);
+    if (reporter !== "all") result = result.filter((r) => r.reporter === reporter);
+    return result;
+  }, [rows, userRole, showHistory, cause, reporter]);
 
   const sorted = React.useMemo(() => {
     const get = (r: ReturnRow) => {

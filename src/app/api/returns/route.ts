@@ -150,8 +150,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Additional filters
-    if (cause && cause !== "all") AND.push({ cause: cause as Cause });
-    if (reporter && reporter !== "all") AND.push({ reporter: reporter as Reporter });
+    // NOTE: cause and reporter filters are applied client-side to avoid
+    // PostgreSQL enum mismatch errors (DB enum may have fewer values than schema).
     if (dateFrom) AND.push({ reportedAt: { gte: new Date(dateFrom) } });
     if (dateTo) AND.push({ reportedAt: { lte: new Date(dateTo) } });
 
