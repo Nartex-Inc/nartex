@@ -109,7 +109,7 @@ interface UserData {
 function isAdmin(email: string | null | undefined, role: string | null | undefined): boolean {
   if (!email) return false;
   if (ADMIN_EMAILS.includes(email)) return true;
-  if (role === "Gestionnaire" || role === "Administrateur") return true;
+  if (role === "Gestionnaire") return true;
   return false;
 }
 

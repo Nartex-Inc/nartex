@@ -80,7 +80,7 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: "Général",
     items: [
-      { href: "/dashboard", title: "Dashboard", icon: LayoutDashboard },
+      { href: "/dashboard", title: "Dashboard", icon: LayoutDashboard, allowedRoles: ["Gestionnaire", "Administrateur", "Analyste", "Vérificateur", "Facturation", "Expert", "user"] },
       { href: "/dashboard/pricelist", title: "Listes de prix", icon: PackageSearch },
     ],
   },
@@ -390,7 +390,7 @@ export function Sidebar({
         if (item.allowedRoles) {
           return item.allowedRoles.includes(userRole);
         }
-        return userRole === "Gestionnaire" || userRole === "Administrateur";
+        return userRole === "Gestionnaire";
       });
       return { ...group, items: visibleItems };
     }).filter((group) => group.items.length > 0);

@@ -10,7 +10,7 @@ import prisma from "@/lib/prisma";
 const ADMIN_EMAILS = ["n.labranche@sinto.ca"];
 
 // Roles that have admin privileges
-const ADMIN_ROLES = ["Gestionnaire", "Administrateur"];
+const ADMIN_ROLES = ["Gestionnaire"];
 
 // Helper to check if user is admin
 function isAdmin(email: string | null | undefined, role: string | null | undefined): boolean {
