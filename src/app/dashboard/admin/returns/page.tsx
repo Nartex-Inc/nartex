@@ -832,6 +832,7 @@ function DetailModal({
 
   const handleVerify = async () => {
     if (!canVerify) return;
+    if (!window.confirm("Êtes-vous sûr de vouloir vérifier ce retour ?")) return;
     setBusy(true);
     try {
       await verifyReturn(String(row.id), { products: draft.products ?? [] });
@@ -846,6 +847,7 @@ function DetailModal({
 
   const handleFinalize = async () => {
     if (!canFinalize) return;
+    if (!window.confirm("Êtes-vous sûr de vouloir finaliser ce retour ?")) return;
     setBusy(true);
     try {
       await finalizeReturn(String(row.id), {
