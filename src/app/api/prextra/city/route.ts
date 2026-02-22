@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getCityAndZone } from "@/lib/prextra";
+import { getCityAndZone, debugCityZone } from "@/lib/prextra";
 import { TRANSPORT_RATES, calculateShippingCost } from "@/types/returns";
 
 export async function GET(request: NextRequest) {
@@ -28,12 +28,19 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const sonbr = searchParams.get("sonbr");
     const weight = searchParams.get("weight");
+    const debug = searchParams.get("debug") === "1";
 
     if (!sonbr) {
       return NextResponse.json(
         { ok: false, error: "Numéro de commande (sonbr) requis" },
         { status: 400 }
       );
+    }
+
+    // Debug mode: return diagnostics about each table in the join chain
+    if (debug) {
+      const diag = await debugCityZone(sonbr, schema);
+      return NextResponse.json({ ok: true, debug: true, diagnostics: diag });
     }
 
     const result = await getCityAndZone(sonbr, schema);

@@ -174,24 +174,98 @@ export interface CityZoneResult {
 
 export async function getCityAndZone(sonbr: string, schema: string): Promise<CityZoneResult | null> {
   const T = getPrextraTables(schema);
+  const result = await queryPrextra<CityZoneResult>(
+    `SELECT
+      shipto."City",
+      tc."_Code"
+     FROM ${T.INV_HEADER} inv
+     INNER JOIN ${T.SHIPTO} shipto ON inv."shiptoid" = shipto."ShipToId"
+     INNER JOIN ${T.CITY} city ON shipto."City" = city."_Name"
+     INNER JOIN ${T.CITY_SETTING} cs ON city."_cityid" = cs."_CityId"
+     INNER JOIN ${T.TRANSPORT_CHART} tc ON cs."_ChartDtlId" = tc."_ChartDtlId"
+     WHERE inv."sonbr"::text = $1
+     LIMIT 1`,
+    [sonbr]
+  );
+  return result.length > 0 ? result[0] : null;
+}
+
+/**
+ * Debug helper: check each table in the city/zone join chain individually.
+ * Returns diagnostics about which tables exist, have data, and where the join breaks.
+ */
+export async function debugCityZone(sonbr: string, schema: string) {
+  const T = getPrextraTables(schema);
+  const diag: Record<string, unknown> = { schema, sonbr, tables: {} };
+
+  // 1. Check InvHeader for this sonbr
   try {
-    const result = await queryPrextra<CityZoneResult>(
-      `SELECT
-        shipto."City",
-        tc."_Code"
+    const inv = await queryPrextra<Record<string, unknown>>(
+      `SELECT inv."sonbr", inv."shiptoid"
+       FROM ${T.INV_HEADER} inv WHERE inv."sonbr"::text = $1 LIMIT 1`,
+      [sonbr]
+    );
+    diag.tables = { ...diag.tables as object, InvHeader: { ok: true, rows: inv.length, sample: inv[0] ?? null } };
+  } catch (e) {
+    diag.tables = { ...diag.tables as object, InvHeader: { ok: false, error: String(e) } };
+  }
+
+  // 2. Check Shipto table exists + row count sample
+  try {
+    const sh = await queryPrextra<Record<string, unknown>>(
+      `SELECT "ShipToId", "City" FROM ${T.SHIPTO} LIMIT 3`
+    );
+    diag.tables = { ...diag.tables as object, Shipto: { ok: true, sampleRows: sh } };
+  } catch (e) {
+    diag.tables = { ...diag.tables as object, Shipto: { ok: false, error: String(e) } };
+  }
+
+  // 3. Check _City
+  try {
+    const ct = await queryPrextra<Record<string, unknown>>(
+      `SELECT "_cityid", "_Name" FROM ${T.CITY} LIMIT 3`
+    );
+    diag.tables = { ...diag.tables as object, _City: { ok: true, sampleRows: ct } };
+  } catch (e) {
+    diag.tables = { ...diag.tables as object, _City: { ok: false, error: String(e) } };
+  }
+
+  // 4. Check _CitySetting
+  try {
+    const cs = await queryPrextra<Record<string, unknown>>(
+      `SELECT "_CityId", "_ChartDtlId" FROM ${T.CITY_SETTING} LIMIT 3`
+    );
+    diag.tables = { ...diag.tables as object, _CitySetting: { ok: true, sampleRows: cs } };
+  } catch (e) {
+    diag.tables = { ...diag.tables as object, _CitySetting: { ok: false, error: String(e) } };
+  }
+
+  // 5. Check _TransportChartDTL
+  try {
+    const tc = await queryPrextra<Record<string, unknown>>(
+      `SELECT "_ChartDtlId", "_Code" FROM ${T.TRANSPORT_CHART} LIMIT 3`
+    );
+    diag.tables = { ...diag.tables as object, _TransportChartDTL: { ok: true, sampleRows: tc } };
+  } catch (e) {
+    diag.tables = { ...diag.tables as object, _TransportChartDTL: { ok: false, error: String(e) } };
+  }
+
+  // 6. Try the full join
+  try {
+    const full = await queryPrextra<CityZoneResult>(
+      `SELECT shipto."City", tc."_Code"
        FROM ${T.INV_HEADER} inv
        INNER JOIN ${T.SHIPTO} shipto ON inv."shiptoid" = shipto."ShipToId"
        INNER JOIN ${T.CITY} city ON shipto."City" = city."_Name"
        INNER JOIN ${T.CITY_SETTING} cs ON city."_cityid" = cs."_CityId"
        INNER JOIN ${T.TRANSPORT_CHART} tc ON cs."_ChartDtlId" = tc."_ChartDtlId"
-       WHERE inv."sonbr"::text = $1
-       LIMIT 1`,
+       WHERE inv."sonbr"::text = $1 LIMIT 1`,
       [sonbr]
     );
-    return result.length > 0 ? result[0] : null;
-  } catch (error) {
-    // Tables might not be replicated yet
-    console.error("getCityAndZone error:", error);
-    return null;
+    diag.fullJoin = { ok: true, rows: full.length, result: full[0] ?? null };
+  } catch (e) {
+    diag.fullJoin = { ok: false, error: String(e) };
   }
+
+  return diag;
 }
