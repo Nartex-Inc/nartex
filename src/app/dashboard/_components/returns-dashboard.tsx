@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTheme } from "next-themes";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, X } from "lucide-react";
 import {
   PieChart,
   Pie,
@@ -46,6 +46,12 @@ type AnalyticsData = {
   byMonth: { month: string; current: number; previous: number }[];
   experts: string[];
 };
+
+// ── Reverse lookup: French label → enum key ─────────────────────────────────
+const CAUSE_LABEL_TO_KEY: Record<string, string> = {};
+for (const [key, label] of Object.entries(CAUSE_LABELS)) {
+  CAUSE_LABEL_TO_KEY[label] = key;
+}
 
 // ── Month label helper ──────────────────────────────────────────────────────
 const MONTH_SHORT: Record<string, string> = {
@@ -144,11 +150,56 @@ export function ReturnsDashboard() {
     if (pieView === "cause") {
       return data.byCause.map((d) => ({
         name: CAUSE_LABELS[d.name] || d.name,
+        key: d.name, // raw enum key for drilldown
         value: d.count,
       }));
     }
-    return data.byExpert.map((d) => ({ name: d.name, value: d.count }));
+    return data.byExpert.map((d) => ({
+      name: d.name,
+      key: d.name, // expert name is the key
+      value: d.count,
+    }));
   }, [data, pieView]);
+
+  // ── Pie chart drilldown click handler ──
+  const handlePieClick = useCallback(
+    (_entry: unknown, index: number) => {
+      const item = pieData[index];
+      if (!item) return;
+
+      if (pieView === "cause") {
+        // Toggle: click again to clear
+        setCause((prev) => (prev === item.key ? "" : item.key));
+      } else {
+        setExpert((prev) => (prev === item.key ? "" : item.key));
+      }
+    },
+    [pieView, pieData]
+  );
+
+  // ── Legend click handler (same drilldown behavior) ──
+  const handleLegendClick = useCallback(
+    (legendLabel: string) => {
+      if (pieView === "cause") {
+        const enumKey = CAUSE_LABEL_TO_KEY[legendLabel] || legendLabel;
+        setCause((prev) => (prev === enumKey ? "" : enumKey));
+      } else {
+        setExpert((prev) => (prev === legendLabel ? "" : legendLabel));
+      }
+    },
+    [pieView]
+  );
+
+  // Active selection for legend highlighting
+  const selectedLegendItems = useMemo(() => {
+    if (pieView === "cause" && cause) {
+      return [CAUSE_LABELS[cause] || cause];
+    }
+    if (pieView === "expert" && expert) {
+      return [expert];
+    }
+    return [];
+  }, [pieView, cause, expert]);
 
   // ── Month chart data ──
   const monthData = useMemo(() => {
@@ -164,6 +215,9 @@ export function ReturnsDashboard() {
   const causeOptions = useMemo(() => {
     return Object.entries(CAUSE_LABELS).map(([key, label]) => ({ key, label }));
   }, []);
+
+  // ── Active filters for badge display ──
+  const hasActiveFilters = cause || expert;
 
   if (error && !data) return <ErrorState message={error} />;
 
@@ -192,8 +246,8 @@ export function ReturnsDashboard() {
               onChange={(e) => setCause(e.target.value)}
               className="rounded-full px-3 py-2 text-[0.875rem] transition-all focus:outline-none"
               style={{
-                background: t.surface2,
-                border: `1px solid ${t.borderSubtle}`,
+                background: cause ? t.accentMuted : t.surface2,
+                border: `1px solid ${cause ? t.accent : t.borderSubtle}`,
                 color: t.textPrimary,
               }}
             >
@@ -211,8 +265,8 @@ export function ReturnsDashboard() {
               onChange={(e) => setExpert(e.target.value)}
               className="rounded-full px-3 py-2 text-[0.875rem] transition-all focus:outline-none"
               style={{
-                background: t.surface2,
-                border: `1px solid ${t.borderSubtle}`,
+                background: expert ? t.accentMuted : t.surface2,
+                border: `1px solid ${expert ? t.accent : t.borderSubtle}`,
                 color: t.textPrimary,
               }}
             >
@@ -251,6 +305,26 @@ export function ReturnsDashboard() {
               />
             </div>
 
+            {/* Clear filters */}
+            {hasActiveFilters && (
+              <button
+                onClick={() => {
+                  setCause("");
+                  setExpert("");
+                }}
+                className="px-3 py-2 rounded-full text-[0.875rem] font-medium transition-all duration-200 flex items-center gap-1.5"
+                style={{
+                  background: t.accentMuted,
+                  color: t.accent,
+                  border: `1px solid ${t.accent}`,
+                }}
+                title="Effacer les filtres"
+              >
+                <X className="w-3.5 h-3.5" />
+                Effacer
+              </button>
+            )}
+
             {/* Refresh */}
             <button
               onClick={() => fetchData(true)}
@@ -270,6 +344,35 @@ export function ReturnsDashboard() {
             </button>
           </div>
         </div>
+
+        {/* Active filter badges */}
+        {hasActiveFilters && (
+          <div className="flex flex-wrap items-center gap-2 mt-4">
+            <span className="text-xs" style={{ color: t.textMuted }}>
+              Filtres actifs :
+            </span>
+            {cause && (
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition-all hover:opacity-80"
+                style={{ background: t.accentMuted, color: t.accent, border: `1px solid ${t.accent}` }}
+                onClick={() => setCause("")}
+              >
+                {CAUSE_LABELS[cause] || cause}
+                <X className="w-3 h-3" />
+              </span>
+            )}
+            {expert && (
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition-all hover:opacity-80"
+                style={{ background: t.accentMuted, color: t.accent, border: `1px solid ${t.accent}` }}
+                onClick={() => setExpert("")}
+              >
+                {expert}
+                <X className="w-3 h-3" />
+              </span>
+            )}
+          </div>
+        )}
       </header>
 
       {/* ── KPI Grid ──────────────────────────────────────────────────────── */}
@@ -313,7 +416,7 @@ export function ReturnsDashboard() {
 
       {/* ── Charts Row 1: Pie + YOY Bar ───────────────────────────────────── */}
       <div className="grid grid-cols-12 gap-5">
-        {/* Donut chart — cause / expert toggle */}
+        {/* Donut chart — cause / expert toggle with drilldown */}
         <div className="col-span-12 lg:col-span-5">
           <ChartCard
             title={
@@ -331,6 +434,9 @@ export function ReturnsDashboard() {
             isLoading={isLoading}
             height={320}
           >
+            <p className="text-[0.65rem] mb-1 text-center" style={{ color: t.textMuted }}>
+              Cliquez sur une section pour filtrer
+            </p>
             <div className="flex items-center gap-4">
               <ResponsiveContainer width="60%" height={300}>
                 <PieChart>
@@ -344,10 +450,23 @@ export function ReturnsDashboard() {
                     outerRadius="92%"
                     paddingAngle={2}
                     stroke="none"
+                    style={{ cursor: "pointer" }}
+                    onClick={handlePieClick}
                   >
-                    {pieData.map((_, i) => (
-                      <Cell key={i} fill={chartColors[i % chartColors.length]} />
-                    ))}
+                    {pieData.map((entry, i) => {
+                      const isActive =
+                        selectedLegendItems.length === 0 ||
+                        selectedLegendItems.includes(entry.name);
+                      return (
+                        <Cell
+                          key={i}
+                          fill={chartColors[i % chartColors.length]}
+                          fillOpacity={isActive ? 1 : 0.25}
+                          stroke={isActive && selectedLegendItems.length > 0 ? t.textPrimary : "none"}
+                          strokeWidth={isActive && selectedLegendItems.length > 0 ? 2 : 0}
+                        />
+                      );
+                    })}
                   </Pie>
                   <Tooltip
                     content={<CustomTooltip format="number" t={t} />}
@@ -360,6 +479,8 @@ export function ReturnsDashboard() {
                     value: d.name,
                     color: chartColors[i % chartColors.length],
                   }))}
+                  onLegendClick={handleLegendClick}
+                  selectedItems={selectedLegendItems}
                   t={t}
                 />
               </div>
