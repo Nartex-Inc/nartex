@@ -293,6 +293,16 @@ async function finalizeReturn(code: string, data: Record<string, unknown>): Prom
   if (!json.ok) throw new Error(json.error || "Finalisation échouée");
 }
 
+async function unverifyReturn(code: string): Promise<void> {
+  const res = await fetch(`/api/returns/${encodeURIComponent(code)}/unverify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || "Annulation de vérification échouée");
+}
+
 async function standbyReturn(code: string, action: "standby" | "reactivate"): Promise<void> {
   const res = await fetch(`/api/returns/${encodeURIComponent(code)}/standby`, {
     method: "POST",
@@ -800,6 +810,7 @@ function DetailModal({
   const canForceDraft = isManager && !isFinalized;
   const canVerify = normalizedRole === "verificateur" && isPhysical && !isVerified && !isFinalized && !isDraft;
   const canFinalize = normalizedRole === "facturation" && !isFinalized && !isDraft && (!isPhysical || isVerified);
+  const canUnverify = isManager && isVerified && !isFinalized;
   const isReadOnly = normalizedRole === "expert" || normalizedRole === "analyste" || isFinalized;
 
   // Show verification fields for Vérificateur OR after verification (readonly)
@@ -911,6 +922,21 @@ function DetailModal({
       onClose();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Erreur finalisation");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleUnverify = async () => {
+    if (!canUnverify) return;
+    if (!window.confirm("Êtes-vous sûr de vouloir annuler la vérification de ce retour ?")) return;
+    setBusy(true);
+    try {
+      await unverifyReturn(String(row.id));
+      await onRefresh();
+      onClose();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Erreur annulation vérification");
     } finally {
       setBusy(false);
     }
@@ -1131,16 +1157,33 @@ function DetailModal({
           {/* Verification Info - Show after verification */}
           {isVerified && draft.verifiedBy && (
             <div className="p-4 rounded-xl border border-[hsl(var(--success))]/20 bg-[hsl(var(--success-muted))]">
-              <div className="flex items-center gap-3 text-sm text-[hsl(var(--success))]">
-                <CheckCircle className="h-4 w-4 shrink-0" />
-                {draft.verifiedBy.avatar ? (
-                  <img src={draft.verifiedBy.avatar} alt="" className="h-14 w-14 rounded-full object-cover ring-2 ring-[hsl(var(--success))]/30" />
-                ) : (
-                  <div className="h-14 w-14 rounded-full bg-[hsl(var(--success))] flex items-center justify-center text-xl font-semibold text-white shrink-0">
-                    {(draft.verifiedBy.name || "?").charAt(0).toUpperCase()}
-                  </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 text-sm text-[hsl(var(--success))]">
+                  <CheckCircle className="h-4 w-4 shrink-0" />
+                  {draft.verifiedBy.avatar ? (
+                    <img src={draft.verifiedBy.avatar} alt="" className="h-14 w-14 rounded-full object-cover ring-2 ring-[hsl(var(--success))]/30" />
+                  ) : (
+                    <div className="h-14 w-14 rounded-full bg-[hsl(var(--success))] flex items-center justify-center text-xl font-semibold text-white shrink-0">
+                      {(draft.verifiedBy.name || "?").charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <span>Vérifié par <strong>{draft.verifiedBy.name}</strong> le {draft.verifiedBy.at ? new Date(draft.verifiedBy.at).toLocaleDateString("fr-CA") : ""}</span>
+                </div>
+                {canUnverify && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={handleUnverify}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all duration-200",
+                      "border-[hsl(var(--destructive))]/30 text-[hsl(var(--destructive))] hover:bg-[hsl(var(--destructive))]/10",
+                      busy && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    Annuler
+                  </button>
                 )}
-                <span>Vérifié par <strong>{draft.verifiedBy.name}</strong> le {draft.verifiedBy.at ? new Date(draft.verifiedBy.at).toLocaleDateString("fr-CA") : ""}</span>
               </div>
             </div>
           )}
@@ -1475,8 +1518,8 @@ function OptionToggle({ label, checked, onToggle, inputValue, onInputChange, inp
     <div className={cn("p-4 rounded-xl border transition-all duration-200 shadow-sm", checked ? "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]" : "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] opacity-70")}>
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-medium text-[hsl(var(--text-primary))]">{label}</span>
-        <button type="button" onClick={onToggle} disabled={toggleDisabled} className={cn("relative h-5 w-9 rounded-full border-2 transition-all duration-200", checked ? "bg-[hsl(var(--text-primary))] border-[hsl(var(--text-primary))]" : "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-strong))]", toggleDisabled && "opacity-50 cursor-not-allowed")}>
-          <span className={cn("absolute top-0.5 left-0.5 h-4 w-4 rounded-full transition-transform duration-200 shadow-sm", checked ? "translate-x-4 bg-[hsl(var(--bg-surface))]" : "bg-[hsl(var(--bg-surface))]")} />
+        <button type="button" onClick={onToggle} disabled={toggleDisabled} className={cn("relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 transition-all duration-200", checked ? "bg-[hsl(var(--text-primary))] border-[hsl(var(--text-primary))]" : "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-strong))]", toggleDisabled && "opacity-50 cursor-not-allowed")}>
+          <span className={cn("pointer-events-none block h-4 w-4 rounded-full transition-transform duration-200 shadow-sm", checked ? "translate-x-4 bg-[hsl(var(--bg-surface))]" : "translate-x-0 bg-[hsl(var(--bg-surface))]")} />
         </button>
       </div>
       <input disabled={inputDisabled} value={inputValue} onChange={(e) => onInputChange(e.target.value)} className="w-full h-9 px-3 rounded-lg text-sm border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder={inputPlaceholder} />
