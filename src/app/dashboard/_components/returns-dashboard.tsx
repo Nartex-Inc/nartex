@@ -111,9 +111,13 @@ export function ReturnsDashboard() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const fetchData = useCallback(
-    async (bustCache = false) => {
+  // Fetch whenever filter values change (direct dependencies, no useCallback indirection)
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function fetchAnalytics() {
       setIsLoading(true);
       setError(null);
       try {
@@ -122,25 +126,29 @@ export function ReturnsDashboard() {
         if (dateTo) params.set("dateTo", dateTo);
         if (cause) params.set("cause", cause);
         if (expert) params.set("expert", expert);
-        if (bustCache) params.set("noCache", "1");
+        if (refreshKey > 0) params.set("noCache", "1");
 
-        const res = await fetch(`/api/returns/analytics?${params}`);
+        const res = await fetch(`/api/returns/analytics?${params}`, {
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error(`Erreur ${res.status}`);
         const json = await res.json();
-        setData(json);
+        if (!controller.signal.aborted) setData(json);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Erreur inconnue");
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        if (!controller.signal.aborted) {
+          setError(err instanceof Error ? err.message : "Erreur inconnue");
+        }
       } finally {
-        setIsLoading(false);
+        if (!controller.signal.aborted) setIsLoading(false);
       }
-    },
-    [dateFrom, dateTo, cause, expert]
-  );
+    }
 
-  // Fetch on mount + when filters change
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchAnalytics();
+    return () => controller.abort();
+  }, [dateFrom, dateTo, cause, expert, refreshKey]);
+
+  const handleRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   // ── Pie view toggle ──
   const [pieView, setPieView] = useState<"cause" | "expert">("cause");
@@ -327,7 +335,7 @@ export function ReturnsDashboard() {
 
             {/* Refresh */}
             <button
-              onClick={() => fetchData(true)}
+              onClick={handleRefresh}
               disabled={isLoading}
               className="px-4 py-2 rounded-full text-[0.875rem] font-medium transition-all duration-200 disabled:opacity-50"
               style={{
