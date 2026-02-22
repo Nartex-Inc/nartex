@@ -198,14 +198,20 @@ export async function debugCityZone(sonbr: string, schema: string) {
   const T = getPrextraTables(schema);
   const diag: Record<string, unknown> = { schema, sonbr, tables: {} };
 
-  // 1. Check InvHeader for this sonbr
+  // 1. Check InvHeader — list actual columns first, then try query
   try {
-    const inv = await queryPrextra<Record<string, unknown>>(
-      `SELECT inv."sonbr", inv."shiptoid"
-       FROM ${T.INV_HEADER} inv WHERE inv."sonbr"::text = $1 LIMIT 1`,
-      [sonbr]
+    const cols = await queryPrextra<{ column_name: string }>(
+      `SELECT column_name FROM information_schema.columns
+       WHERE table_schema = $1 AND table_name = 'InvHeader'
+       ORDER BY ordinal_position`,
+      [schema]
     );
-    diag.tables = { ...diag.tables as object, InvHeader: { ok: true, rows: inv.length, sample: inv[0] ?? null } };
+    const inv = cols.length > 0
+      ? await queryPrextra<Record<string, unknown>>(
+          `SELECT * FROM ${T.INV_HEADER} LIMIT 1`
+        )
+      : [];
+    diag.tables = { ...diag.tables as object, InvHeader: { ok: true, columns: cols.map(c => c.column_name), sample: inv[0] ?? null } };
   } catch (e) {
     diag.tables = { ...diag.tables as object, InvHeader: { ok: false, error: String(e) } };
   }
@@ -240,12 +246,20 @@ export async function debugCityZone(sonbr: string, schema: string) {
     diag.tables = { ...diag.tables as object, _CitySetting: { ok: false, error: String(e) } };
   }
 
-  // 5. Check _TransportChartDTL
+  // 5. Check _TransportChartDTL — list actual columns first
   try {
-    const tc = await queryPrextra<Record<string, unknown>>(
-      `SELECT "_ChartDtlId", "_Code" FROM ${T.TRANSPORT_CHART} LIMIT 3`
+    const cols = await queryPrextra<{ column_name: string }>(
+      `SELECT column_name FROM information_schema.columns
+       WHERE table_schema = $1 AND table_name = '_TransportChartDTL'
+       ORDER BY ordinal_position`,
+      [schema]
     );
-    diag.tables = { ...diag.tables as object, _TransportChartDTL: { ok: true, sampleRows: tc } };
+    const tc = cols.length > 0
+      ? await queryPrextra<Record<string, unknown>>(
+          `SELECT * FROM ${T.TRANSPORT_CHART} LIMIT 3`
+        )
+      : [];
+    diag.tables = { ...diag.tables as object, _TransportChartDTL: { ok: true, columns: cols.map(c => c.column_name), sampleRows: tc } };
   } catch (e) {
     diag.tables = { ...diag.tables as object, _TransportChartDTL: { ok: false, error: String(e) } };
   }
