@@ -290,33 +290,46 @@ export function parseReturnCode(formatted: string): number {
    Transport Calculation
 ============================================================================= */
 
+// Rates from Prextra _TransportChartDTL: [Base, 11-399, 400-799, 800-999, 1000+]
 export const TRANSPORT_RATES: Record<string, number[]> = {
-  A: [15.0, 0.08, 0.07, 0.06, 0.05],
-  B: [18.0, 0.10, 0.09, 0.08, 0.07],
-  C: [22.0, 0.12, 0.11, 0.10, 0.09],
-  D: [28.0, 0.15, 0.14, 0.12, 0.11],
-  E: [35.0, 0.18, 0.16, 0.14, 0.12],
-  Z: [50.0, 0.25, 0.22, 0.20, 0.18],
+  A: [10.00, 0.19, 0.11, 0.07, 0.05],
+  B: [12.00, 0.22, 0.13, 0.09, 0.06],
+  C: [15.00, 0.27, 0.18, 0.13, 0.09],
+  D: [25.00, 0.34, 0.23, 0.14, 0.09],
+  E: [35.00, 0.39, 0.29, 0.17, 0.11],
+  Z: [75.00, 0.75, 0.50, 0.10, 0.05],
 };
 
 export function calculateShippingCost(zone: string, weightLbs: number): number {
   const rates = TRANSPORT_RATES[zone.toUpperCase()] || TRANSPORT_RATES.Z;
 
+  // Base rate covers 0-10 lbs
   if (weightLbs <= 10) {
     return rates[0];
-  } else if (weightLbs <= 400) {
-    return rates[0] + (weightLbs - 10) * rates[1];
-  } else if (weightLbs <= 800) {
-    return rates[0] + 390 * rates[1] + (weightLbs - 400) * rates[2];
-  } else if (weightLbs <= 1000) {
-    return rates[0] + 390 * rates[1] + 400 * rates[2] + (weightLbs - 800) * rates[3];
-  } else {
-    return (
-      rates[0] +
-      390 * rates[1] +
-      400 * rates[2] +
-      200 * rates[3] +
-      (weightLbs - 1000) * rates[4]
-    );
   }
+
+  let cost = rates[0];
+  let remaining = weightLbs - 10;
+
+  // 11-399 lbs (up to 390 lbs at this tier)
+  const tier1 = Math.min(remaining, 390);
+  cost += tier1 * rates[1];
+  remaining -= tier1;
+  if (remaining <= 0) return cost;
+
+  // 400-799 lbs (up to 400 lbs at this tier)
+  const tier2 = Math.min(remaining, 400);
+  cost += tier2 * rates[2];
+  remaining -= tier2;
+  if (remaining <= 0) return cost;
+
+  // 800-999 lbs (up to 200 lbs at this tier)
+  const tier3 = Math.min(remaining, 200);
+  cost += tier3 * rates[3];
+  remaining -= tier3;
+  if (remaining <= 0) return cost;
+
+  // 1000+ lbs
+  cost += remaining * rates[4];
+  return cost;
 }
