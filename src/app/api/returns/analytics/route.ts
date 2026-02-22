@@ -1,12 +1,16 @@
 // src/app/api/returns/analytics/route.ts
 // Returns analytics for BI dashboard — counts, breakdowns, YOY trends
+//
+// NOTE: The "cause" column is stored as text in PostgreSQL, not as a Prisma enum.
+// Prisma's typed where clause casts to "Cause" enum which fails. So we fetch
+// returns without the cause filter and apply it in JS post-processing.
 
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { Prisma, Cause } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { requireTenant, normalizeRole, getErrorMessage } from "@/lib/auth-helpers";
 
-// ── Server-side cache (same pattern as dashboard-data) ──────────────────────
+// ── Server-side cache ───────────────────────────────────────────────────────
 const CACHE_TTL_MS = 5 * 60 * 1000;
 type CacheEntry = { data: unknown; ts: number };
 const queryCache = new Map<string, CacheEntry>();
@@ -44,103 +48,74 @@ export async function GET(request: NextRequest) {
     const expertFilter = searchParams.get("expert");
     const noCache = searchParams.get("noCache") === "1";
 
-    // Expert-scoped access (same as stats route)
+    // Cache key
+    const cacheKey = `analytics:${tenantId}:${dateFrom}:${dateTo}:${causeFilter}:${expertFilter}`;
+    if (!noCache) {
+      const cached = getCached(cacheKey);
+      if (cached !== null) return NextResponse.json(cached);
+    }
+
+    // Expert-scoped access
     const userName = user.name || "";
     const baseWhere: Prisma.ReturnWhereInput =
       normalizeRole(user.role) === "expert"
         ? { tenantId, expert: { contains: userName, mode: "insensitive" } }
         : { tenantId };
 
-    // Apply optional filters
+    // Build where clause (date + expert only — cause is filtered in JS)
     const where: Prisma.ReturnWhereInput = { ...baseWhere };
     if (dateFrom || dateTo) {
       where.reportedAt = {};
       if (dateFrom) (where.reportedAt as Prisma.DateTimeFilter).gte = new Date(dateFrom);
       if (dateTo) (where.reportedAt as Prisma.DateTimeFilter).lte = new Date(dateTo + "T23:59:59.999Z");
     }
-    if (causeFilter) {
-      where.cause = causeFilter as Cause;
-    }
     if (expertFilter) {
       where.expert = { contains: expertFilter, mode: "insensitive" };
     }
 
-    // Cache disabled during debugging — always fresh queries
-    // const cacheKey = `returns-analytics:${tenantId}:${dateFrom}:${dateTo}:${causeFilter}:${expertFilter}`;
-    // if (!noCache) {
-    //   const cached = getCached(cacheKey);
-    //   if (cached !== null) return NextResponse.json(cached);
-    // }
-
-    // ── Build "previous period" where clause for YOY ──
+    // Previous period where (for YOY)
     const prevWhere: Prisma.ReturnWhereInput = { ...baseWhere };
-    if (causeFilter) {
-      prevWhere.cause = causeFilter as Cause;
-    }
     if (expertFilter) prevWhere.expert = { contains: expertFilter, mode: "insensitive" };
 
-    let prevDateFrom: Date | null = null;
-    let prevDateTo: Date | null = null;
-
     if (dateFrom && dateTo) {
-      prevDateFrom = new Date(dateFrom);
+      const prevDateFrom = new Date(dateFrom);
       prevDateFrom.setFullYear(prevDateFrom.getFullYear() - 1);
-      prevDateTo = new Date(dateTo + "T23:59:59.999Z");
+      const prevDateTo = new Date(dateTo + "T23:59:59.999Z");
       prevDateTo.setFullYear(prevDateTo.getFullYear() - 1);
       prevWhere.reportedAt = { gte: prevDateFrom, lte: prevDateTo };
     } else {
-      // Default: last 12 months current, 12-24 months previous
       const now = new Date();
       const twelveAgo = new Date(now);
       twelveAgo.setMonth(twelveAgo.getMonth() - 12);
       const twentyFourAgo = new Date(now);
       twentyFourAgo.setMonth(twentyFourAgo.getMonth() - 24);
-
       where.reportedAt = where.reportedAt || { gte: twelveAgo };
       prevWhere.reportedAt = { gte: twentyFourAgo, lt: twelveAgo };
     }
 
-    // ── Parallel queries ──
-    const [
-      total,
-      drafts,
-      active,
-      finalized,
-      standby,
-      verified,
-      byCauseRaw,
-      byExpertRaw,
-      topItemsRaw,
-      currentReturns,
-      previousReturns,
-      expertsRaw,
-    ] = await Promise.all([
-      // 1. Counts
-      prisma.return.count({ where }),
-      prisma.return.count({ where: { ...where, isDraft: true } }),
-      prisma.return.count({ where: { ...where, isDraft: false, isFinal: false, isStandby: false } }),
-      prisma.return.count({ where: { ...where, isFinal: true } }),
-      prisma.return.count({ where: { ...where, isStandby: true } }),
-      prisma.return.count({ where: { ...where, isVerified: true } }),
-
-      // 2. By cause
-      prisma.return.groupBy({
-        by: ["cause"],
+    // ── Fetch all data in parallel ──
+    const [currentRaw, previousRaw, topItemsRaw, expertsRaw] = await Promise.all([
+      // All returns in current period (with fields needed for counts + aggregation)
+      prisma.return.findMany({
         where,
-        _count: { id: true },
-        orderBy: { _count: { id: "desc" } },
+        select: {
+          cause: true,
+          expert: true,
+          isDraft: true,
+          isFinal: true,
+          isStandby: true,
+          isVerified: true,
+          reportedAt: true,
+        },
       }),
 
-      // 3. By expert
-      prisma.return.groupBy({
-        by: ["expert"],
-        where: { ...where, expert: { not: null } },
-        _count: { id: true },
-        orderBy: { _count: { id: "desc" } },
-        take: 15,
+      // Previous period returns (for YOY)
+      prisma.return.findMany({
+        where: prevWhere,
+        select: { cause: true, reportedAt: true },
       }),
 
-      // 4. Top 10 items by # of distinct returns
+      // Top 10 items (raw SQL handles cause::text cast properly)
       prisma.$queryRaw<{ codeProduit: string; count: number }[]>`
         SELECT rp."codeProduit", COUNT(DISTINCT rp."returnId")::int AS count
         FROM "ReturnProduct" rp
@@ -155,19 +130,7 @@ export async function GET(request: NextRequest) {
         LIMIT 10
       `,
 
-      // 5. Current period returns for monthly aggregation
-      prisma.return.findMany({
-        where,
-        select: { reportedAt: true },
-      }),
-
-      // 6. Previous period returns for monthly aggregation
-      prisma.return.findMany({
-        where: prevWhere,
-        select: { reportedAt: true },
-      }),
-
-      // 7. Distinct expert names for filter dropdown
+      // Distinct expert names for filter dropdown (unfiltered)
       prisma.return.findMany({
         where: baseWhere,
         distinct: ["expert"],
@@ -176,23 +139,55 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
+    // ── Apply cause filter in JS (avoids text vs enum type mismatch) ──
+    const current = causeFilter
+      ? currentRaw.filter((r) => r.cause === causeFilter)
+      : currentRaw;
+
+    const previous = causeFilter
+      ? previousRaw.filter((r) => r.cause === causeFilter)
+      : previousRaw;
+
+    // ── Compute counts ──
+    const total = current.length;
+    const drafts = current.filter((r) => r.isDraft).length;
+    const active = current.filter((r) => !r.isDraft && !r.isFinal && !r.isStandby).length;
+    const finalized = current.filter((r) => r.isFinal).length;
+    const standby = current.filter((r) => r.isStandby).length;
+    const verified = current.filter((r) => r.isVerified).length;
+
+    // ── Group by cause ──
+    const causeMap = new Map<string, number>();
+    for (const r of current) {
+      if (r.cause) causeMap.set(r.cause, (causeMap.get(r.cause) || 0) + 1);
+    }
+    const byCause = Array.from(causeMap, ([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+
+    // ── Group by expert ──
+    const expertMap = new Map<string, number>();
+    for (const r of current) {
+      if (r.expert) expertMap.set(r.expert, (expertMap.get(r.expert) || 0) + 1);
+    }
+    const byExpert = Array.from(expertMap, ([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 15);
+
     // ── Aggregate by month (YOY) ──
     const currentByMonth: Record<string, number> = {};
-    for (const r of currentReturns) {
+    for (const r of current) {
       const key = r.reportedAt.toISOString().slice(0, 7);
       currentByMonth[key] = (currentByMonth[key] || 0) + 1;
     }
 
     const previousByMonth: Record<string, number> = {};
-    for (const r of previousReturns) {
-      // Shift previous year month +1 year to align with current period
+    for (const r of previous) {
       const d = new Date(r.reportedAt);
       d.setFullYear(d.getFullYear() + 1);
       const key = d.toISOString().slice(0, 7);
       previousByMonth[key] = (previousByMonth[key] || 0) + 1;
     }
 
-    // Merge into sorted array
     const allMonths = new Set([...Object.keys(currentByMonth), ...Object.keys(previousByMonth)]);
     const byMonth = Array.from(allMonths)
       .sort()
@@ -204,8 +199,8 @@ export async function GET(request: NextRequest) {
 
     const result = {
       counts: { total, drafts, active, finalized, standby, verified },
-      byCause: byCauseRaw.map((c) => ({ name: c.cause, count: c._count.id })),
-      byExpert: byExpertRaw.map((e) => ({ name: e.expert || "Inconnu", count: e._count.id })),
+      byCause,
+      byExpert,
       topItems: topItemsRaw.map((i) => ({ name: i.codeProduit, count: Number(i.count) })),
       byMonth,
       experts: expertsRaw
@@ -213,7 +208,7 @@ export async function GET(request: NextRequest) {
         .filter((e): e is string => e !== null),
     };
 
-    // setCache(cacheKey, result); // disabled during debugging
+    setCache(cacheKey, result);
     return NextResponse.json(result);
   } catch (error) {
     console.error("GET /api/returns/analytics error:", error);
