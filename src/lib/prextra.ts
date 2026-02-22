@@ -182,8 +182,8 @@ export async function getCityAndZone(sonbr: string, schema: string): Promise<Cit
      INNER JOIN ${T.SHIPTO} shipto ON inv."shiptoid" = shipto."ShipToId"
      INNER JOIN ${T.CITY} city ON shipto."City" = city."_Name"
      INNER JOIN ${T.CITY_SETTING} cs ON city."_cityid" = cs."_CityId"
-     INNER JOIN ${T.TRANSPORT_CHART} tc ON cs."_ChartDtlId" = tc."_ChartDtlId"
-     WHERE inv."sonbr"::text = $1
+     INNER JOIN ${T.TRANSPORT_CHART} tc ON cs."_ChartDtlId" = tc."_ChartDtlid"
+     WHERE inv."SoNbr"::text = $1
      LIMIT 1`,
     [sonbr]
   );
@@ -272,8 +272,8 @@ export async function debugCityZone(sonbr: string, schema: string) {
        INNER JOIN ${T.SHIPTO} shipto ON inv."shiptoid" = shipto."ShipToId"
        INNER JOIN ${T.CITY} city ON shipto."City" = city."_Name"
        INNER JOIN ${T.CITY_SETTING} cs ON city."_cityid" = cs."_CityId"
-       INNER JOIN ${T.TRANSPORT_CHART} tc ON cs."_ChartDtlId" = tc."_ChartDtlId"
-       WHERE inv."sonbr"::text = $1 LIMIT 1`,
+       INNER JOIN ${T.TRANSPORT_CHART} tc ON cs."_ChartDtlId" = tc."_ChartDtlid"
+       WHERE inv."SoNbr"::text = $1 LIMIT 1`,
       [sonbr]
     );
     diag.fullJoin = { ok: true, rows: full.length, result: full[0] ?? null };
