@@ -58,24 +58,24 @@ export async function GET(request: NextRequest) {
       if (dateFrom) (where.reportedAt as Prisma.DateTimeFilter).gte = new Date(dateFrom);
       if (dateTo) (where.reportedAt as Prisma.DateTimeFilter).lte = new Date(dateTo + "T23:59:59.999Z");
     }
-    if (causeFilter && Object.values(Cause).includes(causeFilter as Cause)) {
-      where.cause = { equals: causeFilter as Cause };
+    if (causeFilter) {
+      where.cause = causeFilter as Cause;
     }
     if (expertFilter) {
       where.expert = { contains: expertFilter, mode: "insensitive" };
     }
 
-    // Cache key
-    const cacheKey = `returns-analytics:${tenantId}:${dateFrom}:${dateTo}:${causeFilter}:${expertFilter}`;
-    if (!noCache) {
-      const cached = getCached(cacheKey);
-      if (cached !== null) return NextResponse.json(cached);
-    }
+    // Cache disabled during debugging — always fresh queries
+    // const cacheKey = `returns-analytics:${tenantId}:${dateFrom}:${dateTo}:${causeFilter}:${expertFilter}`;
+    // if (!noCache) {
+    //   const cached = getCached(cacheKey);
+    //   if (cached !== null) return NextResponse.json(cached);
+    // }
 
     // ── Build "previous period" where clause for YOY ──
     const prevWhere: Prisma.ReturnWhereInput = { ...baseWhere };
-    if (causeFilter && Object.values(Cause).includes(causeFilter as Cause)) {
-      prevWhere.cause = { equals: causeFilter as Cause };
+    if (causeFilter) {
+      prevWhere.cause = causeFilter as Cause;
     }
     if (expertFilter) prevWhere.expert = { contains: expertFilter, mode: "insensitive" };
 
@@ -213,7 +213,7 @@ export async function GET(request: NextRequest) {
         .filter((e): e is string => e !== null),
     };
 
-    setCache(cacheKey, result);
+    // setCache(cacheKey, result); // disabled during debugging
     return NextResponse.json(result);
   } catch (error) {
     console.error("GET /api/returns/analytics error:", error);

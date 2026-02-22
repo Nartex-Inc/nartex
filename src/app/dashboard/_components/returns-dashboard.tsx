@@ -111,33 +111,49 @@ export function ReturnsDashboard() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Fetch whenever filter values change (direct dependencies, no useCallback indirection)
+  // Fetch whenever filter values change
   useEffect(() => {
     const controller = new AbortController();
 
     async function fetchAnalytics() {
       setIsLoading(true);
       setError(null);
-      try {
-        const params = new URLSearchParams();
-        if (dateFrom) params.set("dateFrom", dateFrom);
-        if (dateTo) params.set("dateTo", dateTo);
-        if (cause) params.set("cause", cause);
-        if (expert) params.set("expert", expert);
-        if (refreshKey > 0) params.set("noCache", "1");
 
-        const res = await fetch(`/api/returns/analytics?${params}`, {
+      const params = new URLSearchParams();
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
+      if (cause) params.set("cause", cause);
+      if (expert) params.set("expert", expert);
+      // Always bust cache to rule out caching issues
+      params.set("noCache", "1");
+      params.set("_t", String(Date.now()));
+
+      const url = `/api/returns/analytics?${params}`;
+      setDebugInfo(`Fetching: ${url}`);
+
+      try {
+        const res = await fetch(url, {
           signal: controller.signal,
+          cache: "no-store",
         });
-        if (!res.ok) throw new Error(`Erreur ${res.status}`);
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`HTTP ${res.status}: ${text}`);
+        }
         const json = await res.json();
-        if (!controller.signal.aborted) setData(json);
+        if (!controller.signal.aborted) {
+          setData(json);
+          setDebugInfo(`OK — total=${json.counts?.total}, byCause=${JSON.stringify(json.byCause?.map((c: { name: string; count: number }) => `${c.name}:${c.count}`))}, url=${url}`);
+        }
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         if (!controller.signal.aborted) {
-          setError(err instanceof Error ? err.message : "Erreur inconnue");
+          const msg = err instanceof Error ? err.message : "Erreur inconnue";
+          setError(msg);
+          setDebugInfo(`ERROR: ${msg} — url=${url}`);
         }
       } finally {
         if (!controller.signal.aborted) setIsLoading(false);
@@ -382,6 +398,14 @@ export function ReturnsDashboard() {
           </div>
         )}
       </header>
+
+      {/* ── DEBUG BAR (temporary) ─────────────────────────────────────────── */}
+      {debugInfo && (
+        <div className="px-3 py-2 rounded text-xs font-mono break-all" style={{ background: "#1a1a2e", color: "#0f0", border: "1px solid #333" }}>
+          {debugInfo}
+          {error && <span className="text-red-400 ml-2">[ERR: {error}]</span>}
+        </div>
+      )}
 
       {/* ── KPI Grid ──────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
