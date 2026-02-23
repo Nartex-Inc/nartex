@@ -472,8 +472,8 @@ export default function ReturnsPage() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [openId, setOpenId] = React.useState<string | null>(null);
-  const [sortKey, setSortKey] = React.useState<SortKey>("reportedAt");
-  const [sortDir, setSortDir] = React.useState<SortDir>("desc");
+  const [sortKey, setSortKey] = React.useState<SortKey>("id");
+  const [sortDir, setSortDir] = React.useState<SortDir>("asc");
   const [openNew, setOpenNew] = React.useState(false);
 
   const selected = React.useMemo(() => rows.find((r) => String(r.id) === openId) ?? null, [rows, openId]);
@@ -1643,8 +1643,8 @@ function ProductRow({ product, showVerificationFields, showFinalizationFields, c
 
 function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => Promise<void> | void }) {
   const { data: session } = useSession();
-  const [reporter, setReporter] = React.useState<Reporter>("expert");
-  const [cause, setCause] = React.useState<Cause>("production");
+  const [reporter, setReporter] = React.useState<Reporter | "">("");
+  const [cause, setCause] = React.useState<Cause | "">("");
   const [expert, setExpert] = React.useState("");
   const [client, setClient] = React.useState("");
   const [noClient, setNoClient] = React.useState("");
@@ -1663,7 +1663,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
   const [noReclamation, setNoReclamation] = React.useState("");
   const [products, setProducts] = React.useState<ProductLine[]>([]);
   const [nextId, setNextId] = React.useState("...");
-  const [reportedAt, setReportedAt] = React.useState(new Date().toISOString().slice(0, 10));
+  const [reportedAt, setReportedAt] = React.useState("");
   const [filesToUpload, setFilesToUpload] = React.useState<File[]>([]);
   const [busy, setBusy] = React.useState(false);
   const [orderLookupLoading, setOrderLookupLoading] = React.useState(false);
@@ -1703,12 +1703,12 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
   };
 
   const buildPayload = () => ({
-    reporter, cause, expert: expert.trim(), client: client.trim(), noClient: noClient.trim() || null, noCommande: noCommande.trim() || null, tracking: tracking.trim() || null, amount: amount ? Number(amount) : null, dateCommande: dateCommande || null, transport: transport.trim() || null, description: description.trim() || null, physicalReturn, isPickup, isCommande, isReclamation, noBill: isPickup ? noBill : null, noBonCommande: isCommande ? noBonCommande : null, noReclamation: isReclamation ? noReclamation : null, reportedAt,
+    reporter: reporter || undefined, cause: cause || undefined, expert: expert.trim(), client: client.trim(), noClient: noClient.trim() || null, noCommande: noCommande.trim() || null, tracking: tracking.trim() || null, amount: amount ? Number(amount) : null, dateCommande: dateCommande || null, transport: transport.trim() || null, description: description.trim() || null, physicalReturn, isPickup, isCommande, isReclamation, noBill: isPickup ? noBill : null, noBonCommande: isCommande ? noBonCommande : null, noReclamation: isReclamation ? noReclamation : null, reportedAt: reportedAt || undefined,
     products: products.map((p) => ({ ...p, codeProduit: p.codeProduit.trim(), descriptionProduit: p.descriptionProduit?.trim() || "", descriptionRetour: p.descriptionRetour?.trim() || "" })),
   });
 
   const submit = async () => {
-    if (!expert.trim() || !client.trim() || !reportedAt) { alert("Expert, client et date de signalement sont requis."); return; }
+    if (!expert.trim() || !client.trim() || !reportedAt || !reporter || !cause) { alert("Expert, client, date, signalé par et cause sont requis."); return; }
     setBusy(true);
     try {
       const createdReturn = await createReturn(buildPayload());
@@ -1760,7 +1760,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
             <label className="block text-sm font-medium text-[hsl(var(--text-primary))] mb-3">Recherche par commande</label>
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-muted))]" />
-              <input type="text" value={noCommande} onChange={(e) => setNoCommande(e.target.value)} onBlur={onFetchFromOrder} onKeyDown={(e) => e.key === "Enter" && onFetchFromOrder()} placeholder="Entrez un numéro de commande" className="w-full h-12 pl-11 pr-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm font-mono text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" />
+              <input type="text" value={noCommande} onChange={(e) => setNoCommande(e.target.value)} onBlur={onFetchFromOrder} onKeyDown={(e) => e.key === "Enter" && onFetchFromOrder()} placeholder="Entrez un numéro de commande" className="w-full h-12 pl-11 pr-4 rounded-xl border border-emerald-700/40 bg-emerald-950/30 text-sm font-mono text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-emerald-700/50 focus:border-transparent transition-all duration-200" />
               {orderLookupLoading && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-muted))] animate-spin" />}
             </div>
           </div>
@@ -1784,14 +1784,14 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
           {/* Form Fields */}
           <div className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm space-y-5">
             <div className="grid grid-cols-2 gap-4">
-              <FormField label="Date" required><input type="date" value={reportedAt} onChange={(e) => setReportedAt(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200 [color-scheme:light] dark:[color-scheme:dark]" /></FormField>
-              <FormField label="Signalé par" required><select value={reporter} onChange={(e) => setReporter(e.target.value as Reporter)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200">{Object.entries(REPORTER_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></FormField>
-              <FormField label="Cause" required><select value={cause} onChange={(e) => setCause(e.target.value as Cause)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200">{CAUSES_IN_ORDER.map((c) => <option key={c} value={c}>{CAUSE_LABEL[c]}</option>)}</select></FormField>
+              <FormField label="Date" required><input type="date" value={reportedAt} onChange={(e) => setReportedAt(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-emerald-700/40 bg-emerald-950/30 text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-emerald-700/50 focus:border-transparent transition-all duration-200 [color-scheme:light] dark:[color-scheme:dark]" /></FormField>
+              <FormField label="Signalé par" required><select value={reporter} onChange={(e) => setReporter(e.target.value as Reporter)} className="w-full h-11 px-4 rounded-xl border border-emerald-700/40 bg-emerald-950/30 text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-emerald-700/50 focus:border-transparent transition-all duration-200"><option value="" disabled>— Sélectionner —</option>{Object.entries(REPORTER_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></FormField>
+              <FormField label="Cause" required><select value={cause} onChange={(e) => setCause(e.target.value as Cause)} className="w-full h-11 px-4 rounded-xl border border-emerald-700/40 bg-emerald-950/30 text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-emerald-700/50 focus:border-transparent transition-all duration-200"><option value="" disabled>— Sélectionner —</option>{CAUSES_IN_ORDER.map((c) => <option key={c} value={c}>{CAUSE_LABEL[c]}</option>)}</select></FormField>
               <FormField label="No. client"><input value={noClient} onChange={(e) => setNoClient(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="12345" /></FormField>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <FormField label="Expert" required><ExpertAutocomplete value={expert} onChange={setExpert} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Nom du représentant" /></FormField>
-              <FormField label="Client" required><input value={client} onChange={(e) => setClient(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Nom du client" /></FormField>
+              <FormField label="Expert" required><ExpertAutocomplete value={expert} onChange={setExpert} className="w-full h-11 px-4 rounded-xl border border-emerald-700/40 bg-emerald-950/30 text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-emerald-700/50 focus:border-transparent transition-all duration-200" placeholder="Nom du représentant" /></FormField>
+              <FormField label="Client" required><input value={client} onChange={(e) => setClient(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-emerald-700/40 bg-emerald-950/30 text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-emerald-700/50 focus:border-transparent transition-all duration-200" placeholder="Nom du client" /></FormField>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <FormField label="Tracking"><input value={tracking} onChange={(e) => setTracking(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm font-mono text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="1Z999..." /></FormField>
@@ -1890,6 +1890,8 @@ function FormField({ label, required, children }: { label: string; required?: bo
 function NewProductRow({ product, onChange, onRemove }: { product: ProductLine; onChange: (p: ProductLine) => void; onRemove: () => void }) {
   const [suggestions, setSuggestions] = React.useState<ItemSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = React.useState(false);
+  const [highlightIdx, setHighlightIdx] = React.useState(-1);
+  const listRef = React.useRef<HTMLDivElement>(null);
   const debouncedCode = useDebounced(product.codeProduit, 300);
 
   React.useEffect(() => {
@@ -1902,14 +1904,36 @@ function NewProductRow({ product, onChange, onRemove }: { product: ProductLine; 
     return () => { active = false; };
   }, [debouncedCode, showSuggestions]);
 
+  React.useEffect(() => { setHighlightIdx(-1); }, [suggestions]);
+
+  React.useEffect(() => {
+    if (highlightIdx >= 0 && listRef.current) {
+      const item = listRef.current.children[highlightIdx] as HTMLElement | undefined;
+      item?.scrollIntoView({ block: "nearest" });
+    }
+  }, [highlightIdx]);
+
+  const selectSuggestion = (s: ItemSuggestion) => {
+    onChange({ ...product, codeProduit: s.code, descriptionProduit: s.descr || product.descriptionProduit });
+    setShowSuggestions(false);
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); setHighlightIdx((i) => (i + 1) % suggestions.length); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setHighlightIdx((i) => (i <= 0 ? suggestions.length - 1 : i - 1)); }
+    else if (e.key === "Enter" && highlightIdx >= 0) { e.preventDefault(); selectSuggestion(suggestions[highlightIdx]); }
+    else if (e.key === "Escape") { setShowSuggestions(false); }
+  };
+
   return (
     <div className="flex items-center gap-4 p-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] group shadow-sm hover:shadow-md transition-shadow duration-200">
       <div className="relative flex-shrink-0 w-36">
-        <input className="w-full h-10 px-3 rounded-lg text-sm font-mono border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Code" value={product.codeProduit} onChange={(e) => { onChange({ ...product, codeProduit: e.target.value }); setShowSuggestions(true); }} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} />
+        <input className="w-full h-10 px-3 rounded-lg text-sm font-mono border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Code" value={product.codeProduit} onChange={(e) => { onChange({ ...product, codeProduit: e.target.value }); setShowSuggestions(true); }} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} onKeyDown={onKeyDown} />
         {showSuggestions && suggestions.length > 0 && (
-          <div className="absolute z-50 top-full left-0 mt-2 w-72 max-h-48 overflow-y-auto rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
-            {suggestions.map((s) => (
-              <button key={s.code} className="w-full text-left px-4 py-3 text-sm hover:bg-[hsl(var(--bg-elevated))] border-b border-[hsl(var(--border-subtle))] last:border-0 transition-colors duration-150" onClick={() => { onChange({ ...product, codeProduit: s.code, descriptionProduit: s.descr || product.descriptionProduit }); setShowSuggestions(false); }}>
+          <div ref={listRef} className="absolute z-50 top-full left-0 mt-2 w-72 max-h-48 overflow-y-auto rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
+            {suggestions.map((s, idx) => (
+              <button key={s.code} onMouseEnter={() => setHighlightIdx(idx)} className={cn("w-full text-left px-4 py-3 text-sm border-b border-[hsl(var(--border-subtle))] last:border-0 transition-colors duration-150", idx === highlightIdx ? "bg-[hsl(var(--bg-elevated))]" : "hover:bg-[hsl(var(--bg-elevated))]")} onClick={() => selectSuggestion(s)}>
                 <div className="font-mono font-medium text-[hsl(var(--text-primary))]">{s.code}</div>
                 <div className="text-xs text-[hsl(var(--text-tertiary))] truncate mt-0.5">{s.descr}</div>
               </button>

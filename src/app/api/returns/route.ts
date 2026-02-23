@@ -326,7 +326,7 @@ export async function POST(request: NextRequest) {
     }
     const body = parsed.data;
 
-    const hasRequiredFields = body.reporter && body.cause && body.expert && body.client;
+    const hasRequiredFields = body.reporter && body.cause && body.expert && body.client && body.reportedAt;
     const hasProducts = body.products
       && body.products.length > 0
       && body.products.some((p) => (p.quantite ?? 0) > 0);
