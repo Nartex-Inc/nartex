@@ -32,6 +32,8 @@ function setCache(key: string, data: unknown) {
 
 // ---------------------------------------------------------------------------
 // Auto-discover the quantity column name from InvDetail (DMS-replicated)
+// Uses pg_attribute (local catalog) instead of information_schema which is
+// extremely slow on postgres_fdw foreign tables (dev environment).
 // Cached per schema for the lifetime of the process.
 // ---------------------------------------------------------------------------
 const qtyColumnCache: Record<string, string | null> = {};
@@ -39,31 +41,42 @@ const qtyColumnCache: Record<string, string | null> = {};
 async function getQtyColumn(schema: string): Promise<string | null> {
   if (schema in qtyColumnCache) return qtyColumnCache[schema];
 
-  const { rows } = await pg.query(
-    `SELECT column_name FROM information_schema.columns
-     WHERE table_schema = $1 AND table_name = 'InvDetail'
-     AND column_name ILIKE '%qty%'
-     ORDER BY column_name`,
-    [schema]
-  );
+  try {
+    // pg_attribute + pg_class + pg_namespace is local catalog — instant even on fdw
+    const { rows } = await pg.query(
+      `SELECT a.attname AS column_name
+       FROM pg_attribute a
+       JOIN pg_class c ON a.attrelid = c.oid
+       JOIN pg_namespace n ON c.relnamespace = n.oid
+       WHERE n.nspname = $1 AND c.relname = 'InvDetail'
+       AND a.attnum > 0 AND NOT a.attisdropped
+       AND a.attname ILIKE '%qty%'
+       ORDER BY a.attname`,
+      [schema]
+    );
 
-  const names = rows.map((r: Record<string, unknown>) => String(r.column_name));
-  // Prefer QtyShip > qty > first match
-  const col =
-    names.find((n) => /qtyship/i.test(n)) ||
-    names.find((n) => /^qty$/i.test(n)) ||
-    names[0] ||
-    null;
+    const names = rows.map((r: Record<string, unknown>) => String(r.column_name));
+    // Prefer QtyShip > qty > first match
+    const col =
+      names.find((n) => /qtyship/i.test(n)) ||
+      names.find((n) => /^qty$/i.test(n)) ||
+      names[0] ||
+      null;
 
-  // Validate column name (alphanumeric + underscore only)
-  if (col && !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(col)) {
+    // Validate column name (alphanumeric + underscore only)
+    if (col && !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(col)) {
+      qtyColumnCache[schema] = null;
+      return null;
+    }
+
+    qtyColumnCache[schema] = col;
+    console.log(`[sales-volume] InvDetail qty column for ${schema}: ${col} (candidates: ${names.join(", ")})`);
+    return col;
+  } catch (err) {
+    console.error("[sales-volume] Failed to discover qty column, falling back to COUNT:", err);
     qtyColumnCache[schema] = null;
     return null;
   }
-
-  qtyColumnCache[schema] = col;
-  console.log(`[sales-volume] InvDetail qty column for ${schema}: ${col} (candidates: ${names.join(", ")})`);
-  return col;
 }
 
 export async function GET(request: NextRequest) {
