@@ -192,8 +192,10 @@ export async function GET(request: NextRequest) {
 
     // Use a dedicated client with extended timeout for fdw compatibility (dev env)
     const client = await pg.connect();
-    let itemsRes: { rows: Record<string, unknown>[] };
-    let pricesRes: { rows: Record<string, unknown>[] };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let itemsRes: { rows: any[] };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let pricesRes: { rows: any[] };
     try {
       await client.query("BEGIN");
       await client.query("SET LOCAL statement_timeout = '90s'");
