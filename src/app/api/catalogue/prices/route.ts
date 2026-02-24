@@ -3,6 +3,13 @@ import { pg } from "@/lib/db";
 import { getPrextraTables } from "@/lib/prextra";
 import { requireSchema, getErrorMessage } from "@/lib/auth-helpers";
 
+// ---------------------------------------------------------------------------
+// Server-side query cache — price data changes infrequently, safe to cache
+// ---------------------------------------------------------------------------
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+type CacheEntry = { data: unknown; ts: number };
+const queryCache = new Map<string, CacheEntry>();
+
 // --- Configuration Matrix ---
 const COLUMN_MATRIX: Record<string, string[]> = {
   "01-EXP": ["01-EXP", "02-DET", "03-IND", "05-GROS", "08-PDS"],
@@ -31,6 +38,13 @@ export async function GET(request: NextRequest) {
 
     if (!priceId || (!prodId && !itemIds)) {
       return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
+    }
+
+    // --- Cache check ---
+    const cacheKey = `prices:${schema}:${priceId}:${prodId}:${typeId}:${itemId}:${itemIds}:${isEn}`;
+    const cached = queryCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+      return NextResponse.json(cached.data);
     }
 
     const selectedPriceId = parseInt(priceId, 10);
@@ -176,10 +190,24 @@ export async function GET(request: NextRequest) {
 
     const pricesParams = [...baseParams, targetIds];
 
-    const [itemsRes, pricesRes] = await Promise.all([
-      pg.query(itemsQuery, baseParams),
-      pg.query(pricesQuery, pricesParams)
-    ]);
+    // Use a dedicated client with extended timeout for fdw compatibility (dev env)
+    const client = await pg.connect();
+    let itemsRes: { rows: Record<string, unknown>[] };
+    let pricesRes: { rows: Record<string, unknown>[] };
+    try {
+      await client.query("BEGIN");
+      await client.query("SET LOCAL statement_timeout = '90s'");
+      [itemsRes, pricesRes] = await Promise.all([
+        client.query(itemsQuery, baseParams),
+        client.query(pricesQuery, pricesParams)
+      ]);
+      await client.query("COMMIT");
+    } catch (e) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw e;
+    } finally {
+      client.release();
+    }
 
     // --- Fetch _costdiff per item via RecordSpecData → _DiscountMaintenanceHdr ---
     const costdiffMap: Record<number, number> = {};
@@ -341,6 +369,9 @@ export async function GET(request: NextRequest) {
         ranges
       };
     });
+
+    // Store in cache
+    queryCache.set(cacheKey, { data: result, ts: Date.now() });
 
     return NextResponse.json(result);
 
