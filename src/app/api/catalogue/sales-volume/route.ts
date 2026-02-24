@@ -22,6 +22,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
     }
 
+    // Discover the quantity column name in InvDetail (DMS-replicated, varies by ERP)
+    const colRes = await pg.query(
+      `SELECT column_name FROM information_schema.columns
+       WHERE table_schema = $1 AND table_name = 'InvDetail'
+         AND column_name ILIKE '%qty%'
+       ORDER BY ordinal_position LIMIT 1`,
+      [schema]
+    );
+    const qtyCol = colRes.rows.length > 0 ? `"${colRes.rows[0].column_name}"` : `"QtyShipped"`;
+
     // Build item filter
     let itemFilterSQL = "";
     const params: unknown[] = [];
@@ -90,13 +100,13 @@ export async function GET(request: NextRequest) {
         SUM(CASE WHEN h."InvDate" >= CURRENT_DATE - 365
             THEN d."Amount"::float8 ELSE 0 END) AS "sales365",
         SUM(CASE WHEN h."InvDate" >= CURRENT_DATE - 365
-            THEN d."qty"::float8 ELSE 0 END) AS "qty365",
+            THEN d.${qtyCol}::float8 ELSE 0 END) AS "qty365",
         SUM(CASE WHEN h."InvDate" < CURRENT_DATE - 365
             AND h."InvDate" >= CURRENT_DATE - 720
             THEN d."Amount"::float8 ELSE 0 END) AS "sales720",
         SUM(CASE WHEN h."InvDate" < CURRENT_DATE - 365
             AND h."InvDate" >= CURRENT_DATE - 720
-            THEN d."qty"::float8 ELSE 0 END) AS "qty720"
+            THEN d.${qtyCol}::float8 ELSE 0 END) AS "qty720"
       FROM ${T.ITEMS} i
       JOIN ${T.INV_DETAIL} d ON d."Itemid" = i."ItemId"
       JOIN ${T.INV_HEADER} h ON h."invnbr" = d."invnbr" AND h."cieid" = d."cieid"
