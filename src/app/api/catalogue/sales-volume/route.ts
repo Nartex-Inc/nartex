@@ -162,24 +162,18 @@ export async function GET(request: NextRequest) {
            AND zdt."Id" = t."itemtypeid"`
       : "";
 
-    // Quantity and volume SQL expressions
-    // If we found a qty column, use SUM(qty) for actual quantities and SUM(qty * volume) for Lt/Kg
-    // Otherwise fall back to COUNT(*) for tx count (less accurate for volume)
+    // Quantity expressions: use real qty column if available, else COUNT(*)
+    // Volume is computed in JS (qty * item.volume) to avoid cross-table
+    // multiplication in SQL which kills postgres_fdw performance on dev.
     const qtyExpr365 = qtyCol
       ? `SUM(CASE WHEN h."InvDate" >= CURRENT_DATE - 365 THEN d."${qtyCol}"::float8 ELSE 0 END)`
       : `COUNT(CASE WHEN h."InvDate" >= CURRENT_DATE - 365 THEN 1 END)::float8`;
     const qtyExpr720 = qtyCol
       ? `SUM(d."${qtyCol}"::float8)`
       : `COUNT(*)::float8`;
-    const volExpr365 = qtyCol
-      ? `SUM(CASE WHEN h."InvDate" >= CURRENT_DATE - 365 THEN d."${qtyCol}"::float8 * COALESCE(i."volume", 0) ELSE 0 END)`
-      : `0`;
-    const volExpr720 = qtyCol
-      ? `SUM(d."${qtyCol}"::float8 * COALESCE(i."volume", 0))`
-      : `0`;
 
     // Mirrors dashboard-data pattern: InvHeader → InvDetail → Items → Products
-    // Two-period aggregation via CASE WHEN on indexed InvDate
+    // Keep SQL simple (single-table aggregates only) for fdw pushdown compatibility
     const query = `
 SELECT
   i."ItemId"    AS "itemId",
@@ -192,10 +186,8 @@ SELECT
   SUM(CASE WHEN h."InvDate" >= CURRENT_DATE - 365
       THEN d."Amount"::float8 ELSE 0 END)  AS "sales365",
   ${qtyExpr365}                             AS "qty365",
-  ${volExpr365}                             AS "volumeLtKg365",
   SUM(d."Amount"::float8)                   AS "sales720",
-  ${qtyExpr720}                             AS "qty720",
-  ${volExpr720}                             AS "volumeLtKg720"
+  ${qtyExpr720}                             AS "qty720"
 FROM ${T.INV_HEADER} h
 JOIN ${T.INV_DETAIL} d  ON h."invnbr" = d."invnbr" AND h."cieid" = d."cieid"
 JOIN ${T.ITEMS}      i  ON d."Itemid" = i."ItemId"
@@ -216,22 +208,27 @@ ORDER BY ${prodName}, ${typeDescr}, i."volume", i."ItemCode"
 
     const { rows } = await pg.query(query, params);
 
-    // Volume Lt/Kg is now computed directly in SQL via SUM(qty * volume)
+    // Compute volume Lt/Kg in JS: qty * item.volume
+    // Kept out of SQL to avoid cross-table multiplication that breaks fdw pushdown
     const result = rows.map((row: Record<string, unknown>) => {
+      const volume = row.volume ? parseFloat(String(row.volume)) : 0;
+      const qty365 = parseFloat(String(row.qty365)) || 0;
+      const qty720 = parseFloat(String(row.qty720)) || 0;
+
       return {
         itemId: row.itemId,
         itemCode: row.itemCode,
         description: row.description,
-        volume: row.volume ? parseFloat(String(row.volume)) : null,
+        volume: volume || null,
         format: row.format,
         categoryName: row.categoryName,
         className: row.className,
         sales365: parseFloat(String(row.sales365)) || 0,
-        qty365: Math.round((parseFloat(String(row.qty365)) || 0) * 10) / 10,
-        volumeLtKg365: Math.round((parseFloat(String(row.volumeLtKg365)) || 0) * 10) / 10,
+        qty365: Math.round(qty365 * 10) / 10,
+        volumeLtKg365: Math.round(qty365 * volume * 10) / 10,
         sales720: parseFloat(String(row.sales720)) || 0,
-        qty720: Math.round((parseFloat(String(row.qty720)) || 0) * 10) / 10,
-        volumeLtKg720: Math.round((parseFloat(String(row.volumeLtKg720)) || 0) * 10) / 10,
+        qty720: Math.round(qty720 * 10) / 10,
+        volumeLtKg720: Math.round(qty720 * volume * 10) / 10,
       };
     });
 
