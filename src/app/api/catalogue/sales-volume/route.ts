@@ -167,7 +167,21 @@ WHERE h."cieid" = $1
 GROUP BY d."Itemid"
 `;
 
-    const { rows: invoices } = await pg.query(invoiceQuery, invParams);
+    // Use a dedicated client with extended timeout for fdw (dev env)
+    const client = await pg.connect();
+    let invoices: Record<string, unknown>[];
+    try {
+      await client.query("BEGIN");
+      await client.query("SET LOCAL statement_timeout = '90s'");
+      const res = await client.query(invoiceQuery, invParams);
+      invoices = res.rows;
+      await client.query("COMMIT");
+    } catch (e) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw e;
+    } finally {
+      client.release();
+    }
 
     // =====================================================================
     // STEP 3: Merge in JS — item details + invoice aggregates
