@@ -1277,6 +1277,12 @@ function CataloguePageContent() {
   const [priceError, setPriceError] = useState<string | null>(null);
 
   // --- VIEW MODE (prices vs sales) ---
+  // Sales mode is only available on dev.nartex.ca / localhost — never on production
+  const [salesModeAllowed, setSalesModeAllowed] = useState(false);
+  useEffect(() => {
+    const h = window.location.hostname;
+    setSalesModeAllowed(h === "dev.nartex.ca" || h === "localhost" || h === "127.0.0.1");
+  }, []);
   const [viewMode, setViewMode] = useState<"prices" | "sales">("prices");
   const [salesData, setSalesData] = useState<ItemSalesData[]>([]);
   const [selectedExperts, setSelectedExperts] = useState<Expert[]>([]);
@@ -2346,7 +2352,8 @@ function CataloguePageContent() {
 
                 <div className="w-px h-8 bg-white/20 hidden sm:block" />
 
-                {/* Mode Toggle: Prix / Ventes */}
+                {/* Mode Toggle: Prix / Ventes — only on dev/localhost */}
+                {salesModeAllowed && (
                 <div className="flex items-center h-10 rounded-xl bg-white/10 border border-white/20 overflow-hidden">
                   <button
                     onClick={() => { setViewMode("prices"); }}
@@ -2369,6 +2376,7 @@ function CataloguePageContent() {
                     <span className="hidden sm:inline">{t.salesMode}</span>
                   </button>
                 </div>
+                )}
 
                 {/* Price List Dropdown (prices mode only) */}
                 {viewMode === "prices" && (
