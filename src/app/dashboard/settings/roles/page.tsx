@@ -643,7 +643,7 @@ function InviteUsersModal({ isOpen, onClose, accentColor }: {
 }
 
 export default function RolesPage() {
-  const { data: session } = useSession();
+  const { data: session, update: updateSession } = useSession();
   const { color: accentColor } = useCurrentAccent();
   const router = useRouter();
 
@@ -704,6 +704,10 @@ export default function RolesPage() {
         throw new Error(data.error || "Erreur lors de la mise à jour");
       }
       setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
+      // Refresh JWT if the current user's own role was changed
+      if (userId === session?.user?.id) {
+        await updateSession({ user: { role: newRole } });
+      }
       setSuccessMessage("Rôle mis à jour avec succès");
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
