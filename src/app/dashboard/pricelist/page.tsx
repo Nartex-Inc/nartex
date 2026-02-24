@@ -1284,9 +1284,8 @@ function CataloguePageContent() {
   const [priceError, setPriceError] = useState<string | null>(null);
 
   // --- VIEW MODE (prices vs sales) ---
-  const isBypassAdmin = session?.user?.email?.toLowerCase() === "n.labranche@sinto.ca";
   const normalizedRole = userRole?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-  const salesModeAllowed = normalizedRole === "gestionnairetest" || isBypassAdmin;
+  const salesModeAllowed = normalizedRole === "gestionnairetest";
   const [viewMode, setViewMode] = useState<"prices" | "sales">("prices");
   const [salesData, setSalesData] = useState<ItemSalesData[]>([]);
   const [selectedExperts, setSelectedExperts] = useState<Expert[]>([]);
