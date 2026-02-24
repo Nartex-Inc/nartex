@@ -1284,12 +1284,7 @@ function CataloguePageContent() {
   const [priceError, setPriceError] = useState<string | null>(null);
 
   // --- VIEW MODE (prices vs sales) ---
-  // Sales mode is only available on dev.nartex.ca / localhost — never on production
-  const [salesModeAllowed, setSalesModeAllowed] = useState(false);
-  useEffect(() => {
-    const h = window.location.hostname;
-    setSalesModeAllowed(h === "dev.nartex.ca" || h === "localhost" || h === "127.0.0.1");
-  }, []);
+  const salesModeAllowed = true;
   const [viewMode, setViewMode] = useState<"prices" | "sales">("prices");
   const [salesData, setSalesData] = useState<ItemSalesData[]>([]);
   const [selectedExperts, setSelectedExperts] = useState<Expert[]>([]);
