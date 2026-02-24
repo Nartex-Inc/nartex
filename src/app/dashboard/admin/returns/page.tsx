@@ -1038,6 +1038,22 @@ function DetailModal({
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <label className="block">
+                <span className="text-xs font-medium text-[hsl(var(--text-secondary))] uppercase tracking-wide mb-2 block">Cause</span>
+                <select
+                  value={draft.cause || ""}
+                  onChange={(e) => setDraft({ ...draft, cause: e.target.value as Cause })}
+                  disabled={!canEdit}
+                  className={cn(
+                    "w-full h-11 px-4 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all duration-200",
+                    !canEdit
+                      ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed"
+                      : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent"
+                  )}
+                >
+                  {CAUSES_IN_ORDER.map((c) => <option key={c} value={c}>{CAUSE_LABEL[c]}</option>)}
+                </select>
+              </label>
+              <label className="block">
                 <span className="text-xs font-medium text-[hsl(var(--text-secondary))] uppercase tracking-wide mb-2 block">Expert</span>
                 <ExpertAutocomplete
                   value={draft.expert || ""}
