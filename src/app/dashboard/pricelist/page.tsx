@@ -40,6 +40,9 @@ import {
   Lock,
   Download,
   Languages,
+  BarChart3,
+  DollarSign,
+  Users,
 } from "lucide-react";
 
 /* =========================
@@ -95,6 +98,21 @@ const i18n = {
     download: "Télécharger",
     generateFullList: "Générer Liste complète",
     generatingProgress: "Chargement {current}/{total}...",
+    // Sales volume mode
+    pricesMode: "Prix",
+    salesMode: "Ventes",
+    experts: "Experts",
+    allExperts: "Tous les experts",
+    selectExperts: "Sélectionner...",
+    expertCount: "expert(s)",
+    volumeLtKg: "Volume Lt/Kg",
+    sales365: "Ventes (-365j)",
+    sales720: "Ventes (-720j)",
+    period365: "Derniers 365 jours",
+    period720: "366 à 720 jours",
+    salesVolumeTitle: "ANALYSE DES VENTES — VOLUME",
+    loadingSales: "Chargement des ventes",
+    noSalesSelected: "Aucune donnée de ventes",
   },
   en: {
     viewDetails: "View details",
@@ -143,6 +161,21 @@ const i18n = {
     download: "Download",
     generateFullList: "Generate full list",
     generatingProgress: "Loading {current}/{total}...",
+    // Sales volume mode
+    pricesMode: "Prices",
+    salesMode: "Sales",
+    experts: "Experts",
+    allExperts: "All experts",
+    selectExperts: "Select...",
+    expertCount: "expert(s)",
+    volumeLtKg: "Volume Lt/Kg",
+    sales365: "Sales (-365d)",
+    sales720: "Sales (-720d)",
+    period365: "Last 365 days",
+    period720: "366 to 720 days",
+    salesVolumeTitle: "SALES ANALYSIS — VOLUME",
+    loadingSales: "Loading sales",
+    noSalesSelected: "No sales data",
   },
 };
 
@@ -272,6 +305,27 @@ interface ItemPriceData {
   priceListName: string;
   priceCode: string;
   ranges: PriceRange[];
+}
+
+interface ItemSalesData {
+  itemId: number;
+  itemCode: string;
+  description: string;
+  volume: number | null;
+  format: string | null;
+  categoryName: string;
+  className: string;
+  sales365: number;
+  qty365: number;
+  volumeLtKg365: number;
+  sales720: number;
+  qty720: number;
+  volumeLtKg720: number;
+}
+
+interface Expert {
+  srId: number;
+  name: string;
 }
 
 /* =========================
@@ -1222,6 +1276,13 @@ function CataloguePageContent() {
   const [loadingItems, setLoadingItems] = useState(false);
   const [priceError, setPriceError] = useState<string | null>(null);
 
+  // --- VIEW MODE (prices vs sales) ---
+  const [viewMode, setViewMode] = useState<"prices" | "sales">("prices");
+  const [salesData, setSalesData] = useState<ItemSalesData[]>([]);
+  const [selectedExperts, setSelectedExperts] = useState<Expert[]>([]);
+  const [availableExperts, setAvailableExperts] = useState<Expert[]>([]);
+  const [loadingExperts, setLoadingExperts] = useState(false);
+
   // --- LANGUAGE ---
   const [lang, setLang] = useState<Lang>("fr");
   const t = i18n[lang];
@@ -1290,6 +1351,26 @@ function CataloguePageContent() {
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lang]);
+
+  // --- FETCH EXPERTS WHEN SALES MODE + PRODUCT CHANGES ---
+  useEffect(() => {
+    if (viewMode !== "sales") return;
+    (async () => {
+      setLoadingExperts(true);
+      try {
+        let url = "/api/catalogue/sales-volume/experts?";
+        if (selectedProduct) url += `prodId=${selectedProduct.prodId}&`;
+        if (selectedType) url += `typeId=${selectedType.itemTypeId}&`;
+        const res = await fetch(url);
+        if (res.ok) setAvailableExperts(await res.json());
+      } catch {
+        setAvailableExperts([]);
+      } finally {
+        setLoadingExperts(false);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, selectedProduct, selectedType]);
 
   // --- HANDLERS ---
   const handlePriceListChange = async (pl: PriceList) => {
@@ -1375,100 +1456,189 @@ function CataloguePageContent() {
   };
 
   const handleLoadSelection = async () => {
-    if (!selectedPriceList) return;
-    
-    if (selectedItemIds.size > 0) {
-      await handleAddItems(Array.from(selectedItemIds));
-      return;
-    }
+    if (viewMode === "sales") {
+      // Sales mode
+      if (selectedItemIds.size > 0) {
+        await handleAddItems(Array.from(selectedItemIds));
+        return;
+      }
+      if (!selectedProduct) return;
 
-    if (!selectedProduct) return;
+      setLoadingPrices(true);
+      setPriceError(null);
+      try {
+        let url = `/api/catalogue/sales-volume?prodId=${selectedProduct.prodId}`;
+        if (selectedType) url += `&typeId=${selectedType.itemTypeId}`;
+        if (selectedExperts.length > 0) url += `&salesrepIds=${selectedExperts.map(e => e.srId).join(",")}`;
+        url += langQ;
 
-    setLoadingPrices(true);
-    setPriceError(null);
-    try {
-      let url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}`;
-      if (selectedProduct) url += `&prodId=${selectedProduct.prodId}`;
-      if (selectedType) url += `&typeId=${selectedType.itemTypeId}`;
-      url += langQ;
-      
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Erreur lors du chargement des prix");
-      
-      const newItems: ItemPriceData[] = await res.json();
-      setPriceData((prev) => {
-        const existingIds = new Set(prev.map((i) => i.itemId));
-        const filteredNew = newItems.filter((i) => !existingIds.has(i.itemId));
-        return [...prev, ...filteredNew];
-      });
-    } catch (err: any) {
-      setPriceError(err.message);
-    } finally {
-      setLoadingPrices(false);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Erreur lors du chargement des ventes");
+
+        const newItems: ItemSalesData[] = await res.json();
+        setSalesData((prev) => {
+          const existingIds = new Set(prev.map((i) => i.itemId));
+          const filteredNew = newItems.filter((i) => !existingIds.has(i.itemId));
+          return [...prev, ...filteredNew];
+        });
+      } catch (err: any) {
+        setPriceError(err.message);
+      } finally {
+        setLoadingPrices(false);
+      }
+    } else {
+      // Prices mode
+      if (!selectedPriceList) return;
+
+      if (selectedItemIds.size > 0) {
+        await handleAddItems(Array.from(selectedItemIds));
+        return;
+      }
+
+      if (!selectedProduct) return;
+
+      setLoadingPrices(true);
+      setPriceError(null);
+      try {
+        let url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}`;
+        if (selectedProduct) url += `&prodId=${selectedProduct.prodId}`;
+        if (selectedType) url += `&typeId=${selectedType.itemTypeId}`;
+        url += langQ;
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Erreur lors du chargement des prix");
+
+        const newItems: ItemPriceData[] = await res.json();
+        setPriceData((prev) => {
+          const existingIds = new Set(prev.map((i) => i.itemId));
+          const filteredNew = newItems.filter((i) => !existingIds.has(i.itemId));
+          return [...prev, ...filteredNew];
+        });
+      } catch (err: any) {
+        setPriceError(err.message);
+      } finally {
+        setLoadingPrices(false);
+      }
     }
   };
 
   const handleAddItems = async (itemIds: number[]) => {
-    if (!selectedPriceList || itemIds.length === 0) return;
-    setLoadingPrices(true);
-    try {
-      const idsString = itemIds.join(",");
-      const url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}&itemIds=${idsString}${langQ}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Erreur fetch items");
-      const newItems: ItemPriceData[] = await res.json();
-      setPriceData((prev) => {
-        const existingIds = new Set(prev.map((i) => i.itemId));
-        const filteredNew = newItems.filter((i) => !existingIds.has(i.itemId));
-        return [...prev, ...filteredNew];
-      });
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingPrices(false);
+    if (itemIds.length === 0) return;
+
+    if (viewMode === "sales") {
+      setLoadingPrices(true);
+      try {
+        let url = `/api/catalogue/sales-volume?itemIds=${itemIds.join(",")}`;
+        if (selectedExperts.length > 0) url += `&salesrepIds=${selectedExperts.map(e => e.srId).join(",")}`;
+        url += langQ;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Erreur fetch items");
+        const newItems: ItemSalesData[] = await res.json();
+        setSalesData((prev) => {
+          const existingIds = new Set(prev.map((i) => i.itemId));
+          const filteredNew = newItems.filter((i) => !existingIds.has(i.itemId));
+          return [...prev, ...filteredNew];
+        });
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingPrices(false);
+      }
+    } else {
+      if (!selectedPriceList) return;
+      setLoadingPrices(true);
+      try {
+        const idsString = itemIds.join(",");
+        const url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}&itemIds=${idsString}${langQ}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Erreur fetch items");
+        const newItems: ItemPriceData[] = await res.json();
+        setPriceData((prev) => {
+          const existingIds = new Set(prev.map((i) => i.itemId));
+          const filteredNew = newItems.filter((i) => !existingIds.has(i.itemId));
+          return [...prev, ...filteredNew];
+        });
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingPrices(false);
+      }
     }
   };
 
-  // NEW: Remove individual item from price list
+  // Remove individual item from list
   const handleRemoveItem = (itemId: number) => {
-    setPriceData((prev) => prev.filter((item) => item.itemId !== itemId));
+    if (viewMode === "sales") {
+      setSalesData((prev) => prev.filter((item) => item.itemId !== itemId));
+    } else {
+      setPriceData((prev) => prev.filter((item) => item.itemId !== itemId));
+    }
   };
 
   // Generate full list across all product categories
   const handleGenerateFullList = async () => {
-    if (!selectedPriceList) return;
+    if (viewMode === "prices" && !selectedPriceList) return;
     setIsGeneratingFullList(true);
     setLoadingPrices(true);
     setPriceError(null);
-    setPriceData([]);
-    let accumulated: ItemPriceData[] = [];
-
-    try {
-      for (let i = 0; i < products.length; i++) {
-        const prod = products[i];
-        setFullListProgress(
-          t.generatingProgress
-            .replace("{current}", String(i + 1))
-            .replace("{total}", String(products.length)) +
-            ` — ${prod.name}`
-        );
-
-        const url = `/api/catalogue/prices?priceId=${selectedPriceList.priceId}&prodId=${prod.prodId}${langQ}`;
-        const res = await fetch(url);
-        if (!res.ok) continue;
-
-        const newItems: ItemPriceData[] = await res.json();
-        const existingIds = new Set(accumulated.map((item) => item.itemId));
-        const deduped = newItems.filter((item) => !existingIds.has(item.itemId));
-        accumulated = [...accumulated, ...deduped];
-        setPriceData([...accumulated]);
+    if (viewMode === "sales") {
+      setSalesData([]);
+      let accumulated: ItemSalesData[] = [];
+      try {
+        for (let i = 0; i < products.length; i++) {
+          const prod = products[i];
+          setFullListProgress(
+            t.generatingProgress
+              .replace("{current}", String(i + 1))
+              .replace("{total}", String(products.length)) +
+              ` — ${prod.name}`
+          );
+          let url = `/api/catalogue/sales-volume?prodId=${prod.prodId}`;
+          if (selectedExperts.length > 0) url += `&salesrepIds=${selectedExperts.map(e => e.srId).join(",")}`;
+          url += langQ;
+          const res = await fetch(url);
+          if (!res.ok) continue;
+          const newItems: ItemSalesData[] = await res.json();
+          const existingIds = new Set(accumulated.map((item) => item.itemId));
+          const deduped = newItems.filter((item) => !existingIds.has(item.itemId));
+          accumulated = [...accumulated, ...deduped];
+          setSalesData([...accumulated]);
+        }
+      } catch (err: any) {
+        setPriceError(err.message);
+      } finally {
+        setIsGeneratingFullList(false);
+        setLoadingPrices(false);
+        setFullListProgress("");
       }
-    } catch (err: any) {
-      setPriceError(err.message);
-    } finally {
-      setIsGeneratingFullList(false);
-      setLoadingPrices(false);
-      setFullListProgress("");
+    } else {
+      setPriceData([]);
+      let accumulated: ItemPriceData[] = [];
+      try {
+        for (let i = 0; i < products.length; i++) {
+          const prod = products[i];
+          setFullListProgress(
+            t.generatingProgress
+              .replace("{current}", String(i + 1))
+              .replace("{total}", String(products.length)) +
+              ` — ${prod.name}`
+          );
+          const url = `/api/catalogue/prices?priceId=${selectedPriceList!.priceId}&prodId=${prod.prodId}${langQ}`;
+          const res = await fetch(url);
+          if (!res.ok) continue;
+          const newItems: ItemPriceData[] = await res.json();
+          const existingIds = new Set(accumulated.map((item) => item.itemId));
+          const deduped = newItems.filter((item) => !existingIds.has(item.itemId));
+          accumulated = [...accumulated, ...deduped];
+          setPriceData([...accumulated]);
+        }
+      } catch (err: any) {
+        setPriceError(err.message);
+      } finally {
+        setIsGeneratingFullList(false);
+        setLoadingPrices(false);
+        setFullListProgress("");
+      }
     }
   };
 
@@ -1823,13 +1993,238 @@ function CataloguePageContent() {
       return doc;
   };
 
+  const generateSalesVolumePDF = async () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    const corporateRed: [number, number, number] = [200, 30, 30];
+    const black: [number, number, number] = [0, 0, 0];
+    const darkGray: [number, number, number] = [51, 51, 51];
+    const mediumGray: [number, number, number] = [102, 102, 102];
+    const borderGray: [number, number, number] = [200, 200, 200];
+    const white: [number, number, number] = [255, 255, 255];
+
+    const logoData = await getDataUri(tenantLogo);
+    if (logoData) {
+      const tempImg = new window.Image();
+      tempImg.src = logoData;
+      await new Promise((resolve) => {
+        tempImg.onload = resolve;
+        tempImg.onerror = resolve;
+      });
+      const naturalWidth = tempImg.naturalWidth || 200;
+      const naturalHeight = tempImg.naturalHeight || 50;
+      const aspectRatio = naturalWidth / naturalHeight;
+      const logoWidth = 36;
+      const logoHeight = logoWidth / aspectRatio;
+      doc.addImage(logoData, "PNG", 15, 14, logoWidth, logoHeight);
+    }
+
+    doc.setTextColor(...black);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(tenantName.toUpperCase(), pageWidth - 15, 15, { align: "right" });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...mediumGray);
+    if (activeTenant?.address) {
+      doc.text(activeTenant.address, pageWidth - 15, 21, { align: "right" });
+      doc.text(`${activeTenant.city} (${activeTenant.province}) ${activeTenant.postalCode}`, pageWidth - 15, 26, { align: "right" });
+    }
+    if (activeTenant?.phone) {
+      doc.text(`Tél: ${activeTenant.phone}`, pageWidth - 15, 31, { align: "right" });
+    }
+
+    // Title bar
+    doc.setFillColor(...corporateRed);
+    doc.rect(15, 38, pageWidth - 30, 10, "F");
+    doc.setTextColor(...white);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    const salesTitle = t.salesVolumeTitle;
+    doc.text(salesTitle, pageWidth / 2, 45, { align: "center" });
+
+    doc.setTextColor(...darkGray);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    const subtitleParts: string[] = [`Effective: ${new Date().toLocaleDateString("fr-CA")}`];
+    if (selectedExperts.length > 0) {
+      subtitleParts.push(`Experts: ${selectedExperts.map(e => e.name).join(", ")}`);
+    }
+    doc.text(subtitleParts.join("  •  "), pageWidth / 2, 54, { align: "center" });
+
+    let finalY = 62;
+
+    // Group sales data by category then class
+    const groupedForPdf = salesData.reduce((acc, item) => {
+      const categoryKey = item.categoryName || t.addedItems;
+      const classKey = item.className || t.withoutClass;
+      if (!acc[categoryKey]) acc[categoryKey] = {};
+      if (!acc[categoryKey][classKey]) acc[categoryKey][classKey] = [];
+      acc[categoryKey][classKey].push(item);
+      return acc;
+    }, {} as Record<string, Record<string, ItemSalesData[]>>);
+
+    const headRow = ["Article", "Fmt", t.volumeLtKg, t.sales365, t.volumeLtKg, t.sales720];
+
+    // Column widths
+    const tableWidth = pageWidth - 30;
+    const pdfColumnStyles: Record<number, Record<string, unknown>> = {
+      0: { fontStyle: "bold", halign: "left", cellWidth: 35 },
+      1: { halign: "center", cellWidth: 18 },
+      2: { halign: "right", cellWidth: (tableWidth - 53) / 4 },
+      3: { halign: "right", cellWidth: (tableWidth - 53) / 4 },
+      4: { halign: "right", cellWidth: (tableWidth - 53) / 4 },
+      5: { halign: "right", cellWidth: (tableWidth - 53) / 4 },
+    };
+
+    for (const [categoryName, classesByCategory] of Object.entries(groupedForPdf)) {
+      if (finalY > 240) {
+        doc.addPage();
+        doc.setFillColor(...black);
+        doc.rect(15, 10, pageWidth - 30, 8, "F");
+        doc.setTextColor(...white);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.text(salesTitle, pageWidth / 2, 15.5, { align: "center" });
+        finalY = 25;
+      }
+
+      // Category header
+      doc.setFillColor(40, 40, 40);
+      doc.rect(15, finalY, pageWidth - 30, 9, "F");
+      doc.setTextColor(...white);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(categoryName.toUpperCase(), 18, finalY + 6.5);
+      const totalInCategory = Object.values(classesByCategory).reduce((sum, items) => sum + items.length, 0);
+      doc.setTextColor(200, 200, 200);
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.text(`${Object.keys(classesByCategory).length} ${t.classes} • ${totalInCategory} ${t.articles}`, pageWidth - 18, finalY + 6.5, { align: "right" });
+      finalY += 13;
+
+      for (const [className, classItems] of Object.entries(classesByCategory)) {
+        let classHeaderDrawn = false;
+        const drawClassHeader = () => {
+          doc.setFillColor(...black);
+          doc.rect(15, finalY, pageWidth - 30, 7, "F");
+          doc.setTextColor(...white);
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "bold");
+          doc.text(className.toUpperCase(), 18, finalY + 5);
+          doc.setTextColor(200, 200, 200);
+          doc.setFontSize(7);
+          doc.text(`${classItems.length} ${t.articles}`, pageWidth - 18, finalY + 5, { align: "right" });
+          finalY += 7;
+          classHeaderDrawn = true;
+        };
+
+        const ROW_HEIGHT = 8;
+        const HEAD_HEIGHT = 10;
+        let showTableHead = true;
+
+        classItems.forEach((item, itemIndex) => {
+          const fmtVolume365 = item.volumeLtKg365 ? item.volumeLtKg365.toLocaleString("fr-CA", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : "-";
+          const fmtSales365 = item.sales365 ? item.sales365.toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "$" : "-";
+          const fmtVolume720 = item.volumeLtKg720 ? item.volumeLtKg720.toLocaleString("fr-CA", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : "-";
+          const fmtSales720 = item.sales720 ? item.sales720.toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "$" : "-";
+
+          const itemRows = [[item.itemCode, item.format || "-", fmtVolume365, fmtSales365, fmtVolume720, fmtSales720]];
+
+          const classHeaderHeight = classHeaderDrawn ? 0 : 7;
+          const neededHeight = classHeaderHeight + ROW_HEIGHT + (showTableHead ? HEAD_HEIGHT : 0);
+          if (finalY + neededHeight > pageHeight - 20) {
+            doc.addPage();
+            doc.setFillColor(...black);
+            doc.rect(15, 10, pageWidth - 30, 8, "F");
+            doc.setTextColor(...white);
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "bold");
+            doc.text(salesTitle, pageWidth / 2, 15.5, { align: "center" });
+            finalY = 25;
+            showTableHead = true;
+          }
+
+          if (!classHeaderDrawn) drawClassHeader();
+
+          autoTable(doc, {
+            startY: finalY,
+            head: [headRow],
+            showHead: showTableHead ? "everyPage" : false,
+            body: itemRows,
+            margin: { left: 15, right: 15 },
+            styles: {
+              fontSize: 8,
+              cellPadding: 2,
+              font: "helvetica",
+              lineColor: borderGray,
+              lineWidth: 0.2,
+              textColor: darkGray,
+            },
+            headStyles: {
+              fillColor: corporateRed,
+              textColor: white,
+              fontStyle: "bold",
+              halign: "center",
+              lineColor: corporateRed,
+              lineWidth: 0.2,
+            },
+            columnStyles: pdfColumnStyles,
+            theme: "grid",
+            didParseCell: function (d) {
+              if (d.section === "body" && d.column.index === 0 && d.cell.raw) {
+                d.cell.styles.textColor = corporateRed;
+                d.cell.styles.fontStyle = "bold";
+              }
+              if (d.section === "body" && itemIndex % 2 === 1) {
+                d.cell.styles.fillColor = [248, 248, 248];
+              }
+            },
+          });
+          finalY = (doc as any).lastAutoTable.finalY;
+          doc.setDrawColor(...black);
+          doc.setLineWidth(0.8);
+          doc.line(15, finalY, pageWidth - 15, finalY);
+          showTableHead = false;
+        });
+        finalY += 8;
+      }
+      finalY += 6;
+    }
+
+    const totalPages = doc.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setDrawColor(...black);
+      doc.setLineWidth(0.5);
+      doc.line(15, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+      doc.setTextColor(...mediumGray);
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.text(tenantName, 15, pageHeight - 10);
+      doc.text(`Page ${i} / ${totalPages}`, pageWidth - 15, pageHeight - 10, { align: "right" });
+      if (tenantName.toUpperCase() === "SINTO") {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(...black);
+        doc.text("www.sintoexpert.com", pageWidth / 2, pageHeight - 10, { align: "center" });
+      }
+    }
+
+    return doc;
+  };
+
   const handleDownloadPDF = async () => {
     setIsDownloading(true);
     try {
-      const doc = await generatePriceListPDF();
+      const doc = viewMode === "sales" ? await generateSalesVolumePDF() : await generatePriceListPDF();
       const now = new Date();
       const dateSuffix = `${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}${now.getFullYear()}`;
-      doc.save(`ListePrix_${tenantName.toUpperCase()}_${dateSuffix}.pdf`);
+      const filePrefix = viewMode === "sales" ? "AnalyseVentes" : "ListePrix";
+      doc.save(`${filePrefix}_${tenantName.toUpperCase()}_${dateSuffix}.pdf`);
     } catch (e: any) {
       console.error(e);
       alert("Erreur: " + e.message);
@@ -1839,8 +2234,8 @@ function CataloguePageContent() {
   };
 
   const handleEmailPDF = async (recipientEmail: string) => {
-    // Warn Gestionnaire before sending sensitive data
-    if (isGestionnaire && (selectedPriceList?.code === "01-EXP" || showDetails)) {
+    // Warn Gestionnaire before sending sensitive data (prices mode only)
+    if (viewMode === "prices" && isGestionnaire && (selectedPriceList?.code === "01-EXP" || showDetails)) {
       const ok = window.confirm(
         "Attention : cette liste contient des données sensibles (prix coûtant). Voulez-vous vraiment l'envoyer ?"
       );
@@ -1848,15 +2243,19 @@ function CataloguePageContent() {
     }
     setIsSendingEmail(true);
     try {
-      const doc = await generatePriceListPDF();
+      const doc = viewMode === "sales" ? await generateSalesVolumePDF() : await generatePriceListPDF();
 
       const pdfBlob = doc.output("blob");
       const formData = new FormData();
       const now = new Date();
       const dateSuffix = `${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}${now.getFullYear()}`;
-      formData.append("file", pdfBlob, `ListePrix_${tenantName.toUpperCase()}_${dateSuffix}.pdf`);
+      const filePrefix = viewMode === "sales" ? "AnalyseVentes" : "ListePrix";
+      formData.append("file", pdfBlob, `${filePrefix}_${tenantName.toUpperCase()}_${dateSuffix}.pdf`);
       formData.append("to", recipientEmail);
-      formData.append("subject", `Liste de prix ${tenantName} : ${selectedPriceList?.name}`);
+      const emailSubject = viewMode === "sales"
+        ? `Analyse des ventes ${tenantName}`
+        : `Liste de prix ${tenantName} : ${selectedPriceList?.name}`;
+      formData.append("subject", emailSubject);
       formData.append("tenantName", tenantName);
       if (activeTenant?.logo) {
         formData.append("tenantLogo", activeTenant.logo);
@@ -1884,18 +2283,32 @@ function CataloguePageContent() {
   };
 
   const itemsWithPrices = priceData.filter((item) => item.ranges && item.ranges.length > 0);
-  
+
   // Group items by Category, then by Class
   const groupedByCategory = itemsWithPrices.reduce((acc, item) => {
     const categoryKey = item.categoryName || t.addedItems;
     const classKey = item.className || t.withoutClass;
-    
+
     if (!acc[categoryKey]) acc[categoryKey] = {};
     if (!acc[categoryKey][classKey]) acc[categoryKey][classKey] = [];
     acc[categoryKey][classKey].push(item);
-    
+
     return acc;
   }, {} as Record<string, Record<string, ItemPriceData[]>>);
+
+  // Sales mode grouping
+  const groupedSalesByCategory = salesData.reduce((acc, item) => {
+    const categoryKey = item.categoryName || t.addedItems;
+    const classKey = item.className || t.withoutClass;
+    if (!acc[categoryKey]) acc[categoryKey] = {};
+    if (!acc[categoryKey][classKey]) acc[categoryKey][classKey] = [];
+    acc[categoryKey][classKey].push(item);
+    return acc;
+  }, {} as Record<string, Record<string, ItemSalesData[]>>);
+
+  // Active data count for UI
+  const activeDataCount = viewMode === "sales" ? salesData.length : itemsWithPrices.length;
+  const activeGrouped = viewMode === "sales" ? groupedSalesByCategory : groupedByCategory;
 
   const canAddSelection = selectedProduct || selectedItemIds.size > 0;
 
@@ -1933,54 +2346,82 @@ function CataloguePageContent() {
 
                 <div className="w-px h-8 bg-white/20 hidden sm:block" />
 
-                {/* Price List Dropdown */}
-                <div className="relative">
-                  <button 
-                    onClick={() => setOpenDropdown(openDropdown === 'pricelist' ? null : 'pricelist')}
+                {/* Mode Toggle: Prix / Ventes */}
+                <div className="flex items-center h-10 rounded-xl bg-white/10 border border-white/20 overflow-hidden">
+                  <button
+                    onClick={() => { setViewMode("prices"); }}
                     className={cn(
-                      "h-10 px-3 sm:px-4 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition-all flex items-center gap-2 text-sm w-[120px] sm:w-[260px]",
-                      openDropdown === 'pricelist' && "bg-white/20 border-white/40"
+                      "h-full px-3 flex items-center gap-1.5 text-sm font-bold transition-all",
+                      viewMode === "prices" ? "bg-white text-gray-900" : "text-white/70 hover:bg-white/10"
                     )}
                   >
-                    <span className="truncate flex-1 text-left">
-                      {selectedPriceList ? (
-                        <>
-                          <span className="text-white font-bold">{abbreviateColumnName(selectedPriceList.code)}</span>
-                          <span className="text-white/70 ml-1.5 hidden sm:inline">- {selectedPriceList.name}</span>
-                        </>
-                      ) : <span className="text-white/50">Sélectionner...</span>}
-                    </span>
-                    <ChevronDown className={cn("w-4 h-4 text-white/50 transition-transform flex-shrink-0", openDropdown === 'pricelist' && "rotate-180")} />
+                    <DollarSign className="w-4 h-4" />
+                    <span className="hidden sm:inline">{t.pricesMode}</span>
                   </button>
-                  {openDropdown === 'pricelist' && (
-                    <>
-                      <div className="fixed inset-0 z-[999998]" onClick={() => setOpenDropdown(null)} />
-                      <div className="absolute z-[999999] top-full left-0 mt-2 bg-[hsl(var(--bg-surface))] rounded-xl border border-[hsl(var(--border-default))] shadow-2xl overflow-hidden w-80 max-h-96 overflow-y-auto">
-                        {priceLists.map(list => (
-                          <button
-                            key={list.priceId}
-                            onClick={() => handlePriceListChange(list)}
-                            className={cn(
-                              "w-full px-4 py-3 text-left text-sm hover:bg-[hsl(var(--bg-elevated))] transition-colors flex items-center justify-between",
-                              selectedPriceList?.priceId === list.priceId && "bg-[hsl(var(--bg-muted))]"
-                            )}
-                          >
-                            <span className="truncate text-[hsl(var(--text-primary))]">{abbreviateColumnName(list.code)} - {list.name}</span>
-                            {selectedPriceList?.priceId === list.priceId && <Check className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} />}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
+                  <button
+                    onClick={() => { setViewMode("sales"); }}
+                    className={cn(
+                      "h-full px-3 flex items-center gap-1.5 text-sm font-bold transition-all",
+                      viewMode === "sales" ? "bg-white text-gray-900" : "text-white/70 hover:bg-white/10"
+                    )}
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    <span className="hidden sm:inline">{t.salesMode}</span>
+                  </button>
                 </div>
 
-                {/* Details Toggle Switch */}
-                <ToggleSwitch
-                  enabled={showDetails}
-                  onToggle={handleToggleDetails}
-                  label={t.viewDetails}
-                  loading={isAuthenticating}
-                />
+                {/* Price List Dropdown (prices mode only) */}
+                {viewMode === "prices" && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setOpenDropdown(openDropdown === 'pricelist' ? null : 'pricelist')}
+                      className={cn(
+                        "h-10 px-3 sm:px-4 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition-all flex items-center gap-2 text-sm w-[120px] sm:w-[260px]",
+                        openDropdown === 'pricelist' && "bg-white/20 border-white/40"
+                      )}
+                    >
+                      <span className="truncate flex-1 text-left">
+                        {selectedPriceList ? (
+                          <>
+                            <span className="text-white font-bold">{abbreviateColumnName(selectedPriceList.code)}</span>
+                            <span className="text-white/70 ml-1.5 hidden sm:inline">- {selectedPriceList.name}</span>
+                          </>
+                        ) : <span className="text-white/50">Sélectionner...</span>}
+                      </span>
+                      <ChevronDown className={cn("w-4 h-4 text-white/50 transition-transform flex-shrink-0", openDropdown === 'pricelist' && "rotate-180")} />
+                    </button>
+                    {openDropdown === 'pricelist' && (
+                      <>
+                        <div className="fixed inset-0 z-[999998]" onClick={() => setOpenDropdown(null)} />
+                        <div className="absolute z-[999999] top-full left-0 mt-2 bg-[hsl(var(--bg-surface))] rounded-xl border border-[hsl(var(--border-default))] shadow-2xl overflow-hidden w-80 max-h-96 overflow-y-auto">
+                          {priceLists.map(list => (
+                            <button
+                              key={list.priceId}
+                              onClick={() => handlePriceListChange(list)}
+                              className={cn(
+                                "w-full px-4 py-3 text-left text-sm hover:bg-[hsl(var(--bg-elevated))] transition-colors flex items-center justify-between",
+                                selectedPriceList?.priceId === list.priceId && "bg-[hsl(var(--bg-muted))]"
+                              )}
+                            >
+                              <span className="truncate text-[hsl(var(--text-primary))]">{abbreviateColumnName(list.code)} - {list.name}</span>
+                              {selectedPriceList?.priceId === list.priceId && <Check className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} />}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Details Toggle Switch (prices mode only) */}
+                {viewMode === "prices" && (
+                  <ToggleSwitch
+                    enabled={showDetails}
+                    onToggle={handleToggleDetails}
+                    label={t.viewDetails}
+                    loading={isAuthenticating}
+                  />
+                )}
 
                 {/* Language Toggle */}
                 <button
@@ -2026,9 +2467,9 @@ function CataloguePageContent() {
                 {/* Email Button with Label */}
                 <ActionButton
                   onClick={() => setShowEmailModal(true)}
-                  disabled={priceData.length === 0 || (!isGestionnaire && (showDetails || selectedPriceList?.code === "01-EXP"))}
+                  disabled={activeDataCount === 0 || (viewMode === "prices" && !isGestionnaire && (showDetails || selectedPriceList?.code === "01-EXP"))}
                   icon={Mail}
-                  title={!isGestionnaire && (showDetails || selectedPriceList?.code === "01-EXP") ? t.disabledForList : t.sendEmailTitle}
+                  title={viewMode === "prices" && !isGestionnaire && (showDetails || selectedPriceList?.code === "01-EXP") ? t.disabledForList : t.sendEmailTitle}
                   primary
                   label={!isCompact ? t.send : undefined}
                 />
@@ -2036,7 +2477,7 @@ function CataloguePageContent() {
                 {/* Download PDF Button */}
                 <ActionButton
                   onClick={handleDownloadPDF}
-                  disabled={priceData.length === 0}
+                  disabled={activeDataCount === 0}
                   icon={Download}
                   title={t.downloadPdf}
                   primary
@@ -2046,10 +2487,10 @@ function CataloguePageContent() {
 
                 <div className="w-px h-8 bg-white/20 mx-1 hidden sm:block" />
 
-                {/* CHANGE: Recycle Button (moved before Close, changed icon) */}
+                {/* Recycle Button */}
                 <ActionButton
-                  onClick={() => setPriceData([])}
-                  disabled={priceData.length === 0}
+                  onClick={() => { if (viewMode === "sales") setSalesData([]); else setPriceData([]); }}
+                  disabled={activeDataCount === 0}
                   icon={Recycle}
                   title={t.clearAll}
                 />
@@ -2123,7 +2564,7 @@ function CataloguePageContent() {
                     )}
                   />
                   
-                  {/* CHANGE: Items MultiSelect - now only enabled when selectedType is set */}
+                  {/* Items MultiSelect - only enabled when selectedType is set */}
                   <ItemMultiSelect
                     items={items}
                     selectedIds={selectedItemIds}
@@ -2133,6 +2574,42 @@ function CataloguePageContent() {
                     label={t.itemsOpt}
                     selectLabel={t.articles}
                   />
+
+                  {/* Expert Multi-Select (sales mode only) */}
+                  {viewMode === "sales" && (
+                    <FilterDropdown
+                      id="experts"
+                      label={t.experts}
+                      icon={Users}
+                      value={selectedExperts.length > 0 ? `${selectedExperts.length} ${t.expertCount}` : null}
+                      placeholder={t.selectExperts}
+                      options={availableExperts}
+                      disabled={loadingExperts}
+                      openDropdown={openDropdown}
+                      setOpenDropdown={setOpenDropdown}
+                      onClear={() => setSelectedExperts([])}
+                      clearLabel={t.allExperts}
+                      renderOption={(expert: Expert) => (
+                        <button
+                          key={expert.srId}
+                          onClick={() => {
+                            setSelectedExperts((prev) => {
+                              const exists = prev.some((e) => e.srId === expert.srId);
+                              if (exists) return prev.filter((e) => e.srId !== expert.srId);
+                              return [...prev, expert];
+                            });
+                          }}
+                          className={cn(
+                            "w-full px-4 py-3 text-left text-sm hover:bg-[hsl(var(--bg-elevated))] transition-colors flex items-center justify-between",
+                            selectedExperts.some((e) => e.srId === expert.srId) && "bg-[hsl(var(--bg-muted))]"
+                          )}
+                        >
+                          <span className="text-[hsl(var(--text-primary))]">{expert.name}</span>
+                          {selectedExperts.some((e) => e.srId === expert.srId) && <Check className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} />}
+                        </button>
+                      )}
+                    />
+                  )}
 
                   {/* Add Button */}
                   <ActionButton
@@ -2166,7 +2643,7 @@ function CataloguePageContent() {
               </div>
               <div className="text-center">
                 <p className="text-xl font-bold text-[hsl(var(--text-secondary))]">
-                  {isGeneratingFullList ? fullListProgress : t.loadingPrices}
+                  {isGeneratingFullList ? fullListProgress : (viewMode === "sales" ? t.loadingSales : t.loadingPrices)}
                 </p>
                 <p className="text-[hsl(var(--text-tertiary))] mt-1">{t.pleaseWait}</p>
               </div>
@@ -2184,7 +2661,139 @@ function CataloguePageContent() {
                 </button>
               </div>
             </div>
-          ) : Object.keys(groupedByCategory).length > 0 ? (
+          ) : Object.keys(activeGrouped).length > 0 ? (
+            viewMode === "sales" ? (
+            /* ===================== SALES VOLUME TABLE ===================== */
+            <div className="p-4 sm:p-6 space-y-8">
+              {Object.entries(groupedSalesByCategory).map(([categoryName, classesByCategory]) => {
+                const totalItemsInCategory = Object.values(classesByCategory).reduce((sum, items) => sum + items.length, 0);
+                return (
+                  <div key={categoryName} className="space-y-4">
+                    {/* Category Header */}
+                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[hsl(var(--bg-base))] to-[hsl(var(--bg-surface))] shadow-xl">
+                      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                        <div className="absolute -top-20 -right-20 w-40 h-40 rounded-full blur-3xl" style={{ backgroundColor: `${accentColor}30` }} />
+                        <div className="absolute -bottom-10 -left-10 w-32 h-32 rounded-full bg-white/5 blur-2xl" />
+                      </div>
+                      <div className="relative px-6 py-5 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: accentColor }}>
+                            <Layers className="w-6 h-6 text-white" />
+                          </div>
+                          <div>
+                            <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-wide">{categoryName}</h2>
+                            <p className="text-white/50 text-sm mt-0.5">{Object.keys(classesByCategory).length} {t.classes} • {totalItemsInCategory} {t.articles}</p>
+                          </div>
+                        </div>
+                        <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white/10 rounded-xl backdrop-blur-sm border border-white/10">
+                          <BarChart3 className="w-4 h-4 text-white/70" />
+                          <span className="text-white/70 text-sm font-medium">{t.salesMode}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Class sections */}
+                    <div className="space-y-4 pl-0 sm:pl-4">
+                      {Object.entries(classesByCategory).map(([className, classItems]) => (
+                        <section key={className} className="bg-[hsl(var(--bg-surface))] rounded-2xl overflow-hidden shadow-lg border border-[hsl(var(--border-default))]">
+                          <div className="relative px-5 py-3 sm:px-6 sm:py-4" style={{ backgroundColor: accentColor }}>
+                            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                              <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+                            </div>
+                            <div className="relative flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <Package className="w-5 h-5 text-white/70" />
+                                <div>
+                                  <h3 className="text-base sm:text-lg font-bold text-white uppercase tracking-wide">{className}</h3>
+                                  <p className="text-white/60 text-xs mt-0.5">{classItems.length} {t.articles}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 px-2.5 py-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
+                                <BarChart3 className="w-3.5 h-3.5 text-white" />
+                                <span className="text-white text-xs font-bold">{t.salesMode}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="overflow-x-auto">
+                            <table className={cn("w-full border-collapse", isCompact ? "text-xs" : "text-sm")}>
+                              <thead>
+                                <tr className="bg-[hsl(var(--bg-elevated))]">
+                                  <th className={cn("w-10 text-center font-black text-[hsl(var(--text-muted))] border-b-2 border-[hsl(var(--border-default))]", isCompact ? "p-2" : "p-3")}></th>
+                                  <th className={cn("text-left font-black text-[hsl(var(--text-secondary))] border-b-2 border-[hsl(var(--border-default))] sticky left-0 bg-[hsl(var(--bg-elevated))] z-10", isCompact ? "p-3" : "p-4")}>
+                                    <div className="flex items-center gap-2">
+                                      <Package className={cn(isCompact ? "w-4 h-4" : "w-5 h-5", "opacity-50")} />Article
+                                    </div>
+                                  </th>
+                                  <th className={cn("text-center font-black text-[hsl(var(--text-secondary))] border-b-2 border-[hsl(var(--border-default))]", isCompact ? "p-3" : "p-4")}>Fmt</th>
+                                  {/* Period 1: Last 365 days */}
+                                  <th className={cn("text-right font-black text-[hsl(var(--info))] border-b-2 border-[hsl(var(--border-default))] bg-[hsl(var(--info-muted))]/30", isCompact ? "p-3" : "p-4")}>{t.volumeLtKg}</th>
+                                  <th className={cn("text-right font-black text-[hsl(var(--success))] border-b-2 border-[hsl(var(--border-default))] bg-[hsl(var(--success-muted))]/30", isCompact ? "p-3" : "p-4")}>{t.sales365}</th>
+                                  {/* Period 2: 366-720 days */}
+                                  <th className={cn("text-right font-black text-[hsl(var(--text-tertiary))] border-b-2 border-[hsl(var(--border-default))]", isCompact ? "p-3" : "p-4")}>{t.volumeLtKg}</th>
+                                  <th className={cn("text-right font-black text-[hsl(var(--text-tertiary))] border-b-2 border-[hsl(var(--border-default))]", isCompact ? "p-3" : "p-4")}>{t.sales720}</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {classItems.map((item, itemIndex) => {
+                                  const rowBg = itemIndex % 2 === 0 ? "bg-[hsl(var(--bg-surface))]" : "bg-[hsl(var(--bg-elevated))]";
+                                  return (
+                                    <tr key={item.itemId} className={cn("transition-colors duration-200 group", rowBg, "hover:bg-[hsl(var(--bg-elevated))]")}>
+                                      <td className={cn("border-b border-[hsl(var(--border-subtle))] align-top text-center", isCompact ? "p-2" : "p-3", rowBg, "group-hover:bg-[hsl(var(--bg-elevated))]")}>
+                                        <button
+                                          onClick={() => handleRemoveItem(item.itemId)}
+                                          className="w-6 h-6 rounded-md flex items-center justify-center text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))] transition-all"
+                                          title={t.removeItem}
+                                        >
+                                          <Minus className="w-4 h-4" />
+                                        </button>
+                                      </td>
+                                      <td className={cn("border-b border-[hsl(var(--border-subtle))] align-top sticky left-0 z-10", isCompact ? "p-3" : "p-4", rowBg, "group-hover:bg-[hsl(var(--bg-elevated))]")}>
+                                        <div className="flex flex-col gap-0.5">
+                                          <span className={cn("font-mono font-black tracking-tight", isCompact ? "text-sm" : "text-base")} style={{ color: accentColor }}>{item.itemCode}</span>
+                                          <span className={cn("text-[hsl(var(--text-tertiary))] truncate max-w-[200px]", isCompact ? "text-[10px]" : "text-xs")} title={item.description}>{item.description}</span>
+                                        </div>
+                                      </td>
+                                      <td className={cn("text-center border-b border-[hsl(var(--border-subtle))] align-top", isCompact ? "p-3" : "p-4")}>
+                                        <span className="font-medium text-[hsl(var(--text-secondary))] px-2 py-1 bg-[hsl(var(--bg-muted))] rounded-lg inline-block text-xs">{item.format || "-"}</span>
+                                      </td>
+                                      {/* Period 1 */}
+                                      <td className={cn("text-right border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--info-muted))]/20", isCompact ? "p-3" : "p-4")}>
+                                        <span className="font-mono font-bold text-[hsl(var(--info))]">
+                                          {item.volumeLtKg365 ? <AnimatedPrice value={item.volumeLtKg365} /> : "-"}
+                                        </span>
+                                      </td>
+                                      <td className={cn("text-right border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--success-muted))]/20", isCompact ? "p-3" : "p-4")}>
+                                        <span className="font-mono font-bold text-[hsl(var(--success))]">
+                                          {item.sales365 ? <><AnimatedPrice value={item.sales365} />$</> : "-"}
+                                        </span>
+                                      </td>
+                                      {/* Period 2 */}
+                                      <td className={cn("text-right border-b border-[hsl(var(--border-subtle))]", isCompact ? "p-3" : "p-4")}>
+                                        <span className="font-mono font-bold text-[hsl(var(--text-tertiary))]">
+                                          {item.volumeLtKg720 ? <AnimatedPrice value={item.volumeLtKg720} /> : "-"}
+                                        </span>
+                                      </td>
+                                      <td className={cn("text-right border-b border-[hsl(var(--border-subtle))]", isCompact ? "p-3" : "p-4")}>
+                                        <span className="font-mono font-bold text-[hsl(var(--text-tertiary))]">
+                                          {item.sales720 ? <><AnimatedPrice value={item.sales720} />$</> : "-"}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </section>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            ) : (
+            /* ===================== PRICE TABLE (original) ===================== */
             <div className="p-4 sm:p-6 space-y-8">
               {Object.entries(groupedByCategory).map(([categoryName, classesByCategory]) => {
                 // Count total items in this category
@@ -2427,13 +3036,14 @@ function CataloguePageContent() {
                 );
               })}
             </div>
+            )
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
               <div className="w-28 h-28 rounded-3xl flex items-center justify-center" style={{ backgroundColor: `${accentColor}10` }}>
                 <Inbox className="w-14 h-14" style={{ color: `${accentColor}40` }} />
               </div>
               <div className="text-center max-w-md">
-                <p className="text-2xl font-bold text-[hsl(var(--text-secondary))]">{t.noPricesSelected}</p>
+                <p className="text-2xl font-bold text-[hsl(var(--text-secondary))]">{viewMode === "sales" ? t.noSalesSelected : t.noPricesSelected}</p>
                 <p className="text-[hsl(var(--text-tertiary))] mt-3">
                   {t.emptyStateP1} <span className="inline-flex items-center gap-1 px-2 py-1 bg-[hsl(var(--bg-muted))] rounded-lg"><Plus className="w-4 h-4" /> {t.emptyStateAdd}</span> {t.emptyStateP2} <span className="inline-flex items-center gap-1 px-2 py-1 bg-[hsl(var(--bg-muted))] rounded-lg"><Search className="w-4 h-4" /> {t.emptyStateSearch}</span> {t.emptyStateP3}
                 </p>
@@ -2443,22 +3053,33 @@ function CataloguePageContent() {
         </main>
 
         {/* ===================== FOOTER ===================== */}
-        {!loadingPrices && itemsWithPrices.length > 0 && (
+        {!loadingPrices && activeDataCount > 0 && (
           <footer className="flex-shrink-0 bg-[hsl(var(--bg-surface))] border-t border-[hsl(var(--border-default))] px-4 py-3 sm:px-6 z-20">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="px-4 py-2 rounded-xl font-bold text-sm" style={{ backgroundColor: `${accentColor}15`, color: accentColor }}>
-                  {itemsWithPrices.length} {t.articles}
+                  {activeDataCount} {t.articles}
                 </div>
-                {showDetails && (
+                {viewMode === "prices" && showDetails && (
                   <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-[hsl(var(--info-muted))] text-[hsl(var(--info))] font-semibold text-sm">
                     <Eye className="w-4 h-4" />{t.detailedMode}
                   </div>
                 )}
+                {viewMode === "sales" && selectedExperts.length > 0 && (
+                  <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-[hsl(var(--info-muted))] text-[hsl(var(--info))] font-semibold text-sm">
+                    <Users className="w-4 h-4" />{selectedExperts.length} {t.expertCount}
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2 text-sm text-[hsl(var(--text-tertiary))]">
-                <span className="hidden sm:inline">{t.list}</span>
-                <span className="font-bold text-[hsl(var(--text-secondary))]">{abbreviateColumnName(selectedPriceList?.code || "")}</span>
+                {viewMode === "prices" ? (
+                  <>
+                    <span className="hidden sm:inline">{t.list}</span>
+                    <span className="font-bold text-[hsl(var(--text-secondary))]">{abbreviateColumnName(selectedPriceList?.code || "")}</span>
+                  </>
+                ) : (
+                  <span className="font-bold text-[hsl(var(--text-secondary))]">{t.salesMode}</span>
+                )}
               </div>
             </div>
           </footer>
