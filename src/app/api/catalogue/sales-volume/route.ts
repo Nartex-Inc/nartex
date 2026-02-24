@@ -120,6 +120,13 @@ LEFT JOIN ${T.ITEM_TYPE} t ON i."locitemtype" = t."itemtypeid"
 ${zdJoins}
 WHERE i."ProdId" BETWEEN 1 AND 10
   AND i."isActive" = true
+  AND NOT EXISTS (
+    SELECT 1 FROM ${T.RECORD_SPEC_DATA} rsd
+    WHERE rsd."TableName" = 'items'
+      AND rsd."TableId" = i."ItemId"
+      AND rsd."FieldName" IN ('excludecybercat', 'isPriceList')
+      AND rsd."FieldValue" = '1'
+  )
   ${itemFilterSQL}
 ORDER BY ${prodName}, ${typeDescr}, i."volume", i."ItemCode"
 `;
@@ -156,8 +163,10 @@ SELECT
       THEN d."Amount"::float8 ELSE 0 END)          AS "sales365",
   COUNT(CASE WHEN h."InvDate" >= CURRENT_DATE - 365
       THEN 1 END)::int                             AS "qty365",
-  SUM(d."Amount"::float8)                           AS "sales720",
-  COUNT(*)::int                                     AS "qty720"
+  SUM(CASE WHEN h."InvDate" < CURRENT_DATE - 365
+      THEN d."Amount"::float8 ELSE 0 END)          AS "sales720",
+  COUNT(CASE WHEN h."InvDate" < CURRENT_DATE - 365
+      THEN 1 END)::int                             AS "qty720"
 FROM ${T.INV_HEADER} h
 JOIN ${T.INV_DETAIL} d ON h."invnbr" = d."invnbr" AND h."cieid" = d."cieid"
 WHERE h."cieid" = $1
