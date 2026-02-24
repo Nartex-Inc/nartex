@@ -5,6 +5,7 @@ export const ALLOWED_ROLES = [
   "ventes-exec",
   "ventes_exec",
   "gestionnaire",
+  "gestionnairetest",
   "admin",
   "facturation",
 ];

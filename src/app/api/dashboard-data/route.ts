@@ -8,6 +8,7 @@ import { requireSchema, normalizeRole, isBypassEmail, getErrorMessage } from "@/
 // Roles allowed to access dashboard data (case-insensitive)
 const ALLOWED_USER_ROLES = [
   "gestionnaire",
+  "gestionnairetest",
   "admin",
   "ventes-exec",
   "ventes_exec",

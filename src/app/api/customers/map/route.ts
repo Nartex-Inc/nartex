@@ -8,7 +8,7 @@ import { requireSchema, requireRoles, getErrorMessage } from "@/lib/auth-helpers
 
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_SERVER_KEY || "";
 
-const ALLOWED_ROLES = ["gestionnaire", "admin", "ventes-exec", "ventes_exec", "facturation", "expert"];
+const ALLOWED_ROLES = ["gestionnaire", "gestionnairetest", "admin", "ventes-exec", "ventes_exec", "facturation", "expert"];
 
 let geocodeCount = 0;
 const GEOCODE_LIMIT = 100; // Max new geocodes per request

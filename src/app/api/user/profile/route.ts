@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     if (targetUserId) {
       // Only Gestionnaire can view other users' profiles
-      if (session.user.role !== "Gestionnaire") {
+      if (session.user.role !== "Gestionnaire" && session.user.role !== "GestionnaireTest") {
         return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 });
       }
 
@@ -110,7 +110,7 @@ export async function PATCH(request: NextRequest) {
     }
     const { name, firstName, lastName, image, userId } = parsed.data;
 
-    const isGestionnaire = session.user.role === "Gestionnaire";
+    const isGestionnaire = session.user.role === "Gestionnaire" || session.user.role === "GestionnaireTest";
     const isEditingOther = !!userId && userId !== session.user.id;
 
     // Only Gestionnaire can edit other users

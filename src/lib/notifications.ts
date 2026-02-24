@@ -104,7 +104,7 @@ export async function notifyNewSupportTicket(ticketData: {
   // Notify all Gestionnaire users in the tenant
   return notifyTenantUsersByRole(
     ticketData.tenantId,
-    ["Gestionnaire"],
+    ["Gestionnaire", "GestionnaireTest"],
     {
       type: "ticket_created",
       title: `Nouveau billet: ${ticketData.ticketCode}`,
@@ -176,7 +176,7 @@ export async function notifyTicketReply(data: {
 }) {
   return notifyTenantUsersByRole(
     data.tenantId,
-    ["Gestionnaire"],
+    ["Gestionnaire", "GestionnaireTest"],
     {
       type: "ticket_comment",
       title: `Réponse: ${data.ticketCode}`,
@@ -228,7 +228,7 @@ export async function notifyReturnVerified(data: {
 }) {
   return notifyTenantUsersByRole(
     data.tenantId,
-    ["Gestionnaire"],
+    ["Gestionnaire", "GestionnaireTest"],
     {
       type: "return_verified",
       title: `Retour vérifié: ${data.returnCode}`,
@@ -251,7 +251,7 @@ export async function notifyReturnFinalized(data: {
 }) {
   return notifyTenantUsersByRole(
     data.tenantId,
-    ["Gestionnaire"],
+    ["Gestionnaire", "GestionnaireTest"],
     {
       type: "return_finalized",
       title: `Retour finalisé: ${data.returnCode}`,
@@ -274,7 +274,7 @@ export async function notifyReturnStandby(data: {
 }) {
   return notifyTenantUsersByRole(
     data.tenantId,
-    ["Gestionnaire"],
+    ["Gestionnaire", "GestionnaireTest"],
     {
       type: "return_standby",
       title: `Retour en standby: ${data.returnCode}`,

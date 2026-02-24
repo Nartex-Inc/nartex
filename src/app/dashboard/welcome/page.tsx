@@ -9,6 +9,7 @@ import { useCurrentAccent } from "@/components/accent-color-provider";
 
 const ROLE_LABELS: Record<string, string> = {
   Gestionnaire: "Gestionnaire",
+  GestionnaireTest: "Gestionnaire (Test)",
   Analyste: "Analyste",
   Verificateur: "Vérificateur",
   Facturation: "Facturation",

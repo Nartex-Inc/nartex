@@ -6,6 +6,7 @@ import { requireSchema, requireRoles, getErrorMessage } from "@/lib/auth-helpers
 
 const ALLOWED_ROLES = [
   "gestionnaire",
+  "gestionnairetest",
   "admin",
   "ventes-exec",
   "ventes_exec",

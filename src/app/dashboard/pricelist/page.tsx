@@ -184,7 +184,7 @@ type Translations = (typeof i18n)[Lang];
 /* =========================
    Role-Based Access Control
 ========================= */
-const ALLOWED_ROLES = ["gestionnaire", "expert"];
+const ALLOWED_ROLES = ["gestionnaire", "gestionnairetest", "expert"];
 const BYPASS_EMAILS = ["n.labranche@sinto.ca"];
 
 function isUserAuthorized(
@@ -1241,7 +1241,7 @@ function CataloguePageContent() {
   const { data: session } = useSession();
   const { color: accentColor } = useCurrentAccent();
   const userRole = (session as any)?.user?.role;
-  const isGestionnaire = userRole?.toLowerCase().trim() === "gestionnaire";
+  const isGestionnaire = ["gestionnaire", "gestionnairetest"].includes(userRole?.toLowerCase().trim());
   const isCompact = useMediaQuery("(max-width: 1024px)");
   const isMobile = useMediaQuery("(max-width: 640px)");
 
@@ -1284,7 +1284,9 @@ function CataloguePageContent() {
   const [priceError, setPriceError] = useState<string | null>(null);
 
   // --- VIEW MODE (prices vs sales) ---
-  const salesModeAllowed = true;
+  const isBypassAdmin = session?.user?.email?.toLowerCase() === "n.labranche@sinto.ca";
+  const normalizedRole = userRole?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const salesModeAllowed = normalizedRole === "gestionnairetest" || isBypassAdmin;
   const [viewMode, setViewMode] = useState<"prices" | "sales">("prices");
   const [salesData, setSalesData] = useState<ItemSalesData[]>([]);
   const [selectedExperts, setSelectedExperts] = useState<Expert[]>([]);

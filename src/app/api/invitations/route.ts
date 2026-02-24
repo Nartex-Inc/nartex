@@ -9,7 +9,7 @@ import { CreateInvitationsSchema } from "@/lib/validations";
 import { sendInvitationEmail } from "@/lib/email";
 
 const ADMIN_EMAILS = ["n.labranche@sinto.ca"];
-const ADMIN_ROLES = ["Gestionnaire"];
+const ADMIN_ROLES = ["Gestionnaire", "GestionnaireTest"];
 
 function isAdmin(email: string | null | undefined, role: string | null | undefined): boolean {
   if (!email) return false;
@@ -20,6 +20,7 @@ function isAdmin(email: string | null | undefined, role: string | null | undefin
 
 const ROLE_LABELS: Record<string, string> = {
   Gestionnaire: "Gestionnaire",
+  GestionnaireTest: "Gestionnaire (Test)",
   Analyste: "Analyste",
   Verificateur: "Vérificateur",
   Facturation: "Facturation",

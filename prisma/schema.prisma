@@ -27,6 +27,7 @@ enum ProductLifecycleStage {
 // Mapped from user.role
 enum UserRole {
   Gestionnaire
+  GestionnaireTest
   Administrateur
   Analyste
   Verificateur @map("Vérificateur")

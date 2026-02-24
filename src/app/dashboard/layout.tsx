@@ -32,10 +32,11 @@ export default function DashboardLayout({
       const userRole = (session.user as any).role;
       
       const allowedRoles = [
-        "ventes-exec", 
-        "ventes_exec", 
-        "Gestionnaire", 
-        "Expert", 
+        "ventes-exec",
+        "ventes_exec",
+        "Gestionnaire",
+        "GestionnaireTest",
+        "Expert",
         "admin"
       ];
 

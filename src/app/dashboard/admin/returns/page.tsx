@@ -373,7 +373,7 @@ function filterReturnsByRole(returns: ReturnRow[], role: UserRole, showHistory: 
   const normalizedRole = role?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() || "";
   
   // Gestionnaire/Administrateur sees ALL non-finalized: white (draft), black (awaiting physical), green (ready)
-  if (normalizedRole === "gestionnaire" || normalizedRole === "administrateur") {
+  if (normalizedRole === "gestionnaire" || normalizedRole === "gestionnairetest" || normalizedRole === "administrateur") {
     return returns.filter(r => !r.finalized);
   }
   
@@ -458,7 +458,7 @@ export default function ReturnsPage() {
   
   // Normalize role for permission checks
   const normalizedUserRole = userRole?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() || "";
-  const canCreate = normalizedUserRole === "gestionnaire" || normalizedUserRole === "administrateur";
+  const canCreate = normalizedUserRole === "gestionnaire" || normalizedUserRole === "gestionnairetest" || normalizedUserRole === "administrateur";
 
   const [query, setQuery] = React.useState("");
   const [submittedQuery, setSubmittedQuery] = React.useState("");
@@ -806,7 +806,7 @@ function DetailModal({
 
   // Role-based permissions (with normalized comparison)
   const isBypass = session?.user?.email?.toLowerCase() === "n.labranche@sinto.ca";
-  const isManager = normalizedRole === "gestionnaire" || normalizedRole === "administrateur" || isBypass;
+  const isManager = normalizedRole === "gestionnaire" || normalizedRole === "gestionnairetest" || normalizedRole === "administrateur" || isBypass;
   const canEdit = isManager && !isFinalized && !isVerified;
   const canForceDraft = isManager && !isFinalized;
   const canVerify = normalizedRole === "verificateur" && isPhysical && !isVerified && !isFinalized && !isDraft;

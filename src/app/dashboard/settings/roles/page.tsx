@@ -43,6 +43,13 @@ const AVAILABLE_ROLES = [
     icon: Crown,
   },
   {
+    value: "GestionnaireTest",
+    label: "Gestionnaire (Test)",
+    description: "Mêmes droits que Gestionnaire + accès à l'onglet Ventes",
+    color: "bg-[hsl(var(--accent))]/20 text-[hsl(var(--accent))] border-[hsl(var(--accent))]/30",
+    icon: Crown,
+  },
+  {
     value: "Administrateur",
     label: "Administrateur",
     description: "Mêmes droits que Gestionnaire pour les retours et l'administration",
@@ -109,7 +116,7 @@ interface UserData {
 function isAdmin(email: string | null | undefined, role: string | null | undefined): boolean {
   if (!email) return false;
   if (ADMIN_EMAILS.includes(email)) return true;
-  if (role === "Gestionnaire") return true;
+  if (role === "Gestionnaire" || role === "GestionnaireTest") return true;
   return false;
 }
 

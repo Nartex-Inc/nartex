@@ -174,6 +174,7 @@ export const UpdateTicketSchema = z.object({
 
 const InvitationRoleEnum = z.enum([
   "Gestionnaire",
+  "GestionnaireTest",
   "Analyste",
   "Verificateur",
   "Facturation",

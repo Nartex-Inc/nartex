@@ -29,6 +29,7 @@ import { DEPARTEMENTS } from "@/lib/support-constants";
 
 const AVAILABLE_ROLES = [
   { value: "Gestionnaire", label: "Gestionnaire", description: "Accès complet", color: "bg-[hsl(var(--accent))]/20 text-[hsl(var(--accent))] border-[hsl(var(--accent))]/30", icon: Crown },
+  { value: "GestionnaireTest", label: "Gestionnaire (Test)", description: "Accès complet + Ventes", color: "bg-[hsl(var(--accent))]/20 text-[hsl(var(--accent))] border-[hsl(var(--accent))]/30", icon: Crown },
   { value: "Analyste", label: "Analyste", description: "Rapports et analyses", color: "bg-[hsl(var(--info))]/20 text-[hsl(var(--info))] border-[hsl(var(--info))]/30", icon: BarChart3 },
   { value: "Verificateur", label: "Vérificateur", description: "Validation", color: "bg-[hsl(var(--success))]/20 text-[hsl(var(--success))] border-[hsl(var(--success))]/30", icon: CheckCircle },
   { value: "Facturation", label: "Facturation", description: "Facturation et crédits", color: "bg-[hsl(var(--warning))]/20 text-[hsl(var(--warning))] border-[hsl(var(--warning))]/30", icon: Receipt },
@@ -130,7 +131,7 @@ function ProfilePage() {
   const searchParams = useSearchParams();
 
   const targetUserId = searchParams.get("userId");
-  const isGestionnaire = session?.user?.role === "Gestionnaire";
+  const isGestionnaire = session?.user?.role === "Gestionnaire" || session?.user?.role === "GestionnaireTest";
   const isEditingOther = !!targetUserId && isGestionnaire;
 
   const [isLoading, setIsLoading] = useState(true);

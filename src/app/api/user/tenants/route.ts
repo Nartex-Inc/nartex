@@ -7,7 +7,7 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 const ADMIN_EMAILS = ["n.labranche@sinto.ca"];
-const ADMIN_ROLES = ["Gestionnaire"];
+const ADMIN_ROLES = ["Gestionnaire", "GestionnaireTest"];
 
 function isAdmin(email: string | null | undefined, role: string | null | undefined): boolean {
   if (!email) return false;

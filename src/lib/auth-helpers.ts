@@ -106,6 +106,12 @@ export function isBypassEmail(email: string | undefined | null): boolean {
   return (BYPASS_EMAILS as readonly string[]).includes(email.toLowerCase());
 }
 
+// GestionnaireTest inherits all Gestionnaire permissions everywhere except
+// where explicitly distinguished (e.g. salesModeAllowed on pricelist page).
+const ROLE_INHERITANCE: Record<string, string> = {
+  gestionnairetest: "gestionnaire",
+};
+
 /**
  * Check if a user has one of the allowed roles, or is a bypass email.
  */
@@ -115,7 +121,9 @@ export function hasRole(
 ): boolean {
   if (isBypassEmail(user.email)) return true;
   const normalized = normalizeRole(user.role);
-  return allowedRoles.includes(normalized);
+  if (allowedRoles.includes(normalized)) return true;
+  const parent = ROLE_INHERITANCE[normalized];
+  return parent ? allowedRoles.includes(parent) : false;
 }
 
 /**
@@ -136,7 +144,7 @@ export function requireRoles(
  * Check if user is a Gestionnaire or bypass admin.
  */
 export function isGestionnaire(user: AuthUser): boolean {
-  return hasRole(user, ["gestionnaire", "administrateur"]);
+  return hasRole(user, ["gestionnaire", "gestionnairetest", "administrateur"]);
 }
 
 /**

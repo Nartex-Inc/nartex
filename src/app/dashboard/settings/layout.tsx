@@ -34,7 +34,7 @@ export default function SettingsLayout({
   const { data: session } = useSession();
   const { color: accentColor } = useCurrentAccent();
 
-  const isGestionnaire = session?.user?.role === "Gestionnaire";
+  const isGestionnaire = session?.user?.role === "Gestionnaire" || session?.user?.role === "GestionnaireTest";
 
   const visibleTabs = isGestionnaire
     ? SETTINGS_TABS.filter(t => ["/dashboard/settings/profile", "/dashboard/settings/roles"].includes(t.href))

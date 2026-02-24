@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
       AND.push({ isFinal: true });
     } else {
       // ACTIVE MODE: Role-specific filtering (using normalized role comparison)
-      if (normalizedRole === "gestionnaire" || normalizedRole === "administrateur") {
+      if (normalizedRole === "gestionnaire" || normalizedRole === "gestionnairetest" || normalizedRole === "administrateur") {
         // Gestionnaire/Administrateur sees ALL active returns including drafts
         AND.push({ isFinal: false });
       } else if (normalizedRole === "verificateur") {
