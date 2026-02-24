@@ -125,10 +125,8 @@ SELECT
       THEN d."Amount"::float8 ELSE 0 END)  AS "sales365",
   COUNT(CASE WHEN h."InvDate" >= CURRENT_DATE - 365
       THEN 1 END)                           AS "txCount365",
-  SUM(CASE WHEN h."InvDate" < CURRENT_DATE - 365
-      THEN d."Amount"::float8 ELSE 0 END)  AS "sales720",
-  COUNT(CASE WHEN h."InvDate" < CURRENT_DATE - 365
-      THEN 1 END)                           AS "txCount720"
+  SUM(d."Amount"::float8)                   AS "sales720",
+  COUNT(*)::int                             AS "txCount720"
 FROM ${T.INV_HEADER} h
 JOIN ${T.INV_DETAIL} d  ON h."invnbr" = d."invnbr" AND h."cieid" = d."cieid"
 JOIN ${T.ITEMS}      i  ON d."Itemid" = i."ItemId"
