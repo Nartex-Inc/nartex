@@ -437,7 +437,14 @@ function getCommonUnit(items: ItemPriceData[]): string {
   return allSame ? firstUnit : "unité";
 }
 
-function AnimatedPrice({ value, duration = 500 }: { value: number; duration?: number }) {
+/** Format number with French-style space thousand separators: 1 629 765.97 */
+function formatFrNumber(n: number, decimals = 2): string {
+  const parts = n.toFixed(decimals).split(".");
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, "\u00A0"); // non-breaking space
+  return parts.join(",");
+}
+
+function AnimatedPrice({ value, decimals = 2, duration = 500 }: { value: number; decimals?: number; duration?: number }) {
   const [displayValue, setDisplayValue] = useState(0);
   const previousValue = useRef(0);
   const animationRef = useRef<number | null>(null);
@@ -462,7 +469,7 @@ function AnimatedPrice({ value, duration = 500 }: { value: number; duration?: nu
     };
   }, [value, duration]);
 
-  return <span className="tabular-nums">{displayValue.toFixed(2)}</span>;
+  return <span className="tabular-nums">{formatFrNumber(displayValue, decimals)}</span>;
 }
 
 /* =========================
@@ -1288,6 +1295,26 @@ function CataloguePageContent() {
   const [selectedExperts, setSelectedExperts] = useState<Expert[]>([]);
   const [availableExperts, setAvailableExperts] = useState<Expert[]>([]);
   const [loadingExperts, setLoadingExperts] = useState(false);
+  type SalesSortKey = "volumeLtKg365" | "sales365" | "volumeLtKg720" | "sales720";
+  const [salesSortKey, setSalesSortKey] = useState<SalesSortKey | null>(null);
+  const [salesSortDir, setSalesSortDir] = useState<"asc" | "desc">("desc");
+  const handleSalesSort = (key: SalesSortKey) => {
+    if (salesSortKey === key) {
+      setSalesSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    } else {
+      setSalesSortKey(key);
+      setSalesSortDir("desc");
+    }
+  };
+  const sortSalesItems = (items: ItemSalesData[]): ItemSalesData[] => {
+    if (!salesSortKey) return items;
+    const sorted = [...items].sort((a, b) => {
+      const va = a[salesSortKey] ?? 0;
+      const vb = b[salesSortKey] ?? 0;
+      return salesSortDir === "desc" ? vb - va : va - vb;
+    });
+    return sorted;
+  };
 
   // --- LANGUAGE ---
   const [lang, setLang] = useState<Lang>("fr");
@@ -2133,10 +2160,10 @@ function CataloguePageContent() {
         let showTableHead = true;
 
         classItems.forEach((item, itemIndex) => {
-          const fmtVolume365 = item.volumeLtKg365 ? item.volumeLtKg365.toLocaleString("fr-CA", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : "-";
-          const fmtSales365 = item.sales365 ? item.sales365.toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "$" : "-";
-          const fmtVolume720 = item.volumeLtKg720 ? item.volumeLtKg720.toLocaleString("fr-CA", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : "-";
-          const fmtSales720 = item.sales720 ? item.sales720.toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "$" : "-";
+          const fmtVolume365 = item.volumeLtKg365 ? formatFrNumber(item.volumeLtKg365, 1) : "-";
+          const fmtSales365 = item.sales365 ? formatFrNumber(item.sales365, 2) + "$" : "-";
+          const fmtVolume720 = item.volumeLtKg720 ? formatFrNumber(item.volumeLtKg720, 1) : "-";
+          const fmtSales720 = item.sales720 ? formatFrNumber(item.sales720, 2) + "$" : "-";
 
           const itemRows = [[item.itemCode, item.format || "-", fmtVolume365, fmtSales365, fmtVolume720, fmtSales720]];
 
@@ -2734,16 +2761,30 @@ function CataloguePageContent() {
                                     </div>
                                   </th>
                                   <th className={cn("text-center font-black text-[hsl(var(--text-secondary))] border-b-2 border-[hsl(var(--border-default))]", isCompact ? "p-3" : "p-4")}>Fmt</th>
-                                  {/* Period 1: Last 365 days */}
-                                  <th className={cn("text-right font-black text-[hsl(var(--info))] border-b-2 border-[hsl(var(--border-default))] bg-[hsl(var(--info-muted))]/30", isCompact ? "p-3" : "p-4")}>{t.volumeLtKg}</th>
-                                  <th className={cn("text-right font-black text-[hsl(var(--success))] border-b-2 border-[hsl(var(--border-default))] bg-[hsl(var(--success-muted))]/30", isCompact ? "p-3" : "p-4")}>{t.sales365}</th>
-                                  {/* Period 2: 366-720 days */}
-                                  <th className={cn("text-right font-black text-[hsl(var(--text-tertiary))] border-b-2 border-[hsl(var(--border-default))]", isCompact ? "p-3" : "p-4")}>{t.volumeLtKg}</th>
-                                  <th className={cn("text-right font-black text-[hsl(var(--text-tertiary))] border-b-2 border-[hsl(var(--border-default))]", isCompact ? "p-3" : "p-4")}>{t.sales720}</th>
+                                  {/* Period 1: Last 365 days — sortable */}
+                                  {([["volumeLtKg365", t.volumeLtKg, "text-[hsl(var(--info))] bg-[hsl(var(--info-muted))]/30"], ["sales365", t.sales365, "text-[hsl(var(--success))] bg-[hsl(var(--success-muted))]/30"]] as const).map(([key, label, color]) => (
+                                    <th key={key} className={cn("text-right font-black border-b-2 border-[hsl(var(--border-default))] cursor-pointer select-none hover:brightness-110 transition-all", color, isCompact ? "p-3" : "p-4")}
+                                        onClick={() => handleSalesSort(key as SalesSortKey)}>
+                                      <div className="flex items-center justify-end gap-1">
+                                        {label}
+                                        {salesSortKey === key ? (salesSortDir === "desc" ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />) : <ChevronDown className="w-3.5 h-3.5 opacity-30" />}
+                                      </div>
+                                    </th>
+                                  ))}
+                                  {/* Period 2: 366-720 days — sortable */}
+                                  {([["volumeLtKg720", t.volumeLtKg, "text-[hsl(var(--text-tertiary))]"], ["sales720", t.sales720, "text-[hsl(var(--text-tertiary))]"]] as const).map(([key, label, color]) => (
+                                    <th key={key} className={cn("text-right font-black border-b-2 border-[hsl(var(--border-default))] cursor-pointer select-none hover:brightness-110 transition-all", color, isCompact ? "p-3" : "p-4")}
+                                        onClick={() => handleSalesSort(key as SalesSortKey)}>
+                                      <div className="flex items-center justify-end gap-1">
+                                        {label}
+                                        {salesSortKey === key ? (salesSortDir === "desc" ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />) : <ChevronDown className="w-3.5 h-3.5 opacity-30" />}
+                                      </div>
+                                    </th>
+                                  ))}
                                 </tr>
                               </thead>
                               <tbody>
-                                {classItems.map((item, itemIndex) => {
+                                {sortSalesItems(classItems).map((item, itemIndex) => {
                                   const rowBg = itemIndex % 2 === 0 ? "bg-[hsl(var(--bg-surface))]" : "bg-[hsl(var(--bg-elevated))]";
                                   return (
                                     <tr key={item.itemId} className={cn("transition-colors duration-200 group", rowBg, "hover:bg-[hsl(var(--bg-elevated))]")}>
@@ -2768,7 +2809,7 @@ function CataloguePageContent() {
                                       {/* Period 1 */}
                                       <td className={cn("text-right border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--info-muted))]/20", isCompact ? "p-3" : "p-4")}>
                                         <span className="font-mono font-bold text-[hsl(var(--info))]">
-                                          {item.volumeLtKg365 ? <AnimatedPrice value={item.volumeLtKg365} /> : "-"}
+                                          {item.volumeLtKg365 ? <AnimatedPrice value={item.volumeLtKg365} decimals={1} /> : "-"}
                                         </span>
                                       </td>
                                       <td className={cn("text-right border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--success-muted))]/20", isCompact ? "p-3" : "p-4")}>
@@ -2779,7 +2820,7 @@ function CataloguePageContent() {
                                       {/* Period 2 */}
                                       <td className={cn("text-right border-b border-[hsl(var(--border-subtle))]", isCompact ? "p-3" : "p-4")}>
                                         <span className="font-mono font-bold text-[hsl(var(--text-tertiary))]">
-                                          {item.volumeLtKg720 ? <AnimatedPrice value={item.volumeLtKg720} /> : "-"}
+                                          {item.volumeLtKg720 ? <AnimatedPrice value={item.volumeLtKg720} decimals={1} /> : "-"}
                                         </span>
                                       </td>
                                       <td className={cn("text-right border-b border-[hsl(var(--border-subtle))]", isCompact ? "p-3" : "p-4")}>
