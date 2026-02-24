@@ -30,55 +30,6 @@ function setCache(key: string, data: unknown) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Auto-discover the quantity column name from InvDetail (DMS-replicated)
-// Uses pg_attribute (local catalog) instead of information_schema which is
-// extremely slow on postgres_fdw foreign tables (dev environment).
-// Cached per schema for the lifetime of the process.
-// ---------------------------------------------------------------------------
-const qtyColumnCache: Record<string, string | null> = {};
-
-async function getQtyColumn(schema: string): Promise<string | null> {
-  if (schema in qtyColumnCache) return qtyColumnCache[schema];
-
-  try {
-    // pg_attribute + pg_class + pg_namespace is local catalog — instant even on fdw
-    const { rows } = await pg.query(
-      `SELECT a.attname AS column_name
-       FROM pg_attribute a
-       JOIN pg_class c ON a.attrelid = c.oid
-       JOIN pg_namespace n ON c.relnamespace = n.oid
-       WHERE n.nspname = $1 AND c.relname = 'InvDetail'
-       AND a.attnum > 0 AND NOT a.attisdropped
-       AND a.attname ILIKE '%qty%'
-       ORDER BY a.attname`,
-      [schema]
-    );
-
-    const names = rows.map((r: Record<string, unknown>) => String(r.column_name));
-    // Prefer QtyShip > qty > first match
-    const col =
-      names.find((n) => /qtyship/i.test(n)) ||
-      names.find((n) => /^qty$/i.test(n)) ||
-      names[0] ||
-      null;
-
-    // Validate column name (alphanumeric + underscore only)
-    if (col && !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(col)) {
-      qtyColumnCache[schema] = null;
-      return null;
-    }
-
-    qtyColumnCache[schema] = col;
-    console.log(`[sales-volume] InvDetail qty column for ${schema}: ${col} (candidates: ${names.join(", ")})`);
-    return col;
-  } catch (err) {
-    console.error("[sales-volume] Failed to discover qty column, falling back to COUNT:", err);
-    qtyColumnCache[schema] = null;
-    return null;
-  }
-}
-
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireSchema();
@@ -105,48 +56,40 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(cached);
     }
 
-    // Build filters
-    const params: unknown[] = [2]; // $1 = cieid
-    let paramIdx = 2;
-
+    // =====================================================================
+    // STEP 1: Get matching items (dimension data only — small tables)
+    // This query touches Items + Products + itemtype — all small dimension
+    // tables that fdw handles easily.
+    // =====================================================================
+    const itemParams: unknown[] = [];
+    let itemParamIdx = 1;
     let itemFilterSQL = "";
+
     if (itemIds) {
       const idsArray = itemIds.split(",").map((id) => parseInt(id.trim(), 10));
-      itemFilterSQL = `AND i."ItemId" = ANY($${paramIdx})`;
-      params.push(idsArray);
-      paramIdx++;
+      itemFilterSQL = `AND i."ItemId" = ANY($${itemParamIdx})`;
+      itemParams.push(idsArray);
+      itemParamIdx++;
     } else {
-      itemFilterSQL = `AND i."ProdId" = $${paramIdx}`;
-      params.push(parseInt(prodId!, 10));
-      paramIdx++;
+      itemFilterSQL = `AND i."ProdId" = $${itemParamIdx}`;
+      itemParams.push(parseInt(prodId!, 10));
+      itemParamIdx++;
 
       if (itemId) {
-        itemFilterSQL += ` AND i."ItemId" = $${paramIdx}`;
-        params.push(parseInt(itemId, 10));
-        paramIdx++;
+        itemFilterSQL += ` AND i."ItemId" = $${itemParamIdx}`;
+        itemParams.push(parseInt(itemId, 10));
+        itemParamIdx++;
       } else if (typeId) {
-        itemFilterSQL += ` AND i."locitemtype" = $${paramIdx}`;
-        params.push(parseInt(typeId, 10));
-        paramIdx++;
+        itemFilterSQL += ` AND i."locitemtype" = $${itemParamIdx}`;
+        itemParams.push(parseInt(typeId, 10));
+        itemParamIdx++;
       }
     }
 
-    let salesrepFilterSQL = "";
-    if (salesrepIds) {
-      const srIds = salesrepIds.split(",").map((id) => parseInt(id.trim(), 10));
-      salesrepFilterSQL = `AND h."srid" = ANY($${paramIdx})`;
-      params.push(srIds);
-      paramIdx++;
-    }
-
-    // Discover the actual quantity column from InvDetail
-    const qtyCol = await getQtyColumn(schema);
-
-    // Translation expressions
+    // Translation joins (EN mode)
     const itemDescr = isEn ? `COALESCE(zdi."Descr", i."Descr")` : `i."Descr"`;
     const prodName = isEn ? `COALESCE(zdp."Descr", p."Name")` : `p."Name"`;
     const typeDescr = isEn ? `COALESCE(zdt."Descr", t."descr")` : `t."descr"`;
-
     const zdJoins = isEn
       ? `LEFT JOIN ${T.ZDATANAME} zdi
            ON zdi."TableName" = 'Items' AND zdi."FieldName" = 'descr'
@@ -162,19 +105,7 @@ export async function GET(request: NextRequest) {
            AND zdt."Id" = t."itemtypeid"`
       : "";
 
-    // Quantity expressions: use real qty column if available, else COUNT(*)
-    // Volume is computed in JS (qty * item.volume) to avoid cross-table
-    // multiplication in SQL which kills postgres_fdw performance on dev.
-    const qtyExpr365 = qtyCol
-      ? `SUM(CASE WHEN h."InvDate" >= CURRENT_DATE - 365 THEN d."${qtyCol}"::float8 ELSE 0 END)`
-      : `COUNT(CASE WHEN h."InvDate" >= CURRENT_DATE - 365 THEN 1 END)::float8`;
-    const qtyExpr720 = qtyCol
-      ? `SUM(d."${qtyCol}"::float8)`
-      : `COUNT(*)::float8`;
-
-    // Mirrors dashboard-data pattern: InvHeader → InvDetail → Items → Products
-    // Keep SQL simple (single-table aggregates only) for fdw pushdown compatibility
-    const query = `
+    const itemsQuery = `
 SELECT
   i."ItemId"    AS "itemId",
   i."ItemCode"  AS "itemCode",
@@ -182,52 +113,91 @@ SELECT
   i."volume"    AS "volume",
   i."model"     AS "format",
   ${prodName}   AS "categoryName",
-  ${typeDescr}  AS "className",
-  SUM(CASE WHEN h."InvDate" >= CURRENT_DATE - 365
-      THEN d."Amount"::float8 ELSE 0 END)  AS "sales365",
-  ${qtyExpr365}                             AS "qty365",
-  SUM(d."Amount"::float8)                   AS "sales720",
-  ${qtyExpr720}                             AS "qty720"
-FROM ${T.INV_HEADER} h
-JOIN ${T.INV_DETAIL} d  ON h."invnbr" = d."invnbr" AND h."cieid" = d."cieid"
-JOIN ${T.ITEMS}      i  ON d."Itemid" = i."ItemId"
+  ${typeDescr}  AS "className"
+FROM ${T.ITEMS} i
 LEFT JOIN ${T.PRODUCTS}  p ON i."ProdId" = p."ProdId"
 LEFT JOIN ${T.ITEM_TYPE} t ON i."locitemtype" = t."itemtypeid"
 ${zdJoins}
-WHERE h."cieid" = $1
-  AND h."InvDate" >= CURRENT_DATE - 720
-  AND i."ProdId" BETWEEN 1 AND 10
+WHERE i."ProdId" BETWEEN 1 AND 10
   AND i."isActive" = true
   ${itemFilterSQL}
-  ${salesrepFilterSQL}
-GROUP BY i."ItemId", i."ItemCode", i."Descr", i."volume", i."model",
-         p."Name", p."ProdId", t."descr", t."itemtypeid"
-         ${isEn ? `, zdi."Descr", zdp."Descr", zdt."Descr"` : ""}
 ORDER BY ${prodName}, ${typeDescr}, i."volume", i."ItemCode"
 `;
 
-    const { rows } = await pg.query(query, params);
+    const { rows: items } = await pg.query(itemsQuery, itemParams);
+    if (items.length === 0) {
+      setCache(cacheKey, []);
+      return NextResponse.json([]);
+    }
 
-    // Compute volume Lt/Kg in JS: qty * item.volume
-    // Kept out of SQL to avoid cross-table multiplication that breaks fdw pushdown
-    const result = rows.map((row: Record<string, unknown>) => {
-      const volume = row.volume ? parseFloat(String(row.volume)) : 0;
-      const qty365 = parseFloat(String(row.qty365)) || 0;
-      const qty720 = parseFloat(String(row.qty720)) || 0;
+    // =====================================================================
+    // STEP 2: Aggregate invoice data for those item IDs
+    // Only touches InvHeader + InvDetail — the two big tables.
+    // Filtering by d."Itemid" = ANY(...) lets fdw push the filter down to
+    // the remote InvDetail table directly.
+    // =====================================================================
+    const matchedIds = items.map((r: Record<string, unknown>) => r.itemId);
+
+    const invParams: unknown[] = [2, matchedIds]; // $1 = cieid, $2 = itemIds
+    let invParamIdx = 3;
+
+    let salesrepFilter = "";
+    if (salesrepIds) {
+      const srIds = salesrepIds.split(",").map((id) => parseInt(id.trim(), 10));
+      salesrepFilter = `AND h."srid" = ANY($${invParamIdx})`;
+      invParams.push(srIds);
+      invParamIdx++;
+    }
+
+    const invoiceQuery = `
+SELECT
+  d."Itemid"                                        AS "itemId",
+  SUM(CASE WHEN h."InvDate" >= CURRENT_DATE - 365
+      THEN d."Amount"::float8 ELSE 0 END)          AS "sales365",
+  COUNT(CASE WHEN h."InvDate" >= CURRENT_DATE - 365
+      THEN 1 END)::int                             AS "qty365",
+  SUM(d."Amount"::float8)                           AS "sales720",
+  COUNT(*)::int                                     AS "qty720"
+FROM ${T.INV_HEADER} h
+JOIN ${T.INV_DETAIL} d ON h."invnbr" = d."invnbr" AND h."cieid" = d."cieid"
+WHERE h."cieid" = $1
+  AND h."InvDate" >= CURRENT_DATE - 720
+  AND d."Itemid" = ANY($2)
+  ${salesrepFilter}
+GROUP BY d."Itemid"
+`;
+
+    const { rows: invoices } = await pg.query(invoiceQuery, invParams);
+
+    // =====================================================================
+    // STEP 3: Merge in JS — item details + invoice aggregates
+    // =====================================================================
+    const invoiceMap = new Map<number, Record<string, unknown>>();
+    for (const inv of invoices) {
+      invoiceMap.set(inv.itemId as number, inv);
+    }
+
+    const result = items.map((item: Record<string, unknown>) => {
+      const inv = invoiceMap.get(item.itemId as number);
+      const volume = item.volume ? parseFloat(String(item.volume)) : 0;
+      const qty365 = inv ? parseInt(String(inv.qty365)) || 0 : 0;
+      const qty720 = inv ? parseInt(String(inv.qty720)) || 0 : 0;
+      const sales365 = inv ? parseFloat(String(inv.sales365)) || 0 : 0;
+      const sales720 = inv ? parseFloat(String(inv.sales720)) || 0 : 0;
 
       return {
-        itemId: row.itemId,
-        itemCode: row.itemCode,
-        description: row.description,
+        itemId: item.itemId,
+        itemCode: item.itemCode,
+        description: item.description,
         volume: volume || null,
-        format: row.format,
-        categoryName: row.categoryName,
-        className: row.className,
-        sales365: parseFloat(String(row.sales365)) || 0,
-        qty365: Math.round(qty365 * 10) / 10,
+        format: item.format,
+        categoryName: item.categoryName,
+        className: item.className,
+        sales365,
+        qty365,
         volumeLtKg365: Math.round(qty365 * volume * 10) / 10,
-        sales720: parseFloat(String(row.sales720)) || 0,
-        qty720: Math.round(qty720 * 10) / 10,
+        sales720,
+        qty720,
         volumeLtKg720: Math.round(qty720 * volume * 10) / 10,
       };
     });
