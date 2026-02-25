@@ -5,7 +5,8 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireTenant, getErrorMessage } from "@/lib/auth-helpers";
 import { CreateReturnCommentSchema, UpdateReturnCommentSchema } from "@/lib/validations";
-import { parseReturnCode } from "@/types/returns";
+import { parseReturnCode, formatReturnCode } from "@/types/returns";
+import { notifyReturnComment } from "@/lib/notifications";
 
 type RouteParams = { params: Promise<{ code: string }> };
 
@@ -90,7 +91,7 @@ export async function POST(
     // Verify return exists and belongs to tenant
     const ret = await prisma.return.findFirst({
       where: { id: returnId, tenantId },
-      select: { id: true },
+      select: { id: true, client: true },
     });
 
     if (!ret) {
@@ -115,6 +116,16 @@ export async function POST(
         content: parsed.data.content.trim(),
       },
     });
+
+    // Fire-and-forget notification
+    notifyReturnComment({
+      returnId,
+      returnCode: formatReturnCode(returnId),
+      client: ret.client || "",
+      userName: user.name || user.email || "Utilisateur",
+      userId: user.id,
+      tenantId,
+    }).catch(() => {});
 
     return NextResponse.json({ ok: true, data: mapComment(comment) });
   } catch (error) {

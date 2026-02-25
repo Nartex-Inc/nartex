@@ -478,11 +478,14 @@ export default function ReturnsPage() {
 
   const selected = React.useMemo(() => rows.find((r) => String(r.id) === openId || String(r.codeRetour) === openId) ?? null, [rows, openId]);
 
+  const [scrollToComments, setScrollToComments] = React.useState(false);
+
   // Auto-open return from ?open= query param (e.g. notification click)
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const id = params.get("open");
     if (id) setOpenId(id);
+    if (params.get("scrollTo") === "comments") setScrollToComments(true);
   }, []);
 
   const load = React.useCallback(async () => {
@@ -739,7 +742,7 @@ export default function ReturnsPage() {
         </div>
       </div>
 
-      {selected && <DetailModal row={selected} userRole={userRole} onClose={() => setOpenId(null)} onRefresh={load} />}
+      {selected && <DetailModal row={selected} userRole={userRole} onClose={() => setOpenId(null)} onRefresh={load} scrollToComments={scrollToComments} onScrolled={() => setScrollToComments(false)} />}
       {openNew && <NewReturnModal onClose={() => setOpenNew(false)} onCreated={async () => { setOpenNew(false); await load(); }} />}
     </div>
   );
@@ -785,17 +788,33 @@ function DetailModal({
   userRole,
   onClose,
   onRefresh,
+  scrollToComments,
+  onScrolled,
 }: {
   row: ReturnRow;
   userRole: UserRole;
   onClose: () => void;
   onRefresh: () => Promise<void>;
+  scrollToComments?: boolean;
+  onScrolled?: () => void;
 }) {
   const { data: session } = useSession();
   const [draft, setDraft] = React.useState<ReturnRow>({ ...row });
   const [busy, setBusy] = React.useState(false);
+  const commentsRef = React.useRef<HTMLElement>(null);
 
   React.useEffect(() => setDraft({ ...row }), [row]);
+
+  // Auto-scroll to comments section when requested (e.g. from notification click)
+  React.useEffect(() => {
+    if (scrollToComments && commentsRef.current) {
+      const timer = setTimeout(() => {
+        commentsRef.current?.scrollIntoView({ behavior: "smooth" });
+        onScrolled?.();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [scrollToComments, onScrolled]);
 
   // Normalize role for comparison (handle accent variations)
   const normalizeRole = (r: string) => r?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() || "";
@@ -1515,7 +1534,7 @@ function DetailModal({
           </section>
 
           {/* Conversation */}
-          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
+          <section ref={commentsRef} className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
             <ReturnComments returnCode={String(draft.id)} />
           </section>
         </div>

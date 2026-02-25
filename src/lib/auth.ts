@@ -9,7 +9,7 @@ import bcrypt from "bcryptjs";
 export const authOptions: NextAuthOptions = {
   // Cast to any to prevent version mismatch errors during build
   adapter: PrismaAdapter(prisma) as any,
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: 2 * 60 * 60 /* 2 hours */ },
   secret: process.env.NEXTAUTH_SECRET,
   pages: { 
     signIn: "/", 

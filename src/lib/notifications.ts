@@ -285,3 +285,29 @@ export async function notifyReturnStandby(data: {
     }
   );
 }
+
+/**
+ * Notify relevant roles when a comment is posted on a return
+ */
+export async function notifyReturnComment(data: {
+  returnId: number;
+  returnCode: string;
+  client: string;
+  userName: string;
+  userId: string;
+  tenantId: string;
+}) {
+  return notifyTenantUsersByRole(
+    data.tenantId,
+    ["Gestionnaire", "GestionnaireTest", "Administrateur", "Verificateur", "Facturation"],
+    {
+      type: "return_comment",
+      title: `Commentaire: ${data.returnCode}`,
+      message: `${data.userName} a laissé un nouveau commentaire sur le retour ${data.returnCode}`,
+      link: `/dashboard/admin/returns?open=${data.returnId}&scrollTo=comments`,
+      entityType: "return",
+      entityId: String(data.returnId),
+    },
+    data.userId
+  );
+}
