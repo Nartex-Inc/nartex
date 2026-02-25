@@ -18,7 +18,7 @@ export async function GET() {
 
     const T = getPrextraTables(schema);
 
-    // Include Pricecodes '01' through '08'
+    // Include Pricecodes '01' through '07' from ERP
     const query = `
       SELECT
         "priceid" as "priceId",
@@ -36,11 +36,14 @@ export async function GET() {
         AND "_excludecybercat" = false
         AND "cieid" = '2'
         AND "PriceListType" = 'customer'
-        AND "Pricecode" BETWEEN '01' AND '08'
+        AND "Pricecode" BETWEEN '01' AND '07'
       ORDER BY "Pricecode" ASC
     `;
 
     const { rows } = await pg.query(query);
+
+    // 08-PDSF: synthetic entry (priceid=17 exists in ERP but is flagged _excludecybercat)
+    rows.push({ priceId: 17, code: "08-PDS", name: "PDSF", currency: "CAD" });
 
     // Custom display order: 01, 04, 05, 02, 03, 07, 06, 08
     const ORDER: Record<string, number> = {
