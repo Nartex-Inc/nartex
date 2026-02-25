@@ -18,7 +18,7 @@ export async function GET() {
 
     const T = getPrextraTables(schema);
 
-    // Include Pricecodes '01' through '07' from ERP
+    // Include Pricecodes '01' through '07' from ERP (08-PDS added synthetically below)
     const query = `
       SELECT
         "priceid" as "priceId",
@@ -36,7 +36,8 @@ export async function GET() {
         AND "_excludecybercat" = false
         AND "cieid" = '2'
         AND "PriceListType" = 'customer'
-        AND "Pricecode" BETWEEN '01' AND '07'
+        AND "Pricecode" BETWEEN '01' AND '08'
+        AND "priceid" != 17
       ORDER BY "Pricecode" ASC
     `;
 
