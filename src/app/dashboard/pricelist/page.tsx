@@ -370,6 +370,7 @@ async function getDataUri(url: string): Promise<string> {
 function abbreviateColumnName(name: string): string {
   let result = name.trim();
   if (result === "04-GROSEXP") return "4-GREXP";
+  if (result === "08-PDS") return "8-PDSF";
   result = result.replace(/^0(\d+-)/, "$1");
   return result;
 }
@@ -1854,8 +1855,9 @@ function CataloguePageContent() {
         if (!showDetails && selectedPriceList?.code !== "01-EXP") {
           priceColumns = priceColumns.filter((c) => c.trim() !== "01-EXP");
         }
-        const standardColumns = priceColumns.filter((c) => c.trim() !== "08-PDS");
-        const hasPDS = priceColumns.some((c) => c.trim() === "08-PDS") && selectedPriceList?.code?.trim() !== "03-IND";
+        const isPDSF = selectedPriceList?.code?.trim() === "08-PDS";
+        const standardColumns = isPDSF ? priceColumns : priceColumns.filter((c) => c.trim() !== "08-PDS");
+        const hasPDS = !isPDSF && priceColumns.some((c) => c.trim() === "08-PDS") && selectedPriceList?.code?.trim() !== "03-IND";
 
         const headRow = ["Article", "Fmt", "Qty"];
         const pdfCommonUnit = getCommonUnit(classItems);
@@ -2425,7 +2427,11 @@ function CataloguePageContent() {
                       <>
                         <div className="fixed inset-0 z-[999998]" onClick={() => setOpenDropdown(null)} />
                         <div className="absolute z-[999999] top-full left-0 mt-2 bg-[hsl(var(--bg-surface))] rounded-xl border border-[hsl(var(--border-default))] shadow-2xl overflow-hidden w-80 max-h-96 overflow-y-auto">
-                          {priceLists.map(list => (
+                          {priceLists.filter(list => {
+                            // 04-GREXP only visible for Gestionnaire/GestionnaireTest
+                            if (list.code.trim().startsWith("04") && !isGestionnaire) return false;
+                            return true;
+                          }).map(list => (
                             <button
                               key={list.priceId}
                               onClick={() => handlePriceListChange(list)}
@@ -2878,8 +2884,9 @@ function CataloguePageContent() {
                   : [selectedPriceList?.code || "Prix"];
                 if (!showDetails && selectedPriceList?.code !== "01-EXP")
                   priceColumns = priceColumns.filter((c) => c.trim() !== "01-EXP");
-                const standardColumns = priceColumns.filter((c) => c.trim() !== "08-PDS");
-                const hasPDS = priceColumns.some((c) => c.trim() === "08-PDS") && selectedPriceList?.code?.trim() !== "03-IND";
+                const isPDSF = selectedPriceList?.code?.trim() === "08-PDS";
+                const standardColumns = isPDSF ? priceColumns : priceColumns.filter((c) => c.trim() !== "08-PDS");
+                const hasPDS = !isPDSF && priceColumns.some((c) => c.trim() === "08-PDS") && selectedPriceList?.code?.trim() !== "03-IND";
                 const commonUnit = getCommonUnit(classItems);
 
                 return (

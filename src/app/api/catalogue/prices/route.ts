@@ -19,6 +19,7 @@ const COLUMN_MATRIX: Record<string, string[]> = {
   "05-GROS": ["02-DET", "03-IND", "05-GROS"],
   "06-INDHZ": ["06-INDHZ"],
   "07-DETHZ": ["07-DETHZ", "08-PDS"],
+  "08-PDS": ["08-PDS"],
 };
 
 export async function GET(request: NextRequest) {
@@ -64,8 +65,8 @@ export async function GET(request: NextRequest) {
 
     // 2. Determine Target Codes
     const targetCodesSet = new Set(COLUMN_MATRIX[selectedCode] || [selectedCode]);
-    targetCodesSet.add("01-EXP");
-    if (selectedCode !== "03-IND") targetCodesSet.add("08-PDS");
+    if (selectedCode !== "08-PDS") targetCodesSet.add("01-EXP");
+    if (selectedCode !== "03-IND" && selectedCode !== "08-PDS") targetCodesSet.add("08-PDS");
     const targetCodes = Array.from(targetCodesSet);
 
     // 3. Resolve Codes to PriceIDs

@@ -19,7 +19,6 @@ export async function GET() {
     const T = getPrextraTables(schema);
 
     // Include Pricecodes '01' through '08'
-    // Exclude priceid=17 (PDS) from dropdown - it's shown in separate column
     const query = `
       SELECT
         "priceid" as "priceId",
@@ -38,11 +37,21 @@ export async function GET() {
         AND "cieid" = '2'
         AND "PriceListType" = 'customer'
         AND "Pricecode" BETWEEN '01' AND '08'
-        AND "priceid" != 17
       ORDER BY "Pricecode" ASC
     `;
 
     const { rows } = await pg.query(query);
+
+    // Custom display order: 01, 04, 05, 02, 03, 07, 06, 08
+    const ORDER: Record<string, number> = {
+      "01": 1, "04": 2, "05": 3, "02": 4, "03": 5, "07": 6, "06": 7, "08": 8,
+    };
+    rows.sort((a: { code: string }, b: { code: string }) => {
+      const aKey = a.code.trim().substring(0, 2);
+      const bKey = b.code.trim().substring(0, 2);
+      return (ORDER[aKey] ?? 99) - (ORDER[bKey] ?? 99);
+    });
+
     return NextResponse.json(rows);
   } catch (error: any) {
     console.error("GET /api/catalogue/pricelists error:", error);
