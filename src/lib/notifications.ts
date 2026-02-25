@@ -210,7 +210,7 @@ export async function notifyReturnCreated(data: {
       type: "return_created",
       title: `Nouveau retour: ${data.returnCode}`,
       message: `${data.userName} a créé un retour pour ${data.client}`,
-      link: `/dashboard/returns`,
+      link: `/dashboard/admin/returns?open=${data.returnId}`,
       entityType: "return",
       entityId: String(data.returnId),
     }
@@ -233,7 +233,7 @@ export async function notifyReturnVerified(data: {
       type: "return_verified",
       title: `Retour vérifié: ${data.returnCode}`,
       message: `${data.verifiedBy} a vérifié le retour ${data.returnCode}`,
-      link: `/dashboard/returns`,
+      link: `/dashboard/admin/returns?open=${data.returnId}`,
       entityType: "return",
       entityId: String(data.returnId),
     }
@@ -256,7 +256,7 @@ export async function notifyReturnFinalized(data: {
       type: "return_finalized",
       title: `Retour finalisé: ${data.returnCode}`,
       message: `${data.finalizedBy} a finalisé le retour ${data.returnCode}`,
-      link: `/dashboard/returns`,
+      link: `/dashboard/admin/returns?open=${data.returnId}`,
       entityType: "return",
       entityId: String(data.returnId),
     }
@@ -279,7 +279,7 @@ export async function notifyReturnStandby(data: {
       type: "return_standby",
       title: `Retour en standby: ${data.returnCode}`,
       message: `${data.userName} a mis le retour ${data.returnCode} en standby`,
-      link: `/dashboard/returns`,
+      link: `/dashboard/admin/returns?open=${data.returnId}`,
       entityType: "return",
       entityId: String(data.returnId),
     }

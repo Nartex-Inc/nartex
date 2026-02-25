@@ -478,6 +478,13 @@ export default function ReturnsPage() {
 
   const selected = React.useMemo(() => rows.find((r) => String(r.id) === openId) ?? null, [rows, openId]);
 
+  // Auto-open return from ?open= query param (e.g. notification click)
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("open");
+    if (id) setOpenId(id);
+  }, []);
+
   const load = React.useCallback(async () => {
     setLoading(true);
     setError(null);
