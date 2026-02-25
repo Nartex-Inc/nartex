@@ -180,20 +180,22 @@ export async function GET(request: NextRequest) {
 
     const emailsToFetch = new Set<string>();
 
-    const resolveCreatorEmail = (ret: { initiatedBy: string | null }): string | null => {
-      if (ret.initiatedBy) {
-        const initiator = ret.initiatedBy.trim();
-        if (LEGACY_USER_MAP[initiator]) return LEGACY_USER_MAP[initiator];
-        const lowerInitiator = initiator.toLowerCase();
-        if (LEGACY_USER_MAP[lowerInitiator]) return LEGACY_USER_MAP[lowerInitiator];
-        if (initiator.includes("@")) return initiator;
-      }
+    const resolveNameToEmail = (name: string | null): string | null => {
+      if (!name) return null;
+      const trimmed = name.trim();
+      if (LEGACY_USER_MAP[trimmed]) return LEGACY_USER_MAP[trimmed];
+      if (LEGACY_USER_MAP[trimmed.toLowerCase()]) return LEGACY_USER_MAP[trimmed.toLowerCase()];
+      if (trimmed.includes("@")) return trimmed;
       return null;
     };
 
     returns.forEach(r => {
-      const email = resolveCreatorEmail(r);
-      if (email) emailsToFetch.add(email);
+      const e1 = resolveNameToEmail(r.initiatedBy);
+      const e2 = resolveNameToEmail(r.verifiedBy);
+      const e3 = resolveNameToEmail(r.finalizedBy);
+      if (e1) emailsToFetch.add(e1);
+      if (e2) emailsToFetch.add(e2);
+      if (e3) emailsToFetch.add(e3);
     });
 
     const users = await prisma.user.findMany({
@@ -210,18 +212,17 @@ export async function GET(request: NextRequest) {
     // BUILD RESPONSE
     // =======================================================================
 
-    const data: ReturnRow[] = returns.map((ret) => {
-      const creatorNameRaw = ret.initiatedBy || "Système";
-      const creatorEmail = resolveCreatorEmail(ret);
-      
-      let avatarUrl: string | null = null;
-      let displayName = creatorNameRaw;
-
-      if (creatorEmail && userMap.has(creatorEmail)) {
-        const userData = userMap.get(creatorEmail);
-        avatarUrl = userData?.image || null;
-        if (userData?.name) displayName = userData.name;
+    const getAvatarInfo = (name: string | null, fallback: string) => {
+      const email = resolveNameToEmail(name);
+      if (email && userMap.has(email)) {
+        const u = userMap.get(email)!;
+        return { name: u.name || fallback, avatar: u.image };
       }
+      return { name: fallback, avatar: null };
+    };
+
+    const data: ReturnRow[] = returns.map((ret) => {
+      const creatorInfo = getAvatarInfo(ret.initiatedBy, ret.initiatedBy || "Système");
 
       return {
         id: formatReturnCode(ret.id),
@@ -255,7 +256,7 @@ export async function GET(request: NextRequest) {
 
         // Verification fields (visible after verification)
         verifiedBy: ret.verifiedBy
-          ? { name: ret.verifiedBy, at: ret.verifiedAt?.toISOString() || null }
+          ? (() => { const v = getAvatarInfo(ret.verifiedBy, ret.verifiedBy); return { name: v.name, avatar: v.avatar, at: ret.verifiedAt?.toISOString() || null }; })()
           : null,
 
         // Finalization fields (visible after finalization)
@@ -272,12 +273,12 @@ export async function GET(request: NextRequest) {
         transportAmount: ret.transportAmount ? Number(ret.transportAmount) : null,
         restockingAmount: ret.restockingAmount ? Number(ret.restockingAmount) : null,
         finalizedBy: ret.finalizedBy
-          ? { name: ret.finalizedBy, at: ret.finalizedAt?.toISOString() || null }
+          ? (() => { const f = getAvatarInfo(ret.finalizedBy, ret.finalizedBy); return { name: f.name, avatar: f.avatar, at: ret.finalizedAt?.toISOString() || null }; })()
           : null,
 
         createdBy: {
-          name: displayName,
-          avatar: avatarUrl,
+          name: creatorInfo.name,
+          avatar: creatorInfo.avatar,
           at: (ret.initializedAt || ret.reportedAt).toISOString()
         },
 
