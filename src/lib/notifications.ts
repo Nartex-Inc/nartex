@@ -205,7 +205,7 @@ export async function notifyReturnCreated(data: {
 }) {
   return notifyTenantUsersByRole(
     data.tenantId,
-    ["Vérificateur", "Facturation"],
+    ["Gestionnaire", "GestionnaireTest", "Administrateur", "Verificateur", "Facturation"],
     {
       type: "return_created",
       title: `Nouveau retour: ${data.returnCode}`,
@@ -228,7 +228,7 @@ export async function notifyReturnVerified(data: {
 }) {
   return notifyTenantUsersByRole(
     data.tenantId,
-    ["Gestionnaire", "GestionnaireTest"],
+    ["Gestionnaire", "GestionnaireTest", "Administrateur", "Facturation"],
     {
       type: "return_verified",
       title: `Retour vérifié: ${data.returnCode}`,
@@ -251,7 +251,7 @@ export async function notifyReturnFinalized(data: {
 }) {
   return notifyTenantUsersByRole(
     data.tenantId,
-    ["Gestionnaire", "GestionnaireTest"],
+    ["Gestionnaire", "GestionnaireTest", "Administrateur", "Verificateur"],
     {
       type: "return_finalized",
       title: `Retour finalisé: ${data.returnCode}`,
@@ -274,7 +274,7 @@ export async function notifyReturnStandby(data: {
 }) {
   return notifyTenantUsersByRole(
     data.tenantId,
-    ["Gestionnaire", "GestionnaireTest"],
+    ["Gestionnaire", "GestionnaireTest", "Administrateur", "Verificateur", "Facturation"],
     {
       type: "return_standby",
       title: `Retour en standby: ${data.returnCode}`,

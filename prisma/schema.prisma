@@ -274,7 +274,7 @@ model Return {
   // Basic info
   reportedAt DateTime
   reporter   Reporter @default(expert)
-  cause      Cause    @default(production)
+  cause      Cause?
   expert     String?
 
   // Financials
@@ -402,6 +402,7 @@ model ReturnComment {
   userImage String?  @map("user_image")
   content   String   @db.Text
   createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime? @map("updated_at")
 
   return Return @relation(fields: [returnId], references: [id], onDelete: Cascade)
 

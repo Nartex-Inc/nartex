@@ -42,7 +42,7 @@ const ReturnProductSchema = z.object({
 export const CreateReturnSchema = z.object({
   reportedAt: z.string().optional(),
   reporter: ReporterEnum.optional(),
-  cause: CauseEnum.optional(),
+  cause: CauseEnum.nullable().optional(),
   expert: z.string().optional().default(""),
   client: z.string().optional().default(""),
   noClient: z.string().nullable().optional(),
@@ -65,7 +65,7 @@ export const CreateReturnSchema = z.object({
 
 export const UpdateReturnSchema = z.object({
   reporter: ReporterEnum.optional(),
-  cause: CauseEnum.optional(),
+  cause: CauseEnum.nullable().optional(),
   expert: z.string().optional(),
   client: z.string().optional(),
   noClient: z.string().nullable().optional(),
@@ -89,6 +89,11 @@ export const UpdateReturnSchema = z.object({
 // ─── Return Comments ────────────────────────────────────────────────────────
 
 export const CreateReturnCommentSchema = z.object({
+  content: z.string().min(1, "Le contenu est requis").max(5000),
+});
+
+export const UpdateReturnCommentSchema = z.object({
+  commentId: z.string().uuid(),
   content: z.string().min(1, "Le contenu est requis").max(5000),
 });
 

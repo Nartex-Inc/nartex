@@ -265,10 +265,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     // Compute isDraft status
     const effectiveReporter = body.reporter ?? ret.reporter;
-    const effectiveCause = body.cause ?? ret.cause;
     const effectiveExpert = body.expert ?? ret.expert;
     const effectiveClient = isDraftPhase ? (body.client ?? ret.client) : ret.client;
-    const hasRequiredFields = effectiveReporter && effectiveCause && effectiveExpert && effectiveClient;
+    const hasRequiredFields = effectiveReporter && effectiveExpert && effectiveClient;
 
     // Check product count for draft calculation
     const incomingProductCount = body.products?.length;
@@ -292,8 +291,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       data: updateData,
     });
 
-    // Product updates: allowed in DRAFT phase or when forcing back to draft
-    if ((isDraftPhase || body.forceDraft) && body.products && Array.isArray(body.products)) {
+    // Product updates: allowed in any non-finalized phase
+    if (body.products && Array.isArray(body.products)) {
       // Build a map of incoming products by codeProduit
       const incomingMap = new Map(
         body.products.map((p) => [p.codeProduit, p])

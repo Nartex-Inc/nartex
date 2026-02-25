@@ -221,7 +221,7 @@ export async function GET(request: NextRequest) {
         codeRetour: ret.id,
         reportedAt: ret.reportedAt.toISOString(),
         reporter: ret.reporter as Reporter,
-        cause: ret.cause as Cause,
+        cause: ret.cause as Cause | null,
         expert: ret.expert || "",
         client: ret.client || "",
         noClient: ret.noClient === "NULL" ? null : ret.noClient,
@@ -326,7 +326,7 @@ export async function POST(request: NextRequest) {
     }
     const body = parsed.data;
 
-    const hasRequiredFields = body.reporter && body.cause && body.expert && body.client && body.reportedAt;
+    const hasRequiredFields = body.reporter && body.expert && body.client && body.reportedAt;
     const hasProducts = body.products
       && body.products.length > 0
       && body.products.some((p) => (p.quantite ?? 0) > 0);
@@ -345,7 +345,7 @@ export async function POST(request: NextRequest) {
         tenantId,
         reportedAt: body.reportedAt ? new Date(body.reportedAt) : new Date(),
         reporter: body.reporter || "expert",
-        cause: body.cause || "production",
+        cause: body.cause || null,
         expert: body.expert,
         client: body.client,
         noClient: body.noClient || null,

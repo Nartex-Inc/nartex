@@ -4,8 +4,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireTenant, getErrorMessage } from "@/lib/auth-helpers";
-import { CreateReturnCommentSchema } from "@/lib/validations";
+import { CreateReturnCommentSchema, UpdateReturnCommentSchema } from "@/lib/validations";
 import { parseReturnCode } from "@/types/returns";
+
+type RouteParams = { params: Promise<{ code: string }> };
+
+function mapComment(c: { id: string; userId: string; userName: string; userImage: string | null; content: string; createdAt: Date; updatedAt: Date | null }) {
+  return {
+    id: c.id,
+    userId: c.userId,
+    userName: c.userName,
+    userImage: c.userImage,
+    content: c.content,
+    createdAt: c.createdAt.toISOString(),
+    updatedAt: c.updatedAt?.toISOString() ?? null,
+  };
+}
 
 // =============================================================================
 // GET - List comments for a return
@@ -13,7 +27,7 @@ import { parseReturnCode } from "@/types/returns";
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ code: string }> }
+  { params }: RouteParams
 ) {
   try {
     const auth = await requireTenant();
@@ -43,14 +57,7 @@ export async function GET(
 
     return NextResponse.json({
       ok: true,
-      data: comments.map((c) => ({
-        id: c.id,
-        userId: c.userId,
-        userName: c.userName,
-        userImage: c.userImage,
-        content: c.content,
-        createdAt: c.createdAt.toISOString(),
-      })),
+      data: comments.map(mapComment),
     });
   } catch (error) {
     console.error("GET /api/returns/[code]/comments error:", error);
@@ -67,7 +74,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ code: string }> }
+  { params }: RouteParams
 ) {
   try {
     const auth = await requireTenant();
@@ -109,19 +116,140 @@ export async function POST(
       },
     });
 
-    return NextResponse.json({
-      ok: true,
-      data: {
-        id: comment.id,
-        userId: comment.userId,
-        userName: comment.userName,
-        userImage: comment.userImage,
-        content: comment.content,
-        createdAt: comment.createdAt.toISOString(),
-      },
-    });
+    return NextResponse.json({ ok: true, data: mapComment(comment) });
   } catch (error) {
     console.error("POST /api/returns/[code]/comments error:", error);
+    return NextResponse.json(
+      { ok: false, error: getErrorMessage(error) },
+      { status: 500 }
+    );
+  }
+}
+
+// =============================================================================
+// PUT - Edit own comment
+// =============================================================================
+
+export async function PUT(
+  request: NextRequest,
+  { params }: RouteParams
+) {
+  try {
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { user, tenantId } = auth;
+
+    const { code } = await params;
+    const returnId = parseReturnCode(code);
+    if (isNaN(returnId)) {
+      return NextResponse.json({ ok: false, error: "Code de retour invalide" }, { status: 400 });
+    }
+
+    // Verify return exists and belongs to tenant
+    const ret = await prisma.return.findFirst({
+      where: { id: returnId, tenantId },
+      select: { id: true },
+    });
+
+    if (!ret) {
+      return NextResponse.json({ ok: false, error: "Retour introuvable" }, { status: 404 });
+    }
+
+    const body = await request.json();
+    const parsed = UpdateReturnCommentSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { ok: false, error: parsed.error.issues[0]?.message || "Données invalides" },
+        { status: 400 }
+      );
+    }
+
+    // Find the comment and check ownership
+    const existing = await prisma.returnComment.findUnique({
+      where: { id: parsed.data.commentId },
+    });
+
+    if (!existing || existing.returnId !== returnId) {
+      return NextResponse.json({ ok: false, error: "Commentaire introuvable" }, { status: 404 });
+    }
+
+    if (existing.userId !== user.id) {
+      return NextResponse.json({ ok: false, error: "Vous ne pouvez modifier que vos propres commentaires" }, { status: 403 });
+    }
+
+    const updated = await prisma.returnComment.update({
+      where: { id: parsed.data.commentId },
+      data: {
+        content: parsed.data.content.trim(),
+        updatedAt: new Date(),
+      },
+    });
+
+    return NextResponse.json({ ok: true, data: mapComment(updated) });
+  } catch (error) {
+    console.error("PUT /api/returns/[code]/comments error:", error);
+    return NextResponse.json(
+      { ok: false, error: getErrorMessage(error) },
+      { status: 500 }
+    );
+  }
+}
+
+// =============================================================================
+// DELETE - Delete own comment
+// =============================================================================
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: RouteParams
+) {
+  try {
+    const auth = await requireTenant();
+    if (!auth.ok) return auth.response;
+    const { user, tenantId } = auth;
+
+    const { code } = await params;
+    const returnId = parseReturnCode(code);
+    if (isNaN(returnId)) {
+      return NextResponse.json({ ok: false, error: "Code de retour invalide" }, { status: 400 });
+    }
+
+    // Verify return exists and belongs to tenant
+    const ret = await prisma.return.findFirst({
+      where: { id: returnId, tenantId },
+      select: { id: true },
+    });
+
+    if (!ret) {
+      return NextResponse.json({ ok: false, error: "Retour introuvable" }, { status: 404 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const commentId = searchParams.get("commentId");
+    if (!commentId) {
+      return NextResponse.json({ ok: false, error: "commentId requis" }, { status: 400 });
+    }
+
+    // Find the comment and check ownership
+    const existing = await prisma.returnComment.findUnique({
+      where: { id: commentId },
+    });
+
+    if (!existing || existing.returnId !== returnId) {
+      return NextResponse.json({ ok: false, error: "Commentaire introuvable" }, { status: 404 });
+    }
+
+    if (existing.userId !== user.id) {
+      return NextResponse.json({ ok: false, error: "Vous ne pouvez supprimer que vos propres commentaires" }, { status: 403 });
+    }
+
+    await prisma.returnComment.delete({
+      where: { id: commentId },
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("DELETE /api/returns/[code]/comments error:", error);
     return NextResponse.json(
       { ok: false, error: getErrorMessage(error) },
       { status: 500 }

@@ -5,7 +5,7 @@
 
 import * as React from "react";
 import { useSession } from "next-auth/react";
-import { MessageSquare, Send, Loader2 } from "lucide-react";
+import { MessageSquare, Send, Loader2, Pencil, Trash2, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ReturnComment } from "@/types/returns";
 
@@ -41,6 +41,27 @@ async function postComment(returnCode: string, content: string): Promise<ReturnC
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || "Erreur d'envoi");
   return json.data;
+}
+
+async function editComment(returnCode: string, commentId: string, content: string): Promise<ReturnComment> {
+  const res = await fetch(`/api/returns/${encodeURIComponent(returnCode)}/comments`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ commentId, content }),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || "Erreur de modification");
+  return json.data;
+}
+
+async function deleteComment(returnCode: string, commentId: string): Promise<void> {
+  const res = await fetch(`/api/returns/${encodeURIComponent(returnCode)}/comments?commentId=${encodeURIComponent(commentId)}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || "Erreur de suppression");
 }
 
 /* =============================================================================
@@ -117,6 +138,11 @@ export function ReturnComments({ returnCode, className }: ReturnCommentsProps) {
   const [draft, setDraft] = React.useState("");
   const [isSending, setIsSending] = React.useState(false);
 
+  // Edit state
+  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [editContent, setEditContent] = React.useState("");
+  const [isEditing, setIsEditing] = React.useState(false);
+
   const listRef = React.useRef<HTMLDivElement>(null);
 
   // Load comments on mount
@@ -172,6 +198,53 @@ export function ReturnComments({ returnCode, className }: ReturnCommentsProps) {
     }
   };
 
+  // Edit handlers
+  const startEdit = (comment: ReturnComment) => {
+    setEditingId(comment.id);
+    setEditContent(comment.content);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditContent("");
+  };
+
+  const saveEdit = async () => {
+    if (!editingId || !editContent.trim() || isEditing) return;
+    setIsEditing(true);
+    try {
+      const updated = await editComment(returnCode, editingId, editContent.trim());
+      setComments((prev) => prev.map((c) => (c.id === editingId ? updated : c)));
+      setEditingId(null);
+      setEditContent("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      saveEdit();
+    }
+    if (e.key === "Escape") {
+      cancelEdit();
+    }
+  };
+
+  // Delete handler
+  const handleDelete = async (commentId: string) => {
+    if (!window.confirm("Supprimer ce commentaire ?")) return;
+    try {
+      await deleteComment(returnCode, commentId);
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
   return (
     <div className={cn("space-y-3", className)}>
       {/* Header */}
@@ -207,11 +280,12 @@ export function ReturnComments({ returnCode, className }: ReturnCommentsProps) {
         >
           {comments.map((c) => {
             const isOwn = c.userId === currentUserId;
+            const isEditingThis = editingId === c.id;
             return (
               <div
                 key={c.id}
                 className={cn(
-                  "flex gap-2.5 rounded-xl px-3 py-2.5",
+                  "flex gap-2.5 rounded-xl px-3 py-2.5 group",
                   isOwn
                     ? "bg-[hsl(var(--info-muted))]/40"
                     : "bg-[hsl(var(--bg-muted))]"
@@ -231,10 +305,85 @@ export function ReturnComments({ returnCode, className }: ReturnCommentsProps) {
                     >
                       {formatRelativeTime(c.createdAt)}
                     </span>
+                    {c.updatedAt && (
+                      <span
+                        className="text-[11px] text-[hsl(var(--text-muted))] italic"
+                        title={new Date(c.updatedAt).toLocaleString("fr-CA")}
+                      >
+                        (modifié)
+                      </span>
+                    )}
+                    {/* Edit/Delete actions - only for own comments */}
+                    {isOwn && !isEditingThis && (
+                      <span className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => startEdit(c)}
+                          className="p-1 rounded-md hover:bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-primary))] transition-colors"
+                          title="Modifier"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(c.id)}
+                          className="p-1 rounded-md hover:bg-[hsl(var(--danger-muted))] text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))] transition-colors"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </span>
+                    )}
                   </div>
-                  <p className="text-sm text-[hsl(var(--text-secondary))] whitespace-pre-wrap break-words mt-0.5">
-                    {c.content}
-                  </p>
+                  {isEditingThis ? (
+                    <div className="mt-1 space-y-2">
+                      <textarea
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        onKeyDown={handleEditKeyDown}
+                        rows={2}
+                        className={cn(
+                          "w-full resize-none rounded-lg border px-3 py-2 text-sm",
+                          "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]",
+                          "text-[hsl(var(--text-primary))]",
+                          "focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent",
+                          "min-h-[38px] max-h-[120px]"
+                        )}
+                        autoFocus
+                        onInput={(e) => {
+                          const el = e.currentTarget;
+                          el.style.height = "auto";
+                          el.style.height = Math.min(el.scrollHeight, 120) + "px";
+                        }}
+                        disabled={isEditing}
+                      />
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={saveEdit}
+                          disabled={!editContent.trim() || isEditing}
+                          className={cn(
+                            "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors",
+                            editContent.trim() && !isEditing
+                              ? "bg-accent text-white hover:brightness-110"
+                              : "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))] cursor-not-allowed"
+                          )}
+                        >
+                          {isEditing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                          Enregistrer
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          disabled={isEditing}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-[hsl(var(--text-muted))] hover:bg-[hsl(var(--bg-elevated))] transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                          Annuler
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-[hsl(var(--text-secondary))] whitespace-pre-wrap break-words mt-0.5">
+                      {c.content}
+                    </p>
+                  )}
                 </div>
               </div>
             );

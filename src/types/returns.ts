@@ -59,6 +59,7 @@ export interface ReturnComment {
   userImage: string | null;
   content: string;
   createdAt: string;
+  updatedAt: string | null;
 }
 
 /* =============================================================================
@@ -92,7 +93,7 @@ export interface ReturnRow {
   codeRetour: number;
   reportedAt: string;
   reporter: Reporter;
-  cause: Cause;
+  cause: Cause | null;
   expert: string | null;
   client: string | null;
   noClient?: string | null;
@@ -170,7 +171,7 @@ export interface ProductLineResponse {
 
 export interface CreateReturnPayload {
   reporter: Reporter;
-  cause: Cause;
+  cause?: Cause | null;
   expert: string;
   client: string;
   noClient?: string | null;

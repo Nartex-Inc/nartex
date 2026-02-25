@@ -476,7 +476,7 @@ export default function ReturnsPage() {
   const [sortDir, setSortDir] = React.useState<SortDir>("asc");
   const [openNew, setOpenNew] = React.useState(false);
 
-  const selected = React.useMemo(() => rows.find((r) => String(r.id) === openId) ?? null, [rows, openId]);
+  const selected = React.useMemo(() => rows.find((r) => String(r.id) === openId || String(r.codeRetour) === openId) ?? null, [rows, openId]);
 
   // Auto-open return from ?open= query param (e.g. notification click)
   React.useEffect(() => {
@@ -513,7 +513,7 @@ export default function ReturnsPage() {
         case "id": return r.id;
         case "reportedAt": return r.reportedAt;
         case "reporter": return REPORTER_LABEL[r.reporter] || r.reporter;
-        case "cause": return CAUSE_LABEL[r.cause] || r.cause;
+        case "cause": return r.cause ? (CAUSE_LABEL[r.cause] || r.cause) : "";
         case "client": return `${r.client} ${r.expert}`;
         case "noCommande": return r.noCommande ?? "";
         case "tracking": return r.tracking ?? "";
@@ -697,7 +697,7 @@ export default function ReturnsPage() {
                               status === "draft" && "bg-gray-200 text-gray-700",
                               status === "finalized" && "bg-[hsl(var(--bg-muted))]/50 text-[hsl(var(--text-muted))]",
                               status === "standby" && "bg-white/20 text-white"
-                            )}>{CAUSE_LABEL[row.cause]}</span>
+                            )}>{row.cause ? CAUSE_LABEL[row.cause] : "—"}</span>
                           </td>
                           <td className="px-4 py-3 max-w-[200px]">
                             <div className={cn("font-medium truncate", status === "finalized" && "text-[hsl(var(--text-muted))]")}>{row.client}</div>
@@ -815,6 +815,7 @@ function DetailModal({
   const isBypass = session?.user?.email?.toLowerCase() === "n.labranche@sinto.ca";
   const isManager = normalizedRole === "gestionnaire" || normalizedRole === "gestionnairetest" || normalizedRole === "administrateur" || isBypass;
   const canEdit = isManager && !isFinalized && !isVerified;
+  const canSaveVerified = isManager && isVerified && !isFinalized;
   const canForceDraft = isManager && !isFinalized;
   const canVerify = normalizedRole === "verificateur" && isPhysical && !isVerified && !isFinalized && !isDraft;
   const canFinalize = normalizedRole === "facturation" && !isFinalized && !isDraft && (!isPhysical || isVerified);
@@ -864,7 +865,8 @@ function DetailModal({
   }, [showFinalizationFields, draft.noCommande, totalWeight]);
 
   const handleSave = async () => {
-    if (!canEdit) return;
+    if (!canEdit && !canSaveVerified) return;
+    if ((draft.products ?? []).filter(p => p.codeProduit.trim()).length === 0) { alert("Veuillez ajouter au moins un produit."); return; }
     setBusy(true);
     try {
       await updateReturn(String(row.id), { ...draft });
@@ -879,6 +881,7 @@ function DetailModal({
 
   const handleSaveDraft = async () => {
     if (!canForceDraft) return;
+    if ((draft.products ?? []).filter(p => p.codeProduit.trim()).length === 0) { alert("Veuillez ajouter au moins un produit."); return; }
     setBusy(true);
     try {
       await updateReturn(String(row.id), { ...draft, forceDraft: true });
@@ -971,7 +974,7 @@ function DetailModal({
             <div>
               <h2 className="text-xl font-semibold text-[hsl(var(--text-primary))] flex items-center gap-3">
                 Retour {String(draft.id)}
-                <Badge>{CAUSE_LABEL[draft.cause]}</Badge>
+                {draft.cause && <Badge>{CAUSE_LABEL[draft.cause]}</Badge>}
                 {isDraft && <Badge variant="muted">Brouillon</Badge>}
               </h2>
               <div className="flex items-center gap-2.5 mt-1.5">
@@ -1048,7 +1051,7 @@ function DetailModal({
                 <span className="text-xs font-medium text-[hsl(var(--text-secondary))] uppercase tracking-wide mb-2 block">Cause</span>
                 <select
                   value={draft.cause || ""}
-                  onChange={(e) => setDraft({ ...draft, cause: e.target.value as Cause })}
+                  onChange={(e) => setDraft({ ...draft, cause: (e.target.value || null) as Cause | null })}
                   disabled={!canEdit}
                   className={cn(
                     "w-full h-11 px-4 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all duration-200",
@@ -1057,6 +1060,7 @@ function DetailModal({
                       : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent"
                   )}
                 >
+                  <option value="">— Aucune —</option>
                   {CAUSES_IN_ORDER.map((c) => <option key={c} value={c}>{CAUSE_LABEL[c]}</option>)}
                 </select>
               </label>
@@ -1105,13 +1109,23 @@ function DetailModal({
 
           {/* Products */}
           <section className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
-            <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] mb-4 flex items-center gap-2">
-              <Package className="h-4 w-4 text-[hsl(var(--text-tertiary))]" />
-              Produits (RMA)
-              {(draft.products?.length ?? 0) > 0 && (
-                <span className="ml-auto text-xs font-normal text-[hsl(var(--text-tertiary))]">{draft.products?.length} produit{(draft.products?.length ?? 0) > 1 ? 's' : ''}</span>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] flex items-center gap-2">
+                <Package className="h-4 w-4 text-[hsl(var(--text-tertiary))]" />
+                Produits (RMA)
+                {(draft.products?.length ?? 0) > 0 && (
+                  <span className="ml-2 text-xs font-normal text-[hsl(var(--text-tertiary))]">{draft.products?.length} produit{(draft.products?.length ?? 0) > 1 ? 's' : ''}</span>
+                )}
+              </h3>
+              {canEdit && (
+                <button
+                  onClick={() => setDraft(prev => ({ ...prev, products: [...(prev.products ?? []), { id: `np-${Date.now()}`, codeProduit: "", descriptionProduit: "", descriptionRetour: "", quantite: 1 }] }))}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] transition-all duration-200"
+                >
+                  <Plus className="h-3.5 w-3.5" />Ajouter
+                </button>
               )}
-            </h3>
+            </div>
             <div className="space-y-3">
               {(draft.products ?? []).map((p, idx) => (
                 <ProductRow
@@ -1488,15 +1502,15 @@ function DetailModal({
             <textarea
               className={cn(
                 "w-full px-4 py-3 rounded-xl border text-sm resize-none focus:outline-none focus:ring-2 transition-all duration-200",
-                isReadOnly
+                (isReadOnly && !canSaveVerified)
                   ? "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed"
                   : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent"
               )}
               rows={4}
               placeholder="Ajoutez des notes internes..."
               value={draft.description ?? ""}
-              onChange={(e) => !isReadOnly && setDraft({ ...draft, description: e.target.value })}
-              disabled={isReadOnly}
+              onChange={(e) => (!isReadOnly || canSaveVerified) && setDraft({ ...draft, description: e.target.value })}
+              disabled={isReadOnly && !canSaveVerified}
             />
           </section>
 
@@ -1519,7 +1533,7 @@ function DetailModal({
             </button>
           )}
 
-          {canEdit && (
+          {(canEdit || canSaveVerified) && (
             <button disabled={busy} onClick={handleSave} className={cn("inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] text-sm font-semibold hover:opacity-90 transition-all duration-200 shadow-lg", busy && "opacity-50 cursor-not-allowed")}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Enregistrer
@@ -1726,12 +1740,13 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
   };
 
   const buildPayload = () => ({
-    reporter: reporter || undefined, cause: cause || undefined, expert: expert.trim(), client: client.trim(), noClient: noClient.trim() || null, noCommande: noCommande.trim() || null, tracking: tracking.trim() || null, amount: amount ? Number(amount) : null, dateCommande: dateCommande || null, transport: transport.trim() || null, description: description.trim() || null, physicalReturn, isPickup, isCommande, isReclamation, noBill: isPickup ? noBill : null, noBonCommande: isCommande ? noBonCommande : null, noReclamation: isReclamation ? noReclamation : null, reportedAt: reportedAt || undefined,
+    reporter: reporter || undefined, cause: cause || null, expert: expert.trim(), client: client.trim(), noClient: noClient.trim() || null, noCommande: noCommande.trim() || null, tracking: tracking.trim() || null, amount: amount ? Number(amount) : null, dateCommande: dateCommande || null, transport: transport.trim() || null, description: description.trim() || null, physicalReturn, isPickup, isCommande, isReclamation, noBill: isPickup ? noBill : null, noBonCommande: isCommande ? noBonCommande : null, noReclamation: isReclamation ? noReclamation : null, reportedAt: reportedAt || undefined,
     products: products.map((p) => ({ ...p, codeProduit: p.codeProduit.trim(), descriptionProduit: p.descriptionProduit?.trim() || "", descriptionRetour: p.descriptionRetour?.trim() || "" })),
   });
 
   const submit = async () => {
-    if (!expert.trim() || !client.trim() || !reportedAt || !reporter || !cause) { alert("Expert, client, date, signalé par et cause sont requis."); return; }
+    if (!expert.trim() || !client.trim() || !reportedAt || !reporter) { alert("Expert, client, date et signalé par sont requis."); return; }
+    if (products.filter(p => p.codeProduit.trim()).length === 0) { alert("Veuillez ajouter au moins un produit."); return; }
     setBusy(true);
     try {
       const createdReturn = await createReturn(buildPayload());
@@ -1743,6 +1758,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
   };
 
   const submitDraft = async () => {
+    if (products.filter(p => p.codeProduit.trim()).length === 0) { alert("Veuillez ajouter au moins un produit."); return; }
     setBusy(true);
     try {
       const createdReturn = await createReturn(buildPayload());
@@ -1809,7 +1825,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Date" required><input type="date" value={reportedAt} onChange={(e) => setReportedAt(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-emerald-700/40 bg-emerald-950/30 text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-emerald-700/50 focus:border-transparent transition-all duration-200 [color-scheme:light] dark:[color-scheme:dark]" /></FormField>
               <FormField label="Signalé par" required><select value={reporter} onChange={(e) => setReporter(e.target.value as Reporter)} className="w-full h-11 px-4 rounded-xl border border-emerald-700/40 bg-emerald-950/30 text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-emerald-700/50 focus:border-transparent transition-all duration-200"><option value="" disabled>— Sélectionner —</option>{Object.entries(REPORTER_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></FormField>
-              <FormField label="Cause" required><select value={cause} onChange={(e) => setCause(e.target.value as Cause)} className="w-full h-11 px-4 rounded-xl border border-emerald-700/40 bg-emerald-950/30 text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-emerald-700/50 focus:border-transparent transition-all duration-200"><option value="" disabled>— Sélectionner —</option>{CAUSES_IN_ORDER.map((c) => <option key={c} value={c}>{CAUSE_LABEL[c]}</option>)}</select></FormField>
+              <FormField label="Cause"><select value={cause} onChange={(e) => setCause(e.target.value as Cause | "")} className="w-full h-11 px-4 rounded-xl border border-emerald-700/40 bg-emerald-950/30 text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-emerald-700/50 focus:border-transparent transition-all duration-200"><option value="">— Aucune —</option>{CAUSES_IN_ORDER.map((c) => <option key={c} value={c}>{CAUSE_LABEL[c]}</option>)}</select></FormField>
               <FormField label="No. client"><input value={noClient} onChange={(e) => setNoClient(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="12345" /></FormField>
             </div>
             <div className="grid grid-cols-2 gap-4">
