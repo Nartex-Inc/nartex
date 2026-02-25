@@ -77,7 +77,14 @@ export async function GET(request: NextRequest) {
       // ACTIVE MODE: Role-specific filtering (using normalized role comparison)
       if (normalizedRole === "gestionnaire" || normalizedRole === "gestionnairetest" || normalizedRole === "administrateur") {
         // Gestionnaire/Administrateur sees ALL active returns including drafts
+        // But hide returns admin-drafted by someone else
         AND.push({ isFinal: false });
+        AND.push({
+          OR: [
+            { adminDraftBy: null },
+            { adminDraftBy: user.id },
+          ],
+        });
       } else if (normalizedRole === "verificateur") {
         // Vérificateur ONLY sees returns where:
         // - returnPhysical == TRUE AND isVerified == FALSE

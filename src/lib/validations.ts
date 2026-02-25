@@ -113,9 +113,9 @@ export const FinalizeReturnSchema = z.object({
   products: z.array(
     z.object({
       codeProduit: z.string().min(1),
-      quantiteRecue: z.number().int().min(0),
-      qteDetruite: z.number().int().min(0),
-      tauxRestock: z.number().min(0),
+      quantiteRecue: z.number().int().min(0).nullable().optional(),
+      qteDetruite: z.number().int().min(0).nullable().optional(),
+      tauxRestock: z.number().min(0).nullable().optional(),
     })
   ).optional(),
   warehouseOrigin: z.string().nullable().optional(),

@@ -301,6 +301,7 @@ model Return {
   isCommande         Boolean  @default(false)
   isReclamation      Boolean  @default(false)
   noCommandeCheckbox Boolean? @default(false) @map("no_commande_checkbox")
+  adminDraftBy       String?             @map("admin_draft_by")
 
   // Documents / References
   noBill        String? @db.VarChar(50)

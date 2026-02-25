@@ -276,13 +276,18 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const hasProducts = effectiveProductCount > 0;
 
     if (body.forceDraft) {
-      // Force back to draft: reset isDraft and undo verification
       updateData.isDraft = true;
-      updateData.isVerified = false;
-      updateData.verifiedBy = null;
-      updateData.verifiedAt = null;
+      if (ret.isVerified) {
+        // Admin draft lock: preserve verification, mark who locked it
+        updateData.adminDraftBy = user.id;
+      } else {
+        // Not verified — no verification to preserve
+        updateData.adminDraftBy = null;
+      }
     } else {
       updateData.isDraft = !(hasRequiredFields && hasProducts);
+      // Clear admin draft lock on normal save
+      updateData.adminDraftBy = null;
     }
 
     // Update the return

@@ -77,17 +77,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     if (body.products && Array.isArray(body.products)) {
       for (const p of body.products) {
+        const quantiteRecue = p.quantiteRecue ?? 0;
+        const qteDetruite = p.qteDetruite ?? 0;
         // Server-side compute: don't trust client qteInventaire
-        const qteInventaire = p.quantiteRecue - p.qteDetruite;
+        const qteInventaire = quantiteRecue - qteDetruite;
         // tauxRestock conversion: body sends percentage, DB stores decimal
-        const tauxRestock = p.tauxRestock !== undefined ? p.tauxRestock / 100 : null;
+        const tauxRestock = p.tauxRestock != null ? p.tauxRestock / 100 : null;
 
         await prisma.returnProduct.updateMany({
           where: { returnId: ret.id, codeProduit: p.codeProduit },
           data: {
-            quantiteRecue: p.quantiteRecue,
+            quantiteRecue,
             qteInventaire,
-            qteDetruite: p.qteDetruite,
+            qteDetruite,
             tauxRestock,
           },
         });
@@ -95,7 +97,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         // Calculate total weight
         const product = ret.products.find((pr) => pr.codeProduit === p.codeProduit);
         if (product) {
-          const qty = p.quantiteRecue ?? product.quantiteRecue ?? product.quantite ?? 0;
+          const qty = quantiteRecue || (product.quantiteRecue ?? product.quantite ?? 0);
           const weight = product.weightProduit ? Number(product.weightProduit) : 0;
           totalWeight += qty * weight;
         }
