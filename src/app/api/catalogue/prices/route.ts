@@ -16,7 +16,7 @@ const COLUMN_MATRIX: Record<string, string[]> = {
   "02-DET": ["02-DET", "08-PDS"],
   "03-IND": ["03-IND"],
   "04-GROSEXP": ["02-DET", "04-GROSEXP", "05-GROS", "06-INDHZ", "08-PDS"],
-  "05-GROS": ["05-GROS"],
+  "05-GROS": ["02-DET", "03-IND", "05-GROS"],
   "06-INDHZ": ["06-INDHZ"],
   "07-DETHZ": ["07-DETHZ", "08-PDS"],
 };
