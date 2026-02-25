@@ -848,7 +848,7 @@ function DetailModal({
         setDraft(prev => ({
           ...prev,
           villeShipto: json.city ?? prev.villeShipto,
-          transportAmount: json.shippingCost ?? prev.transportAmount,
+          transportAmount: json.shippingCost != null ? Math.round(json.shippingCost * 100) / 100 : prev.transportAmount,
         }));
       } catch { /* ignore */ }
     };
@@ -1360,7 +1360,7 @@ function DetailModal({
                       className="w-full h-11 px-4 rounded-xl border text-sm bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed"
                     />
                   </label>
-                  <Field label="Montant transport" value={draft.transportAmount?.toString() ?? ""} onChange={(v) => setDraft({ ...draft, transportAmount: v ? Number(v) : null })} type="number" icon={<DollarSign className="h-4 w-4" />} disabled={!canFinalize} />
+                  <Field label="Montant transport" value={draft.transportAmount != null ? Number(draft.transportAmount.toFixed(2)).toString() : ""} onChange={(v) => setDraft({ ...draft, transportAmount: v ? Number(v) : null })} type="number" icon={<DollarSign className="h-4 w-4" />} disabled={!canFinalize} />
                 </div>
                 <Switch
                   label="Facturer le transport"

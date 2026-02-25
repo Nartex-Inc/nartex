@@ -98,8 +98,8 @@ export async function POST(
     const { user, tenantId } = auth;
     console.log("[Attachments API] Session:", user.name || "authenticated");
 
-    // Role guard: only Gestionnaire/Administrateur/Analyste can upload
-    const roleError = requireRoles(user, ["gestionnaire", "administrateur", "analyste"]);
+    // Role guard: only Gestionnaire/Administrateur/Analyste/Facturation can upload
+    const roleError = requireRoles(user, ["gestionnaire", "administrateur", "analyste", "facturation"]);
     if (roleError) return roleError;
 
     const { code } = await params;
