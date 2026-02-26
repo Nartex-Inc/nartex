@@ -1082,7 +1082,7 @@ function DetailModal({
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <label className="block">
-                <span className="text-xs font-medium text-[hsl(var(--text-secondary))] uppercase tracking-wide mb-2 block">Cause</span>
+                <span className="text-xs font-medium text-[hsl(var(--text-secondary))] uppercase tracking-wide mb-2 block">Cause<span className="text-[hsl(var(--danger))] ml-0.5">*</span></span>
                 <select
                   value={draft.cause || ""}
                   onChange={(e) => setDraft({ ...draft, cause: (e.target.value || null) as Cause | null })}
@@ -1091,10 +1091,12 @@ function DetailModal({
                     "w-full h-11 px-4 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all duration-200",
                     !canEdit
                       ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed"
-                      : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent"
+                      : draft.cause
+                        ? "border-emerald-500/50 bg-transparent text-[hsl(var(--text-primary))] focus:ring-emerald-500/40 focus:border-transparent"
+                        : "border-dashed border-emerald-500/50 bg-emerald-500/10 text-[hsl(var(--text-primary))] focus:ring-emerald-500/40 focus:border-transparent"
                   )}
                 >
-                  <option value="">— Aucune —</option>
+                  <option value="" disabled>— Sélectionner —</option>
                   {CAUSES_IN_ORDER.map((c) => <option key={c} value={c}>{CAUSE_LABEL[c]}</option>)}
                 </select>
               </label>
@@ -1799,7 +1801,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
   });
 
   const submit = async () => {
-    if (!expert.trim() || !client.trim() || !reportedAt || !reporter) { alert("Expert, client, date et signalé par sont requis."); return; }
+    if (!expert.trim() || !client.trim() || !reportedAt || !reporter || !cause) { alert("Expert, client, date, signalé par et cause sont requis."); return; }
     if (products.filter(p => p.codeProduit.trim()).length === 0) { alert("Veuillez ajouter au moins un produit."); return; }
     setBusy(true);
     try {
@@ -1878,7 +1880,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Date" required><input type="date" value={reportedAt} onChange={(e) => setReportedAt(e.target.value)} className={cn("w-full h-11 px-4 rounded-xl border text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 [color-scheme:light] dark:[color-scheme:dark]", requiredFieldCls(reportedAt))} /></FormField>
               <FormField label="Signalé par" required><select value={reporter} onChange={(e) => setReporter(e.target.value as Reporter)} className={cn("w-full h-11 px-4 rounded-xl border text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200", requiredFieldCls(reporter))}><option value="" disabled>— Sélectionner —</option>{Object.entries(REPORTER_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></FormField>
-              <FormField label="Cause"><select value={cause} onChange={(e) => setCause(e.target.value as Cause | "")} className={cn("w-full h-11 px-4 rounded-xl border text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200", optionalFieldCls(cause))}><option value="">— Aucune —</option>{CAUSES_IN_ORDER.map((c) => <option key={c} value={c}>{CAUSE_LABEL[c]}</option>)}</select></FormField>
+              <FormField label="Cause" required><select value={cause} onChange={(e) => setCause(e.target.value as Cause | "")} className={cn("w-full h-11 px-4 rounded-xl border text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200", requiredFieldCls(cause))}><option value="" disabled>— Sélectionner —</option>{CAUSES_IN_ORDER.map((c) => <option key={c} value={c}>{CAUSE_LABEL[c]}</option>)}</select></FormField>
               <FormField label="No. client"><input value={noClient} onChange={(e) => { setNoClient(e.target.value); clearAutofill("noClient"); }} className={cn("w-full h-11 px-4 rounded-xl border text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200", optionalFieldCls(noClient, "noClient"))} placeholder="12345" /></FormField>
             </div>
             <div className="grid grid-cols-2 gap-4">
