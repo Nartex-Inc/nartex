@@ -1344,7 +1344,25 @@ function DetailModal({
                             <td className="px-3 py-2 text-center">
                               <span className="inline-block px-2 py-0.5 rounded bg-[hsl(var(--success-muted))] text-[hsl(var(--success))] font-medium">{qteInv}</span>
                             </td>
-                            <td className="px-3 py-2 text-center text-[hsl(var(--text-secondary))]">{qteDetruite}</td>
+                            <td className="px-3 py-2 text-center">
+                              {canFinalize ? (
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={qteRecue}
+                                  className="w-16 h-8 px-2 rounded-md text-xs text-center border bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] transition-all duration-200"
+                                  value={qteDetruite}
+                                  onChange={(e) => {
+                                    const val = Math.max(0, Math.min(Number(e.target.value || 0), qteRecue));
+                                    const arr = (draft.products ?? []).slice();
+                                    arr[idx] = { ...p, qteDetruite: val, qteInventaire: qteRecue - val };
+                                    setDraft({ ...draft, products: arr });
+                                  }}
+                                />
+                              ) : (
+                                <span className="text-[hsl(var(--text-secondary))]">{qteDetruite}</span>
+                              )}
+                            </td>
                             <td className="px-3 py-2 text-center">
                               <select
                                 className={cn(
