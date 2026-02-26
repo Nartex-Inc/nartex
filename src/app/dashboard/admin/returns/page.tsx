@@ -40,6 +40,21 @@ import type { ReturnRow, Reporter, Cause, Attachment, ProductLine, ItemSuggestio
 import { calculateShippingCost } from "@/types/returns";
 
 // =============================================================================
+//   HELPERS
+// =============================================================================
+
+function formatMontant(val: string | number | null | undefined): string {
+  if (val == null || val === "") return "";
+  const num = typeof val === "string" ? parseFloat(val.replace(/\s/g, "").replace(",", ".")) : val;
+  if (isNaN(num)) return "";
+  return num.toLocaleString("fr-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function parseMontant(formatted: string): string {
+  return formatted.replace(/\s/g, "").replace(",", ".");
+}
+
+// =============================================================================
 //   CONSTANTS & LABELS
 // =============================================================================
 
@@ -1102,7 +1117,7 @@ function DetailModal({
               <Field label="No. Commande" value={draft.noCommande ?? ""} onChange={(v) => setDraft({ ...draft, noCommande: v })} disabled={!canEdit} />
               <Field label="Tracking" value={draft.tracking ?? ""} onChange={(v) => setDraft({ ...draft, tracking: v })} icon={<Truck className="h-4 w-4" />} disabled={!canEdit} />
               <Field label="Transporteur" value={draft.transport ?? ""} onChange={(v) => setDraft({ ...draft, transport: v })} disabled={!canEdit} />
-              <Field label="Montant" value={draft.amount?.toString() ?? ""} onChange={(v) => setDraft({ ...draft, amount: v ? Number(v) : null })} type="number" icon={<DollarSign className="h-4 w-4" />} disabled={!canEdit} />
+              <Field label="Montant" value={formatMontant(draft.amount)} onChange={(v) => setDraft({ ...draft, amount: v ? Number(parseMontant(v)) : null })} icon={<DollarSign className="h-4 w-4" />} disabled={!canEdit} />
               <Field label="Date Commande" value={draft.dateCommande ?? ""} onChange={(v) => setDraft({ ...draft, dateCommande: v })} type="date" disabled={!canEdit} />
             </div>
           </div>
@@ -1771,14 +1786,14 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
       if (data.carrierName) { setTransport(String(data.carrierName)); filled.add("transport"); }
       if (data.tracking) { setTracking(String(data.tracking)); filled.add("tracking"); }
       if (data.orderDate) { setDateCommande(String(data.orderDate).slice(0, 10)); filled.add("dateCommande"); }
-      if (data.totalamt != null) { setAmount(String(data.totalamt)); filled.add("amount"); }
+      if (data.totalamt != null) { setAmount(formatMontant(data.totalamt)); filled.add("amount"); }
       if (data.noClient) { setNoClient(String(data.noClient)); filled.add("noClient"); }
       if (filled.size > 0) setAutofilledFields(filled);
     } finally { setOrderLookupLoading(false); }
   };
 
   const buildPayload = (opts?: { forceDraft?: boolean }) => ({
-    reporter: reporter || undefined, cause: cause || null, expert: expert.trim(), client: client.trim(), noClient: noClient.trim() || null, noCommande: noCommande.trim() || null, tracking: tracking.trim() || null, amount: amount ? Number(amount) : null, dateCommande: dateCommande || null, transport: transport.trim() || null, description: description.trim() || null, physicalReturn, isPickup, isCommande, isReclamation, noBill: isPickup ? noBill : null, noBonCommande: isCommande ? noBonCommande : null, noReclamation: isReclamation ? noReclamation : null, reportedAt: reportedAt || undefined,
+    reporter: reporter || undefined, cause: cause || null, expert: expert.trim(), client: client.trim(), noClient: noClient.trim() || null, noCommande: noCommande.trim() || null, tracking: tracking.trim() || null, amount: amount ? Number(parseMontant(amount)) : null, dateCommande: dateCommande || null, transport: transport.trim() || null, description: description.trim() || null, physicalReturn, isPickup, isCommande, isReclamation, noBill: isPickup ? noBill : null, noBonCommande: isCommande ? noBonCommande : null, noReclamation: isReclamation ? noReclamation : null, reportedAt: reportedAt || undefined,
     ...(opts?.forceDraft ? { forceDraft: true } : {}),
     products: products.map((p) => ({ ...p, codeProduit: p.codeProduit.trim(), descriptionProduit: p.descriptionProduit?.trim() || "", descriptionRetour: p.descriptionRetour?.trim() || "" })),
   });
@@ -1873,7 +1888,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <FormField label="Tracking"><input value={tracking} onChange={(e) => { setTracking(e.target.value); clearAutofill("tracking"); }} className={cn("w-full h-11 px-4 rounded-xl border text-sm font-mono text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200", optionalFieldCls(tracking, "tracking"))} placeholder="1Z999..." /></FormField>
               <FormField label="Transporteur"><input value={transport} onChange={(e) => { setTransport(e.target.value); clearAutofill("transport"); }} className={cn("w-full h-11 px-4 rounded-xl border text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200", optionalFieldCls(transport, "transport"))} placeholder="Purolator" /></FormField>
-              <FormField label="Montant"><input value={amount} onChange={(e) => { setAmount(e.target.value); clearAutofill("amount"); }} className={cn("w-full h-11 px-4 rounded-xl border text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200", optionalFieldCls(amount, "amount"))} placeholder="0.00" /></FormField>
+              <FormField label="Montant"><input value={amount} onChange={(e) => { setAmount(e.target.value); clearAutofill("amount"); }} onBlur={() => { if (amount) setAmount(formatMontant(amount)); }} onFocus={() => { if (amount) setAmount(parseMontant(amount)); }} className={cn("w-full h-11 px-4 rounded-xl border text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200", optionalFieldCls(amount, "amount"))} placeholder="0,00" /></FormField>
               <FormField label="Date commande"><input type="date" value={dateCommande} onChange={(e) => { setDateCommande(e.target.value); clearAutofill("dateCommande"); }} className={cn("w-full h-11 px-4 rounded-xl border text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 [color-scheme:light] dark:[color-scheme:dark]", optionalFieldCls(dateCommande, "dateCommande"))} /></FormField>
             </div>
           </div>

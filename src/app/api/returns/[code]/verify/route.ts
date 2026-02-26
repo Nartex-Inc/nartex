@@ -112,7 +112,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       where: { id: returnId },
       data: {
         isVerified: true,
-        verifiedBy: user.name || "Vérificateur",
+        verifiedBy: user.email || user.name || "Vérificateur",
         verifiedAt: new Date(),
       },
     });

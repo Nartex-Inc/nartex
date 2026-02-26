@@ -111,7 +111,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         isFinal: true,
         isStandby: false,
         isDraft: false,
-        finalizedBy: user.name || "Facturation",
+        finalizedBy: user.email || user.name || "Facturation",
         finalizedAt: new Date(),
         warehouseOrigin: body.warehouseOrigin ?? ret.warehouseOrigin,
         warehouseDestination: body.warehouseDestination ?? ret.warehouseDestination,

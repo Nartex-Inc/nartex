@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import useSWR from "swr";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Bell, Check, X, ExternalLink } from "lucide-react";
 import {
   DropdownMenu,
@@ -36,6 +36,7 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export function NotificationBell() {
   const router = useRouter();
+  const pathname = usePathname();
   const { data, mutate } = useSWR<NotificationsResponse>(
     "/api/notifications?limit=10",
     fetcher,
@@ -86,7 +87,12 @@ export function NotificationBell() {
       markAsRead([notification.id]);
     }
     if (notification.link) {
-      router.push(notification.link);
+      const linkPath = notification.link.split("?")[0];
+      if (linkPath === pathname) {
+        window.location.href = notification.link;
+      } else {
+        router.push(notification.link);
+      }
     }
   };
 
