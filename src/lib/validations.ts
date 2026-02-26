@@ -60,6 +60,7 @@ export const CreateReturnSchema = z.object({
   noBonCommande: z.string().nullable().optional(),
   noReclamation: z.string().nullable().optional(),
   noCommandeCheckbox: z.boolean().optional(),
+  forceDraft: z.boolean().optional(),
   products: z.array(ReturnProductSchema).optional(),
 });
 

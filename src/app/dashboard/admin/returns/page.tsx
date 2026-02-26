@@ -1723,8 +1723,25 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
   const [filesToUpload, setFilesToUpload] = React.useState<File[]>([]);
   const [busy, setBusy] = React.useState(false);
   const [orderLookupLoading, setOrderLookupLoading] = React.useState(false);
+  const [autofilledFields, setAutofilledFields] = React.useState<Set<string>>(new Set());
 
   const currentUserName = session?.user?.name || "Utilisateur";
+
+  const clearAutofill = (field: string) => {
+    setAutofilledFields((prev) => { const next = new Set(prev); next.delete(field); return next; });
+  };
+
+  // Dynamic border classes for fields
+  const requiredFieldCls = (value: string, field?: string) => {
+    if (field && autofilledFields.has(field)) return "border-2 border-emerald-400 bg-emerald-500/10 focus:ring-emerald-400/40";
+    if (!value) return "border-dashed border-emerald-500/50 bg-emerald-500/10 focus:ring-emerald-500/40";
+    return "border-emerald-500/50 bg-emerald-500/10 focus:ring-emerald-500/40";
+  };
+  const optionalFieldCls = (value: string, field?: string) => {
+    if (field && autofilledFields.has(field)) return "border-2 border-emerald-400 bg-emerald-500/10 focus:ring-emerald-400/40";
+    if (!value) return "border-dashed border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] focus:ring-[hsl(var(--border-default))]";
+    return "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] focus:ring-[hsl(var(--border-default))]";
+  };
 
   React.useEffect(() => {
     const fetchNextId = async () => {
@@ -1748,18 +1765,21 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
     try {
       const data = await lookupOrder(noCommande);
       if (!data) return;
-      if (data.customerName) setClient(String(data.customerName));
-      if (data.salesrepName) setExpert(String(data.salesrepName));
-      if (data.carrierName) setTransport(String(data.carrierName));
-      if (data.tracking) setTracking(String(data.tracking));
-      if (data.orderDate) setDateCommande(String(data.orderDate).slice(0, 10));
-      if (data.totalamt != null) setAmount(String(data.totalamt));
-      if (data.noClient) setNoClient(String(data.noClient));
+      const filled = new Set<string>();
+      if (data.customerName) { setClient(String(data.customerName)); filled.add("client"); }
+      if (data.salesrepName) { setExpert(String(data.salesrepName)); filled.add("expert"); }
+      if (data.carrierName) { setTransport(String(data.carrierName)); filled.add("transport"); }
+      if (data.tracking) { setTracking(String(data.tracking)); filled.add("tracking"); }
+      if (data.orderDate) { setDateCommande(String(data.orderDate).slice(0, 10)); filled.add("dateCommande"); }
+      if (data.totalamt != null) { setAmount(String(data.totalamt)); filled.add("amount"); }
+      if (data.noClient) { setNoClient(String(data.noClient)); filled.add("noClient"); }
+      if (filled.size > 0) setAutofilledFields(filled);
     } finally { setOrderLookupLoading(false); }
   };
 
-  const buildPayload = () => ({
+  const buildPayload = (opts?: { forceDraft?: boolean }) => ({
     reporter: reporter || undefined, cause: cause || null, expert: expert.trim(), client: client.trim(), noClient: noClient.trim() || null, noCommande: noCommande.trim() || null, tracking: tracking.trim() || null, amount: amount ? Number(amount) : null, dateCommande: dateCommande || null, transport: transport.trim() || null, description: description.trim() || null, physicalReturn, isPickup, isCommande, isReclamation, noBill: isPickup ? noBill : null, noBonCommande: isCommande ? noBonCommande : null, noReclamation: isReclamation ? noReclamation : null, reportedAt: reportedAt || undefined,
+    ...(opts?.forceDraft ? { forceDraft: true } : {}),
     products: products.map((p) => ({ ...p, codeProduit: p.codeProduit.trim(), descriptionProduit: p.descriptionProduit?.trim() || "", descriptionRetour: p.descriptionRetour?.trim() || "" })),
   });
 
@@ -1777,10 +1797,9 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
   };
 
   const submitDraft = async () => {
-    if (products.filter(p => p.codeProduit.trim()).length === 0) { alert("Veuillez ajouter au moins un produit."); return; }
     setBusy(true);
     try {
-      const createdReturn = await createReturn(buildPayload());
+      const createdReturn = await createReturn(buildPayload({ forceDraft: true }));
       if (filesToUpload.length > 0 && createdReturn?.id) {
         for (const file of filesToUpload) await uploadAttachment(String(createdReturn.id), file);
       }
@@ -1818,44 +1837,44 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
             <label className="block text-sm font-medium text-[hsl(var(--text-primary))] mb-3">Recherche par commande</label>
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-muted))]" />
-              <input type="text" value={noCommande} onChange={(e) => setNoCommande(e.target.value)} onBlur={onFetchFromOrder} onKeyDown={(e) => e.key === "Enter" && onFetchFromOrder()} placeholder="Entrez un numéro de commande" className="w-full h-12 pl-11 pr-4 rounded-xl border border-emerald-700/40 bg-emerald-950/30 text-sm font-mono text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-emerald-700/50 focus:border-transparent transition-all duration-200" />
+              <input type="text" value={noCommande} onChange={(e) => setNoCommande(e.target.value)} onBlur={onFetchFromOrder} onKeyDown={(e) => e.key === "Enter" && onFetchFromOrder()} placeholder="Entrez un numéro de commande" className={cn("w-full h-12 pl-11 pr-4 rounded-xl border text-sm font-mono text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200", requiredFieldCls(noCommande))} />
               {orderLookupLoading && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-muted))] animate-spin" />}
             </div>
           </div>
 
-          {/* Physical Return Toggle */}
-          <div onClick={() => setPhysicalReturn(!physicalReturn)} className={cn("p-5 rounded-xl border cursor-pointer transition-all duration-200 shadow-sm", physicalReturn ? "border-[hsl(var(--success))]/20 bg-[hsl(var(--success-muted))]" : "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] hover:bg-[hsl(var(--bg-elevated))]")}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center", physicalReturn ? "bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]" : "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))]")}>
-                  <Package className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className={cn("text-sm font-medium", physicalReturn ? "text-[hsl(var(--success))]" : "text-[hsl(var(--text-primary))]")}>Retour physique</div>
-                  <div className="text-xs text-[hsl(var(--text-tertiary))] mt-0.5">{physicalReturn ? "Requiert vérification à la réception" : "Retour administratif uniquement"}</div>
-                </div>
-              </div>
-              <Switch checked={physicalReturn} onCheckedChange={setPhysicalReturn} />
+          {/* Status Controls: Physical Return + Options */}
+          <div className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <Switch
+                label="Retour physique requis"
+                checked={physicalReturn}
+                onCheckedChange={setPhysicalReturn}
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-5 border-t border-[hsl(var(--border-subtle))]">
+              <OptionToggle label="Pickup" checked={isPickup} onToggle={() => setIsPickup(!isPickup)} inputValue={noBill} onInputChange={setNoBill} inputPlaceholder="No. Bill" toggleDisabled={false} inputDisabled={!isPickup} />
+              <OptionToggle label="Commande" checked={isCommande} onToggle={() => setIsCommande(!isCommande)} inputValue={noBonCommande} onInputChange={setNoBonCommande} inputPlaceholder="No. Bon" toggleDisabled={false} inputDisabled={!isCommande} />
+              <OptionToggle label="Réclamation" checked={isReclamation} onToggle={() => setIsReclamation(!isReclamation)} inputValue={noReclamation} onInputChange={setNoReclamation} inputPlaceholder="No. Récl." toggleDisabled={false} inputDisabled={!isReclamation} />
             </div>
           </div>
 
           {/* Form Fields */}
           <div className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm space-y-5">
             <div className="grid grid-cols-2 gap-4">
-              <FormField label="Date" required><input type="date" value={reportedAt} onChange={(e) => setReportedAt(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-emerald-700/40 bg-emerald-950/30 text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-emerald-700/50 focus:border-transparent transition-all duration-200 [color-scheme:light] dark:[color-scheme:dark]" /></FormField>
-              <FormField label="Signalé par" required><select value={reporter} onChange={(e) => setReporter(e.target.value as Reporter)} className="w-full h-11 px-4 rounded-xl border border-emerald-700/40 bg-emerald-950/30 text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-emerald-700/50 focus:border-transparent transition-all duration-200"><option value="" disabled>— Sélectionner —</option>{Object.entries(REPORTER_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></FormField>
-              <FormField label="Cause"><select value={cause} onChange={(e) => setCause(e.target.value as Cause | "")} className="w-full h-11 px-4 rounded-xl border border-emerald-700/40 bg-emerald-950/30 text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-emerald-700/50 focus:border-transparent transition-all duration-200"><option value="">— Aucune —</option>{CAUSES_IN_ORDER.map((c) => <option key={c} value={c}>{CAUSE_LABEL[c]}</option>)}</select></FormField>
-              <FormField label="No. client"><input value={noClient} onChange={(e) => setNoClient(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="12345" /></FormField>
+              <FormField label="Date" required><input type="date" value={reportedAt} onChange={(e) => setReportedAt(e.target.value)} className={cn("w-full h-11 px-4 rounded-xl border text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 [color-scheme:light] dark:[color-scheme:dark]", requiredFieldCls(reportedAt))} /></FormField>
+              <FormField label="Signalé par" required><select value={reporter} onChange={(e) => setReporter(e.target.value as Reporter)} className={cn("w-full h-11 px-4 rounded-xl border text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200", requiredFieldCls(reporter))}><option value="" disabled>— Sélectionner —</option>{Object.entries(REPORTER_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></FormField>
+              <FormField label="Cause"><select value={cause} onChange={(e) => setCause(e.target.value as Cause | "")} className={cn("w-full h-11 px-4 rounded-xl border text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200", optionalFieldCls(cause))}><option value="">— Aucune —</option>{CAUSES_IN_ORDER.map((c) => <option key={c} value={c}>{CAUSE_LABEL[c]}</option>)}</select></FormField>
+              <FormField label="No. client"><input value={noClient} onChange={(e) => { setNoClient(e.target.value); clearAutofill("noClient"); }} className={cn("w-full h-11 px-4 rounded-xl border text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200", optionalFieldCls(noClient, "noClient"))} placeholder="12345" /></FormField>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <FormField label="Expert" required><ExpertAutocomplete value={expert} onChange={setExpert} className="w-full h-11 px-4 rounded-xl border border-emerald-700/40 bg-emerald-950/30 text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-emerald-700/50 focus:border-transparent transition-all duration-200" placeholder="Nom du représentant" /></FormField>
-              <FormField label="Client" required><input value={client} onChange={(e) => setClient(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-emerald-700/40 bg-emerald-950/30 text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-emerald-700/50 focus:border-transparent transition-all duration-200" placeholder="Nom du client" /></FormField>
+              <FormField label="Expert" required><ExpertAutocomplete value={expert} onChange={(v) => { setExpert(v); clearAutofill("expert"); }} className={cn("w-full h-11 px-4 rounded-xl border text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200", requiredFieldCls(expert, "expert"))} placeholder="Nom du représentant" /></FormField>
+              <FormField label="Client" required><input value={client} onChange={(e) => { setClient(e.target.value); clearAutofill("client"); }} className={cn("w-full h-11 px-4 rounded-xl border text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200", requiredFieldCls(client, "client"))} placeholder="Nom du client" /></FormField>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <FormField label="Tracking"><input value={tracking} onChange={(e) => setTracking(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm font-mono text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="1Z999..." /></FormField>
-              <FormField label="Transporteur"><input value={transport} onChange={(e) => setTransport(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Purolator" /></FormField>
-              <FormField label="Montant"><input value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="0.00" /></FormField>
-              <FormField label="Date commande"><input type="date" value={dateCommande} onChange={(e) => setDateCommande(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200 [color-scheme:light] dark:[color-scheme:dark]" /></FormField>
+              <FormField label="Tracking"><input value={tracking} onChange={(e) => { setTracking(e.target.value); clearAutofill("tracking"); }} className={cn("w-full h-11 px-4 rounded-xl border text-sm font-mono text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200", optionalFieldCls(tracking, "tracking"))} placeholder="1Z999..." /></FormField>
+              <FormField label="Transporteur"><input value={transport} onChange={(e) => { setTransport(e.target.value); clearAutofill("transport"); }} className={cn("w-full h-11 px-4 rounded-xl border text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200", optionalFieldCls(transport, "transport"))} placeholder="Purolator" /></FormField>
+              <FormField label="Montant"><input value={amount} onChange={(e) => { setAmount(e.target.value); clearAutofill("amount"); }} className={cn("w-full h-11 px-4 rounded-xl border text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200", optionalFieldCls(amount, "amount"))} placeholder="0.00" /></FormField>
+              <FormField label="Date commande"><input type="date" value={dateCommande} onChange={(e) => { setDateCommande(e.target.value); clearAutofill("dateCommande"); }} className={cn("w-full h-11 px-4 rounded-xl border text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 [color-scheme:light] dark:[color-scheme:dark]", optionalFieldCls(dateCommande, "dateCommande"))} /></FormField>
             </div>
           </div>
 
@@ -1908,15 +1927,9 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
           {/* Notes */}
           <section className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
             <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] mb-4 flex items-center gap-2"><FileText className="h-4 w-4 text-[hsl(var(--text-tertiary))]" />Notes internes</h3>
-            <textarea className="w-full px-4 py-3 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200 resize-none" rows={4} placeholder="Ajoutez des notes internes..." value={description} onChange={(e) => setDescription(e.target.value)} />
+            <textarea className={cn("w-full px-4 py-3 rounded-xl border text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 resize-none", optionalFieldCls(description))} rows={4} placeholder="Ajoutez des notes internes..." value={description} onChange={(e) => setDescription(e.target.value)} />
           </section>
 
-          {/* Options */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <OptionToggle label="Pickup" checked={isPickup} onToggle={() => setIsPickup(!isPickup)} inputValue={noBill} onInputChange={setNoBill} inputPlaceholder="No. Bill" toggleDisabled={false} inputDisabled={!isPickup} />
-            <OptionToggle label="Commande" checked={isCommande} onToggle={() => setIsCommande(!isCommande)} inputValue={noBonCommande} onInputChange={setNoBonCommande} inputPlaceholder="No. Bon" toggleDisabled={false} inputDisabled={!isCommande} />
-            <OptionToggle label="Réclamation" checked={isReclamation} onToggle={() => setIsReclamation(!isReclamation)} inputValue={noReclamation} onInputChange={setNoReclamation} inputPlaceholder="No. Récl." toggleDisabled={false} inputDisabled={!isReclamation} />
-          </div>
         </div>
 
         {/* Footer */}

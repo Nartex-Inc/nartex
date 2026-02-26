@@ -339,7 +339,7 @@ export async function POST(request: NextRequest) {
       && body.products.length > 0
       && body.products.some((p) => (p.quantite ?? 0) > 0);
 
-    const isDraft = !(hasRequiredFields && hasProducts);
+    const isDraft = body.forceDraft ? true : !(hasRequiredFields && hasProducts);
 
     const lastReturn = await prisma.return.findFirst({
       select: { id: true },
