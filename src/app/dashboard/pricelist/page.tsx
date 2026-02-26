@@ -2221,6 +2221,65 @@ function CataloguePageContent() {
           doc.line(15, finalY, pageWidth - 15, finalY);
           showTableHead = false;
         });
+
+        // Class total row — only when more than 1 SKU
+        if (classItems.length > 1) {
+          const totVol365 = classItems.reduce((s, i) => s + (i.volumeLtKg365 || 0), 0);
+          const totSales365 = classItems.reduce((s, i) => s + (i.sales365 || 0), 0);
+          const totVol720 = classItems.reduce((s, i) => s + (i.volumeLtKg720 || 0), 0);
+          const totSales720 = classItems.reduce((s, i) => s + (i.sales720 || 0), 0);
+
+          const totalRow = [[
+            "TOTAL",
+            "",
+            totVol365 ? formatFrNumber(totVol365, 1) : "-",
+            totSales365 ? formatFrNumber(totSales365, 2) + "$" : "-",
+            totVol720 ? formatFrNumber(totVol720, 1) : "-",
+            totSales720 ? formatFrNumber(totSales720, 2) + "$" : "-",
+          ]];
+
+          if (finalY + ROW_HEIGHT > pageHeight - 20) {
+            doc.addPage();
+            doc.setFillColor(...black);
+            doc.rect(15, 10, pageWidth - 30, 8, "F");
+            doc.setTextColor(...white);
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "bold");
+            doc.text(salesTitle, pageWidth / 2, 15.5, { align: "center" });
+            finalY = 25;
+          }
+
+          autoTable(doc, {
+            startY: finalY,
+            showHead: false,
+            body: totalRow,
+            margin: { left: 15, right: 15 },
+            styles: {
+              fontSize: 8,
+              cellPadding: 2,
+              font: "helvetica",
+              lineColor: borderGray,
+              lineWidth: 0.2,
+              textColor: darkGray,
+            },
+            columnStyles: pdfColumnStyles,
+            theme: "grid",
+            didParseCell: function (d) {
+              if (d.section === "body") {
+                d.cell.styles.fillColor = [235, 235, 240];
+                d.cell.styles.fontStyle = "bold";
+                if (d.column.index === 0) {
+                  d.cell.styles.textColor = darkGray;
+                }
+              }
+            },
+          });
+          finalY = (doc as any).lastAutoTable.finalY;
+          doc.setDrawColor(...black);
+          doc.setLineWidth(0.8);
+          doc.line(15, finalY, pageWidth - 15, finalY);
+        }
+
         finalY += 8;
       }
       finalY += 6;
@@ -2833,6 +2892,41 @@ function CataloguePageContent() {
                                     </tr>
                                   );
                                 })}
+                                {/* Class total row — only when more than 1 SKU */}
+                                {classItems.length > 1 && (() => {
+                                  const totVol365 = classItems.reduce((s, i) => s + (i.volumeLtKg365 || 0), 0);
+                                  const totSales365 = classItems.reduce((s, i) => s + (i.sales365 || 0), 0);
+                                  const totVol720 = classItems.reduce((s, i) => s + (i.volumeLtKg720 || 0), 0);
+                                  const totSales720 = classItems.reduce((s, i) => s + (i.sales720 || 0), 0);
+                                  return (
+                                    <tr className="bg-white/[0.06] border-t-2 border-[hsl(var(--border-default))]">
+                                      <td className={cn("border-b border-[hsl(var(--border-subtle))]", isCompact ? "p-2" : "p-3")} />
+                                      <td colSpan={2} className={cn("border-b border-[hsl(var(--border-subtle))] sticky left-0 z-10 bg-white/[0.06]", isCompact ? "p-3" : "p-4")}>
+                                        <span className={cn("font-black text-[hsl(var(--text-secondary))] uppercase tracking-wide", isCompact ? "text-xs" : "text-sm")}>Total</span>
+                                      </td>
+                                      <td className={cn("text-right border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--info-muted))]/10", isCompact ? "p-3" : "p-4")}>
+                                        <span className="font-mono font-black text-[hsl(var(--info))]">
+                                          {totVol365 ? <AnimatedPrice value={totVol365} decimals={1} /> : "-"}
+                                        </span>
+                                      </td>
+                                      <td className={cn("text-right border-b border-[hsl(var(--border-subtle))] bg-[hsl(var(--success-muted))]/10", isCompact ? "p-3" : "p-4")}>
+                                        <span className="font-mono font-black text-[hsl(var(--success))]">
+                                          {totSales365 ? <><AnimatedPrice value={totSales365} />$</> : "-"}
+                                        </span>
+                                      </td>
+                                      <td className={cn("text-right border-b border-[hsl(var(--border-subtle))]", isCompact ? "p-3" : "p-4")}>
+                                        <span className="font-mono font-black text-[hsl(var(--text-tertiary))]">
+                                          {totVol720 ? <AnimatedPrice value={totVol720} decimals={1} /> : "-"}
+                                        </span>
+                                      </td>
+                                      <td className={cn("text-right border-b border-[hsl(var(--border-subtle))]", isCompact ? "p-3" : "p-4")}>
+                                        <span className="font-mono font-black text-[hsl(var(--text-tertiary))]">
+                                          {totSales720 ? <><AnimatedPrice value={totSales720} />$</> : "-"}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  );
+                                })()}
                               </tbody>
                             </table>
                           </div>
