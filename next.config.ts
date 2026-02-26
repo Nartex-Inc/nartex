@@ -21,7 +21,24 @@ const nextConfig: NextConfig = {
     return process.env.GIT_COMMIT_HASH || `${Date.now()}`;
   },
 
-  // Harmless convenience; avoids proxies that strip “_”
+  // Security headers for all routes
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+          { key: "X-DNS-Prefetch-Control", value: "off" },
+        ],
+      },
+    ];
+  },
+
+  // Harmless convenience; avoids proxies that strip "_"
   async rewrites() {
     return [{ source: "/next/:path*", destination: "/_next/:path*" }];
   },

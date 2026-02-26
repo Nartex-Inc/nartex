@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pg } from "@/lib/db";
 import { getPrextraTables } from "@/lib/prextra";
-import { requireSchema, getErrorMessage } from "@/lib/auth-helpers";
+import { requireSchema, getErrorMessage, hasRole } from "@/lib/auth-helpers";
+import prisma from "@/lib/prisma";
 
 // ---------------------------------------------------------------------------
 // Server-side query cache — price data changes infrequently, safe to cache
@@ -62,6 +63,21 @@ export async function GET(request: NextRequest) {
 
     const selectedCode = plRes.rows[0].code.trim();
     const currentCieId = plRes.rows[0].cieid;
+
+    // Server-side gate: 01-EXP requires Gestionnaire role or WebAuthn credential
+    if (selectedCode === "01-EXP") {
+      if (!hasRole(auth.user, ["gestionnaire", "gestionnairetest", "administrateur"])) {
+        const credCount = await prisma.webAuthnCredential.count({
+          where: { userId: auth.user.id },
+        });
+        if (credCount === 0) {
+          return NextResponse.json(
+            { error: "Vérification biométrique requise pour accéder à la liste 01-EXP." },
+            { status: 403 }
+          );
+        }
+      }
+    }
 
     // 2. Determine Target Codes
     const targetCodesSet = new Set(COLUMN_MATRIX[selectedCode] || [selectedCode]);

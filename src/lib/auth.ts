@@ -5,6 +5,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import AzureADProvider from "next-auth/providers/azure-ad";
 import bcrypt from "bcryptjs";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const authOptions: NextAuthOptions = {
   // Cast to any to prevent version mismatch errors during build
@@ -19,7 +20,7 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      allowDangerousEmailAccountLinking: true,
+      allowDangerousEmailAccountLinking: false,
       profile(profile) {
         return {
           id: profile.sub,
@@ -34,7 +35,7 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.AZURE_AD_CLIENT_ID!,
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
       tenantId: process.env.AZURE_AD_TENANT_ID!,
-      allowDangerousEmailAccountLinking: true,
+      allowDangerousEmailAccountLinking: false,
       profile(profile) {
         return {
           id: profile.sub ?? profile.oid,
@@ -53,7 +54,15 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) throw new Error("Adresse e-mail et mot de passe requis.");
-        
+
+        // Per-email brute-force protection: 5 attempts per 5 minutes
+        const email = String(credentials.email).toLowerCase().trim();
+        const rl = rateLimit({ key: `login:${email}`, limit: 5, windowMs: 5 * 60_000 });
+        if (!rl.success) {
+          const mins = Math.ceil(rl.retryAfterMs / 60_000);
+          throw new Error(`Trop de tentatives de connexion. Réessayez dans ${mins} minute${mins > 1 ? "s" : ""}.`);
+        }
+
         // Fix: Case-insensitive search for the user
         const user = await prisma.user.findFirst({ 
           where: { 
