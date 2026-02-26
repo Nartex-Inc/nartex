@@ -53,7 +53,7 @@ const REPORTER_LABEL: Record<string, string> = {
 
 const CAUSE_LABEL: Record<string, string> = {
   production: "Production",
-  pompe: "Pompe",
+  pompe: "Pompe de transfert",
   autre_cause: "Autre cause",
   exposition_sinto: "Exposition Sinto",
   transporteur: "Transporteur",
@@ -192,7 +192,7 @@ function SearchAutocomplete({
               className={cn(
                 "px-4 py-2.5 text-sm cursor-pointer transition-colors duration-100",
                 idx === highlightIdx
-                  ? "bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-primary))]"
+                  ? "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-primary))] font-medium"
                   : "text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))]",
                 name === value && "font-medium text-[hsl(var(--text-primary))]"
               )}
@@ -2004,7 +2004,7 @@ function NewProductRow({ product, onChange, onRemove }: { product: ProductLine; 
         {showSuggestions && suggestions.length > 0 && (
           <div ref={listRef} className="absolute z-50 top-full left-0 mt-2 w-72 max-h-48 overflow-y-auto rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
             {suggestions.map((s, idx) => (
-              <button key={s.code} onMouseEnter={() => setHighlightIdx(idx)} className={cn("w-full text-left px-4 py-3 text-sm border-b border-[hsl(var(--border-subtle))] last:border-0 transition-colors duration-150", idx === highlightIdx ? "bg-[hsl(var(--bg-elevated))]" : "hover:bg-[hsl(var(--bg-elevated))]")} onClick={() => selectSuggestion(s)}>
+              <button key={s.code} onMouseEnter={() => setHighlightIdx(idx)} className={cn("w-full text-left px-4 py-3 text-sm border-b border-[hsl(var(--border-subtle))] last:border-0 transition-colors duration-150", idx === highlightIdx ? "bg-[hsl(var(--bg-muted))] font-medium" : "hover:bg-[hsl(var(--bg-elevated))]")} onClick={() => selectSuggestion(s)}>
                 <div className="font-mono font-medium text-[hsl(var(--text-primary))]">{s.code}</div>
                 <div className="text-xs text-[hsl(var(--text-tertiary))] truncate mt-0.5">{s.descr}</div>
               </button>

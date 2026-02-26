@@ -56,7 +56,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       where: { id: returnId, tenantId },
       include: {
         products: { orderBy: { id: "asc" } },
-        attachments: { orderBy: { createdAt: "desc" } },
+        attachments: { orderBy: { createdAt: "asc" } },
       },
     });
 
