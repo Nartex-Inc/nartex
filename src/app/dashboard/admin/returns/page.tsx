@@ -1717,7 +1717,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
   const [noBill, setNoBill] = React.useState("");
   const [noBonCommande, setNoBonCommande] = React.useState("");
   const [noReclamation, setNoReclamation] = React.useState("");
-  const [products, setProducts] = React.useState<ProductLine[]>([]);
+  const [products, setProducts] = React.useState<ProductLine[]>([{ id: `np-${Date.now()}`, codeProduit: "", descriptionProduit: "", descriptionRetour: "", quantite: 1 }]);
   const [nextId, setNextId] = React.useState("...");
   const [reportedAt, setReportedAt] = React.useState("");
   const [filesToUpload, setFilesToUpload] = React.useState<File[]>([]);
@@ -1733,14 +1733,14 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
 
   // Dynamic border classes for fields
   const requiredFieldCls = (value: string, field?: string) => {
-    if (field && autofilledFields.has(field)) return "border-2 border-emerald-400 bg-emerald-500/10 focus:ring-emerald-400/40";
+    if (field && autofilledFields.has(field)) return "border-2 border-emerald-400 bg-transparent focus:ring-emerald-400/40";
     if (!value) return "border-dashed border-emerald-500/50 bg-emerald-500/10 focus:ring-emerald-500/40";
-    return "border-emerald-500/50 bg-emerald-500/10 focus:ring-emerald-500/40";
+    return "border-emerald-500/50 bg-transparent focus:ring-emerald-500/40";
   };
   const optionalFieldCls = (value: string, field?: string) => {
-    if (field && autofilledFields.has(field)) return "border-2 border-emerald-400 bg-emerald-500/10 focus:ring-emerald-400/40";
+    if (field && autofilledFields.has(field)) return "border-2 border-emerald-400 bg-transparent focus:ring-emerald-400/40";
     if (!value) return "border-dashed border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] focus:ring-[hsl(var(--border-default))]";
-    return "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] focus:ring-[hsl(var(--border-default))]";
+    return "border-[hsl(var(--border-default))] bg-transparent focus:ring-[hsl(var(--border-default))]";
   };
 
   React.useEffect(() => {
@@ -1757,7 +1757,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
   }, []);
 
   const addProduct = () => setProducts((p) => [...p, { id: `np-${Date.now()}`, codeProduit: "", descriptionProduit: "", descriptionRetour: "", quantite: 1 }]);
-  const removeProduct = (pid: string) => setProducts((p) => p.filter((x) => x.id !== pid));
+  const removeProduct = (pid: string) => setProducts((p) => p.length <= 1 ? p : p.filter((x) => x.id !== pid));
 
   const onFetchFromOrder = async () => {
     if (!noCommande.trim()) return;
@@ -1884,18 +1884,11 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
               <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] flex items-center gap-2"><Package className="h-4 w-4 text-[hsl(var(--text-tertiary))]" />Produits (RMA)</h3>
               <button onClick={addProduct} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] transition-all duration-200"><Plus className="h-3.5 w-3.5" />Ajouter</button>
             </div>
-            {products.length === 0 ? (
-              <div className="py-12 text-center border-2 border-dashed border-[hsl(var(--border-default))] rounded-xl text-[hsl(var(--text-muted))] text-sm">
-                <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                Aucun produit ajouté
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {products.map((p, idx) => (
-                  <NewProductRow key={p.id} product={p} onChange={(up) => { const arr = products.slice(); arr[idx] = up; setProducts(arr); }} onRemove={() => removeProduct(p.id)} />
-                ))}
-              </div>
-            )}
+            <div className="space-y-3">
+              {products.map((p, idx) => (
+                <NewProductRow key={p.id} product={p} onChange={(up) => { const arr = products.slice(); arr[idx] = up; setProducts(arr); }} onRemove={() => removeProduct(p.id)} canRemove={products.length > 1} />
+              ))}
+            </div>
           </section>
 
           {/* Attachments */}
@@ -1958,7 +1951,7 @@ function FormField({ label, required, children }: { label: string; required?: bo
   );
 }
 
-function NewProductRow({ product, onChange, onRemove }: { product: ProductLine; onChange: (p: ProductLine) => void; onRemove: () => void }) {
+function NewProductRow({ product, onChange, onRemove, canRemove = true }: { product: ProductLine; onChange: (p: ProductLine) => void; onRemove: () => void; canRemove?: boolean }) {
   const [suggestions, setSuggestions] = React.useState<ItemSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = React.useState(false);
   const [highlightIdx, setHighlightIdx] = React.useState(-1);
@@ -2015,7 +2008,7 @@ function NewProductRow({ product, onChange, onRemove }: { product: ProductLine; 
       <input className="flex-1 h-10 px-3 rounded-lg text-sm border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Description" value={product.descriptionProduit || ""} onChange={(e) => onChange({ ...product, descriptionProduit: e.target.value })} />
       <input className="flex-1 h-10 px-3 rounded-lg text-sm border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Raison" value={product.descriptionRetour ?? ""} onChange={(e) => onChange({ ...product, descriptionRetour: e.target.value })} />
       <input type="number" min={0} className="w-24 h-10 px-3 rounded-lg text-sm text-center border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Qté" value={product.quantite} onChange={(e) => onChange({ ...product, quantite: Number(e.target.value || 0) })} />
-      <button onClick={onRemove} className="p-2.5 rounded-lg text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))] opacity-0 group-hover:opacity-100 transition-all duration-200"><Trash2 className="h-4 w-4" /></button>
+      <button onClick={onRemove} disabled={!canRemove} className={cn("p-2.5 rounded-lg transition-all duration-200", canRemove ? "text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))] hover:bg-[hsl(var(--danger-muted))] opacity-0 group-hover:opacity-100" : "text-[hsl(var(--text-muted))]/30 cursor-not-allowed opacity-0 group-hover:opacity-50")}><Trash2 className="h-4 w-4" /></button>
     </div>
   );
 }
