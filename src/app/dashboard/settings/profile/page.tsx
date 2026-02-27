@@ -129,6 +129,8 @@ function ProfilePage() {
   const { data: session, status, update } = useSession();
   const { color: accentColor } = useCurrentAccent();
   const searchParams = useSearchParams();
+  const wasAuthenticated = React.useRef(false);
+  if (status === "authenticated") wasAuthenticated.current = true;
 
   const targetUserId = searchParams.get("userId");
   const isGestionnaire = session?.user?.role === "Gestionnaire" || session?.user?.role === "GestionnaireTest";
@@ -228,7 +230,7 @@ function ProfilePage() {
     }
   };
 
-  if (isLoading || status === "loading") {
+  if (isLoading || (!wasAuthenticated.current && status === "loading")) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <Loader2 className="w-8 h-8 animate-spin text-[hsl(var(--text-muted))] mb-4" />

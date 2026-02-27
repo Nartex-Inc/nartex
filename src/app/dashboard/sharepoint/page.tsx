@@ -343,7 +343,10 @@ function filterTreeByGroup(
 ============================================================================= */
 export default function SharePointPage() {
   const { status } = useSession();
-  if (status === "loading")
+  const wasAuthenticated = React.useRef(false);
+  if (status === "authenticated") wasAuthenticated.current = true;
+
+  if (!wasAuthenticated.current && status === "loading")
     return (
       <LoadingAnimation
         title="Chargement de SharePoint"
@@ -352,7 +355,7 @@ export default function SharePointPage() {
     );
 
   // Allow everyone to view
-  if (status === "unauthenticated") return <AccessDenied />;
+  if (status === "unauthenticated" && !wasAuthenticated.current) return <AccessDenied />;
 
   return (
     <main

@@ -49,7 +49,8 @@ function InactivityMonitor() {
       // User was active recently — extend the JWT if enough time has passed
       if (idle < REFRESH_INTERVAL_MS && now - lastRefresh.current >= REFRESH_INTERVAL_MS) {
         lastRefresh.current = now;
-        update();
+        // Catch errors to prevent NextAuth from leaving loading=true forever
+        update().catch(() => {});
       }
     }, CHECK_INTERVAL_MS);
 

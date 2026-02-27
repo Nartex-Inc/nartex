@@ -45,6 +45,8 @@ const TOTAL_SECTIONS = 5;
 export default function NewSupportTicketPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const wasAuthenticated = React.useRef(false);
+  if (status === "authenticated") wasAuthenticated.current = true;
 
   const { data: tenantsRes } = useSWR<{ ok: boolean; data: TenantData[] }>(
     "/api/tenants",
@@ -275,8 +277,8 @@ export default function NewSupportTicketPage() {
     }
   };
 
-  // Loading state
-  if (status === "loading") {
+  // Loading state — only on first load, not during background session refresh
+  if (!wasAuthenticated.current && status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[hsl(var(--bg-surface))]">
         <div className="w-8 h-8 border-2 border-[hsl(var(--border-default))] border-t-[hsl(var(--text-primary))] rounded-full animate-spin" />

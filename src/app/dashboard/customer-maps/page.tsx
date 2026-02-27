@@ -1193,10 +1193,12 @@ function CustomerMapContent() {
 export default function CustomerMapsPage() {
   const { data: session, status } = useSession();
   const [mounted, setMounted] = useState(false);
+  const wasAuthenticated = useRef(false);
+  if (status === "authenticated") wasAuthenticated.current = true;
 
   useEffect(() => setMounted(true), []);
 
-  if (!mounted || status === "loading") {
+  if (!mounted || (!wasAuthenticated.current && status === "loading")) {
     return null;
   }
 

@@ -1,7 +1,7 @@
 // src/app/dashboard/page.tsx
 "use client";
 
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -595,6 +595,12 @@ export default function DashboardPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
+  // Track whether the user has ever been authenticated in this mount.
+  // Once true, we never show loading again — prevents content unmount
+  // during background session refreshes (InactivityMonitor update()).
+  const wasAuthenticated = useRef(false);
+  if (status === "authenticated") wasAuthenticated.current = true;
+
   const userRole = (session as any)?.user?.role;
   const userEmail = session?.user?.email;
 
@@ -614,7 +620,7 @@ export default function DashboardPage() {
     }
   }, [mounted, status, userRole, router]);
 
-  if (!mounted || status === "loading") {
+  if (!mounted || (!wasAuthenticated.current && status === "loading")) {
     return null;
   }
 

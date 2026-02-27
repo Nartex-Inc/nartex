@@ -3245,10 +3245,12 @@ function CataloguePageContent() {
 export default function CataloguePage() {
   const { data: session, status } = useSession();
   const [mounted, setMounted] = useState(false);
+  const wasAuthenticated = useRef(false);
+  if (status === "authenticated") wasAuthenticated.current = true;
 
   useEffect(() => setMounted(true), []);
 
-  if (!mounted || status === "loading") {
+  if (!mounted || (!wasAuthenticated.current && status === "loading")) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-[hsl(var(--bg-base))]">
         <Loader2 className="w-8 h-8 animate-spin text-white" />
