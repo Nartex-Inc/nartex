@@ -2,8 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { useSession } from "next-auth/react";
-import { redirect } from "next/navigation";
+import { useSession, signIn } from "next-auth/react";
 import { Header } from "@/components/dashboard/header";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import LoadingAnimation from "@/components/LoadingAnimation";
@@ -15,10 +14,29 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { data: session, status } = useSession({
-    required: true,
-    onUnauthenticated: () => redirect("/"),
-  });
+  // ---------------------------------------------------------------------------
+  // SESSION — do NOT use `required: true` because it calls onUnauthenticated
+  // on every transient "loading" → "unauthenticated" flicker (e.g. when
+  // InactivityMonitor calls update() to refresh the JWT). That redirect
+  // unmounts all children and destroys form state.
+  // ---------------------------------------------------------------------------
+  const { data: session, status } = useSession();
+
+  // Track whether the user has ever been authenticated in this mount.
+  // Once true, we never show the loading skeleton again — child pages
+  // stay mounted even during background session refreshes.
+  const wasAuthenticated = React.useRef(false);
+  if (status === "authenticated") wasAuthenticated.current = true;
+
+  // Redirect to sign-in only when definitively unauthenticated on first load.
+  // After initial auth, transient "unauthenticated" blips (from update()) are
+  // ignored — the InactivityMonitor already handles real session expiry via
+  // signOut().
+  React.useEffect(() => {
+    if (status === "unauthenticated" && !wasAuthenticated.current) {
+      signIn();
+    }
+  }, [status]);
 
   const [isDesktopOpen, setDesktopOpen] = React.useState(true);
   const [isMobileOpen, setMobileOpen] = React.useState(false);
@@ -85,7 +103,9 @@ export default function DashboardLayout({
     return () => window.removeEventListener("keydown", handleEsc);
   }, [isMobileOpen]);
 
-  if (status === "loading") {
+  // Only show the loading skeleton on the very first load.
+  // After that, keep children mounted to preserve form state.
+  if (!wasAuthenticated.current && status === "loading") {
     return <LoadingAnimation />;
   }
 

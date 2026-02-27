@@ -337,13 +337,112 @@ function TenantSelector({ userTenants, allTenants, onSave, disabled, accentColor
   );
 }
 
-function UserRow({ user, currentUserEmail, onRoleChange, onTenantChange, onToggleTickets, onEditProfile, isUpdating, allTenants, accentColor }: {
+function DeleteUserModal({ user, isOpen, onClose, onConfirm, isDeleting, accentColor }: {
+  user: UserData | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  isDeleting: boolean;
+  accentColor: string;
+}) {
+  const [confirmEmail, setConfirmEmail] = useState("");
+
+  useEffect(() => {
+    if (!isOpen) setConfirmEmail("");
+  }, [isOpen]);
+
+  if (!isOpen || !user) return null;
+
+  const canConfirm = confirmEmail === user.email;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-md mx-4 bg-[hsl(var(--bg-elevated))] border border-[hsl(var(--border-subtle))] rounded-2xl shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-[hsl(var(--border-subtle))]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[hsl(var(--danger))]/15">
+              <AlertCircle className="w-5 h-5 text-[hsl(var(--danger))]" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-[hsl(var(--text-primary))]">Supprimer le compte</h2>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-[hsl(var(--bg-muted))] transition-colors">
+            <X className="w-5 h-5 text-[hsl(var(--text-muted))]" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 space-y-4">
+          <div className="flex items-center gap-3 p-3 bg-[hsl(var(--bg-muted))] rounded-xl">
+            {user.image ? (
+              <img src={user.image} alt={user.name} className="w-10 h-10 rounded-lg object-cover" />
+            ) : (
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center text-[hsl(var(--text-primary))] font-medium" style={{ backgroundColor: `${accentColor}40` }}>
+                {user.name?.charAt(0)?.toUpperCase() || "?"}
+              </div>
+            )}
+            <div>
+              <p className="text-sm font-medium text-[hsl(var(--text-primary))]">{user.name}</p>
+              <p className="text-xs text-[hsl(var(--text-muted))]">{user.email}</p>
+            </div>
+          </div>
+
+          <p className="text-sm text-[hsl(var(--danger))]">
+            Cette action est irréversible. Le compte et toutes les données associées seront supprimés définitivement.
+          </p>
+
+          <div>
+            <label className="block text-sm text-[hsl(var(--text-secondary))] mb-1.5">
+              Tapez <span className="font-mono font-medium text-[hsl(var(--text-primary))]">{user.email}</span> pour confirmer
+            </label>
+            <input
+              type="text"
+              value={confirmEmail}
+              onChange={(e) => setConfirmEmail(e.target.value)}
+              placeholder={user.email}
+              className="w-full px-3 py-2.5 bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))] rounded-lg text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:border-[hsl(var(--border-default))]"
+              autoFocus
+            />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-[hsl(var(--border-subtle))]">
+          <button
+            onClick={onClose}
+            className="px-4 py-2.5 rounded-lg text-sm font-medium text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-muted))] transition-colors"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={!canConfirm || isDeleting}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white bg-[hsl(var(--danger))] transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:enabled:opacity-90"
+          >
+            {isDeleting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Trash2 className="w-4 h-4" />
+            )}
+            Supprimer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UserRow({ user, currentUserEmail, onRoleChange, onTenantChange, onToggleTickets, onEditProfile, onDelete, isUpdating, allTenants, accentColor }: {
   user: UserData;
   currentUserEmail: string;
   onRoleChange: (userId: string, role: RoleValue) => void;
   onTenantChange: (userId: string, tenantIds: string[]) => void;
   onToggleTickets: (userId: string, value: boolean) => void;
   onEditProfile?: (userId: string) => void;
+  onDelete?: (user: UserData) => void;
   isUpdating: boolean;
   allTenants: TenantInfo[];
   accentColor: string;
@@ -392,6 +491,15 @@ function UserRow({ user, currentUserEmail, onRoleChange, onTenantChange, onToggl
             title="Modifier le profil"
           >
             <Pencil className="w-4 h-4 text-[hsl(var(--text-muted))]" />
+          </button>
+        )}
+        {onDelete && !isSelf && !isProtectedAdmin && (
+          <button
+            onClick={() => onDelete(user)}
+            className="p-2 rounded-lg bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))] hover:border-[hsl(var(--danger))]/50 hover:bg-[hsl(var(--danger))]/10 transition-colors"
+            title="Supprimer le compte"
+          >
+            <Trash2 className="w-4 h-4 text-[hsl(var(--text-muted))] hover:text-[hsl(var(--danger))]" />
           </button>
         )}
         {isUpdating ? (
@@ -655,6 +763,8 @@ export default function RolesPage() {
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<UserData | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const currentUserEmail = session?.user?.email || "";
   const currentUserRole = users.find((u) => u.email === currentUserEmail)?.role;
@@ -766,6 +876,30 @@ export default function RolesPage() {
     }
   };
 
+  const handleDeleteUser = async () => {
+    if (!deleteTarget) return;
+    try {
+      setIsDeleting(true);
+      setError(null);
+      setSuccessMessage(null);
+      const response = await fetch(`/api/user/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Erreur lors de la suppression");
+      }
+      setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
+      setDeleteTarget(null);
+      setSuccessMessage(`Compte de ${deleteTarget.name || deleteTarget.email} supprimé avec succès`);
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur inconnue");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const filteredUsers = useMemo(() => {
     if (!searchQuery.trim()) return users;
     const query = searchQuery.toLowerCase();
@@ -816,6 +950,15 @@ export default function RolesPage() {
       <InviteUsersModal
         isOpen={showInviteModal}
         onClose={() => setShowInviteModal(false)}
+        accentColor={accentColor}
+      />
+
+      <DeleteUserModal
+        user={deleteTarget}
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteUser}
+        isDeleting={isDeleting}
         accentColor={accentColor}
       />
 
@@ -898,6 +1041,7 @@ export default function RolesPage() {
                 onTenantChange={handleTenantChange}
                 onToggleTickets={handleToggleTickets}
                 onEditProfile={userIsAdmin ? (userId) => router.push(`/dashboard/settings/profile?userId=${userId}`) : undefined}
+                onDelete={userIsAdmin ? (u) => setDeleteTarget(u) : undefined}
                 isUpdating={updatingUserId === user.id}
                 allTenants={allTenants}
                 accentColor={accentColor}

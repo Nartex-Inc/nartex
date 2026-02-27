@@ -462,7 +462,7 @@ model SupportTicket {
   closedAt   DateTime? @map("closed_at")
 
   // Relations
-  user        User                      @relation(fields: [userId], references: [id])
+  user        User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   tenant      Tenant                    @relation(fields: [tenantId], references: [id])
   attachments SupportTicketAttachment[]
   comments    SupportTicketComment[]
