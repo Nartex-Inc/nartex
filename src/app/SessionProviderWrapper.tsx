@@ -16,7 +16,7 @@ const REFRESH_INTERVAL_MS = 5 * 60 * 1000;       // refresh JWT every 5 min
 const CHECK_INTERVAL_MS = 60 * 1000;              // check every 60 s
 
 function InactivityMonitor() {
-  const { status, update } = useSession();
+  const { status } = useSession();
   const lastActivity = useRef(Date.now());
   const lastRefresh = useRef(Date.now());
 
@@ -49,13 +49,21 @@ function InactivityMonitor() {
       // User was active recently — extend the JWT if enough time has passed
       if (idle < REFRESH_INTERVAL_MS && now - lastRefresh.current >= REFRESH_INTERVAL_MS) {
         lastRefresh.current = now;
-        // Catch errors to prevent NextAuth from leaving loading=true forever
-        update().catch(() => {});
+        // Ping the session endpoint to re-sign the JWT cookie server-side.
+        // We intentionally avoid useSession().update() here — if that call
+        // fails or returns an empty response, NextAuth sets the client-side
+        // session to null (status → "unauthenticated"), which:
+        //   1. Makes the profile picture disappear (shows "U")
+        //   2. Kills the InactivityMonitor interval (status guard)
+        //   3. Stops all future JWT refreshes (death spiral)
+        //   4. JWT cookie eventually expires → forced logout on refresh
+        // A direct fetch() refreshes the cookie without touching React state.
+        fetch("/api/auth/session").catch(() => {});
       }
     }, CHECK_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  }, [status, update]);
+  }, [status]);
 
   return null;
 }
