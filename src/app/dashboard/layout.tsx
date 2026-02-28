@@ -28,11 +28,16 @@ export default function DashboardLayout({
   const wasAuthenticated = React.useRef(false);
   if (status === "authenticated") wasAuthenticated.current = true;
 
-  // Redirect to sign-in only when definitively unauthenticated on first load.
-  // After initial auth, transient "unauthenticated" blips (from update()) are
-  // ignored — the InactivityMonitor already handles real session expiry via
-  // signOut().
+  // Session recovery: if the user was authenticated but the session is now
+  // lost (stale deployment, network error, etc.), reload once to let the
+  // server re-read the JWT cookie and restore the session.
+  const recoveryAttempted = React.useRef(false);
   React.useEffect(() => {
+    if (status === "unauthenticated" && wasAuthenticated.current && !recoveryAttempted.current) {
+      recoveryAttempted.current = true;
+      window.location.reload();
+      return;
+    }
     if (status === "unauthenticated" && !wasAuthenticated.current) {
       signIn();
     }
