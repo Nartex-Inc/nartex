@@ -10,7 +10,7 @@ import { rateLimit } from "@/lib/rate-limit";
 export const authOptions: NextAuthOptions = {
   // Cast to any to prevent version mismatch errors during build
   adapter: PrismaAdapter(prisma) as any,
-  session: { strategy: "jwt", maxAge: 2 * 60 * 60 /* 2 hours */ },
+  session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 /* 30 days */ },
   secret: process.env.NEXTAUTH_SECRET,
   pages: { 
     signIn: "/", 
