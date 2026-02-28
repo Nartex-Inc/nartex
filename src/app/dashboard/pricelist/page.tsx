@@ -1243,6 +1243,7 @@ function CataloguePageContent() {
   const { color: accentColor } = useCurrentAccent();
   const userRole = (session as any)?.user?.role;
   const isGestionnaire = ["gestionnaire", "gestionnairetest"].includes(userRole?.toLowerCase().trim());
+  const isExpert = userRole?.toLowerCase().trim() === "expert";
   const isCompact = useMediaQuery("(max-width: 1024px)");
   const isMobile = useMediaQuery("(max-width: 640px)");
 
@@ -2509,8 +2510,8 @@ function CataloguePageContent() {
                   </div>
                 )}
 
-                {/* Details Toggle Switch (prices mode only) */}
-                {viewMode === "prices" && (
+                {/* Details Toggle Switch (prices mode only, hidden for experts) */}
+                {viewMode === "prices" && !isExpert && (
                   <ToggleSwitch
                     enabled={showDetails}
                     onToggle={handleToggleDetails}
