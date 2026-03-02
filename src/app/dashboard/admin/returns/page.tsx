@@ -1349,11 +1349,12 @@ function DetailModal({
                                 <input
                                   type="number"
                                   min={0}
-                                  max={qteRecue}
+                                  max={!isPhysical ? (p.quantite ?? 0) : qteRecue}
                                   className="w-16 h-8 px-2 rounded-md text-xs text-center border bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] transition-all duration-200"
                                   value={qteDetruite}
                                   onChange={(e) => {
-                                    const val = Math.max(0, Math.min(Number(e.target.value || 0), qteRecue));
+                                    const maxQte = !isPhysical ? (p.quantite ?? 0) : qteRecue;
+                                    const val = Math.max(0, Math.min(Number(e.target.value || 0), maxQte));
                                     const arr = (draft.products ?? []).slice();
                                     arr[idx] = { ...p, qteDetruite: val, qteInventaire: qteRecue - val };
                                     setDraft({ ...draft, products: arr });

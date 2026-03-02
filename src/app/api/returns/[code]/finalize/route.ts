@@ -78,7 +78,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (body.products && Array.isArray(body.products)) {
       for (const p of body.products) {
         const quantiteRecue = p.quantiteRecue ?? 0;
-        const qteDetruite = p.qteDetruite ?? 0;
+        let qteDetruite = p.qteDetruite ?? 0;
+
+        // For non-physical returns, allow qteDetruite up to the original quantity (Qté attendue)
+        if (!ret.returnPhysical) {
+          const original = ret.products.find((pr) => pr.codeProduit === p.codeProduit);
+          const qteAttendue = original?.quantite ?? 0;
+          qteDetruite = Math.min(qteDetruite, qteAttendue);
+        } else {
+          qteDetruite = Math.min(qteDetruite, quantiteRecue);
+        }
+
         // Server-side compute: don't trust client qteInventaire
         const qteInventaire = quantiteRecue - qteDetruite;
         // tauxRestock conversion: body sends percentage, DB stores decimal
