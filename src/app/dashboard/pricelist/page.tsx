@@ -367,14 +367,6 @@ async function getDataUri(url: string): Promise<string> {
   });
 }
 
-function abbreviateColumnName(name: string): string {
-  let result = name.trim();
-  if (result === "04-GROSEXP") return "4-GREXP";
-  if (result === "08-PDS") return "8-PDSF";
-  result = result.replace(/^0(\d+-)/, "$1");
-  return result;
-}
-
 // Custom sort function to put 5-GROS first, then the rest in order
 function sortPriceColumns(columns: string[]): string[] {
   const priorityOrder = ["01-EXP", "05-GROS", "02-DET", "03-IND"];
@@ -1261,6 +1253,12 @@ function CataloguePageContent() {
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [priceLists, setPriceLists] = useState<PriceList[]>([]);
+  const priceListNameByCode = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const pl of priceLists) map[pl.code.trim()] = pl.name;
+    map["08-PDS"] = "PDSF";
+    return map;
+  }, [priceLists]);
   const [priceData, setPriceData] = useState<ItemPriceData[]>([]);
 
   const [selectedPriceList, setSelectedPriceList] = useState<PriceList | null>(null);
@@ -1785,7 +1783,7 @@ function CataloguePageContent() {
       doc.setTextColor(...white);
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
-      const priceListTitle = `${abbreviateColumnName(selectedPriceList?.code || "")} - ${selectedPriceList?.name || ""}`.toUpperCase();
+      const priceListTitle = (selectedPriceList?.name || "").toUpperCase();
       doc.text(priceListTitle, pageWidth / 2, 45, { align: "center" });
 
       doc.setTextColor(...darkGray);
@@ -1863,7 +1861,7 @@ function CataloguePageContent() {
         const headRow = ["Article", "Fmt", "Qty"];
         const pdfCommonUnit = getCommonUnit(classItems);
         standardColumns.forEach((c) => {
-          headRow.push(abbreviateColumnName(c));
+          headRow.push(priceListNameByCode[c.trim()] || c);
           if (c.trim() === selectedPriceList?.code?.trim()) {
             headRow.push(`$/${pdfCommonUnit}`);
             if (showDetails) {
@@ -1874,7 +1872,7 @@ function CataloguePageContent() {
             }
           }
         });
-        if (hasPDS) headRow.push(abbreviateColumnName("08-PDS"));
+        if (hasPDS) headRow.push(priceListNameByCode["08-PDS"] || "PDSF");
 
         // Compute explicit column widths so all item tables align
         const tableWidth = pageWidth - 30; // margins
@@ -2476,8 +2474,7 @@ function CataloguePageContent() {
                       <span className="truncate flex-1 text-left">
                         {selectedPriceList ? (
                           <>
-                            <span className="text-white font-bold">{abbreviateColumnName(selectedPriceList.code)}</span>
-                            <span className="text-white/70 ml-1.5 hidden sm:inline">- {selectedPriceList.name}</span>
+                            <span className="text-white font-bold">{selectedPriceList.name}</span>
                           </>
                         ) : <span className="text-white/50">Sélectionner...</span>}
                       </span>
@@ -2500,7 +2497,7 @@ function CataloguePageContent() {
                                 selectedPriceList?.priceId === list.priceId && "bg-[hsl(var(--bg-muted))]"
                               )}
                             >
-                              <span className="truncate text-[hsl(var(--text-primary))]">{abbreviateColumnName(list.code)} - {list.name}</span>
+                              <span className="truncate text-[hsl(var(--text-primary))]">{list.name}</span>
                               {selectedPriceList?.priceId === list.priceId && <Check className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} />}
                             </button>
                           ))}
@@ -2965,7 +2962,7 @@ function CataloguePageContent() {
                         </div>
                         <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white/10 rounded-xl backdrop-blur-sm border border-white/10">
                           <FileText className="w-4 h-4 text-white/70" />
-                          <span className="text-white/70 text-sm font-medium">{abbreviateColumnName(selectedPriceList?.code || "")}</span>
+                          <span className="text-white/70 text-sm font-medium">{selectedPriceList?.name || ""}</span>
                         </div>
                       </div>
                     </div>
@@ -3000,7 +2997,7 @@ function CataloguePageContent() {
                         </div>
                         <div className="flex items-center gap-2 px-2.5 py-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
                           <Sparkles className="w-3.5 h-3.5 text-white" />
-                          <span className="text-white text-xs font-bold">{abbreviateColumnName(selectedPriceList?.code || "")}</span>
+                          <span className="text-white text-xs font-bold">{selectedPriceList?.name || ""}</span>
                         </div>
                       </div>
                     </div>
@@ -3021,7 +3018,7 @@ function CataloguePageContent() {
                             <th className={cn("text-center font-black text-[hsl(var(--text-secondary))] border-b-2 border-[hsl(var(--border-default))]", isCompact ? "p-3" : "p-4")}>Qty</th>
                             {standardColumns.map((colCode) => {
                               const isSelectedList = colCode.trim() === selectedPriceList?.code?.trim();
-                              const displayName = abbreviateColumnName(colCode);
+                              const displayName = priceListNameByCode[colCode.trim()] || colCode;
                               return (
                                 <Fragment key={colCode}>
                                   <th className={cn("text-right font-black border-b-2 border-[hsl(var(--border-default))] whitespace-nowrap", isCompact ? "p-3" : "p-4", isSelectedList ? "text-[hsl(var(--warning))] bg-[hsl(var(--warning-muted))]" : "text-[hsl(var(--text-secondary))]")}>{displayName}</th>
@@ -3041,7 +3038,7 @@ function CataloguePageContent() {
                                 </Fragment>
                               );
                             })}
-                            {hasPDS && <th className={cn("text-right font-black text-[hsl(var(--text-secondary))] border-b-2 border-[hsl(var(--border-default))] whitespace-nowrap", isCompact ? "p-3" : "p-4")}>{abbreviateColumnName("08-PDS")}</th>}
+                            {hasPDS && <th className={cn("text-right font-black text-[hsl(var(--text-secondary))] border-b-2 border-[hsl(var(--border-default))] whitespace-nowrap", isCompact ? "p-3" : "p-4")}>{priceListNameByCode["08-PDS"] || "PDSF"}</th>}
                           </tr>
                         </thead>
                         <tbody>
@@ -3222,7 +3219,7 @@ function CataloguePageContent() {
                 {viewMode === "prices" ? (
                   <>
                     <span className="hidden sm:inline">{t.list}</span>
-                    <span className="font-bold text-[hsl(var(--text-secondary))]">{abbreviateColumnName(selectedPriceList?.code || "")}</span>
+                    <span className="font-bold text-[hsl(var(--text-secondary))]">{selectedPriceList?.name || ""}</span>
                   </>
                 ) : (
                   <span className="font-bold text-[hsl(var(--text-secondary))]">{t.salesMode}</span>
