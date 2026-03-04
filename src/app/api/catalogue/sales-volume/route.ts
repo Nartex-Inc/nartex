@@ -230,7 +230,7 @@ GROUP BY d."Itemid"
   } catch (error: unknown) {
     console.error("Sales volume API error:", error);
     return NextResponse.json(
-      { error: getErrorMessage(error) || "Erreur lors de la génération des données de ventes" },
+      { error: "Erreur lors de la génération des données de ventes" },
       { status: 500 }
     );
   }

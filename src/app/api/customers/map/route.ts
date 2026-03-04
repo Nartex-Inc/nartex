@@ -223,8 +223,7 @@ export async function GET(req: Request) {
     });
 
   } catch (error: unknown) {
-    const message = getErrorMessage(error);
-    console.error("DB Error:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("DB Error:", error);
+    return NextResponse.json({ error: "Erreur lors du chargement de la carte" }, { status: 500 });
   }
 }

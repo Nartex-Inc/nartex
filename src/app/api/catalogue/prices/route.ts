@@ -397,7 +397,7 @@ export async function GET(request: NextRequest) {
   } catch (error: unknown) {
     console.error("Prices API error:", error);
     return NextResponse.json(
-      { error: getErrorMessage(error) || "Erreur lors de la génération des prix" },
+      { error: "Erreur lors de la génération des prix" },
       { status: 500 }
     );
   }

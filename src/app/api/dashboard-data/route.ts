@@ -166,7 +166,6 @@ WHERE h."cieid" = $1
       return NextResponse.json(
         {
           error: "Échec de la récupération des données du tableau de bord.",
-          details: getErrorMessage(error),
         },
         { status: 500 }
       );
@@ -215,7 +214,6 @@ GROUP BY sr."Name", c."Name", i."ItemCode", to_char(h."InvDate", 'YYYY-MM');
     return NextResponse.json(
       {
         error: "Échec de la récupération des données du tableau de bord.",
-        details: getErrorMessage(error),
       },
       { status: 500 }
     );

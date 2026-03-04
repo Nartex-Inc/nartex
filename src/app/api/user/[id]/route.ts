@@ -63,6 +63,29 @@ export async function DELETE(
       );
     }
 
+    // Tenant isolation: verify admin and target share at least one tenant
+    if (!ADMIN_EMAILS.includes(currentUser?.email ?? "")) {
+      const sharedTenant = await prisma.userTenant.findFirst({
+        where: {
+          userId: currentUser!.id,
+          tenantId: {
+            in: (
+              await prisma.userTenant.findMany({
+                where: { userId: targetUserId },
+                select: { tenantId: true },
+              })
+            ).map((t) => t.tenantId),
+          },
+        },
+      });
+      if (!sharedTenant) {
+        return NextResponse.json(
+          { error: "Accès non autorisé. Aucun tenant en commun." },
+          { status: 403 }
+        );
+      }
+    }
+
     // Prevent deleting protected admin accounts
     if (targetUser.email && PROTECTED_EMAILS.includes(targetUser.email)) {
       return NextResponse.json(

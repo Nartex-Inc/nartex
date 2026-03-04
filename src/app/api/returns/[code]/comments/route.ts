@@ -63,7 +63,7 @@ export async function GET(
   } catch (error) {
     console.error("GET /api/returns/[code]/comments error:", error);
     return NextResponse.json(
-      { ok: false, error: getErrorMessage(error) },
+      { ok: false, error: "Erreur lors du chargement des commentaires" },
       { status: 500 }
     );
   }
@@ -131,7 +131,7 @@ export async function POST(
   } catch (error) {
     console.error("POST /api/returns/[code]/comments error:", error);
     return NextResponse.json(
-      { ok: false, error: getErrorMessage(error) },
+      { ok: false, error: "Erreur lors de l'ajout du commentaire" },
       { status: 500 }
     );
   }
@@ -200,7 +200,7 @@ export async function PUT(
   } catch (error) {
     console.error("PUT /api/returns/[code]/comments error:", error);
     return NextResponse.json(
-      { ok: false, error: getErrorMessage(error) },
+      { ok: false, error: "Erreur lors de la modification du commentaire" },
       { status: 500 }
     );
   }
@@ -262,7 +262,7 @@ export async function DELETE(
   } catch (error) {
     console.error("DELETE /api/returns/[code]/comments error:", error);
     return NextResponse.json(
-      { ok: false, error: getErrorMessage(error) },
+      { ok: false, error: "Erreur lors de la suppression du commentaire" },
       { status: 500 }
     );
   }

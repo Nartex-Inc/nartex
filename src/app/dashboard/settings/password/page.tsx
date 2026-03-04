@@ -54,7 +54,7 @@ function PasswordInput({
 
 function PasswordStrength({ password }: { password: string }) {
   const checks = [
-    { label: "Au moins 8 caractères", valid: password.length >= 8 },
+    { label: "Au moins 12 caractères", valid: password.length >= 12 },
     { label: "Une lettre majuscule", valid: /[A-Z]/.test(password) },
     { label: "Une lettre minuscule", valid: /[a-z]/.test(password) },
     { label: "Un chiffre", valid: /\d/.test(password) },
@@ -112,7 +112,7 @@ export default function PasswordSettingsPage() {
     newPassword &&
     confirmPassword &&
     newPassword === confirmPassword &&
-    newPassword.length >= 8;
+    newPassword.length >= 12;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

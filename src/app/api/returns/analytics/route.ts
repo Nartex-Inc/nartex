@@ -213,7 +213,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("GET /api/returns/analytics error:", error);
     return NextResponse.json(
-      { error: "Erreur lors du chargement des analytiques", details: getErrorMessage(error) },
+      { error: "Erreur lors du chargement des analytiques" },
       { status: 500 }
     );
   }

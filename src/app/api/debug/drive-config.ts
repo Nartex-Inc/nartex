@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
     console.error("Drive config check error:", error);
     return NextResponse.json({
       ok: false,
-      error: error.message || "Unknown error",
+      error: "Erreur de configuration",
     }, { status: 500 });
   }
 }

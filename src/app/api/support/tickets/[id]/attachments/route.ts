@@ -10,6 +10,22 @@ import {
   deleteFileFromDrive,
 } from "@/lib/google-drive";
 
+const ALLOWED_MIME_TYPES = new Set([
+  // Images
+  "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml", "image/bmp", "image/tiff",
+  // PDF
+  "application/pdf",
+  // Office documents
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  // Text / CSV
+  "text/plain", "text/csv",
+]);
+
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
@@ -103,6 +119,11 @@ export async function POST(
         continue;
       }
 
+      if (file.type && !ALLOWED_MIME_TYPES.has(file.type)) {
+        errors.push(`${file.name}: type de fichier non autorisé (${file.type})`);
+        continue;
+      }
+
       let arrayBuffer;
       try {
         arrayBuffer = await file.arrayBuffer();
@@ -172,7 +193,7 @@ export async function POST(
   } catch (error: unknown) {
     console.error("POST /api/support/tickets/[id]/attachments error:", error);
     return NextResponse.json(
-      { ok: false, error: getErrorMessage(error) || "Erreur serveur" },
+      { ok: false, error: "Erreur lors de la gestion des pièces jointes" },
       { status: 500 }
     );
   }
@@ -240,7 +261,7 @@ export async function DELETE(
   } catch (error: unknown) {
     console.error("DELETE /api/support/tickets/[id]/attachments error:", error);
     return NextResponse.json(
-      { ok: false, error: getErrorMessage(error) || "Erreur serveur" },
+      { ok: false, error: "Erreur lors de la gestion des pièces jointes" },
       { status: 500 }
     );
   }

@@ -87,6 +87,6 @@ export async function POST(req: Request) {
 
   } catch (error: unknown) {
     console.error("SIGNUP API ERROR:", error);
-    return NextResponse.json({ success: false, error: "Impossible de créer le compte: " + getErrorMessage(error) }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Impossible de créer le compte. Veuillez réessayer." }, { status: 500 });
   }
 }

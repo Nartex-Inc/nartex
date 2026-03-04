@@ -144,7 +144,11 @@ export const SignupSchema = z
     email: z.string().email("Format d'e-mail invalide"),
     password: z
       .string()
-      .min(8, "Le mot de passe doit comporter au moins 8 caractères"),
+      .min(12, "Le mot de passe doit comporter au moins 12 caractères")
+      .regex(/[A-Z]/, "Le mot de passe doit contenir au moins une lettre majuscule")
+      .regex(/[a-z]/, "Le mot de passe doit contenir au moins une lettre minuscule")
+      .regex(/\d/, "Le mot de passe doit contenir au moins un chiffre")
+      .regex(/[!@#$%^&*(),.?":{}|<>]/, "Le mot de passe doit contenir au moins un caractère spécial"),
     password_confirm: z.string(),
   })
   .refine((data) => data.password === data.password_confirm, {

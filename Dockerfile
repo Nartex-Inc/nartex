@@ -102,5 +102,9 @@ COPY --from=builder /app/public ./public
 # ECS task: 1536MB → limit heap to 1200MB (leaves room for OS)
 ENV NODE_OPTIONS="--max-old-space-size=1200"
 
+# Run as non-root user for security
+RUN chown -R node:node /app
+USER node
+
 # Your CMD should then run the standalone server
 CMD ["node", "server.js"]

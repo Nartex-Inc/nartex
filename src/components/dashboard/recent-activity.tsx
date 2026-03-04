@@ -37,7 +37,7 @@ export const RecentActivity: React.FC<{ activities: RecentActivityItem[] }> = ({
                 <span className={`absolute -top-1 -right-1 block h-2.5 w-2.5 rounded-full ring-2 ring-[hsl(var(--bg-surface))] ${activity.ringColorClass}`}></span>
               </div>
               <div>
-                <p className="text-sm text-[hsl(var(--text-secondary))] leading-relaxed" dangerouslySetInnerHTML={{ __html: activity.text }} />
+                <p className="text-sm text-[hsl(var(--text-secondary))] leading-relaxed">{activity.text}</p>
                 <p className="text-xs text-[hsl(var(--text-muted))] mt-1">{activity.timestamp}</p>
               </div>
             </div>

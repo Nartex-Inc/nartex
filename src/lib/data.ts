@@ -50,10 +50,10 @@ export const mockApprovalRequestsData: ApprovalRequest[] = [
 ];
 
 export const mockRecentActivityData: RecentActivityItem[] = [
-    { id: "act1", type: "project_submission", text: `Nouveau projet <span class="font-medium text-[hsl(var(--success))]">EcoLube Bio+</span> soumis par Sophie Dubois.`, timestamp: "Il y a 30 minutes", iconType: 'project', colorClass: 'text-[hsl(var(--success))]', bgColorClass: 'bg-[hsl(var(--success-muted))]', ringColorClass: 'bg-[hsl(var(--success))]' },
-    { id: "act2", type: "task_update", text: `<span class="font-medium text-[hsl(var(--warning))]">'Analyse de marché'</span> (QuadraShield MP) est en retard.`, timestamp: "Il y a 1 heure", iconType: 'alert', colorClass: 'text-[hsl(var(--warning))]', bgColorClass: 'bg-[hsl(var(--warning-muted))]', ringColorClass: 'bg-[hsl(var(--warning))]' },
-    { id: "act3", type: "approval_request", text: `<span class="font-medium text-[hsl(var(--success))]">Approbation budget</span> requise pour 'QuadraShield MP'.`, timestamp: "Il y a 2 heures", iconType: 'approval', colorClass: 'text-[hsl(var(--success))]', bgColorClass: 'bg-[hsl(var(--success-muted))]', ringColorClass: 'bg-[hsl(var(--success))]' },
-    { id: "act4", type: "user_join", text: `<span class="font-medium text-[hsl(var(--info))]">Martin Désy</span> a rejoint le projet <span class="font-medium text-[hsl(var(--info))]">SintoMax Gear Oil X</span>.`, timestamp: "Hier", iconType: 'user_added', colorClass: 'text-[hsl(var(--info))]', bgColorClass: 'bg-[hsl(var(--accent-muted))]', ringColorClass: 'bg-[hsl(var(--info))]' },
+    { id: "act1", type: "project_submission", text: "Nouveau projet EcoLube Bio+ soumis par Sophie Dubois.", timestamp: "Il y a 30 minutes", iconType: 'project', colorClass: 'text-[hsl(var(--success))]', bgColorClass: 'bg-[hsl(var(--success-muted))]', ringColorClass: 'bg-[hsl(var(--success))]' },
+    { id: "act2", type: "task_update", text: "'Analyse de marché' (QuadraShield MP) est en retard.", timestamp: "Il y a 1 heure", iconType: 'alert', colorClass: 'text-[hsl(var(--warning))]', bgColorClass: 'bg-[hsl(var(--warning-muted))]', ringColorClass: 'bg-[hsl(var(--warning))]' },
+    { id: "act3", type: "approval_request", text: "Approbation budget requise pour 'QuadraShield MP'.", timestamp: "Il y a 2 heures", iconType: 'approval', colorClass: 'text-[hsl(var(--success))]', bgColorClass: 'bg-[hsl(var(--success-muted))]', ringColorClass: 'bg-[hsl(var(--success))]' },
+    { id: "act4", type: "user_join", text: "Martin Désy a rejoint le projet SintoMax Gear Oil X.", timestamp: "Hier", iconType: 'user_added', colorClass: 'text-[hsl(var(--info))]', bgColorClass: 'bg-[hsl(var(--accent-muted))]', ringColorClass: 'bg-[hsl(var(--info))]' },
 ];
 
 export const mockNewProductRequestsData: NewProductRequest[] = [

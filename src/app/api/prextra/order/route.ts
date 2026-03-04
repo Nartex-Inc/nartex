@@ -96,7 +96,6 @@ export async function GET(request: NextRequest) {
       {
         exists: false,
         error: "Erreur lors de la recherche de la commande",
-        details: error?.message,
       },
       { status: 500 }
     );

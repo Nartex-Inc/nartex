@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("API Email error:", error);
     return NextResponse.json(
-      { error: error.message || "Erreur lors de l'envoi" },
+      { error: "Erreur lors de l'envoi du courriel" },
       { status: 500 }
     );
   }

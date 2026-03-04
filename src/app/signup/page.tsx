@@ -177,7 +177,11 @@ function SignupForm() {
     e.preventDefault();
     setError(null);
     if (password !== confirmPassword) return setError("Les mots de passe ne correspondent pas.");
-    if (password.length < 8) return setError("Le mot de passe doit comporter au moins 8 caractères.");
+    if (password.length < 12) return setError("Le mot de passe doit comporter au moins 12 caractères.");
+    if (!/[A-Z]/.test(password)) return setError("Le mot de passe doit contenir au moins une lettre majuscule.");
+    if (!/[a-z]/.test(password)) return setError("Le mot de passe doit contenir au moins une lettre minuscule.");
+    if (!/\d/.test(password)) return setError("Le mot de passe doit contenir au moins un chiffre.");
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) return setError("Le mot de passe doit contenir au moins un caractère spécial.");
 
     setLoading(true);
     try {
@@ -292,7 +296,7 @@ function SignupForm() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
-                        placeholder="8+ caractères"
+                        placeholder="12+ caractères"
                         autoComplete="new-password"
                         className="w-full px-4 py-3 bg-[hsl(var(--bg-surface))]/60 border border-[hsl(var(--border-default))] rounded-lg text-[hsl(var(--text-primary))] placeholder-[hsl(var(--text-muted))] focus:ring-2 focus:ring-[hsl(var(--accent))]/40 focus:border-[hsl(var(--accent))]/40 focus:bg-[hsl(var(--bg-surface))]/70 transition-all pr-12 text-sm"
                       />

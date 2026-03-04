@@ -65,7 +65,7 @@ ORDER BY sr."Name"
   } catch (error: unknown) {
     console.error("Sales volume experts API error:", error);
     return NextResponse.json(
-      { error: getErrorMessage(error) || "Erreur lors du chargement des experts" },
+      { error: "Erreur lors du chargement des experts" },
       { status: 500 }
     );
   }
