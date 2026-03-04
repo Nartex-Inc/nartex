@@ -587,11 +587,11 @@ export default function ReturnsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[hsl(var(--bg-elevated))] font-sans">
+    <div className="min-h-screen bg-[hsl(var(--bg-base))] font-sans">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-        
+
         {/* Header */}
-        <header className="mb-8">
+        <header className="mb-8 animate-slide-up">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight text-[hsl(var(--text-primary))]">Retours</h1>
@@ -601,7 +601,7 @@ export default function ReturnsPage() {
               <button
                 onClick={() => setShowHistory(!showHistory)}
                 className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                  "inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium interactive press",
                   showHistory
                     ? "bg-[hsl(var(--warning-muted))] text-[hsl(var(--warning))]"
                     : "bg-[hsl(var(--bg-surface))] border border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] hover:bg-[hsl(var(--bg-elevated))]"
@@ -611,7 +611,7 @@ export default function ReturnsPage() {
                 {showHistory ? "Historique" : "Actifs"}
               </button>
               {canCreate && (
-                <button onClick={() => setOpenNew(true)} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] text-sm font-medium shadow-sm hover:opacity-90 transition-colors">
+                <button onClick={() => setOpenNew(true)} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] text-sm font-semibold shadow-[var(--shadow-md)] hover:shadow-[var(--shadow-lg)] interactive press">
                   <Plus className="h-4 w-4" />
                   Nouveau retour
                 </button>
@@ -620,10 +620,10 @@ export default function ReturnsPage() {
           </div>
 
           <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <StatCard label="Total" value={stats.total} />
-            <StatCard label="Brouillons" value={stats.draft} variant="muted" />
-            <StatCard label="En attente" value={stats.awaiting} variant="warning" />
-            <StatCard label="Prêts" value={stats.ready} variant="success" />
+            <StatCard label="Total" value={stats.total} icon={Package} className="animate-slide-up stagger-1" />
+            <StatCard label="Brouillons" value={stats.draft} variant="muted" icon={FileText} className="animate-slide-up stagger-2" />
+            <StatCard label="En attente" value={stats.awaiting} variant="warning" icon={Clock} className="animate-slide-up stagger-3" />
+            <StatCard label="Prêts" value={stats.ready} variant="success" icon={CheckCircle} className="animate-slide-up stagger-4" />
           </div>
         </header>
 
@@ -632,20 +632,20 @@ export default function ReturnsPage() {
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-muted))]" />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") setSubmittedQuery(query); }} placeholder="Rechercher par client, commande, expert..." className="w-full h-10 pl-9 pr-4 rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] transition-shadow" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") setSubmittedQuery(query); }} placeholder="Rechercher par client, commande, expert..." className="w-full h-11 pl-9 pr-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))]/30 shadow-[var(--shadow-xs)] transition-shadow" />
             </div>
-            <button onClick={() => setShowFilters(!showFilters)} className={cn("inline-flex items-center gap-2 px-4 h-10 rounded-lg border text-sm font-medium transition-colors", hasActiveFilters ? "border-[hsl(var(--text-primary))] bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))]" : "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))]")}>
+            <button onClick={() => setShowFilters(!showFilters)} className={cn("inline-flex items-center gap-2 px-4 h-11 rounded-xl border text-sm font-medium interactive press", hasActiveFilters ? "border-[hsl(var(--text-primary))] bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))]" : "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))]")}>
               <Filter className="h-4 w-4" />
               Filtres
               {hasActiveFilters && <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-[hsl(var(--bg-surface))] text-xs text-[hsl(var(--text-primary))]">{[cause !== "all", reporter !== "all", dateFrom, dateTo].filter(Boolean).length}</span>}
             </button>
             <div className="flex items-center gap-2">
-              <button onClick={() => load()} className="inline-flex items-center justify-center h-10 w-10 rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] transition-colors" title="Rafraîchir"><RotateCcw className="h-4 w-4" /></button>
-              {hasActiveFilters && <button onClick={onReset} className="inline-flex items-center justify-center h-10 w-10 rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--danger))] transition-colors" title="Réinitialiser"><X className="h-4 w-4" /></button>}
+              <button onClick={() => load()} className="inline-flex items-center justify-center h-11 w-11 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] interactive press" title="Rafraîchir"><RotateCcw className="h-4 w-4" /></button>
+              {hasActiveFilters && <button onClick={onReset} className="inline-flex items-center justify-center h-11 w-11 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--danger))] interactive press" title="Réinitialiser"><X className="h-4 w-4" /></button>}
             </div>
           </div>
           {showFilters && (
-            <div className="flex flex-wrap items-center gap-3 p-4 rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]">
+            <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-[var(--shadow-xs)] animate-fade-in">
               <div className="flex items-center gap-2">
                 <label className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Cause</label>
                 <select value={cause} onChange={(e) => setCause(e.target.value as Cause | "all")} className="h-9 px-3 rounded-md border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] focus:outline-none">
@@ -674,23 +674,23 @@ export default function ReturnsPage() {
         </div>
 
         {/* Table */}
-        <div className="rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm overflow-hidden">
-          {loading && <div className="flex flex-col items-center justify-center py-24"><Loader2 className="h-8 w-8 text-[hsl(var(--text-muted))] animate-spin mb-3" /><p className="text-sm text-[hsl(var(--text-tertiary))]">Chargement...</p></div>}
-          {error && <div className="flex flex-col items-center justify-center py-24 text-[hsl(var(--danger))]"><p className="text-sm">{error}</p></div>}
+        <div className="rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-[var(--shadow-md)] overflow-hidden animate-slide-up stagger-3">
+          {loading && <div className="flex flex-col items-center justify-center py-24 animate-fade-in"><Loader2 className="h-8 w-8 text-[hsl(var(--accent))] animate-spin mb-3" /><p className="text-sm font-medium text-[hsl(var(--text-tertiary))]">Chargement...</p></div>}
+          {error && <div className="flex flex-col items-center justify-center py-24 text-[hsl(var(--danger))] animate-fade-in"><p className="text-sm font-medium">{error}</p></div>}
           {!loading && !error && (
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-[hsl(var(--border-default))]">
+                    <tr className="border-b-2 border-[hsl(var(--border-subtle))]">
                       <SortTh label="ID" sortKey="id" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
                       <SortTh label="Date" sortKey="reportedAt" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
                       <SortTh label="Cause" sortKey="cause" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
                       <SortTh label="Client / Expert" sortKey="client" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
                       <SortTh label="Commande" sortKey="noCommande" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
                       <SortTh label="Tracking" sortKey="tracking" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
-                      <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Fichiers</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Actions</th>
+                      <th className="px-4 py-3.5 text-left text-label uppercase">Fichiers</th>
+                      <th className="px-4 py-3.5 text-right text-label uppercase">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[hsl(var(--border-subtle))]">
@@ -699,16 +699,16 @@ export default function ReturnsPage() {
                       const hasFiles = (row.attachments?.length ?? 0) > 0;
                       const rowId = String(row.id);
                       return (
-                        <tr key={rowId} onClick={() => setOpenId(rowId)} className={cn("group cursor-pointer transition-colors",
-                          status === "draft" && "bg-white text-black hover:bg-gray-100",
-                          status === "awaiting_physical" && "bg-black text-white hover:opacity-90",
-                          status === "ready" && "bg-[hsl(var(--success))] text-white hover:opacity-90",
-                          status === "finalized" && "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))]",
-                          status === "standby" && "bg-purple-600 text-white hover:opacity-90"
+                        <tr key={rowId} onClick={() => setOpenId(rowId)} className={cn("group cursor-pointer transition-all duration-150",
+                          status === "draft" && "bg-white text-black hover:bg-gray-50",
+                          status === "awaiting_physical" && "bg-black text-white hover:bg-neutral-900",
+                          status === "ready" && "bg-[hsl(var(--success))] text-white hover:brightness-110",
+                          status === "finalized" && "bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-muted))] hover:bg-[hsl(var(--bg-elevated))]",
+                          status === "standby" && "bg-purple-600 text-white hover:brightness-110"
                         )}>
-                          <td className="px-4 py-3 font-mono font-medium whitespace-nowrap">{rowId.replace('R', '')}</td>
-                          <td className="px-4 py-3 whitespace-nowrap">{new Date(row.reportedAt).toLocaleDateString("fr-CA")}</td>
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          <td className="px-4 py-3.5 font-mono font-medium whitespace-nowrap">{rowId.replace('R', '')}</td>
+                          <td className="px-4 py-3.5 whitespace-nowrap">{new Date(row.reportedAt).toLocaleDateString("fr-CA")}</td>
+                          <td className="px-4 py-3.5 whitespace-nowrap">
                             <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium",
                               status === "awaiting_physical" && "bg-white/20 text-white",
                               status === "ready" && "bg-[hsl(var(--bg-base))]/10 text-[hsl(var(--text-primary))]",
@@ -717,14 +717,14 @@ export default function ReturnsPage() {
                               status === "standby" && "bg-white/20 text-white"
                             )}>{row.cause ? CAUSE_LABEL[row.cause] : "—"}</span>
                           </td>
-                          <td className="px-4 py-3 max-w-[200px]">
+                          <td className="px-4 py-3.5 max-w-[200px]">
                             <div className={cn("font-medium truncate", status === "finalized" && "text-[hsl(var(--text-muted))]")}>{row.client}</div>
                             <div className={cn("text-xs truncate", status === "awaiting_physical" && "text-white/70", status === "ready" && "text-[hsl(var(--text-primary))]/70", status === "draft" && "text-gray-500", status === "finalized" && "text-[hsl(var(--text-muted))]", status === "standby" && "text-white/70")}>{row.expert}</div>
                           </td>
-                          <td className="px-4 py-3 font-mono whitespace-nowrap">{row.noCommande || "—"}</td>
-                          <td className="px-4 py-3 whitespace-nowrap">{row.tracking ? <span className="inline-flex items-center gap-1.5"><Truck className="h-3.5 w-3.5 opacity-70" /><span className="font-mono text-xs">{row.tracking}</span></span> : "—"}</td>
-                          <td className="px-4 py-3">{hasFiles && <span className={cn("inline-flex items-center gap-1 text-xs font-medium", status === "awaiting_physical" && "text-white/80", status === "ready" && "text-[hsl(var(--text-primary))]/80")}><Paperclip className="h-3.5 w-3.5" />{row.attachments!.length}</span>}</td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-4 py-3.5 font-mono whitespace-nowrap">{row.noCommande || "—"}</td>
+                          <td className="px-4 py-3.5 whitespace-nowrap">{row.tracking ? <span className="inline-flex items-center gap-1.5"><Truck className="h-3.5 w-3.5 opacity-70" /><span className="font-mono text-xs">{row.tracking}</span></span> : "—"}</td>
+                          <td className="px-4 py-3.5">{hasFiles && <span className={cn("inline-flex items-center gap-1 text-xs font-medium", status === "awaiting_physical" && "text-white/80", status === "ready" && "text-[hsl(var(--text-primary))]/80")}><Paperclip className="h-3.5 w-3.5" />{row.attachments!.length}</span>}</td>
+                          <td className="px-4 py-3.5 text-right">
                             <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button onClick={(e) => { e.stopPropagation(); setOpenId(rowId); }} className={cn("p-1.5 rounded-md transition-colors", status === "awaiting_physical" && "hover:bg-white/20 text-white", status === "ready" && "hover:bg-[hsl(var(--bg-base))]/10 text-[hsl(var(--text-primary))]", status === "draft" && "hover:bg-gray-200 text-gray-600", status === "finalized" && "hover:bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-tertiary))]", status === "standby" && "hover:bg-white/20 text-white")} title="Voir"><Eye className="h-4 w-4" /></button>
                               {canCreate && !showHistory && status !== "draft" && status !== "finalized" && (
@@ -741,15 +741,15 @@ export default function ReturnsPage() {
                     })}
                   </tbody>
                 </table>
-                {sorted.length === 0 && <div className="flex flex-col items-center justify-center py-24 text-[hsl(var(--text-muted))]"><Package className="h-10 w-10 mb-3 opacity-50" /><p className="text-sm">Aucun résultat</p></div>}
+                {sorted.length === 0 && <div className="flex flex-col items-center justify-center py-24 text-[hsl(var(--text-muted))] animate-fade-in"><Package className="h-10 w-10 mb-3 opacity-50" /><p className="text-sm font-medium">Aucun résultat</p></div>}
               </div>
-              <div className="px-4 py-3 border-t border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] flex items-center justify-between text-xs text-[hsl(var(--text-tertiary))]">
-                <span>{sorted.length} retour{sorted.length !== 1 ? "s" : ""}</span>
-                <div className="flex items-center gap-4">
-                  <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-[hsl(var(--success))]" />Prêt</span>
-                  <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-black" />En attente</span>
-                  <span className="flex items-center gap-2"><span className="w-3 h-3 rounded border border-gray-300 bg-white" />Brouillon</span>
-                  <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-purple-600" />Standby</span>
+              <div className="px-4 py-3 border-t border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-surface))] flex items-center justify-between text-xs text-[hsl(var(--text-tertiary))]">
+                <span className="font-medium tabular-nums">{sorted.length} retour{sorted.length !== 1 ? "s" : ""}</span>
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[hsl(var(--success))]/10"><span className="w-2 h-2 rounded-full bg-[hsl(var(--success))]" />Prêt</span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/10 dark:bg-white/10"><span className="w-2 h-2 rounded-full bg-black dark:bg-white" />En attente</span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800"><span className="w-2 h-2 rounded-full border border-gray-300 bg-white" />Brouillon</span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-500/10"><span className="w-2 h-2 rounded-full bg-purple-600" />Standby</span>
                 </div>
               </div>
             </>
@@ -763,21 +763,38 @@ export default function ReturnsPage() {
   );
 }
 
-function StatCard({ label, value, variant = "default" }: { label: string; value: number; variant?: "default" | "success" | "warning" | "muted" }) {
+function StatCard({ label, value, variant = "default", icon: Icon, className }: { label: string; value: number; variant?: "default" | "success" | "warning" | "muted"; icon?: React.ElementType; className?: string }) {
   return (
-    <div className={cn("px-4 py-3 rounded-lg border",
+    <div className={cn("relative px-4 py-3 rounded-lg border overflow-hidden interactive",
       variant === "default" && "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]",
       variant === "success" && "border-[hsl(var(--success))]/20 bg-[hsl(var(--success-muted))]",
       variant === "warning" && "border-[hsl(var(--warning))]/20 bg-[hsl(var(--warning-muted))]",
-      variant === "muted" && "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))]"
+      variant === "muted" && "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))]",
+      className
     )}>
-      <div className={cn("text-2xl font-semibold tabular-nums",
-        variant === "default" && "text-[hsl(var(--text-primary))]",
-        variant === "success" && "text-[hsl(var(--success))]",
-        variant === "warning" && "text-[hsl(var(--warning))]",
-        variant === "muted" && "text-[hsl(var(--text-tertiary))]"
-      )}>{value}</div>
-      <div className="text-xs text-[hsl(var(--text-tertiary))] mt-0.5">{label}</div>
+      <div className={cn("absolute top-0 left-0 right-0 h-0.5",
+        variant === "default" && "bg-[hsl(var(--text-primary))]",
+        variant === "success" && "bg-[hsl(var(--success))]",
+        variant === "warning" && "bg-[hsl(var(--warning))]",
+        variant === "muted" && "bg-[hsl(var(--text-tertiary))]"
+      )} />
+      <div className="flex items-center justify-between">
+        <div>
+          <div className={cn("text-2xl font-semibold tabular-nums",
+            variant === "default" && "text-[hsl(var(--text-primary))]",
+            variant === "success" && "text-[hsl(var(--success))]",
+            variant === "warning" && "text-[hsl(var(--warning))]",
+            variant === "muted" && "text-[hsl(var(--text-tertiary))]"
+          )}>{value}</div>
+          <div className="text-label mt-0.5">{label}</div>
+        </div>
+        {Icon && <Icon className={cn("h-5 w-5",
+          variant === "default" && "text-[hsl(var(--text-muted))]",
+          variant === "success" && "text-[hsl(var(--success))]/60",
+          variant === "warning" && "text-[hsl(var(--warning))]/60",
+          variant === "muted" && "text-[hsl(var(--text-muted))]"
+        )} />}
+      </div>
     </div>
   );
 }
@@ -785,7 +802,7 @@ function StatCard({ label, value, variant = "default" }: { label: string; value:
 function SortTh({ label, sortKey, currentKey, dir, onSort }: { label: string; sortKey: SortKey; currentKey: SortKey; dir: SortDir; onSort: (key: SortKey) => void }) {
   const active = sortKey === currentKey;
   return (
-    <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide cursor-pointer select-none hover:text-[hsl(var(--text-primary))] transition-colors" onClick={() => onSort(sortKey)}>
+    <th className="px-4 py-3.5 text-left text-label uppercase cursor-pointer select-none hover:text-[hsl(var(--text-primary))] transition-colors" onClick={() => onSort(sortKey)}>
       <span className="inline-flex items-center gap-1.5">
         {label}
         {active && (dir === "asc" ? <ArrowUpNarrowWide className="h-3.5 w-3.5 text-[hsl(var(--text-primary))]" /> : <ArrowDownNarrowWide className="h-3.5 w-3.5 text-[hsl(var(--text-primary))]" />)}
@@ -995,9 +1012,9 @@ function DetailModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-fade-in" onClick={onClose} />
 
-      <div className="relative w-[90vw] h-[90vh] bg-[hsl(var(--bg-surface))] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-[hsl(var(--border-default))]">
+      <div className="relative w-[90vw] h-[90vh] bg-[hsl(var(--bg-surface))] rounded-2xl shadow-[var(--shadow-2xl)] flex flex-col overflow-hidden border border-[hsl(var(--border-default))] animate-scale-in">
 
         {/* Header */}
         <div className="px-8 py-6 border-b border-[hsl(var(--border-subtle))] flex items-start justify-between" style={{ background: `linear-gradient(to right, var(--accent-muted-current), hsl(var(--bg-surface)))` }}>
@@ -1030,7 +1047,7 @@ function DetailModal({
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-primary))] transition-all duration-200">
+          <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-primary))] interactive press">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -1577,19 +1594,19 @@ function DetailModal({
 
         {/* Footer */}
         <div className="px-8 py-5 border-t border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-surface))] flex items-center justify-end gap-3">
-          <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-[hsl(var(--text-tertiary))] hover:bg-[hsl(var(--bg-elevated))] transition-all duration-200">
+          <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-[hsl(var(--text-tertiary))] hover:bg-[hsl(var(--bg-elevated))] interactive press">
             Fermer
           </button>
 
           {canForceDraft && (
-            <button disabled={busy} onClick={handleSaveDraft} className={cn("inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))] text-sm font-medium hover:bg-[hsl(var(--bg-elevated))] transition-all duration-200", busy && "opacity-50 cursor-not-allowed")}>
+            <button disabled={busy} onClick={handleSaveDraft} className={cn("inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))] text-sm font-medium hover:bg-[hsl(var(--bg-elevated))] interactive press", busy && "opacity-50 cursor-not-allowed")}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
               Enregistrer comme brouillon
             </button>
           )}
 
           {(canEdit || canSaveVerified) && (
-            <button disabled={busy} onClick={handleSave} className={cn("inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] text-sm font-semibold hover:opacity-90 transition-all duration-200 shadow-lg", busy && "opacity-50 cursor-not-allowed")}>
+            <button disabled={busy} onClick={handleSave} className={cn("inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] text-sm font-semibold hover:opacity-90 interactive press shadow-lg", busy && "opacity-50 cursor-not-allowed")}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Enregistrer
             </button>
@@ -1851,8 +1868,8 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
-      <div className="relative w-[90vw] h-[90vh] bg-[hsl(var(--bg-surface))] rounded-2xl shadow-2xl border border-[hsl(var(--border-default))] overflow-hidden flex flex-col">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-fade-in" onClick={onClose} />
+      <div className="relative w-[90vw] h-[90vh] bg-[hsl(var(--bg-surface))] rounded-2xl shadow-[var(--shadow-2xl)] border border-[hsl(var(--border-default))] overflow-hidden flex flex-col animate-scale-in">
         
         {/* Header */}
         <div className="px-8 py-6 border-b border-[hsl(var(--border-subtle))] flex items-center justify-between bg-[hsl(var(--bg-surface))]">
@@ -1863,7 +1880,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
               <p className="text-sm text-[hsl(var(--text-tertiary))] mt-0.5">{currentUserName}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-primary))] transition-all duration-200"><X className="h-5 w-5" /></button>
+          <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-primary))] interactive press"><X className="h-5 w-5" /></button>
         </div>
 
         {/* Content */}
@@ -1963,12 +1980,12 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
 
         {/* Footer */}
         <div className="px-8 py-5 border-t border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-surface))] flex items-center justify-end gap-3">
-          <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-[hsl(var(--text-tertiary))] hover:bg-[hsl(var(--bg-elevated))] transition-all duration-200">Annuler</button>
-          <button disabled={busy} onClick={submitDraft} className={cn("inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))] text-sm font-medium hover:bg-[hsl(var(--bg-elevated))] transition-all duration-200", busy && "opacity-50 cursor-not-allowed")}>
+          <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-[hsl(var(--text-tertiary))] hover:bg-[hsl(var(--bg-elevated))] interactive press">Annuler</button>
+          <button disabled={busy} onClick={submitDraft} className={cn("inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))] text-sm font-medium hover:bg-[hsl(var(--bg-elevated))] interactive press", busy && "opacity-50 cursor-not-allowed")}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
             Enregistrer comme brouillon
           </button>
-          <button disabled={busy} onClick={submit} className={cn("inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] text-sm font-semibold hover:opacity-90 transition-all duration-200 shadow-lg", busy && "opacity-50 cursor-not-allowed")}>
+          <button disabled={busy} onClick={submit} className={cn("inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] text-sm font-semibold hover:opacity-90 interactive press shadow-lg", busy && "opacity-50 cursor-not-allowed")}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             Créer le retour
           </button>
