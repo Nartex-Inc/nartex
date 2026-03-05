@@ -220,10 +220,10 @@ export default function SupportTicketsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[hsl(var(--bg-elevated))] font-sans">
+    <div className="min-h-screen bg-[hsl(var(--bg-base))] font-sans">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <header className="mb-8">
+        <header className="mb-8 animate-slide-up">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight text-[hsl(var(--text-primary))]">
@@ -237,17 +237,17 @@ export default function SupportTicketsPage() {
                   : "Suivez vos demandes d'assistance"}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => {
                   setViewMode(viewMode === "active" ? "history" : "active");
                   setStatusFilter("all");
                 }}
                 className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium shadow-sm transition-colors",
+                  "inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium interactive press",
                   viewMode === "history"
-                    ? "bg-[hsl(var(--warning))] text-white hover:opacity-90"
-                    : "border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))]"
+                    ? "bg-[hsl(var(--warning-muted))] text-[hsl(var(--warning))]"
+                    : "bg-[hsl(var(--bg-surface))] border border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] hover:bg-[hsl(var(--bg-elevated))]"
                 )}
               >
                 {viewMode === "history" ? (
@@ -264,7 +264,7 @@ export default function SupportTicketsPage() {
               </button>
               <button
                 onClick={() => router.push("/dashboard/support/new")}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] text-sm font-medium shadow-sm hover:opacity-90 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] text-sm font-semibold shadow-[var(--shadow-md)] hover:shadow-[var(--shadow-lg)] interactive press"
               >
                 <Plus className="h-4 w-4" />
                 Nouveau billet
@@ -274,10 +274,10 @@ export default function SupportTicketsPage() {
 
           {/* Stats */}
           <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <StatCard label="Total" value={stats.total} />
-            <StatCard label="Nouveaux" value={stats.nouveau} variant="info" />
-            <StatCard label="En cours" value={stats.enCours} variant="warning" />
-            <StatCard label="Résolus" value={stats.resolu} variant="success" />
+            <StatCard label="Total" value={stats.total} icon={MessageSquare} className="animate-slide-up stagger-1" />
+            <StatCard label="Nouveaux" value={stats.nouveau} variant="info" icon={Circle} className="animate-slide-up stagger-2" />
+            <StatCard label="En cours" value={stats.enCours} variant="warning" icon={Clock} className="animate-slide-up stagger-3" />
+            <StatCard label="Résolus" value={stats.resolu} variant="success" icon={CheckCircle} className="animate-slide-up stagger-4" />
           </div>
         </header>
 
@@ -290,13 +290,13 @@ export default function SupportTicketsPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Rechercher par code, sujet, utilisateur..."
-                className="w-full h-10 pl-9 pr-4 rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--text-primary))] transition-shadow"
+                className="w-full h-11 pl-9 pr-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))]/30 shadow-[var(--shadow-xs)] transition-shadow"
               />
             </div>
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={cn(
-                "inline-flex items-center gap-2 px-4 h-10 rounded-lg border text-sm font-medium transition-colors",
+                "inline-flex items-center gap-2 px-4 h-11 rounded-xl border text-sm font-medium interactive press",
                 hasActiveFilters
                   ? "border-[hsl(var(--text-primary))] bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))]"
                   : "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))]"
@@ -304,21 +304,33 @@ export default function SupportTicketsPage() {
             >
               <Filter className="h-4 w-4" />
               Filtres
+              {hasActiveFilters && <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-[hsl(var(--bg-surface))] text-xs text-[hsl(var(--text-primary))]">{[statusFilter !== "all", priorityFilter !== "all", query.trim()].filter(Boolean).length}</span>}
             </button>
-            <button
-              onClick={() => mutate()}
-              className="inline-flex items-center justify-center h-10 w-10 rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] transition-colors"
-              title="Rafraîchir"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => mutate()}
+                className="inline-flex items-center justify-center h-11 w-11 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] interactive press"
+                title="Rafraîchir"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+              {hasActiveFilters && (
+                <button
+                  onClick={resetFilters}
+                  className="inline-flex items-center justify-center h-11 w-11 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--danger))] interactive press"
+                  title="Réinitialiser"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
 
             {/* View toggle */}
-            <div className="inline-flex rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-muted))] p-0.5">
+            <div className="inline-flex rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-muted))] p-0.5">
               <button
                 onClick={() => setDisplayMode("table")}
                 className={cn(
-                  "inline-flex items-center gap-1.5 px-3 h-9 rounded-md text-xs font-medium transition-all",
+                  "inline-flex items-center gap-1.5 px-3 h-9 rounded-lg text-xs font-medium transition-all",
                   displayMode === "table"
                     ? "bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))] shadow-sm"
                     : "text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-secondary))]"
@@ -331,7 +343,7 @@ export default function SupportTicketsPage() {
               <button
                 onClick={() => setDisplayMode("kanban")}
                 className={cn(
-                  "inline-flex items-center gap-1.5 px-3 h-9 rounded-md text-xs font-medium transition-all",
+                  "inline-flex items-center gap-1.5 px-3 h-9 rounded-lg text-xs font-medium transition-all",
                   displayMode === "kanban"
                     ? "bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))] shadow-sm"
                     : "text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-secondary))]"
@@ -348,26 +360,16 @@ export default function SupportTicketsPage() {
               <select
                 value={kanbanGroupBy}
                 onChange={(e) => setKanbanGroupBy(e.target.value as "statut" | "priorite")}
-                className="h-10 px-3 rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-xs font-medium text-[hsl(var(--text-secondary))] focus:outline-none"
+                className="h-11 px-3 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-xs font-medium text-[hsl(var(--text-secondary))] focus:outline-none"
               >
                 <option value="statut">Par statut</option>
                 <option value="priorite">Par priorité</option>
               </select>
             )}
-
-            {hasActiveFilters && (
-              <button
-                onClick={resetFilters}
-                className="inline-flex items-center justify-center h-10 w-10 rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--danger))] transition-colors"
-                title="Réinitialiser"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
           </div>
 
           {showFilters && (
-            <div className="flex flex-wrap items-center gap-3 p-4 rounded-lg border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]">
+            <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-[var(--shadow-xs)] animate-fade-in">
               <div className="flex items-center gap-2">
                 <label className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Statut</label>
                 <select
@@ -401,28 +403,28 @@ export default function SupportTicketsPage() {
 
         {/* Content */}
         {isLoading && (
-          <div className="rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
-            <div className="flex flex-col items-center justify-center py-24">
-              <Loader2 className="h-8 w-8 text-[hsl(var(--text-muted))] animate-spin mb-3" />
-              <p className="text-sm text-[hsl(var(--text-tertiary))]">Chargement...</p>
+          <div className="rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-[var(--shadow-md)] overflow-hidden animate-slide-up stagger-3">
+            <div className="flex flex-col items-center justify-center py-24 animate-fade-in">
+              <Loader2 className="h-8 w-8 text-[hsl(var(--accent))] animate-spin mb-3" />
+              <p className="text-sm font-medium text-[hsl(var(--text-tertiary))]">Chargement...</p>
             </div>
           </div>
         )}
 
         {!isLoading && displayMode === "table" && (
-          <div className="rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm overflow-hidden">
+          <div className="rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-[var(--shadow-md)] overflow-hidden animate-slide-up stagger-3">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[hsl(var(--border-default))]">
-                    <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Code</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Sujet</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Demandeur</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Catégorie</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Priorité</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Statut</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Créé</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Actions</th>
+                  <tr className="border-b-2 border-[hsl(var(--border-subtle))]">
+                    <th className="px-4 py-3.5 text-left text-label uppercase">Code</th>
+                    <th className="px-4 py-3.5 text-left text-label uppercase">Sujet</th>
+                    <th className="px-4 py-3.5 text-left text-label uppercase">Demandeur</th>
+                    <th className="px-4 py-3.5 text-left text-label uppercase">Catégorie</th>
+                    <th className="px-4 py-3.5 text-left text-label uppercase">Priorité</th>
+                    <th className="px-4 py-3.5 text-left text-label uppercase">Statut</th>
+                    <th className="px-4 py-3.5 text-left text-label uppercase">Créé</th>
+                    <th className="px-4 py-3.5 text-right text-label uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[hsl(var(--border-subtle))]">
@@ -435,12 +437,12 @@ export default function SupportTicketsPage() {
                       <tr
                         key={ticket.id}
                         onClick={() => setSelectedId(ticket.id)}
-                        className="group cursor-pointer hover:bg-[hsl(var(--bg-elevated))] transition-colors"
+                        className="group cursor-pointer hover:bg-[hsl(var(--bg-elevated))] transition-all duration-150"
                       >
-                        <td className="px-4 py-3 font-mono font-medium text-[hsl(var(--text-primary))] whitespace-nowrap">
+                        <td className="px-4 py-3.5 font-mono font-medium text-[hsl(var(--text-primary))] whitespace-nowrap">
                           {ticket.code}
                         </td>
-                        <td className="px-4 py-3 max-w-[200px]">
+                        <td className="px-4 py-3.5 max-w-[200px]">
                           <div className="font-medium text-[hsl(var(--text-primary))] truncate">{ticket.sujet}</div>
                           {ticket.commentsCount > 0 && (
                             <div className="flex items-center gap-1 mt-0.5 text-xs text-[hsl(var(--text-tertiary))]">
@@ -449,40 +451,42 @@ export default function SupportTicketsPage() {
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="text-[hsl(var(--text-primary))]">{ticket.userName}</div>
-                          <div className="text-xs text-[hsl(var(--text-tertiary))]">{ticket.site}</div>
+                        <td className="px-4 py-3.5">
+                          <div className="font-medium text-[hsl(var(--text-primary))]">{ticket.userName}</div>
+                          <div className="text-xs text-[hsl(var(--text-tertiary))] truncate">{ticket.site}</div>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3.5 whitespace-nowrap">
                           <span className="inline-flex items-center rounded-md bg-[hsl(var(--bg-muted))] px-2 py-0.5 text-xs font-medium text-[hsl(var(--text-secondary))]">
                             {categoryLabel}
                           </span>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3.5 whitespace-nowrap">
                           <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold", priorityInfo.bgColor, priorityInfo.color)}>
                             {priorityInfo.priority}
                           </span>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3.5 whitespace-nowrap">
                           <span className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium", statusInfo?.bgColor, statusInfo?.color)}>
                             <StatusIcon status={ticket.statut} />
                             {statusInfo?.label || ticket.statut}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-[hsl(var(--text-tertiary))] whitespace-nowrap">
+                        <td className="px-4 py-3.5 text-[hsl(var(--text-tertiary))] whitespace-nowrap">
                           {new Date(ticket.createdAt).toLocaleDateString("fr-CA")}
                         </td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedId(ticket.id);
-                            }}
-                            className="p-1.5 rounded-md hover:bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-primary))] transition-colors"
-                            title="Voir"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
+                        <td className="px-4 py-3.5 text-right">
+                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedId(ticket.id);
+                              }}
+                              className="p-1.5 rounded-md hover:bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-primary))] transition-colors"
+                              title="Voir"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -491,15 +495,23 @@ export default function SupportTicketsPage() {
               </table>
 
               {filteredTickets.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-24 text-[hsl(var(--text-muted))]">
+                <div className="flex flex-col items-center justify-center py-24 text-[hsl(var(--text-muted))] animate-fade-in">
                   <AlertTriangle className="h-10 w-10 mb-3 opacity-50" />
-                  <p className="text-sm">Aucun billet trouvé</p>
+                  <p className="text-sm font-medium">Aucun billet trouvé</p>
                 </div>
               )}
             </div>
 
-            <div className="px-4 py-3 border-t border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-xs text-[hsl(var(--text-tertiary))]">
-              {filteredTickets.length} billet{filteredTickets.length !== 1 ? "s" : ""}
+            <div className="px-4 py-3 border-t border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-surface))] flex items-center justify-between text-xs text-[hsl(var(--text-tertiary))]">
+              <span className="font-medium tabular-nums">{filteredTickets.length} billet{filteredTickets.length !== 1 ? "s" : ""}</span>
+              <div className="flex items-center gap-3">
+                {TICKET_STATUSES.map((s) => (
+                  <span key={s.value} className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full", s.bgColor)}>
+                    <StatusIcon status={s.value} />
+                    <span className={s.color}>{s.label}</span>
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -533,25 +545,38 @@ export default function SupportTicketsPage() {
 // HELPER COMPONENTS
 // =============================================================================
 
-function StatCard({ label, value, variant = "default" }: { label: string; value: number; variant?: "default" | "info" | "success" | "warning" }) {
+function StatCard({ label, value, variant = "default", icon: Icon, className: extraClassName }: { label: string; value: number; variant?: "default" | "info" | "success" | "warning"; icon?: React.ElementType; className?: string }) {
   return (
-    <div className={cn(
-      "px-4 py-3 rounded-lg border",
+    <div className={cn("relative px-4 py-3 rounded-lg border overflow-hidden interactive",
       variant === "default" && "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]",
-      variant === "info" && "border-[hsl(var(--info)_/_0.3)] bg-[hsl(var(--info-muted))]",
-      variant === "success" && "border-[hsl(var(--success)_/_0.3)] bg-[hsl(var(--success-muted))]",
-      variant === "warning" && "border-[hsl(var(--warning)_/_0.3)] bg-[hsl(var(--warning-muted))]"
+      variant === "info" && "border-[hsl(var(--info))]/20 bg-[hsl(var(--info-muted))]",
+      variant === "success" && "border-[hsl(var(--success))]/20 bg-[hsl(var(--success-muted))]",
+      variant === "warning" && "border-[hsl(var(--warning))]/20 bg-[hsl(var(--warning-muted))]",
+      extraClassName
     )}>
-      <div className={cn(
-        "text-2xl font-semibold tabular-nums",
-        variant === "default" && "text-[hsl(var(--text-primary))]",
-        variant === "info" && "text-[hsl(var(--info))]",
-        variant === "success" && "text-[hsl(var(--success))]",
-        variant === "warning" && "text-[hsl(var(--warning))]"
-      )}>
-        {value}
+      <div className={cn("absolute top-0 left-0 right-0 h-0.5",
+        variant === "default" && "bg-[hsl(var(--text-primary))]",
+        variant === "info" && "bg-[hsl(var(--info))]",
+        variant === "success" && "bg-[hsl(var(--success))]",
+        variant === "warning" && "bg-[hsl(var(--warning))]"
+      )} />
+      <div className="flex items-center justify-between">
+        <div>
+          <div className={cn("text-2xl font-semibold tabular-nums",
+            variant === "default" && "text-[hsl(var(--text-primary))]",
+            variant === "info" && "text-[hsl(var(--info))]",
+            variant === "success" && "text-[hsl(var(--success))]",
+            variant === "warning" && "text-[hsl(var(--warning))]"
+          )}>{value}</div>
+          <div className="text-label mt-0.5">{label}</div>
+        </div>
+        {Icon && <Icon className={cn("h-5 w-5",
+          variant === "default" && "text-[hsl(var(--text-muted))]",
+          variant === "info" && "text-[hsl(var(--info))]/60",
+          variant === "success" && "text-[hsl(var(--success))]/60",
+          variant === "warning" && "text-[hsl(var(--warning))]/60"
+        )} />}
       </div>
-      <div className="text-xs text-[hsl(var(--text-tertiary))] mt-0.5">{label}</div>
     </div>
   );
 }
@@ -951,7 +976,7 @@ function TicketDetailModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 backdrop-blur-sm p-4">
-      <div className="relative w-[90vw] max-w-7xl my-8 bg-[hsl(var(--bg-surface))] rounded-xl shadow-2xl border border-[hsl(var(--border-default))]">
+      <div className="relative w-[90vw] max-w-7xl my-8 bg-[hsl(var(--bg-surface))] rounded-2xl shadow-2xl border border-[hsl(var(--border-default))] animate-fade-in">
         {/* Header */}
         <div className="flex items-start justify-between p-6 border-b border-[hsl(var(--border-default))]">
           <div>
