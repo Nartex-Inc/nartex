@@ -145,15 +145,19 @@ export async function GET(request: NextRequest) {
 
     // Search filter
     if (q) {
-      AND.push({
-        OR: [
-          { client: { contains: q, mode: "insensitive" } },
-          { noCommande: { contains: q, mode: "insensitive" } },
-          { noClient: { contains: q, mode: "insensitive" } },
-          { expert: { contains: q, mode: "insensitive" } },
-          { products: { some: { codeProduit: { contains: q, mode: "insensitive" } } } },
-        ],
-      });
+      const orConditions: Prisma.ReturnWhereInput[] = [
+        { client: { contains: q, mode: "insensitive" } },
+        { noCommande: { contains: q, mode: "insensitive" } },
+        { noClient: { contains: q, mode: "insensitive" } },
+        { expert: { contains: q, mode: "insensitive" } },
+        { products: { some: { codeProduit: { contains: q, mode: "insensitive" } } } },
+      ];
+      // Allow searching by Return ID (numeric)
+      const qNum = parseInt(q, 10);
+      if (!isNaN(qNum)) {
+        orConditions.push({ id: qNum });
+      }
+      AND.push({ OR: orConditions });
     }
 
     // Additional filters
