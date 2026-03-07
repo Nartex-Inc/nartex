@@ -72,7 +72,12 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!user || !user.password) throw new Error("Aucun utilisateur trouvé ou mot de passe non configuré.");
-        
+
+        // Block sign-in if email is not verified (ISO-27001: enforce email ownership)
+        if (!user.emailVerified) {
+          throw new Error("Veuillez vérifier votre adresse e-mail avant de vous connecter. Consultez votre boîte de réception.");
+        }
+
         const isPasswordCorrect = await bcrypt.compare(String(credentials.password), user.password);
         if (!isPasswordCorrect) throw new Error("Mot de passe incorrect.");
 

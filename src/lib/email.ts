@@ -232,6 +232,92 @@ export async function sendVerificationEmail(email: string, token: string) {
 }
 
 // =============================================================================
+// PASSWORD RESET EMAIL
+// =============================================================================
+
+export async function sendPasswordResetEmail(email: string, token: string) {
+  if (!isEmailServiceConfigured || !transporter) {
+    console.error("Email transporter not configured. Cannot send password reset email.");
+    throw new Error("Email service is not configured or unavailable.");
+  }
+
+  const resetLink = `${process.env.NEXTAUTH_URL}/reset-password?token=${token}`;
+  const nartexLogoUrl = "https://nartex-static-assets.s3.ca-central-1.amazonaws.com/nartex-logo-white.png";
+
+  const htmlBody = `
+  <!DOCTYPE html>
+  <html lang="fr">
+  <head>
+      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Réinitialisation de mot de passe - Nartex</title>
+  </head>
+  <body style="margin:0;padding:0;width:100%;background-color:#f4f4f7;font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;">
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#f4f4f7;">
+          <tr>
+              <td align="center" style="padding:20px 10px;">
+                  <table border="0" cellspacing="0" cellpadding="0" style="max-width:600px;margin:0 auto;background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,0.08);border:1px solid #e2e8f0;">
+                      <tr>
+                          <td style="background-color:#0D1117;padding:30px 20px;text-align:center;">
+                              <img src="${nartexLogoUrl}" alt="Nartex" style="max-width:140px;height:auto;display:block;margin:0 auto;">
+                          </td>
+                      </tr>
+                      <tr>
+                          <td style="padding:35px 40px;color:#374151;line-height:1.65;font-size:16px;text-align:left;">
+                              <h1 style="color:#1a202c;font-size:24px;margin-top:0;margin-bottom:20px;text-align:center;font-weight:600;">Réinitialisation de mot de passe</h1>
+                              <p style="margin-top:0;margin-bottom:18px;font-size:15px;">Bonjour,</p>
+                              <p style="margin-top:0;margin-bottom:18px;font-size:15px;">Nous avons reçu une demande de réinitialisation de mot de passe pour votre compte Nartex. Cliquez sur le bouton ci-dessous pour définir un nouveau mot de passe :</p>
+                              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="text-align:center;margin:30px 0;">
+                                  <tr>
+                                      <td align="center">
+                                          <!--[if mso]>
+                                          <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${resetLink}" style="height:50px;v-text-anchor:middle;width:280px;" arcsize="10%" strokecolor="#1D8102" fillcolor="#1D8102">
+                                              <w:anchorlock/>
+                                              <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:17px;font-weight:bold;">Réinitialiser mon mot de passe</center>
+                                          </v:roundrect>
+                                          <![endif]-->
+                                          <!--[if !mso]><!-->
+                                          <a href="${resetLink}" style="background-color:#1D8102;color:#ffffff;padding:14px 32px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:17px;display:inline-block;">Réinitialiser mon mot de passe</a>
+                                          <!--<![endif]-->
+                                      </td>
+                                  </tr>
+                              </table>
+                              <p style="font-size:13px;color:#555555;text-align:center;margin-top:25px;margin-bottom:5px;">Ou copiez et collez ce lien dans votre navigateur :</p>
+                              <p style="word-break:break-all;font-size:13px;text-align:left;"><a href="${resetLink}" style="color:#1D8102;text-decoration:underline;">${resetLink}</a></p>
+                              <p style="margin-top:18px;margin-bottom:18px;font-size:15px;"><strong>Ce lien expirera dans 1 heure.</strong></p>
+                              <p style="margin-top:0;margin-bottom:18px;font-size:15px;">Si vous n'avez pas demandé cette réinitialisation, vous pouvez ignorer ce message en toute sécurité. Votre mot de passe restera inchangé.</p>
+                              <p style="margin-top:0;margin-bottom:0;font-size:15px;">Cordialement,<br>L'équipe Nartex</p>
+                          </td>
+                      </tr>
+                      <tr>
+                          <td style="background-color:#f8f9fa;padding:25px 40px;text-align:center;font-size:12px;color:#6b7280;border-top:1px solid #e2e8f0;">
+                              © ${getCurrentYear()} Nartex. Tous droits réservés.<br>
+                              <a href="${process.env.NEXTAUTH_URL}/privacy" style="color:#1D8102;text-decoration:none;">Politique de confidentialité</a>
+                          </td>
+                      </tr>
+                  </table>
+              </td>
+          </tr>
+      </table>
+  </body>
+  </html>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to: email,
+      subject: "Réinitialisation de mot de passe - Nartex",
+      html: htmlBody,
+    });
+    console.log(`Password reset email sent successfully to ${email}`);
+  } catch (error) {
+    console.error(`Failed to send password reset email to ${email}:`, error);
+    throw error;
+  }
+}
+
+// =============================================================================
 // SUPPORT TICKET NOTIFICATION
 // =============================================================================
 

@@ -137,18 +137,39 @@ export const StandbyReturnSchema = z.object({
   action: z.enum(["standby", "reactivate"]),
 });
 
+// ─── Password (shared) ──────────────────────────────────────────────────────
+
+export const PasswordSchema = z
+  .string()
+  .min(12, "Le mot de passe doit comporter au moins 12 caractères")
+  .regex(/[A-Z]/, "Le mot de passe doit contenir au moins une lettre majuscule")
+  .regex(/[a-z]/, "Le mot de passe doit contenir au moins une lettre minuscule")
+  .regex(/\d/, "Le mot de passe doit contenir au moins un chiffre")
+  .regex(/[!@#$%^&*(),.?":{}|<>]/, "Le mot de passe doit contenir au moins un caractère spécial");
+
 // ─── Signup ──────────────────────────────────────────────────────────────────
 
 export const SignupSchema = z
   .object({
     email: z.string().email("Format d'e-mail invalide"),
-    password: z
-      .string()
-      .min(12, "Le mot de passe doit comporter au moins 12 caractères")
-      .regex(/[A-Z]/, "Le mot de passe doit contenir au moins une lettre majuscule")
-      .regex(/[a-z]/, "Le mot de passe doit contenir au moins une lettre minuscule")
-      .regex(/\d/, "Le mot de passe doit contenir au moins un chiffre")
-      .regex(/[!@#$%^&*(),.?":{}|<>]/, "Le mot de passe doit contenir au moins un caractère spécial"),
+    password: PasswordSchema,
+    password_confirm: z.string(),
+  })
+  .refine((data) => data.password === data.password_confirm, {
+    message: "Les mots de passe ne correspondent pas",
+    path: ["password_confirm"],
+  });
+
+// ─── Password Reset ─────────────────────────────────────────────────────────
+
+export const ForgotPasswordSchema = z.object({
+  email: z.string().email("Format d'e-mail invalide"),
+});
+
+export const ResetPasswordSchema = z
+  .object({
+    token: z.string().min(1, "Jeton requis"),
+    password: PasswordSchema,
     password_confirm: z.string(),
   })
   .refine((data) => data.password === data.password_confirm, {

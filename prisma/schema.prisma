@@ -86,9 +86,10 @@ model User {
 
   canManageTickets Boolean @default(false) @map("can_manage_tickets")
 
-  verificationToken    String?   @unique @map("verification_token")
-  passwordResetToken   String?   @unique @map("password_reset_token")
-  passwordResetExpires DateTime? @map("password_reset_expires")
+  verificationToken        String?   @unique @map("verification_token")
+  verificationTokenExpires DateTime? @map("verification_token_expires")
+  passwordResetToken       String?   @unique @map("password_reset_token")
+  passwordResetExpires     DateTime? @map("password_reset_expires")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

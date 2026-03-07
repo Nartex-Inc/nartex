@@ -28,13 +28,22 @@ export async function POST(req: Request) {
     if (!user) {
       return NextResponse.json({ success: false, error: "Jeton invalide ou expiré." }, { status: 400 });
     }
-    // Optional: Add token expiry check here if you implement `verificationTokenExpires`
+
+    // Enforce token expiration (ISO-27001: time-limited verification)
+    if (user.verificationTokenExpires && user.verificationTokenExpires < new Date()) {
+      return NextResponse.json({
+        success: false,
+        error: "Ce lien de vérification a expiré. Veuillez demander un nouveau lien.",
+        expired: true,
+      }, { status: 400 });
+    }
 
     await prisma.user.update({
       where: { id: user.id },
       data: {
         emailVerified: new Date(),
-        verificationToken: null, // Clear token after use
+        verificationToken: null,
+        verificationTokenExpires: null,
       },
     });
 

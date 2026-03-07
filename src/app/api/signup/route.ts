@@ -54,6 +54,7 @@ export async function POST(req: Request) {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const verificationToken = randomUUID();
+    const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     const user = await prisma.user.create({
       data: {
@@ -61,6 +62,7 @@ export async function POST(req: Request) {
         password: hashedPassword,
         name: email,
         verificationToken,
+        verificationTokenExpires,
         ...(invitation ? { role: invitation.role } : {}),
       },
     });

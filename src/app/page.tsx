@@ -192,7 +192,11 @@ function LoginForm() {
     setLoading(true);
     const res = await signIn("credentials", { redirect: false, email, password, callbackUrl: "/dashboard" });
     if (res?.error) {
-      setError(res.error === "CredentialsSignin" ? "Adresse e-mail ou mot de passe incorrect." : "Une erreur est survenue.");
+      // NextAuth passes the authorize() error message in res.error
+      const msg = res.error === "CredentialsSignin"
+        ? "Adresse e-mail ou mot de passe incorrect."
+        : res.error;
+      setError(msg);
       setLoading(false);
       return;
     }
