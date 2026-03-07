@@ -1,14 +1,16 @@
 "use client";
 export const dynamic = "force-dynamic";
 
-import React, { Suspense, FormEvent, useState, useEffect, useRef } from "react";
+import React, { Suspense, FormEvent, useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import type { NextPage } from "next";
 import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
 import NartexLogo from "@/components/nartex-logo";
 
-/* ---------------- Icons ---------------- */
+/* ══════════════════════════════════════════════════════════════════════
+   Icons
+   ══════════════════════════════════════════════════════════════════════ */
 const EyeIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -43,8 +45,15 @@ const LoadingSpinner: React.FC<{ className?: string }> = ({ className = "h-5 w-5
     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
   </svg>
 );
+const ShieldIcon: React.FC<{ className?: string }> = ({ className = "w-4 h-4" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </svg>
+);
 
-/* ---------------- Refined particles: points + links + emerald twinkles (no big shapes) ---------------- */
+/* ══════════════════════════════════════════════════════════════════════
+   Cinematic particle field with aurora + nebula pulses
+   ══════════════════════════════════════════════════════════════════════ */
 const ParticleField: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -57,49 +66,82 @@ const ParticleField: React.FC = () => {
     resize();
 
     type P = { x: number; y: number; vx: number; vy: number; r: number; o: number; };
-    const dots: P[] = Array.from({ length: Math.max(80, Math.floor((window.innerWidth * window.innerHeight) / 40000)) }, () => ({
+    const dots: P[] = Array.from({ length: Math.max(100, Math.floor((window.innerWidth * window.innerHeight) / 30000)) }, () => ({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
-      vx: (Math.random() - 0.5) * 0.18,
-      vy: (Math.random() - 0.5) * 0.18,
-      r: Math.random() * 1.1 + 0.4,
-      o: Math.random() * 0.18 + 0.08,
+      vx: (Math.random() - 0.5) * 0.15,
+      vy: (Math.random() - 0.5) * 0.15,
+      r: Math.random() * 1.2 + 0.3,
+      o: Math.random() * 0.2 + 0.06,
     }));
-    const linkDist = 150;
+    const linkDist = 140;
 
-    // twinkling stars only (no triangles / no bands)
+    // Twinkling emerald stars
     type S = { x: number; y: number; s: number; phase: number; speed: number; driftX: number; driftY: number };
-    const stars: S[] = Array.from({ length: 36 }, () => ({
+    const stars: S[] = Array.from({ length: 42 }, () => ({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
-      s: Math.random() * 1.2 + 0.6,
+      s: Math.random() * 1.4 + 0.5,
       phase: Math.random() * Math.PI * 2,
-      speed: 0.002 + Math.random() * 0.003,
-      driftX: (Math.random() - 0.5) * 0.05,
-      driftY: (Math.random() - 0.5) * 0.05,
+      speed: 0.0015 + Math.random() * 0.003,
+      driftX: (Math.random() - 0.5) * 0.04,
+      driftY: (Math.random() - 0.5) * 0.04,
+    }));
+
+    // Floating aurora orbs
+    type Orb = { x: number; y: number; r: number; phase: number; speed: number; dx: number; dy: number };
+    const orbs: Orb[] = Array.from({ length: 4 }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: 120 + Math.random() * 180,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.0003 + Math.random() * 0.0005,
+      dx: (Math.random() - 0.5) * 0.3,
+      dy: (Math.random() - 0.5) * 0.2,
     }));
 
     const drawStar = (s: S, t: number) => {
-      const a = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * s.speed + s.phase));
-      const size = s.s * 2;
+      const a = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * s.speed + s.phase));
+      const size = s.s * 2.2;
       ctx.save();
       ctx.translate(s.x, s.y);
-      ctx.globalAlpha = a * 0.85;
-      ctx.strokeStyle = "rgba(16,185,129,0.85)";
-      ctx.lineWidth = 0.6;
+      ctx.globalAlpha = a * 0.9;
+      ctx.strokeStyle = "rgba(16,185,129,0.8)";
+      ctx.lineWidth = 0.5;
       ctx.beginPath(); ctx.moveTo(-size, 0); ctx.lineTo(size, 0); ctx.moveTo(0, -size); ctx.lineTo(0, size); ctx.stroke();
-      const grd = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 1.7);
-      grd.addColorStop(0, "rgba(110,231,183,0.7)");
+      const grd = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 2);
+      grd.addColorStop(0, `rgba(110,231,183,${0.6 * a})`);
       grd.addColorStop(1, "rgba(110,231,183,0)");
-      ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(0, 0, size * 1.7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(0, 0, size * 2, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     };
 
+    const drawOrb = (orb: Orb, t: number) => {
+      const pulse = 0.5 + 0.5 * Math.sin(t * orb.speed + orb.phase);
+      const grd = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.r);
+      grd.addColorStop(0, `rgba(16,185,129,${0.04 * pulse})`);
+      grd.addColorStop(0.5, `rgba(16,185,129,${0.015 * pulse})`);
+      grd.addColorStop(1, "rgba(16,185,129,0)");
+      ctx.fillStyle = grd;
+      ctx.beginPath(); ctx.arc(orb.x, orb.y, orb.r, 0, Math.PI * 2); ctx.fill();
+    };
+
     const step: FrameRequestCallback = (ts) => {
-      ctx.fillStyle = "rgba(24,24,27,0.12)"; // neutral dark wash
+      ctx.fillStyle = "rgba(10,10,10,0.15)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // points
+      // Aurora orbs (background glow)
+      for (const orb of orbs) {
+        orb.x += orb.dx;
+        orb.y += orb.dy;
+        if (orb.x < -orb.r) orb.x = canvas.width + orb.r;
+        if (orb.x > canvas.width + orb.r) orb.x = -orb.r;
+        if (orb.y < -orb.r) orb.y = canvas.height + orb.r;
+        if (orb.y > canvas.height + orb.r) orb.y = -orb.r;
+        drawOrb(orb, ts);
+      }
+
+      // Particle dots + links
       for (let i = 0; i < dots.length; i++) {
         const p = dots[i];
         p.x += p.vx; p.y += p.vy;
@@ -116,8 +158,8 @@ const ParticleField: React.FC = () => {
           const d = Math.hypot(p.x - q.x, p.y - q.y);
           if (d < linkDist) {
             ctx.beginPath();
-            ctx.strokeStyle = `rgba(52,211,153,${(1 - d / linkDist) * 0.12})`;
-            ctx.lineWidth = 0.35;
+            ctx.strokeStyle = `rgba(52,211,153,${(1 - d / linkDist) * 0.1})`;
+            ctx.lineWidth = 0.3;
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(q.x, q.y);
             ctx.stroke();
@@ -125,6 +167,7 @@ const ParticleField: React.FC = () => {
         }
       }
 
+      // Twinkling stars
       for (const s of stars) {
         s.x += s.driftX; s.y += s.driftY;
         if (s.x < -10) s.x = canvas.width + 10;
@@ -146,7 +189,36 @@ const ParticleField: React.FC = () => {
   return <canvas ref={canvasRef} className="fixed inset-0 -z-10 pointer-events-none" />;
 };
 
-/* ---------------- Login ---------------- */
+/* ══════════════════════════════════════════════════════════════════════
+   Animated gradient border component
+   ══════════════════════════════════════════════════════════════════════ */
+const AnimatedBorder: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="relative group">
+    {/* Rotating conic gradient border */}
+    <div className="absolute -inset-[1px] rounded-2xl bg-[conic-gradient(from_var(--border-angle),transparent_40%,hsl(var(--accent)/0.5)_50%,transparent_60%)] opacity-0 animate-[borderReveal_1.5s_ease-out_0.8s_forwards] [--border-angle:0deg] animate-[borderSpin_4s_linear_infinite,borderReveal_1.5s_ease-out_0.8s_forwards]" />
+    {/* Glow underneath */}
+    <div className="absolute -inset-4 rounded-3xl bg-[hsl(var(--accent)/0.08)] blur-2xl opacity-0 animate-[glowIn_2s_ease-out_0.6s_forwards]" />
+    {children}
+  </div>
+);
+
+/* ══════════════════════════════════════════════════════════════════════
+   Staggered reveal wrapper
+   ══════════════════════════════════════════════════════════════════════ */
+const Reveal: React.FC<{ children: React.ReactNode; delay?: number; className?: string }> = ({ children, delay = 0, className = "" }) => (
+  <div
+    className={`opacity-0 translate-y-3 ${className}`}
+    style={{
+      animation: `revealUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) ${delay}s forwards`,
+    }}
+  >
+    {children}
+  </div>
+);
+
+/* ══════════════════════════════════════════════════════════════════════
+   Login page
+   ══════════════════════════════════════════════════════════════════════ */
 function LoginForm() {
   const params = useSearchParams();
   const confirmed = params?.get("confirmed") === "true";
@@ -164,18 +236,30 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
   useEffect(() => { if (confirmed) { const t = setTimeout(() => setShowBanner(false), 5000); return () => clearTimeout(t); } }, [confirmed]);
   useEffect(() => { if (newUserEmailSent) { const t = setTimeout(() => setShowNewUserBanner(false), 7000); return () => clearTimeout(t); } }, [newUserEmailSent]);
 
-  // Show error from OAuth intent check (e.g. user tried to sign up but account already exists)
   useEffect(() => {
     if (oauthError === "account-exists") {
-      setError("Un compte avec cet e-mail existe déjà. Connectez-vous ci-dessous.");
+      setError("Un compte avec cet e-mail existe deja. Connectez-vous ci-dessous.");
     }
   }, [oauthError]);
 
   useEffect(() => { if (status === "authenticated") router.push("/dashboard"); }, [status, router]);
+
+  // Magnetic card tilt
+  const cardRef = useRef<HTMLDivElement>(null);
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    cardRef.current.style.transform = `perspective(800px) rotateY(${x * 3}deg) rotateX(${-y * 3}deg)`;
+  }, []);
+  const handleMouseLeave = useCallback(() => {
+    if (!cardRef.current) return;
+    cardRef.current.style.transform = "perspective(800px) rotateY(0deg) rotateX(0deg)";
+  }, []);
 
   if (status === "loading") {
     return (
@@ -192,7 +276,6 @@ function LoginForm() {
     setLoading(true);
     const res = await signIn("credentials", { redirect: false, email, password, callbackUrl: "/dashboard" });
     if (res?.error) {
-      // NextAuth passes the authorize() error message in res.error
       const msg = res.error === "CredentialsSignin"
         ? "Adresse e-mail ou mot de passe incorrect."
         : res.error;
@@ -211,237 +294,324 @@ function LoginForm() {
   };
 
   return (
-    /* Non-scrollable viewport container */
-    <div className="fixed inset-0 overflow-hidden bg-[hsl(var(--bg-base))] text-[hsl(var(--text-primary))] font-sans antialiased">
+    <div className="fixed inset-0 overflow-hidden bg-[#050505] text-[hsl(var(--text-primary))] font-sans antialiased">
       <ParticleField />
 
-      {/* Soft brand spotlights (the gradient you liked) + slightly lighter black overlay to brighten stars */}
-      <div className="pointer-events-none absolute inset-0 -z-[5] bg-black/55" />
-      <div className="pointer-events-none absolute -top-24 -left-24 w-[36rem] h-[36rem] rounded-full bg-[hsl(var(--accent)/0.12)] blur-3xl -z-[4]" />
-      <div className="pointer-events-none absolute -bottom-24 -right-24 w-[36rem] h-[36rem] rounded-full bg-[hsl(var(--accent)/0.12)] blur-3xl -z-[4]" />
+      {/* Layered ambient gradients */}
+      <div className="pointer-events-none absolute inset-0 -z-[5] bg-black/50" />
+      <div className="pointer-events-none absolute -top-40 -left-40 w-[50rem] h-[50rem] rounded-full bg-[hsl(var(--accent)/0.07)] blur-[120px] -z-[4]" />
+      <div className="pointer-events-none absolute -bottom-32 -right-32 w-[40rem] h-[40rem] rounded-full bg-[hsl(var(--accent)/0.06)] blur-[100px] -z-[4]" />
+      <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60rem] h-[60rem] rounded-full bg-[radial-gradient(circle,hsl(var(--accent)/0.03)_0%,transparent_70%)] -z-[4]" />
+
+      {/* Noise texture overlay */}
+      <div className="pointer-events-none absolute inset-0 -z-[3] opacity-[0.015]"
+        style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat" }}
+      />
 
       {/* Header */}
       <header className="relative z-10 h-16 px-8">
-        <div className="h-full max-w-6xl mx-auto flex items-center justify-between">
-          <Link href="/" className="relative group">
-            <div className="absolute -inset-2 bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(var(--accent-hover))] rounded-lg blur-xl opacity-0 group-hover:opacity-20 transition-opacity duration-500" />
-            <NartexLogo className="relative h-5 w-auto text-foreground/90 group-hover:text-foreground transition-colors" />
-          </Link>
-          <div className="hidden md:flex items-center gap-3 text-xs text-[hsl(var(--text-tertiary))]">
-            <span className="inline-flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--accent))] animate-pulse" />
-              <span>Plateforme de gestion d'entreprise unifiée</span>
-            </span>
+        <Reveal delay={0.1}>
+          <div className="h-16 max-w-6xl mx-auto flex items-center justify-between">
+            <Link href="/" className="relative group">
+              <div className="absolute -inset-3 bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(var(--accent-hover))] rounded-xl blur-2xl opacity-0 group-hover:opacity-15 transition-opacity duration-700" />
+              <NartexLogo className="relative h-5 w-auto text-white/80 group-hover:text-white transition-colors duration-500" />
+            </Link>
+            <div className="hidden md:flex items-center gap-3 text-xs text-white/30">
+              <span className="inline-flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[hsl(var(--accent))] opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[hsl(var(--accent))]" />
+                </span>
+                <span className="tracking-[0.2em] uppercase text-[10px]">Plateforme de gestion d&apos;entreprise unifiee</span>
+              </span>
+            </div>
           </div>
-        </div>
+        </Reveal>
       </header>
 
-      {/* Main grid (no scroll) */}
+      {/* Main content */}
       <main className="relative z-10 h-[calc(100dvh-4rem)]">
-        <div className="h-full max-w-6xl mx-auto px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
-          {/* Left: value prop (restored block) */}
+        <div className="h-full max-w-6xl mx-auto px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+
+          {/* Left: Value prop */}
           <section className="hidden lg:block">
-            <h1 className="tracking-tight leading-tight font-semibold text-white/90">
-              <span className="block" style={{ fontSize: "clamp(28px, 4.5vw, 48px)" }}>
-                Propulsez votre croissance avec
-              </span>
-              <span className="mt-1 block">
-                <span className="inline-flex items-baseline gap-2">
-                  <NartexLogo className="inline h-[42px] w-auto text-[hsl(var(--accent))] align-baseline" />
-                  <span className="text-white/90" style={{ fontSize: "clamp(28px, 4.5vw, 48px)" }}>— le CRM unifié</span>
+            <Reveal delay={0.2}>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[hsl(var(--accent)/0.2)] bg-[hsl(var(--accent)/0.05)] mb-6">
+                <ShieldIcon className="w-3.5 h-3.5 text-[hsl(var(--accent))]" />
+                <span className="text-[10px] tracking-[0.15em] uppercase text-[hsl(var(--accent))] font-medium">Chiffrement de bout en bout</span>
+              </div>
+            </Reveal>
+
+            <Reveal delay={0.35}>
+              <h1 className="tracking-tight leading-[1.05] font-bold text-white">
+                <span className="block" style={{ fontSize: "clamp(30px, 4.5vw, 52px)" }}>
+                  Propulsez votre
                 </span>
-              </span>
-            </h1>
+                <span className="block" style={{ fontSize: "clamp(30px, 4.5vw, 52px)" }}>
+                  croissance avec
+                </span>
+                <span className="mt-2 block">
+                  <span className="inline-flex items-baseline gap-3">
+                    <NartexLogo className="inline h-[44px] w-auto text-[hsl(var(--accent))] align-baseline drop-shadow-[0_0_20px_hsl(var(--accent)/0.4)]" />
+                  </span>
+                </span>
+              </h1>
+            </Reveal>
 
-            <p className="mt-4 text-[hsl(var(--text-muted))] text-sm leading-relaxed max-w-[46ch]">
-              Centralisez contacts, opportunités et opérations. Nartex transforme vos données en visuels convaincants,
-              orchestre vos processus, et accélère vos équipes—du premier lead jusqu’au revenu récurrent.
-            </p>
+            <Reveal delay={0.5}>
+              <p className="mt-5 text-white/40 text-[15px] leading-relaxed max-w-[44ch] font-light">
+                Centralisez contacts, opportunites et operations. Nartex transforme vos donnees en visuels convaincants,
+                orchestre vos processus, et accelere vos equipes.
+              </p>
+            </Reveal>
 
-            <div className="mt-6 grid grid-cols-3 gap-4 text-xs text-[hsl(var(--text-muted))]">
-              {[
-                { k: "Fiabilité", v: "SOC 2 • ISO 27001" },
-                { k: "Performance", v: "Edge-first, <50 ms" },
-                { k: "Intégrations", v: "Suite 365 • Google" },
-              ].map((i, idx) => (
-                <div key={idx} className="rounded-xl border border-[hsl(var(--border-default))]/60 bg-[hsl(var(--bg-base))]/40 backdrop-blur-sm p-3">
-                  <div className="text-[hsl(var(--text-secondary))]">{i.k}</div>
-                  <div className="mt-1 font-mono text-[10px] tracking-wider">{i.v}</div>
+            <Reveal delay={0.65}>
+              <div className="mt-8 grid grid-cols-3 gap-3">
+                {[
+                  { k: "Fiabilite", v: "SOC 2 \u00b7 ISO 27001", icon: "shield" },
+                  { k: "Performance", v: "Edge-first, <50 ms", icon: "zap" },
+                  { k: "Integrations", v: "Suite 365 \u00b7 Google", icon: "link" },
+                ].map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="group relative rounded-xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm p-4 transition-all duration-500 hover:border-[hsl(var(--accent)/0.2)] hover:bg-white/[0.04]"
+                  >
+                    <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-[hsl(var(--accent)/0.05)] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                    <div className="relative">
+                      <div className="text-white/60 text-xs font-medium tracking-wide">{item.k}</div>
+                      <div className="mt-1.5 font-mono text-[10px] tracking-wider text-white/30">{item.v}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Reveal>
+
+            <Reveal delay={0.8}>
+              <div className="mt-8 flex items-center gap-5">
+                <div className="flex -space-x-2">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="w-7 h-7 rounded-full border-2 border-[#050505] bg-gradient-to-br from-white/10 to-white/5" />
+                  ))}
                 </div>
-              ))}
-            </div>
+                <div>
+                  <div className="text-white/50 text-xs font-medium">+200 entreprises</div>
+                  <div className="text-white/25 text-[10px]">font confiance a Nartex</div>
+                </div>
+              </div>
+            </Reveal>
           </section>
 
           {/* Right: Auth card */}
-          <section className="w-full">
-            <div className="relative">
-              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-[hsl(var(--accent)/0.2)] via-[hsl(var(--accent)/0.15)] to-[hsl(var(--accent)/0.2)] blur-xl opacity-70" />
-              <div className="relative rounded-2xl border border-[hsl(var(--border-default))]/60 bg-[hsl(var(--bg-base))]/60 backdrop-blur-2xl shadow-2xl shadow-black/30 p-8">
-                <h2 className="text-center text-2xl font-semibold text-[hsl(var(--text-primary))]">Connexion sécurisée</h2>
-                <p className="text-center text-[hsl(var(--text-tertiary))] text-sm mt-1">
-                  Accédez à votre espace de travail et à vos données clients, en toute sécurité.
-                </p>
+          <section className="w-full max-w-[420px] mx-auto lg:mx-0 lg:ml-auto">
+            <Reveal delay={0.4}>
+              <AnimatedBorder>
+                <div
+                  ref={cardRef}
+                  onMouseMove={handleMouseMove}
+                  onMouseLeave={handleMouseLeave}
+                  className="relative rounded-2xl border border-white/[0.08] bg-[#0a0a0a]/80 backdrop-blur-2xl shadow-[0_0_80px_-20px_hsl(var(--accent)/0.15)] p-8 transition-transform duration-300 ease-out"
+                >
+                  {/* Subtle inner gradient */}
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
 
-                <AuthForm
-                  emailState={[email, setEmail]}
-                  passwordState={[password, setPassword]}
-                  showPasswordState={[showPassword, setShowPassword]}
-                  loading={loading}
-                  error={error}
-                  handleSubmit={handleSubmit}
-                  handleSSOLogin={handleSSOLogin}
-                />
-              </div>
-            </div>
+                  <div className="relative">
+                    {/* Card header */}
+                    <div className="text-center mb-7">
+                      <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[hsl(var(--accent)/0.1)] border border-[hsl(var(--accent)/0.15)] mb-4">
+                        <ShieldIcon className="w-5 h-5 text-[hsl(var(--accent))]" />
+                      </div>
+                      <h2 className="text-xl font-semibold text-white tracking-tight">Connexion securisee</h2>
+                      <p className="text-white/30 text-[13px] mt-1.5 font-light">
+                        Accedez a votre espace de travail en toute securite
+                      </p>
+                    </div>
+
+                    {/* Confirmation banners */}
+                    {showBanner && (
+                      <div className="mb-5 bg-[hsl(var(--accent)/0.08)] border border-[hsl(var(--accent)/0.2)] text-[hsl(var(--accent))] px-4 py-3 rounded-xl text-sm text-center">
+                        Votre e-mail a ete verifie avec succes. Connectez-vous.
+                      </div>
+                    )}
+                    {showNewUserBanner && (
+                      <div className="mb-5 bg-[hsl(var(--info)/0.08)] border border-[hsl(var(--info)/0.2)] text-[hsl(var(--info))] px-4 py-3 rounded-xl text-sm text-center">
+                        Un e-mail de verification a ete envoye. Verifiez votre boite de reception.
+                      </div>
+                    )}
+
+                    {/* Error */}
+                    {error && (
+                      <div className="mb-5 bg-[hsl(var(--danger)/0.08)] border border-[hsl(var(--danger)/0.2)] text-[hsl(var(--danger))] px-4 py-3 rounded-xl text-sm text-center animate-[shakeX_0.5s_ease-out]" role="alert">
+                        {error}
+                      </div>
+                    )}
+
+                    {/* Form */}
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                      {/* Email */}
+                      <div className="group">
+                        <label htmlFor="email" className="block text-[10px] font-medium text-white/30 mb-2 uppercase tracking-[0.15em]">
+                          Adresse e-mail
+                        </label>
+                        <div className="relative">
+                          <input
+                            id="email"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                            placeholder="vous@entreprise.com"
+                            autoComplete="email"
+                            className="w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-white/20 focus:ring-1 focus:ring-[hsl(var(--accent)/0.4)] focus:border-[hsl(var(--accent)/0.3)] focus:bg-white/[0.05] transition-all duration-300 text-sm outline-none"
+                          />
+                          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-[hsl(var(--accent)/0.1)] to-transparent opacity-0 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      {/* Password */}
+                      <div className="group">
+                        <div className="flex justify-between items-center mb-2">
+                          <label htmlFor="password" className="block text-[10px] font-medium text-white/30 uppercase tracking-[0.15em]">
+                            Mot de passe
+                          </label>
+                          <Link href="/forgot-password" className="text-[10px] text-[hsl(var(--accent)/0.7)] hover:text-[hsl(var(--accent))] transition-colors duration-300">
+                            Oublie ?
+                          </Link>
+                        </div>
+                        <div className="relative">
+                          <input
+                            id="password"
+                            type={showPassword ? "text" : "password"}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            autoComplete="current-password"
+                            placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+                            className="w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-white/20 focus:ring-1 focus:ring-[hsl(var(--accent)/0.4)] focus:border-[hsl(var(--accent)/0.3)] focus:bg-white/[0.05] transition-all duration-300 pr-12 text-sm outline-none"
+                          />
+                          <button
+                            type="button"
+                            aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                            onClick={() => setShowPassword((v) => !v)}
+                            className="absolute inset-y-0 right-0 pr-4 flex items-center text-white/20 hover:text-white/50 transition-colors duration-300"
+                          >
+                            {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                          </button>
+                          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-[hsl(var(--accent)/0.1)] to-transparent opacity-0 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      {/* Submit button */}
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full relative overflow-hidden py-3 px-4 bg-[hsl(var(--accent))] rounded-xl text-black font-semibold text-sm transition-all duration-300 hover:shadow-[0_0_30px_hsl(var(--accent)/0.4)] hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:hover:shadow-none mt-2"
+                      >
+                        <span className="relative z-10 flex items-center justify-center gap-2">
+                          {loading ? <LoadingSpinner className="h-5 w-5 text-black" /> : "Se connecter"}
+                        </span>
+                        {/* Shimmer sweep */}
+                        <div className="absolute inset-0 -translate-x-full animate-[shimmerSweep_3s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                      </button>
+                    </form>
+
+                    {/* Divider */}
+                    <div className="relative my-6">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-white/[0.06]" />
+                      </div>
+                      <div className="relative flex justify-center">
+                        <span className="px-4 bg-[#0a0a0a]/80 text-white/20 uppercase tracking-[0.2em] text-[9px]">ou</span>
+                      </div>
+                    </div>
+
+                    {/* SSO buttons */}
+                    <div className="space-y-2.5">
+                      {[
+                        { provider: "google" as const, label: "Continuer avec Google Workspace", icon: <GoogleIcon /> },
+                        { provider: "azure-ad" as const, label: "Continuer avec Microsoft Entra ID", icon: <MicrosoftIcon /> },
+                      ].map(({ provider, label, icon }) => (
+                        <button
+                          key={provider}
+                          onClick={() => handleSSOLogin(provider)}
+                          className="w-full group/sso relative overflow-hidden inline-flex justify-center items-center py-3 px-4 bg-white/[0.03] border border-white/[0.06] hover:border-white/[0.12] rounded-xl text-[13px] font-medium text-white/50 hover:text-white/70 transition-all duration-300"
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-r from-white/[0.03] to-transparent opacity-0 group-hover/sso:opacity-100 transition-opacity duration-500" />
+                          <span className="relative z-10 flex items-center justify-center">
+                            {icon} <span className="ml-3">{label}</span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Sign up link */}
+                    <p className="mt-6 text-center text-white/25 text-[12px]">
+                      Pas encore de compte ?{" "}
+                      <Link href="/signup" className="text-[hsl(var(--accent)/0.7)] hover:text-[hsl(var(--accent))] font-medium transition-colors duration-300">
+                        Creer un compte
+                      </Link>
+                    </p>
+                  </div>
+                </div>
+              </AnimatedBorder>
+            </Reveal>
           </section>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="h-16 px-8 text-center text-xs text-[hsl(var(--text-tertiary))] relative z-10">
-        <div className="h-full max-w-6xl mx-auto flex items-center justify-center gap-4 font-mono tracking-widest">
-          <span>© {new Date().getFullYear()} NARTEX</span>
-          <span className="text-[hsl(var(--text-muted))]">|</span>
-          <Link href="/privacy" className="hover:text-[hsl(var(--text-secondary))] transition-colors">Confidentialité</Link>
-        </div>
+      <footer className="absolute bottom-0 inset-x-0 h-12 px-8 text-center relative z-10">
+        <Reveal delay={1}>
+          <div className="h-12 max-w-6xl mx-auto flex items-center justify-center gap-4 font-mono tracking-[0.25em] text-white/15 text-[10px]">
+            <span>&copy; {new Date().getFullYear()} NARTEX</span>
+            <span className="text-white/10">|</span>
+            <Link href="/privacy" className="hover:text-white/30 transition-colors duration-300">Confidentialite</Link>
+          </div>
+        </Reveal>
       </footer>
 
+      {/* Global animations */}
       <style jsx>{`
-        @keyframes fade-in-down { from { opacity: 0; transform: translate(-50%, -1rem); } to { opacity: 1; transform: translate(-50%, 0); } }
-        .animate-fade-in-down { animation: fade-in-down 0.5s ease-out forwards; }
+        @keyframes revealUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes borderSpin {
+          to { --border-angle: 360deg; }
+        }
+        @keyframes borderReveal {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes glowIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes shimmerSweep {
+          0% { transform: translateX(-100%); }
+          50%, 100% { transform: translateX(100%); }
+        }
+        @keyframes shakeX {
+          0%, 100% { transform: translateX(0); }
+          20% { transform: translateX(-6px); }
+          40% { transform: translateX(6px); }
+          60% { transform: translateX(-4px); }
+          80% { transform: translateX(4px); }
+        }
+        @property --border-angle {
+          syntax: "<angle>";
+          initial-value: 0deg;
+          inherits: false;
+        }
       `}</style>
     </div>
   );
 }
 
-/* ---------------- Auth form ---------------- */
-function AuthForm({
-  emailState,
-  passwordState,
-  showPasswordState,
-  loading,
-  error,
-  handleSubmit,
-  handleSSOLogin,
-}: {
-  emailState: [string, React.Dispatch<React.SetStateAction<string>>];
-  passwordState: [string, React.Dispatch<React.SetStateAction<string>>];
-  showPasswordState: [boolean, React.Dispatch<React.SetStateAction<boolean>>];
-  loading: boolean;
-  error: string | null;
-  handleSubmit: (e: FormEvent) => void;
-  handleSSOLogin: (p: "google" | "azure-ad") => void;
-}) {
-  const [email, setEmail] = emailState;
-  const [password, setPassword] = passwordState;
-  const [showPassword, setShowPassword] = showPasswordState;
-
-  return (
-    <>
-      {error && (
-        <div className="mt-6 bg-[hsl(var(--danger-muted))] border border-[hsl(var(--danger)/0.5)] text-[hsl(var(--danger))] px-4 py-3 rounded-lg text-sm text-center" role="alert">
-          {error}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-        <div>
-          <label htmlFor="email" className="block text-[11px] font-medium text-[hsl(var(--text-muted))] mb-2 uppercase tracking-wider">
-            Adresse e-mail
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            placeholder="vous@entreprise.com"
-            autoComplete="email"
-            className="w-full px-4 py-3 bg-[hsl(var(--bg-surface))]/60 border border-[hsl(var(--border-default))] rounded-lg text-[hsl(var(--text-primary))] placeholder-[hsl(var(--text-muted))] focus:ring-2 focus:ring-[hsl(var(--accent))]/40 focus:border-[hsl(var(--accent))]/40 focus:bg-[hsl(var(--bg-surface))]/70 transition-all text-sm"
-          />
-        </div>
-
-        <div>
-          <div className="flex justify-between items-center mb-2">
-            <label htmlFor="password" className="block text-[11px] font-medium text-[hsl(var(--text-muted))] uppercase tracking-wider">
-              Mot de passe
-            </label>
-            <Link href="/forgot-password" className="text-[11px] text-[hsl(var(--accent))] hover:text-[hsl(var(--accent-hover))] transition-colors">
-              Oublié ?
-            </Link>
-          </div>
-          <div className="relative">
-            <input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-              placeholder="••••••••••••"
-              className="w-full px-4 py-3 bg-[hsl(var(--bg-surface))]/60 border border-[hsl(var(--border-default))] rounded-lg text-[hsl(var(--text-primary))] placeholder-[hsl(var(--text-muted))] focus:ring-2 focus:ring-[hsl(var(--accent))]/40 focus:border-[hsl(var(--accent))]/40 focus:bg-[hsl(var(--bg-surface))]/70 transition-all pr-12 text-sm"
-            />
-            <button
-              type="button"
-              aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-              onClick={() => setShowPassword((v) => !v)}
-              className="absolute inset-y-0 right-0 pr-4 flex items-center text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-secondary))] transition-colors"
-            >
-              {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-            </button>
-          </div>
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full group relative overflow-hidden py-3 px-4 bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(var(--accent-hover))] rounded-lg text-white font-semibold text-sm transition-all shadow-lg hover:shadow-[hsl(var(--accent))]/30 disabled:opacity-50"
-        >
-          <span className="relative z-10 flex items-center justify-center">{loading ? <LoadingSpinner /> : "Se connecter"}</span>
-          <div className="absolute inset-0 bg-gradient-to-t from-white/15 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-        </button>
-      </form>
-
-      <div className="relative my-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-[hsl(var(--border-default))]" />
-        </div>
-        <div className="relative flex justify-center">
-          <span className="px-3 bg-[hsl(var(--bg-base))]/60 text-[hsl(var(--text-tertiary))] uppercase tracking-wider text-[10px]">ou</span>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        {[
-          { provider: "google" as const, label: "Continuer avec Google Workspace", icon: <GoogleIcon /> },
-          { provider: "azure-ad" as const, label: "Continuer avec Microsoft Entra ID", icon: <MicrosoftIcon /> },
-        ].map(({ provider, label, icon }) => (
-          <button
-            key={provider}
-            onClick={() => handleSSOLogin(provider)}
-            className="w-full group relative overflow-hidden inline-flex justify-center items-center py-3 px-4 bg-[hsl(var(--bg-surface))]/60 border border-[hsl(var(--border-default))] hover:border-[hsl(var(--border-default))]/80 rounded-lg text-sm font-medium text-[hsl(var(--text-secondary))] transition-all"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-[hsl(var(--accent))]/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <span className="relative z-10 flex items-center justify-center">
-              {icon} <span className="ml-3">{label}</span>
-            </span>
-          </button>
-        ))}
-      </div>
-
-      <p className="mt-6 text-center text-[hsl(var(--text-tertiary))] text-[12px]">
-        Pas encore de compte ?{" "}
-        <Link href="/signup" className="text-[hsl(var(--accent))] hover:text-[hsl(var(--accent-hover))] font-medium transition-colors">
-          Créer un compte
-        </Link>
-      </p>
-    </>
-  );
-}
-
-/* ---------------- Page Export ---------------- */
+/* ══════════════════════════════════════════════════════════════════════
+   Page Export
+   ══════════════════════════════════════════════════════════════════════ */
 const PremiumLoginPage: NextPage = () => (
-  <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-[hsl(var(--bg-base))]"><LoadingSpinner className="h-8 w-8 text-[hsl(var(--accent))]" /></div>}>
+  <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-[#050505]"><LoadingSpinner className="h-8 w-8 text-[hsl(var(--accent))]" /></div>}>
     <LoginForm />
   </Suspense>
 );
