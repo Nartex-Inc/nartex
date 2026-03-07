@@ -76,70 +76,9 @@ const ParticleField: React.FC = () => {
     }));
     const linkDist = 140;
 
-    // Twinkling emerald stars
-    type S = { x: number; y: number; s: number; phase: number; speed: number; driftX: number; driftY: number };
-    const stars: S[] = Array.from({ length: 42 }, () => ({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      s: Math.random() * 1.4 + 0.5,
-      phase: Math.random() * Math.PI * 2,
-      speed: 0.0015 + Math.random() * 0.003,
-      driftX: (Math.random() - 0.5) * 0.04,
-      driftY: (Math.random() - 0.5) * 0.04,
-    }));
-
-    // Floating aurora orbs
-    type Orb = { x: number; y: number; r: number; phase: number; speed: number; dx: number; dy: number };
-    const orbs: Orb[] = Array.from({ length: 4 }, () => ({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      r: 120 + Math.random() * 180,
-      phase: Math.random() * Math.PI * 2,
-      speed: 0.0003 + Math.random() * 0.0005,
-      dx: (Math.random() - 0.5) * 0.3,
-      dy: (Math.random() - 0.5) * 0.2,
-    }));
-
-    const drawStar = (s: S, t: number) => {
-      const a = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * s.speed + s.phase));
-      const size = s.s * 2.2;
-      ctx.save();
-      ctx.translate(s.x, s.y);
-      ctx.globalAlpha = a * 0.9;
-      ctx.strokeStyle = "rgba(16,185,129,0.8)";
-      ctx.lineWidth = 0.5;
-      ctx.beginPath(); ctx.moveTo(-size, 0); ctx.lineTo(size, 0); ctx.moveTo(0, -size); ctx.lineTo(0, size); ctx.stroke();
-      const grd = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 2);
-      grd.addColorStop(0, `rgba(110,231,183,${0.6 * a})`);
-      grd.addColorStop(1, "rgba(110,231,183,0)");
-      ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(0, 0, size * 2, 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
-    };
-
-    const drawOrb = (orb: Orb, t: number) => {
-      const pulse = 0.5 + 0.5 * Math.sin(t * orb.speed + orb.phase);
-      const grd = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.r);
-      grd.addColorStop(0, `rgba(16,185,129,${0.04 * pulse})`);
-      grd.addColorStop(0.5, `rgba(16,185,129,${0.015 * pulse})`);
-      grd.addColorStop(1, "rgba(16,185,129,0)");
-      ctx.fillStyle = grd;
-      ctx.beginPath(); ctx.arc(orb.x, orb.y, orb.r, 0, Math.PI * 2); ctx.fill();
-    };
-
-    const step: FrameRequestCallback = (ts) => {
+    const step: FrameRequestCallback = () => {
       ctx.fillStyle = "rgba(10,10,10,0.15)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Aurora orbs (background glow)
-      for (const orb of orbs) {
-        orb.x += orb.dx;
-        orb.y += orb.dy;
-        if (orb.x < -orb.r) orb.x = canvas.width + orb.r;
-        if (orb.x > canvas.width + orb.r) orb.x = -orb.r;
-        if (orb.y < -orb.r) orb.y = canvas.height + orb.r;
-        if (orb.y > canvas.height + orb.r) orb.y = -orb.r;
-        drawOrb(orb, ts);
-      }
 
       // Particle dots + links
       for (let i = 0; i < dots.length; i++) {
@@ -167,16 +106,6 @@ const ParticleField: React.FC = () => {
         }
       }
 
-      // Twinkling stars
-      for (const s of stars) {
-        s.x += s.driftX; s.y += s.driftY;
-        if (s.x < -10) s.x = canvas.width + 10;
-        if (s.x > canvas.width + 10) s.x = -10;
-        if (s.y < -10) s.y = canvas.height + 10;
-        if (s.y > canvas.height + 10) s.y = -10;
-        drawStar(s, ts);
-      }
-
       raf = requestAnimationFrame(step);
     };
 
@@ -192,15 +121,30 @@ const ParticleField: React.FC = () => {
 /* ══════════════════════════════════════════════════════════════════════
    Animated gradient border component
    ══════════════════════════════════════════════════════════════════════ */
-const AnimatedBorder: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="relative group">
-    {/* Rotating conic gradient border */}
-    <div className="absolute -inset-[1px] rounded-2xl bg-[conic-gradient(from_var(--border-angle),transparent_40%,hsl(var(--accent)/0.5)_50%,transparent_60%)] opacity-0 animate-[borderReveal_1.5s_ease-out_0.8s_forwards] [--border-angle:0deg] animate-[borderSpin_4s_linear_infinite,borderReveal_1.5s_ease-out_0.8s_forwards]" />
-    {/* Glow underneath */}
-    <div className="absolute -inset-4 rounded-3xl bg-[hsl(var(--accent)/0.08)] blur-2xl opacity-0 animate-[glowIn_2s_ease-out_0.6s_forwards]" />
-    {children}
-  </div>
-);
+const AnimatedBorder: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const borderRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = borderRef.current;
+    if (!el) return;
+    let angle = 0;
+    let raf = 0;
+    const step = () => {
+      angle = (angle + 1.1) % 360;
+      el.style.background = `conic-gradient(from ${angle}deg, transparent 35%, hsl(152 76% 50% / 0.8) 50%, transparent 65%)`;
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  return (
+    <div className="relative">
+      <div ref={borderRef} className="absolute -inset-[1px] rounded-2xl" style={{ mask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)", maskComposite: "exclude", WebkitMaskComposite: "xor", padding: "1.5px" }} />
+      {children}
+    </div>
+  );
+};
 
 /* ══════════════════════════════════════════════════════════════════════
    Staggered reveal wrapper
@@ -241,7 +185,7 @@ function LoginForm() {
 
   useEffect(() => {
     if (oauthError === "account-exists") {
-      setError("Un compte avec cet e-mail existe deja. Connectez-vous ci-dessous.");
+      setError("Un compte avec cet e-mail existe déjà. Connectez-vous ci-dessous.");
     }
   }, [oauthError]);
 
@@ -322,7 +266,7 @@ function LoginForm() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[hsl(var(--accent))] opacity-75" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-[hsl(var(--accent))]" />
                 </span>
-                <span className="tracking-[0.2em] uppercase text-[10px]">Plateforme de gestion d&apos;entreprise unifiee</span>
+                <span className="tracking-[0.2em] uppercase text-[10px]">Plateforme de gestion d&apos;entreprise unifiée</span>
               </span>
             </div>
           </div>
@@ -360,17 +304,17 @@ function LoginForm() {
 
             <Reveal delay={0.5}>
               <p className="mt-5 text-white/40 text-[15px] leading-relaxed max-w-[44ch] font-light">
-                Centralisez contacts, opportunites et operations. Nartex transforme vos donnees en visuels convaincants,
-                orchestre vos processus, et accelere vos equipes.
+                Centralisez contacts, opportunités et opérations. Nartex transforme vos données en visuels convaincants,
+                orchestre vos processus, et accélère vos équipes.
               </p>
             </Reveal>
 
             <Reveal delay={0.65}>
               <div className="mt-8 grid grid-cols-3 gap-3">
                 {[
-                  { k: "Fiabilite", v: "SOC 2 \u00b7 ISO 27001", icon: "shield" },
+                  { k: "Fiabilité", v: "SOC 2 · ISO 27001", icon: "shield" },
                   { k: "Performance", v: "Edge-first, <50 ms", icon: "zap" },
-                  { k: "Integrations", v: "Suite 365 \u00b7 Google", icon: "link" },
+                  { k: "Intégrations", v: "Suite 365 · Google", icon: "link" },
                 ].map((item, idx) => (
                   <div
                     key={idx}
@@ -386,19 +330,6 @@ function LoginForm() {
               </div>
             </Reveal>
 
-            <Reveal delay={0.8}>
-              <div className="mt-8 flex items-center gap-5">
-                <div className="flex -space-x-2">
-                  {[...Array(4)].map((_, i) => (
-                    <div key={i} className="w-7 h-7 rounded-full border-2 border-[#050505] bg-gradient-to-br from-white/10 to-white/5" />
-                  ))}
-                </div>
-                <div>
-                  <div className="text-white/50 text-xs font-medium">+200 entreprises</div>
-                  <div className="text-white/25 text-[10px]">font confiance a Nartex</div>
-                </div>
-              </div>
-            </Reveal>
           </section>
 
           {/* Right: Auth card */}
@@ -409,7 +340,7 @@ function LoginForm() {
                   ref={cardRef}
                   onMouseMove={handleMouseMove}
                   onMouseLeave={handleMouseLeave}
-                  className="relative rounded-2xl border border-white/[0.08] bg-[#0a0a0a]/80 backdrop-blur-2xl shadow-[0_0_80px_-20px_hsl(var(--accent)/0.15)] p-8 transition-transform duration-300 ease-out"
+                  className="relative rounded-2xl border border-white/[0.08] bg-[#0a0a0a]/80 backdrop-blur-2xl shadow-2xl shadow-black/30 p-8 transition-transform duration-300 ease-out"
                 >
                   {/* Subtle inner gradient */}
                   <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
@@ -417,24 +348,21 @@ function LoginForm() {
                   <div className="relative">
                     {/* Card header */}
                     <div className="text-center mb-7">
-                      <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[hsl(var(--accent)/0.1)] border border-[hsl(var(--accent)/0.15)] mb-4">
-                        <ShieldIcon className="w-5 h-5 text-[hsl(var(--accent))]" />
-                      </div>
-                      <h2 className="text-xl font-semibold text-white tracking-tight">Connexion securisee</h2>
+                      <h2 className="text-xl font-semibold text-white tracking-tight">Connexion sécurisée</h2>
                       <p className="text-white/30 text-[13px] mt-1.5 font-light">
-                        Accedez a votre espace de travail en toute securite
+                        Accédez à votre espace de travail en toute sécurité
                       </p>
                     </div>
 
                     {/* Confirmation banners */}
                     {showBanner && (
                       <div className="mb-5 bg-[hsl(var(--accent)/0.08)] border border-[hsl(var(--accent)/0.2)] text-[hsl(var(--accent))] px-4 py-3 rounded-xl text-sm text-center">
-                        Votre e-mail a ete verifie avec succes. Connectez-vous.
+                        Votre e-mail a été vérifié avec succès. Connectez-vous.
                       </div>
                     )}
                     {showNewUserBanner && (
                       <div className="mb-5 bg-[hsl(var(--info)/0.08)] border border-[hsl(var(--info)/0.2)] text-[hsl(var(--info))] px-4 py-3 rounded-xl text-sm text-center">
-                        Un e-mail de verification a ete envoye. Verifiez votre boite de reception.
+                        Un e-mail de vérification a été envoyé. Vérifiez votre boîte de réception.
                       </div>
                     )}
 
@@ -474,7 +402,7 @@ function LoginForm() {
                             Mot de passe
                           </label>
                           <Link href="/forgot-password" className="text-[10px] text-[hsl(var(--accent)/0.7)] hover:text-[hsl(var(--accent))] transition-colors duration-300">
-                            Oublie ?
+                            Oublié ?
                           </Link>
                         </div>
                         <div className="relative">
@@ -485,7 +413,7 @@ function LoginForm() {
                             onChange={(e) => setPassword(e.target.value)}
                             required
                             autoComplete="current-password"
-                            placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+                            placeholder="••••••••"
                             className="w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-white/20 focus:ring-1 focus:ring-[hsl(var(--accent)/0.4)] focus:border-[hsl(var(--accent)/0.3)] focus:bg-white/[0.05] transition-all duration-300 pr-12 text-sm outline-none"
                           />
                           <button
@@ -509,8 +437,6 @@ function LoginForm() {
                         <span className="relative z-10 flex items-center justify-center gap-2">
                           {loading ? <LoadingSpinner className="h-5 w-5 text-black" /> : "Se connecter"}
                         </span>
-                        {/* Shimmer sweep */}
-                        <div className="absolute inset-0 -translate-x-full animate-[shimmerSweep_3s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
                       </button>
                     </form>
 
@@ -547,7 +473,7 @@ function LoginForm() {
                     <p className="mt-6 text-center text-white/25 text-[12px]">
                       Pas encore de compte ?{" "}
                       <Link href="/signup" className="text-[hsl(var(--accent)/0.7)] hover:text-[hsl(var(--accent))] font-medium transition-colors duration-300">
-                        Creer un compte
+                        Créer un compte
                       </Link>
                     </p>
                   </div>
@@ -564,7 +490,7 @@ function LoginForm() {
           <div className="h-12 max-w-6xl mx-auto flex items-center justify-center gap-4 font-mono tracking-[0.25em] text-white/15 text-[10px]">
             <span>&copy; {new Date().getFullYear()} NARTEX</span>
             <span className="text-white/10">|</span>
-            <Link href="/privacy" className="hover:text-white/30 transition-colors duration-300">Confidentialite</Link>
+            <Link href="/privacy" className="hover:text-white/30 transition-colors duration-300">Confidentialité</Link>
           </div>
         </Reveal>
       </footer>
@@ -575,32 +501,12 @@ function LoginForm() {
           from { opacity: 0; transform: translateY(12px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes borderSpin {
-          to { --border-angle: 360deg; }
-        }
-        @keyframes borderReveal {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes glowIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes shimmerSweep {
-          0% { transform: translateX(-100%); }
-          50%, 100% { transform: translateX(100%); }
-        }
         @keyframes shakeX {
           0%, 100% { transform: translateX(0); }
           20% { transform: translateX(-6px); }
           40% { transform: translateX(6px); }
           60% { transform: translateX(-4px); }
           80% { transform: translateX(4px); }
-        }
-        @property --border-angle {
-          syntax: "<angle>";
-          initial-value: 0deg;
-          inherits: false;
         }
       `}</style>
     </div>
