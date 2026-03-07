@@ -5,7 +5,7 @@ import React, { Suspense, FormEvent, useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { NextPage } from "next";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import NartexLogo from "@/components/nartex-logo";
 
 /* ---------------- Icons (same as Login) ---------------- */
@@ -148,6 +148,8 @@ function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const invitationToken = searchParams.get("invitation");
+  const oauthError = searchParams.get("error");
+  const { status } = useSession();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -156,6 +158,16 @@ function SignupForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Redirect to dashboard if already authenticated
+  useEffect(() => { if (status === "authenticated") router.push("/dashboard"); }, [status, router]);
+
+  // Show error from OAuth intent check (e.g. user tried to sign in but no account exists)
+  useEffect(() => {
+    if (oauthError === "no-account") {
+      setError("Aucun compte trouvé avec cet e-mail. Créez un compte ci-dessous.");
+    }
+  }, [oauthError]);
 
   // Invitation context
   const [invitationData, setInvitationData] = useState<{ tenantName: string; role: string; email: string; status: string } | null>(null);
@@ -208,9 +220,20 @@ function SignupForm() {
     }
   };
 
+  // Show loading spinner while session is loading or if already authenticated
+  if (status === "loading") {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-[hsl(var(--bg-base))]">
+        <LoadingSpinner className="h-8 w-8 text-[hsl(var(--accent))]" />
+      </div>
+    );
+  }
+  if (status === "authenticated") return null;
+
   const handleSSOSignUp = (provider: "google" | "azure-ad") => {
     setLoading(true);
     setError(null);
+    document.cookie = "auth_intent=signup; path=/; max-age=300; SameSite=Lax";
     const callbackUrl = invitationToken
       ? `/dashboard/welcome?invitation=${invitationToken}`
       : "/dashboard";

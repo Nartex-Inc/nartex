@@ -151,12 +151,10 @@ function LoginForm() {
   const params = useSearchParams();
   const confirmed = params?.get("confirmed") === "true";
   const newUserEmailSent = params?.get("emailVerificationSent") === "true";
+  const oauthError = params?.get("error");
 
   const [showBanner, setShowBanner] = useState(confirmed);
   const [showNewUserBanner, setShowNewUserBanner] = useState(newUserEmailSent);
-
-  useEffect(() => { if (confirmed) { const t = setTimeout(() => setShowBanner(false), 5000); return () => clearTimeout(t); } }, [confirmed]);
-  useEffect(() => { if (newUserEmailSent) { const t = setTimeout(() => setShowNewUserBanner(false), 7000); return () => clearTimeout(t); } }, [newUserEmailSent]);
 
   const router = useRouter();
   const { status } = useSession();
@@ -166,6 +164,16 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => { if (confirmed) { const t = setTimeout(() => setShowBanner(false), 5000); return () => clearTimeout(t); } }, [confirmed]);
+  useEffect(() => { if (newUserEmailSent) { const t = setTimeout(() => setShowNewUserBanner(false), 7000); return () => clearTimeout(t); } }, [newUserEmailSent]);
+
+  // Show error from OAuth intent check (e.g. user tried to sign up but account already exists)
+  useEffect(() => {
+    if (oauthError === "account-exists") {
+      setError("Un compte avec cet e-mail existe déjà. Connectez-vous ci-dessous.");
+    }
+  }, [oauthError]);
 
   useEffect(() => { if (status === "authenticated") router.push("/dashboard"); }, [status, router]);
 
@@ -194,6 +202,7 @@ function LoginForm() {
   const handleSSOLogin = (provider: "google" | "azure-ad") => {
     setLoading(true);
     setError(null);
+    document.cookie = "auth_intent=signin; path=/; max-age=300; SameSite=Lax";
     signIn(provider, { callbackUrl: "/dashboard" });
   };
 

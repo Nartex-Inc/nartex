@@ -6,6 +6,7 @@ import GoogleProvider from "next-auth/providers/google";
 import AzureADProvider from "next-auth/providers/azure-ad";
 import bcrypt from "bcryptjs";
 import { rateLimit } from "@/lib/rate-limit";
+import { cookies } from "next/headers";
 
 export const authOptions: NextAuthOptions = {
   // Cast to any to prevent version mismatch errors during build
@@ -86,25 +87,54 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    // 1. SIGN IN: Sync Google profile image for EXISTING users.
-    //    NOTE: For brand-new OAuth users the DB record does not exist yet
-    //    (PrismaAdapter creates it AFTER signIn), so invitation processing
-    //    is handled in the jwt callback where the user is guaranteed to exist.
+    // 1. SIGN IN: Enforce signin/signup intent for OAuth providers.
+    //    A cookie "auth_intent" is set by the client before initiating OAuth.
+    //    - "signin" (default): only allow if user already exists in DB
+    //    - "signup": only allow if user does NOT exist in DB
     async signIn({ user, account, profile }) {
-      if (account?.provider === "google" && user.email) {
+      if (
+        (account?.provider === "google" || account?.provider === "azure-ad") &&
+        user.email
+      ) {
+        // Read intent cookie (defaults to "signin" for safety)
+        let intent = "signin";
         try {
-          const newImage = (profile as any)?.picture;
-          if (newImage) {
-            await prisma.user.update({
-              where: { email: user.email },
-              data: {
-                image: newImage,
-                emailVerified: new Date(),
-              },
-            });
-          }
+          const cookieStore = await cookies();
+          intent = cookieStore.get("auth_intent")?.value || "signin";
         } catch {
-          // Expected for brand-new OAuth users — user record doesn't exist yet
+          // cookies() may fail outside request context — default to signin
+        }
+
+        const existingUser = await prisma.user.findFirst({
+          where: { email: { equals: user.email, mode: "insensitive" } },
+        });
+
+        if (intent === "signup" && existingUser) {
+          // User already has an account — redirect back to login page
+          return "/?error=account-exists";
+        }
+
+        if (intent === "signin" && !existingUser) {
+          // No account found — redirect to signup page
+          return "/signup?error=no-account";
+        }
+
+        // Sync Google profile image for existing users
+        if (account.provider === "google" && existingUser) {
+          try {
+            const newImage = (profile as any)?.picture;
+            if (newImage) {
+              await prisma.user.update({
+                where: { id: existingUser.id },
+                data: {
+                  image: newImage,
+                  emailVerified: new Date(),
+                },
+              });
+            }
+          } catch {
+            // Non-critical — continue sign-in
+          }
         }
       }
       return true;
