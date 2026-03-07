@@ -254,16 +254,31 @@ export function KpiCard({
       onClick={onClick}
       onKeyDown={(e) => isClickable && (e.key === "Enter" || e.key === " ") && onClick?.()}
       className={`
-        rounded-2xl p-6 transition-all duration-200
+        group relative rounded-2xl p-6 transition-all duration-300 ease-out
         ${isClickable ? "cursor-pointer" : ""}
         ${className}
       `}
       style={{
         background: t.surface1,
+        border: `1px solid ${t.borderSubtle}`,
       }}
-      onMouseEnter={isClickable ? (e) => { e.currentTarget.style.background = t.surface2; } : undefined}
-      onMouseLeave={isClickable ? (e) => { e.currentTarget.style.background = t.surface1; } : undefined}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateY(-2px)";
+        e.currentTarget.style.boxShadow = `0 8px 24px -4px ${t.void === "#0A0A0A" ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.08)"}`;
+        if (isClickable) e.currentTarget.style.background = t.surface2;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "none";
+        if (isClickable) e.currentTarget.style.background = t.surface1;
+      }}
     >
+      {/* Accent top border on hover */}
+      <div
+        className="absolute top-0 left-3 right-3 h-[3px] rounded-b-full transition-all duration-300 opacity-0 group-hover:opacity-100"
+        style={{ background: t.accent }}
+      />
+
       <span className="text-[0.625rem] font-semibold uppercase tracking-[0.08em]" style={{ color: t.textMuted }}>{title}</span>
 
       <div className="mt-3">{isLoading ? <KpiSkeleton t={t} /> : children}</div>
@@ -292,9 +307,18 @@ export function ChartCard({
 }) {
   return (
     <div
-      className={`rounded-2xl pt-6 px-5 pb-5 h-full flex flex-col animate-fade-in ${className}`}
+      className={`rounded-2xl pt-6 px-5 pb-5 h-full flex flex-col animate-fade-in transition-all duration-300 ease-out ${className}`}
       style={{
         background: t.surface1,
+        border: `1px solid ${t.borderSubtle}`,
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateY(-1px)";
+        e.currentTarget.style.boxShadow = `0 4px 16px -2px ${t.void === "#0A0A0A" ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.06)"}`;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "none";
       }}
     >
       <div className="flex items-center justify-between mb-5">
@@ -334,10 +358,11 @@ export function SegmentedControl({
           <button
             key={opt.key}
             onClick={() => onChange(opt.key)}
-            className="px-3 py-1.5 rounded-full text-[0.8125rem] font-medium transition-all duration-200"
+            className="px-3 py-1.5 rounded-full text-[0.8125rem] font-medium transition-all duration-300 ease-out"
             style={{
               background: active ? (opt.color || t.accent) : "transparent",
               color: active ? t.void : t.textTertiary,
+              boxShadow: active ? `0 0 12px -2px ${opt.color || t.accent}60` : "none",
             }}
           >
             {opt.label}
@@ -372,13 +397,17 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog">
       <div
-        className="absolute inset-0 backdrop-blur-sm animate-fade-in"
-        style={{ background: "hsl(0, 0%, 0% / 0.5)" }}
+        className="absolute inset-0 backdrop-blur-xl animate-fade-in"
+        style={{ background: "hsl(0, 0%, 0% / 0.6)" }}
         onClick={onClose}
       />
       <div
         className={`relative w-full ${width} rounded-2xl overflow-hidden shadow-2xl animate-scale-in`}
-        style={{ background: t.surface1 }}
+        style={{
+          background: `${t.surface1}E6`,
+          border: `1px solid ${t.borderSubtle}`,
+          backdropFilter: "blur(24px)",
+        }}
       >
         <div
           className="flex items-center justify-between px-6 py-4"

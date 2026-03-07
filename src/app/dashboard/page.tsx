@@ -349,16 +349,15 @@ const DashboardContent = () => {
     <div className="space-y-8">
       {/* Header */}
       <header
-        className="pb-6 animate-slide-up"
-        style={{ borderBottom: `1px solid ${t.borderSubtle}` }}
+        className="pb-8 animate-slide-up"
       >
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           <div>
-            <h1 className="text-headline">
-              Analyse des ventes
+            <h1 className="text-[2.25rem] md:text-[2.75rem] font-extrabold tracking-[-0.03em] leading-none">
+              <span style={{ color: t.textPrimary }}>Analyse des ventes</span>
               <span style={{ color: t.accent }}>.</span>
             </h1>
-            <p className="text-caption mt-1" style={{ color: t.textMuted }}>
+            <p className="text-caption mt-2 tracking-wide uppercase text-[0.75rem] font-medium" style={{ color: t.textMuted }}>
               Intelligence d&apos;affaires avec comparaison YOY
             </p>
           </div>
@@ -366,11 +365,12 @@ const DashboardContent = () => {
           <div className="flex flex-wrap items-center gap-3 mt-5 lg:mt-0">
             <button
               onClick={() => setShowYOYComparison(!showYOYComparison)}
-              className="px-4 py-2 rounded-full text-[0.875rem] font-medium transition-all duration-200"
+              className="px-4 py-2 rounded-xl text-[0.875rem] font-medium transition-all duration-300"
               style={{
                 background: showYOYComparison ? `${t.accent}20` : t.surface2,
                 color: showYOYComparison ? t.accent : t.textSecondary,
                 border: `1px solid ${showYOYComparison ? `${t.accent}40` : t.borderSubtle}`,
+                boxShadow: showYOYComparison ? `0 0 16px ${t.accent}30` : 'none',
               }}
             >
               <Calendar className="w-4 h-4 inline mr-2" />
@@ -391,7 +391,7 @@ const DashboardContent = () => {
             <select
               value={stagedSelectedRep}
               onChange={(e) => setStagedSelectedRep(e.target.value)}
-              className="rounded-full px-3 py-2 text-[0.875rem] transition-all focus:outline-none"
+              className="rounded-xl px-3 py-2 text-[0.875rem] transition-all duration-200 focus:outline-none cursor-pointer"
               style={{
                 background: t.surface2,
                 border: `1px solid ${t.borderSubtle}`,
@@ -409,19 +409,19 @@ const DashboardContent = () => {
                 type="date"
                 value={stagedDateRange.start}
                 onChange={(e) => setStagedDateRange((p) => ({ ...p, start: e.target.value }))}
-                className="rounded-full px-3 py-2 text-[0.875rem] focus:outline-none"
+                className="rounded-xl px-3 py-2 text-[0.875rem] focus:outline-none transition-all duration-200"
                 style={{
                   background: t.surface2,
                   border: `1px solid ${t.borderSubtle}`,
                   color: t.textPrimary,
                 }}
               />
-              <span className="text-caption">à</span>
+              <span className="text-caption font-medium" style={{ color: t.textMuted }}>à</span>
               <input
                 type="date"
                 value={stagedDateRange.end}
                 onChange={(e) => setStagedDateRange((p) => ({ ...p, end: e.target.value }))}
-                className="rounded-full px-3 py-2 text-[0.875rem] focus:outline-none"
+                className="rounded-xl px-3 py-2 text-[0.875rem] focus:outline-none transition-all duration-200"
                 style={{
                   background: t.surface2,
                   border: `1px solid ${t.borderSubtle}`,
@@ -430,7 +430,7 @@ const DashboardContent = () => {
               />
             </div>
 
-            <div className="flex gap-1">
+            <div className="flex gap-1.5">
               <button
                 onClick={() => {
                   const today = new Date();
@@ -440,8 +440,8 @@ const DashboardContent = () => {
                     end: today.toISOString().slice(0, 10),
                   });
                 }}
-                className="px-2 py-1.5 rounded-full text-[0.8125rem] font-medium transition-all"
-                style={{ background: t.surface2, color: t.textTertiary }}
+                className="px-3 py-1.5 rounded-xl text-[0.8125rem] font-semibold transition-all duration-200 hover:opacity-80"
+                style={{ background: t.surface2, color: t.textSecondary, border: `1px solid ${t.borderSubtle}` }}
               >
                 YTD
               </button>
@@ -455,8 +455,8 @@ const DashboardContent = () => {
                     end: today.toISOString().slice(0, 10),
                   });
                 }}
-                className="px-2 py-1.5 rounded-full text-[0.8125rem] font-medium transition-all"
-                style={{ background: t.surface2, color: t.textTertiary }}
+                className="px-3 py-1.5 rounded-xl text-[0.8125rem] font-semibold transition-all duration-200 hover:opacity-80"
+                style={{ background: t.surface2, color: t.textSecondary, border: `1px solid ${t.borderSubtle}` }}
               >
                 TTM
               </button>
@@ -464,11 +464,14 @@ const DashboardContent = () => {
 
             <button
               onClick={applyFilters}
-              className="px-5 py-2 rounded-full text-[0.875rem] font-semibold transition-all duration-200 hover:opacity-90"
+              className="px-5 py-2 rounded-xl text-[0.875rem] font-semibold transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
               style={{
                 background: t.accent,
                 color: t.void,
+                boxShadow: `0 2px 12px ${t.accent}30`,
               }}
+              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = `0 0 24px ${t.accent}50`; }}
+              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = `0 2px 12px ${t.accent}30`; }}
             >
               Appliquer
             </button>
@@ -476,7 +479,7 @@ const DashboardContent = () => {
             <button
               onClick={() => fetchDashboardData(true)}
               disabled={isLoading}
-              className="px-4 py-2 rounded-full text-[0.875rem] font-medium transition-all duration-200 disabled:opacity-50"
+              className="px-4 py-2 rounded-xl text-[0.875rem] font-medium transition-all duration-200 disabled:opacity-50"
               style={{
                 background: t.surface2,
                 color: t.textSecondary,
@@ -500,10 +503,11 @@ const DashboardContent = () => {
             )}
           </div>
         </div>
+        <div className="mt-6 h-px w-full" style={{ background: `linear-gradient(to right, transparent, ${t.borderSubtle}, transparent)` }} />
       </header>
 
       {/* KPI Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <KpiCard title="Chiffre d'affaires" t={t} className="animate-slide-up stagger-1" isLoading={isLoading}>
           <p className="text-[2rem] font-bold font-mono-data tracking-tight" style={{ color: t.textPrimary }}>
             <AnimatedNumber value={totalSales} format={currency} />
@@ -645,8 +649,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-[100svh]">
-      <div className="px-4 md:px-8 lg:px-10 py-8 md:py-10">
+    <main className="min-h-[100svh] bg-gradient-to-b from-transparent via-transparent to-[hsl(var(--accent)/0.03)]">
+      <div className="px-4 md:px-8 lg:px-10 py-8 md:py-12">
         <div className="mx-auto w-full max-w-[1920px]">
           {showReturnsDashboard ? <ReturnsDashboard /> : <DashboardContent />}
         </div>
