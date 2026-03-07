@@ -243,9 +243,12 @@ function LoginForm() {
 
       {/* Layered ambient gradients */}
       <div className="pointer-events-none absolute inset-0 -z-[5] bg-black/50" />
+
+      {/* Vertical split: right half pitch black overlay ON TOP of all bg layers */}
+      <div className="pointer-events-none absolute inset-0 -z-[2]" style={{ background: "linear-gradient(to left, rgba(2,2,2,0.97) 0%, rgba(2,2,2,0.92) 35%, rgba(2,2,2,0.5) 48%, transparent 58%)" }} />
       <div className="pointer-events-none absolute -top-40 -left-40 w-[50rem] h-[50rem] rounded-full bg-[hsl(var(--accent)/0.07)] blur-[120px] -z-[4]" />
-      <div className="pointer-events-none absolute -bottom-32 -right-32 w-[40rem] h-[40rem] rounded-full bg-[hsl(var(--accent)/0.06)] blur-[100px] -z-[4]" />
-      <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60rem] h-[60rem] rounded-full bg-[radial-gradient(circle,hsl(var(--accent)/0.03)_0%,transparent_70%)] -z-[4]" />
+      <div className="pointer-events-none absolute -bottom-32 -left-32 w-[40rem] h-[40rem] rounded-full bg-[hsl(var(--accent)/0.05)] blur-[100px] -z-[4]" />
+      <div className="pointer-events-none absolute top-1/3 left-1/4 w-[45rem] h-[45rem] rounded-full bg-[radial-gradient(circle,hsl(var(--accent)/0.04)_0%,transparent_70%)] -z-[4]" />
 
       {/* Noise texture overlay */}
       <div className="pointer-events-none absolute inset-0 -z-[3] opacity-[0.015]"
@@ -258,7 +261,7 @@ function LoginForm() {
           <div className="h-16 max-w-6xl mx-auto flex items-center justify-between">
             <Link href="/" className="relative group">
               <div className="absolute -inset-3 bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(var(--accent-hover))] rounded-xl blur-2xl opacity-0 group-hover:opacity-15 transition-opacity duration-700" />
-              <NartexLogo className="relative h-5 w-auto text-white/80 group-hover:text-white transition-colors duration-500" />
+              <NartexLogo className="relative h-5 w-auto text-white group-hover:text-white transition-colors duration-500 drop-shadow-[0_0_12px_rgba(255,255,255,0.15)]" />
             </Link>
             <div className="hidden md:flex items-center gap-3 text-xs text-white/30">
               <span className="inline-flex items-center gap-2">
@@ -318,7 +321,7 @@ function LoginForm() {
                 ].map((item, idx) => (
                   <div
                     key={idx}
-                    className="group relative rounded-xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm p-4 transition-all duration-500 hover:border-[hsl(var(--accent)/0.2)] hover:bg-white/[0.04]"
+                    className="group relative rounded-xl bg-white/[0.03] backdrop-blur-sm border border-white/[0.06] p-4 transition-all duration-500 hover:bg-white/[0.06] silver-border-light"
                   >
                     <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-[hsl(var(--accent)/0.05)] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                     <div className="relative">
@@ -340,7 +343,7 @@ function LoginForm() {
                   ref={cardRef}
                   onMouseMove={handleMouseMove}
                   onMouseLeave={handleMouseLeave}
-                  className="relative rounded-2xl border border-white/[0.08] bg-[#0a0a0a]/80 backdrop-blur-2xl shadow-2xl shadow-black/30 p-8 transition-transform duration-300 ease-out"
+                  className="relative rounded-2xl bg-[#0a0a0a]/80 backdrop-blur-2xl shadow-2xl shadow-black/30 p-8 transition-transform duration-300 ease-out silver-border"
                 >
                   {/* Subtle inner gradient */}
                   <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
@@ -389,7 +392,7 @@ function LoginForm() {
                             required
                             placeholder="vous@entreprise.com"
                             autoComplete="email"
-                            className="w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-white/20 focus:ring-1 focus:ring-[hsl(var(--accent)/0.4)] focus:border-[hsl(var(--accent)/0.3)] focus:bg-white/[0.05] transition-all duration-300 text-sm outline-none"
+                            className="w-full px-4 py-3 bg-white/[0.04] border border-white/[0.15] rounded-xl text-white placeholder-white/20 focus:ring-1 focus:ring-[hsl(var(--accent)/0.5)] focus:border-[hsl(var(--accent)/0.4)] focus:bg-white/[0.06] transition-all duration-300 text-sm outline-none"
                           />
                           <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-[hsl(var(--accent)/0.1)] to-transparent opacity-0 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none" />
                         </div>
@@ -414,7 +417,7 @@ function LoginForm() {
                             required
                             autoComplete="current-password"
                             placeholder="••••••••"
-                            className="w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-white/20 focus:ring-1 focus:ring-[hsl(var(--accent)/0.4)] focus:border-[hsl(var(--accent)/0.3)] focus:bg-white/[0.05] transition-all duration-300 pr-12 text-sm outline-none"
+                            className="w-full px-4 py-3 bg-white/[0.04] border border-white/[0.15] rounded-xl text-white placeholder-white/20 focus:ring-1 focus:ring-[hsl(var(--accent)/0.5)] focus:border-[hsl(var(--accent)/0.4)] focus:bg-white/[0.06] transition-all duration-300 pr-12 text-sm outline-none"
                           />
                           <button
                             type="button"
@@ -459,7 +462,7 @@ function LoginForm() {
                         <button
                           key={provider}
                           onClick={() => handleSSOLogin(provider)}
-                          className="w-full group/sso relative overflow-hidden inline-flex justify-center items-center py-3 px-4 bg-white/[0.03] border border-white/[0.06] hover:border-white/[0.12] rounded-xl text-[13px] font-medium text-white/50 hover:text-white/70 transition-all duration-300"
+                          className="w-full group/sso relative overflow-hidden inline-flex justify-center items-center py-3 px-4 bg-white/[0.04] border border-white/[0.08] rounded-xl text-[13px] font-medium text-white/50 hover:text-white/70 hover:bg-white/[0.06] transition-all duration-300 silver-border-light"
                         >
                           <div className="absolute inset-0 bg-gradient-to-r from-white/[0.03] to-transparent opacity-0 group-hover/sso:opacity-100 transition-opacity duration-500" />
                           <span className="relative z-10 flex items-center justify-center">
@@ -497,6 +500,36 @@ function LoginForm() {
 
       {/* Global animations */}
       <style jsx>{`
+        .silver-border {
+          position: relative;
+        }
+        .silver-border::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 1rem;
+          padding: 1px;
+          background: linear-gradient(135deg, rgba(255,255,255,0.35), rgba(255,255,255,0.08) 40%, rgba(255,255,255,0.18) 60%, rgba(255,255,255,0.35));
+          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask-composite: exclude;
+          -webkit-mask-composite: xor;
+          pointer-events: none;
+        }
+        .silver-border-light {
+          position: relative;
+        }
+        .silver-border-light::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 0.75rem;
+          padding: 1px;
+          background: linear-gradient(135deg, rgba(255,255,255,0.22), rgba(255,255,255,0.05) 40%, rgba(255,255,255,0.14) 60%, rgba(255,255,255,0.22));
+          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask-composite: exclude;
+          -webkit-mask-composite: xor;
+          pointer-events: none;
+        }
         @keyframes revealUp {
           from { opacity: 0; transform: translateY(12px); }
           to { opacity: 1; transform: translateY(0); }
