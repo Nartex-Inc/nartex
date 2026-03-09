@@ -594,8 +594,8 @@ export default function ReturnsPage() {
         <header className="mb-8 animate-slide-up">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-[hsl(var(--text-primary))]">Retours</h1>
-              <p className="mt-1 text-sm text-[hsl(var(--text-tertiary))]">{userRole} · Gérez les demandes de retours et les réceptions</p>
+              <h1 className="text-3xl font-extrabold tracking-tight text-[hsl(var(--text-primary))]">Retours</h1>
+              <p className="mt-1.5 text-sm text-[hsl(var(--text-tertiary))] font-light">{userRole} · Gérez les demandes de retours et les réceptions</p>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -603,15 +603,15 @@ export default function ReturnsPage() {
                 className={cn(
                   "inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium interactive press",
                   showHistory
-                    ? "bg-[hsl(var(--warning-muted))] text-[hsl(var(--warning))]"
-                    : "bg-[hsl(var(--bg-surface))] border border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] hover:bg-[hsl(var(--bg-elevated))]"
+                    ? "bg-[hsl(var(--warning-muted))] text-[hsl(var(--warning))] border border-[hsl(var(--warning))]/20"
+                    : "bg-[hsl(var(--bg-surface))]/80 border border-white/[0.1] text-[hsl(var(--text-tertiary))] hover:bg-white/[0.05]"
                 )}
               >
                 <History className="h-4 w-4" />
                 {showHistory ? "Historique" : "Actifs"}
               </button>
               {canCreate && (
-                <button onClick={() => setOpenNew(true)} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] text-sm font-semibold shadow-[var(--shadow-md)] hover:shadow-[var(--shadow-lg)] interactive press">
+                <button onClick={() => setOpenNew(true)} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[hsl(var(--accent))] text-black text-sm font-semibold shadow-[var(--shadow-md)] hover:shadow-[0_0_24px_hsl(var(--accent)/0.3)] hover:brightness-110 transition-all duration-300 interactive press">
                   <Plus className="h-4 w-4" />
                   Nouveau retour
                 </button>
@@ -631,21 +631,21 @@ export default function ReturnsPage() {
         <div className="mb-6 space-y-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-muted))]" />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") setSubmittedQuery(query); }} placeholder="Rechercher par ID, client, commande, expert, produit..." className="w-full h-11 pl-9 pr-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))]/30 shadow-[var(--shadow-xs)] transition-shadow" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-muted))]" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") setSubmittedQuery(query); }} placeholder="Rechercher par ID, client, commande, expert, produit..." className="w-full h-11 pl-10 pr-4 rounded-xl border border-white/[0.1] bg-[hsl(var(--bg-surface))]/80 backdrop-blur-sm text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent))]/30 focus:border-[hsl(var(--accent))]/20 shadow-[var(--shadow-xs)] transition-all duration-300" />
             </div>
-            <button onClick={() => setShowFilters(!showFilters)} className={cn("inline-flex items-center gap-2 px-4 h-11 rounded-xl border text-sm font-medium interactive press", hasActiveFilters ? "border-[hsl(var(--text-primary))] bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))]" : "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))]")}>
+            <button onClick={() => setShowFilters(!showFilters)} className={cn("inline-flex items-center gap-2 px-4 h-11 rounded-xl border text-sm font-medium transition-all duration-200 interactive press", hasActiveFilters ? "border-[hsl(var(--accent))]/40 bg-[hsl(var(--accent))] text-black" : "border-white/[0.1] bg-[hsl(var(--bg-surface))]/80 text-[hsl(var(--text-secondary))] hover:bg-white/[0.05]")}>
               <Filter className="h-4 w-4" />
               Filtres
               {hasActiveFilters && <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-[hsl(var(--bg-surface))] text-xs text-[hsl(var(--text-primary))]">{[cause !== "all", reporter !== "all", dateFrom, dateTo].filter(Boolean).length}</span>}
             </button>
             <div className="flex items-center gap-2">
-              <button onClick={() => load()} className="inline-flex items-center justify-center h-11 w-11 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-primary))] hover:bg-[hsl(var(--bg-elevated))] interactive press" title="Rafraîchir"><RotateCcw className="h-4 w-4" /></button>
-              {hasActiveFilters && <button onClick={onReset} className="inline-flex items-center justify-center h-11 w-11 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--danger))] interactive press" title="Réinitialiser"><X className="h-4 w-4" /></button>}
+              <button onClick={() => load()} className="inline-flex items-center justify-center h-11 w-11 rounded-xl border border-white/[0.1] bg-[hsl(var(--bg-surface))]/80 text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-primary))] hover:bg-white/[0.05] transition-all duration-200 interactive press" title="Rafraîchir"><RotateCcw className="h-4 w-4" /></button>
+              {hasActiveFilters && <button onClick={onReset} className="inline-flex items-center justify-center h-11 w-11 rounded-xl border border-white/[0.1] bg-[hsl(var(--bg-surface))]/80 text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--danger))] transition-all duration-200 interactive press" title="Réinitialiser"><X className="h-4 w-4" /></button>}
             </div>
           </div>
           {showFilters && (
-            <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-[var(--shadow-xs)] animate-fade-in">
+            <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl border border-white/[0.08] bg-[hsl(var(--bg-surface))]/80 backdrop-blur-sm shadow-[var(--shadow-xs)] animate-fade-in">
               <div className="flex items-center gap-2">
                 <label className="text-xs font-medium text-[hsl(var(--text-tertiary))] uppercase tracking-wide">Cause</label>
                 <select value={cause} onChange={(e) => setCause(e.target.value as Cause | "all")} className="h-9 px-3 rounded-md border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-sm text-[hsl(var(--text-primary))] focus:outline-none">
@@ -674,7 +674,7 @@ export default function ReturnsPage() {
         </div>
 
         {/* Table */}
-        <div className="rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-[var(--shadow-md)] overflow-hidden animate-slide-up stagger-3">
+        <div className="rounded-2xl border border-white/[0.08] bg-[hsl(var(--bg-surface))]/80 backdrop-blur-sm shadow-[var(--shadow-lg)] overflow-hidden animate-slide-up stagger-3">
           {loading && <div className="flex flex-col items-center justify-center py-24 animate-fade-in"><Loader2 className="h-8 w-8 text-[hsl(var(--accent))] animate-spin mb-3" /><p className="text-sm font-medium text-[hsl(var(--text-tertiary))]">Chargement...</p></div>}
           {error && <div className="flex flex-col items-center justify-center py-24 text-[hsl(var(--danger))] animate-fade-in"><p className="text-sm font-medium">{error}</p></div>}
           {!loading && !error && (
@@ -682,7 +682,7 @@ export default function ReturnsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b-2 border-[hsl(var(--border-subtle))]">
+                    <tr className="border-b border-white/[0.08] bg-white/[0.02]">
                       <SortTh label="ID" sortKey="id" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
                       <SortTh label="Date" sortKey="reportedAt" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
                       <SortTh label="Cause" sortKey="cause" currentKey={sortKey} dir={sortDir} onSort={toggleSort} />
@@ -743,7 +743,7 @@ export default function ReturnsPage() {
                 </table>
                 {sorted.length === 0 && <div className="flex flex-col items-center justify-center py-24 text-[hsl(var(--text-muted))] animate-fade-in"><Package className="h-10 w-10 mb-3 opacity-50" /><p className="text-sm font-medium">Aucun résultat</p></div>}
               </div>
-              <div className="px-4 py-3 border-t border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-surface))] flex items-center justify-between text-xs text-[hsl(var(--text-tertiary))]">
+              <div className="px-4 py-3 border-t border-white/[0.06] bg-white/[0.02] flex items-center justify-between text-xs text-[hsl(var(--text-tertiary))]">
                 <span className="font-medium tabular-nums">{sorted.length} retour{sorted.length !== 1 ? "s" : ""}</span>
                 <div className="flex items-center gap-3">
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[hsl(var(--success))]/10"><span className="w-2 h-2 rounded-full bg-[hsl(var(--success))]" />Prêt</span>
@@ -765,33 +765,33 @@ export default function ReturnsPage() {
 
 function StatCard({ label, value, variant = "default", icon: Icon, className }: { label: string; value: number; variant?: "default" | "success" | "warning" | "muted"; icon?: React.ElementType; className?: string }) {
   return (
-    <div className={cn("relative px-4 py-3 rounded-lg border overflow-hidden interactive",
-      variant === "default" && "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))]",
-      variant === "success" && "border-[hsl(var(--success))]/20 bg-[hsl(var(--success-muted))]",
-      variant === "warning" && "border-[hsl(var(--warning))]/20 bg-[hsl(var(--warning-muted))]",
-      variant === "muted" && "border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))]",
+    <div className={cn("relative px-5 py-4 rounded-xl border overflow-hidden interactive backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg",
+      variant === "default" && "border-white/[0.08] bg-[hsl(var(--bg-surface))]/80",
+      variant === "success" && "border-[hsl(var(--success))]/20 bg-[hsl(var(--success-muted))]/80",
+      variant === "warning" && "border-[hsl(var(--warning))]/20 bg-[hsl(var(--warning-muted))]/80",
+      variant === "muted" && "border-white/[0.08] bg-[hsl(var(--bg-elevated))]/80",
       className
     )}>
-      <div className={cn("absolute top-0 left-0 right-0 h-0.5",
-        variant === "default" && "bg-[hsl(var(--text-primary))]",
-        variant === "success" && "bg-[hsl(var(--success))]",
-        variant === "warning" && "bg-[hsl(var(--warning))]",
-        variant === "muted" && "bg-[hsl(var(--text-tertiary))]"
+      <div className={cn("absolute top-0 left-0 right-0 h-[2px]",
+        variant === "default" && "bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(var(--accent))]/40",
+        variant === "success" && "bg-gradient-to-r from-[hsl(var(--success))] to-[hsl(var(--success))]/40",
+        variant === "warning" && "bg-gradient-to-r from-[hsl(var(--warning))] to-[hsl(var(--warning))]/40",
+        variant === "muted" && "bg-gradient-to-r from-[hsl(var(--text-tertiary))] to-[hsl(var(--text-tertiary))]/40"
       )} />
       <div className="flex items-center justify-between">
         <div>
-          <div className={cn("text-2xl font-semibold tabular-nums",
+          <div className={cn("text-2xl font-bold tabular-nums tracking-tight",
             variant === "default" && "text-[hsl(var(--text-primary))]",
             variant === "success" && "text-[hsl(var(--success))]",
             variant === "warning" && "text-[hsl(var(--warning))]",
             variant === "muted" && "text-[hsl(var(--text-tertiary))]"
           )}>{value}</div>
-          <div className="text-label mt-0.5">{label}</div>
+          <div className="text-label mt-1 font-medium">{label}</div>
         </div>
         {Icon && <Icon className={cn("h-5 w-5",
-          variant === "default" && "text-[hsl(var(--text-muted))]",
-          variant === "success" && "text-[hsl(var(--success))]/60",
-          variant === "warning" && "text-[hsl(var(--warning))]/60",
+          variant === "default" && "text-[hsl(var(--accent))]/50",
+          variant === "success" && "text-[hsl(var(--success))]/50",
+          variant === "warning" && "text-[hsl(var(--warning))]/50",
           variant === "muted" && "text-[hsl(var(--text-muted))]"
         )} />}
       </div>
@@ -802,7 +802,7 @@ function StatCard({ label, value, variant = "default", icon: Icon, className }: 
 function SortTh({ label, sortKey, currentKey, dir, onSort }: { label: string; sortKey: SortKey; currentKey: SortKey; dir: SortDir; onSort: (key: SortKey) => void }) {
   const active = sortKey === currentKey;
   return (
-    <th className="px-4 py-3.5 text-left text-label uppercase cursor-pointer select-none hover:text-[hsl(var(--text-primary))] transition-colors" onClick={() => onSort(sortKey)}>
+    <th className="px-4 py-3.5 text-left text-[10px] font-medium tracking-[0.1em] uppercase text-[hsl(var(--text-muted))] cursor-pointer select-none hover:text-[hsl(var(--text-primary))] transition-colors duration-200" onClick={() => onSort(sortKey)}>
       <span className="inline-flex items-center gap-1.5">
         {label}
         {active && (dir === "asc" ? <ArrowUpNarrowWide className="h-3.5 w-3.5 text-[hsl(var(--text-primary))]" /> : <ArrowDownNarrowWide className="h-3.5 w-3.5 text-[hsl(var(--text-primary))]" />)}
@@ -1012,12 +1012,12 @@ function DetailModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-fade-in" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-xl animate-fade-in" onClick={onClose} />
 
-      <div className="relative w-[90vw] h-[90vh] bg-[hsl(var(--bg-surface))] rounded-2xl shadow-[var(--shadow-2xl)] flex flex-col overflow-hidden border border-[hsl(var(--border-default))] animate-scale-in">
+      <div className="relative w-[90vw] h-[90vh] bg-[hsl(var(--bg-surface))]/95 backdrop-blur-2xl rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden border border-white/[0.1] animate-scale-in">
 
         {/* Header */}
-        <div className="px-8 py-6 border-b border-[hsl(var(--border-subtle))] flex items-start justify-between" style={{ background: `linear-gradient(to right, var(--accent-muted-current), hsl(var(--bg-surface)))` }}>
+        <div className="px-8 py-6 border-b border-white/[0.06] flex items-start justify-between bg-gradient-to-r from-[hsl(var(--accent)/0.05)] to-transparent">
           <div className="flex items-center gap-5">
             <div className="h-14 w-14 rounded-xl flex items-center justify-center font-mono text-xl font-bold shadow-lg text-white" style={{ backgroundColor: "var(--accent-current)" }}>
               {String(draft.id).replace('R', '')}
@@ -1056,7 +1056,7 @@ function DetailModal({
         <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-[hsl(var(--bg-base))]">
 
           {/* Status Controls */}
-          <div className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm space-y-5">
+          <div className="p-5 rounded-xl border border-white/[0.08] bg-[hsl(var(--bg-surface))]/80 backdrop-blur-sm shadow-sm space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <Switch
                 label="Retour physique requis"
@@ -1092,7 +1092,7 @@ function DetailModal({
           </div>
 
           {/* Info Fields */}
-          <div className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
+          <div className="p-5 rounded-xl border border-white/[0.08] bg-[hsl(var(--bg-surface))]/80 backdrop-blur-sm shadow-sm">
             <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] mb-4 flex items-center gap-2">
               <FileText className="h-4 w-4 text-[hsl(var(--text-tertiary))]" />
               Informations générales
@@ -1142,7 +1142,7 @@ function DetailModal({
           </div>
 
           {/* Attachments with Google Drive iFrames */}
-          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
+          <section className="p-5 rounded-xl border border-white/[0.08] bg-[hsl(var(--bg-surface))]/80 backdrop-blur-sm shadow-sm">
             <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] mb-4 flex items-center gap-2">
               <Paperclip className="h-4 w-4 text-[hsl(var(--text-tertiary))]" />
               Pièces jointes
@@ -1161,7 +1161,7 @@ function DetailModal({
           </section>
 
           {/* Products */}
-          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
+          <section className="p-5 rounded-xl border border-white/[0.08] bg-[hsl(var(--bg-surface))]/80 backdrop-blur-sm shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] flex items-center gap-2">
                 <Package className="h-4 w-4 text-[hsl(var(--text-tertiary))]" />
@@ -1566,7 +1566,7 @@ function DetailModal({
           )}
 
           {/* Notes */}
-          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
+          <section className="p-5 rounded-xl border border-white/[0.08] bg-[hsl(var(--bg-surface))]/80 backdrop-blur-sm shadow-sm">
             <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] mb-4 flex items-center gap-2">
               <FileText className="h-4 w-4 text-[hsl(var(--text-tertiary))]" />
               Notes internes
@@ -1587,26 +1587,26 @@ function DetailModal({
           </section>
 
           {/* Conversation */}
-          <section ref={commentsRef} className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
+          <section ref={commentsRef} className="p-5 rounded-xl border border-white/[0.08] bg-[hsl(var(--bg-surface))]/80 backdrop-blur-sm shadow-sm">
             <ReturnComments returnCode={String(draft.id)} />
           </section>
         </div>
 
         {/* Footer */}
-        <div className="px-8 py-5 border-t border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-surface))] flex items-center justify-end gap-3">
-          <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-[hsl(var(--text-tertiary))] hover:bg-[hsl(var(--bg-elevated))] interactive press">
+        <div className="px-8 py-5 border-t border-white/[0.06] bg-[hsl(var(--bg-surface))]/95 backdrop-blur-sm flex items-center justify-end gap-3">
+          <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-[hsl(var(--text-tertiary))] hover:bg-white/[0.05] transition-colors duration-200 interactive press">
             Fermer
           </button>
 
           {canForceDraft && (
-            <button disabled={busy} onClick={handleSaveDraft} className={cn("inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))] text-sm font-medium hover:bg-[hsl(var(--bg-elevated))] interactive press", busy && "opacity-50 cursor-not-allowed")}>
+            <button disabled={busy} onClick={handleSaveDraft} className={cn("inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/[0.1] text-[hsl(var(--text-secondary))] text-sm font-medium hover:bg-white/[0.05] transition-all duration-200 interactive press", busy && "opacity-50 cursor-not-allowed")}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
               Enregistrer comme brouillon
             </button>
           )}
 
           {(canEdit || canSaveVerified) && (
-            <button disabled={busy} onClick={handleSave} className={cn("inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] text-sm font-semibold hover:opacity-90 interactive press shadow-lg", busy && "opacity-50 cursor-not-allowed")}>
+            <button disabled={busy} onClick={handleSave} className={cn("inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[hsl(var(--accent))] text-black text-sm font-semibold hover:shadow-[0_0_24px_hsl(var(--accent)/0.3)] hover:brightness-110 transition-all duration-300 interactive press shadow-lg", busy && "opacity-50 cursor-not-allowed")}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Enregistrer
             </button>
@@ -1686,7 +1686,7 @@ function ProductRow({ product, showVerificationFields, showFinalizationFields, c
   }, [debouncedCode, showSuggestions]);
 
   return (
-    <div className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] space-y-4 group shadow-sm hover:shadow-md transition-shadow duration-200">
+    <div className="p-5 rounded-xl border border-white/[0.08] bg-[hsl(var(--bg-surface))]/80 backdrop-blur-sm space-y-4 group shadow-sm hover:shadow-md transition-all duration-200">
       {/* Base Product Info */}
       <div className="flex items-center gap-4">
         <div className="relative flex-shrink-0 w-36">
@@ -1868,11 +1868,11 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-fade-in" onClick={onClose} />
-      <div className="relative w-[90vw] h-[90vh] bg-[hsl(var(--bg-surface))] rounded-2xl shadow-[var(--shadow-2xl)] border border-[hsl(var(--border-default))] overflow-hidden flex flex-col animate-scale-in">
-        
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-xl animate-fade-in" onClick={onClose} />
+      <div className="relative w-[90vw] h-[90vh] bg-[hsl(var(--bg-surface))]/95 backdrop-blur-2xl rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.5)] border border-white/[0.1] overflow-hidden flex flex-col animate-scale-in">
+
         {/* Header */}
-        <div className="px-8 py-6 border-b border-[hsl(var(--border-subtle))] flex items-center justify-between bg-[hsl(var(--bg-surface))]">
+        <div className="px-8 py-6 border-b border-white/[0.06] flex items-center justify-between bg-gradient-to-r from-[hsl(var(--accent)/0.05)] to-transparent">
           <div className="flex items-center gap-5">
             <div className="h-12 w-12 rounded-xl bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-tertiary))] flex items-center justify-center font-mono text-lg font-medium">{nextId.replace('R', '')}</div>
             <div>
@@ -1886,7 +1886,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-[hsl(var(--bg-base))]">
           {/* Order Lookup */}
-          <div className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
+          <div className="p-5 rounded-xl border border-white/[0.08] bg-[hsl(var(--bg-surface))]/80 backdrop-blur-sm shadow-sm">
             <label className="block text-sm font-medium text-[hsl(var(--text-primary))] mb-3">Recherche par commande</label>
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-muted))]" />
@@ -1896,7 +1896,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
           </div>
 
           {/* Status Controls: Physical Return + Options */}
-          <div className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm space-y-5">
+          <div className="p-5 rounded-xl border border-white/[0.08] bg-[hsl(var(--bg-surface))]/80 backdrop-blur-sm shadow-sm space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <Switch
                 label="Retour physique requis"
@@ -1912,7 +1912,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
           </div>
 
           {/* Form Fields */}
-          <div className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm space-y-5">
+          <div className="p-5 rounded-xl border border-white/[0.08] bg-[hsl(var(--bg-surface))]/80 backdrop-blur-sm shadow-sm space-y-5">
             <div className="grid grid-cols-2 gap-4">
               <FormField label="Date" required><input type="date" value={reportedAt} onChange={(e) => setReportedAt(e.target.value)} className={cn("w-full h-11 px-4 rounded-xl border text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 [color-scheme:light] dark:[color-scheme:dark]", requiredFieldCls(reportedAt))} /></FormField>
               <FormField label="Signalé par" required><select value={reporter} onChange={(e) => setReporter(e.target.value as Reporter)} className={cn("w-full h-11 px-4 rounded-xl border text-sm text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200", requiredFieldCls(reporter))}><option value="" disabled>— Sélectionner —</option>{Object.entries(REPORTER_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></FormField>
@@ -1932,7 +1932,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
           </div>
 
           {/* Products */}
-          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
+          <section className="p-5 rounded-xl border border-white/[0.08] bg-[hsl(var(--bg-surface))]/80 backdrop-blur-sm shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] flex items-center gap-2"><Package className="h-4 w-4 text-[hsl(var(--text-tertiary))]" />Produits (RMA)</h3>
               <button onClick={addProduct} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] transition-all duration-200"><Plus className="h-3.5 w-3.5" />Ajouter</button>
@@ -1945,7 +1945,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
           </section>
 
           {/* Attachments */}
-          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
+          <section className="p-5 rounded-xl border border-white/[0.08] bg-[hsl(var(--bg-surface))]/80 backdrop-blur-sm shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] flex items-center gap-2"><Paperclip className="h-4 w-4 text-[hsl(var(--text-tertiary))]" />Pièces jointes</h3>
               <label className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-[hsl(var(--bg-muted))] text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--bg-elevated))] transition-all duration-200 cursor-pointer">
@@ -1971,7 +1971,7 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
           </section>
 
           {/* Notes */}
-          <section className="p-5 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
+          <section className="p-5 rounded-xl border border-white/[0.08] bg-[hsl(var(--bg-surface))]/80 backdrop-blur-sm shadow-sm">
             <h3 className="text-sm font-medium text-[hsl(var(--text-primary))] mb-4 flex items-center gap-2"><FileText className="h-4 w-4 text-[hsl(var(--text-tertiary))]" />Notes internes</h3>
             <textarea className={cn("w-full px-4 py-3 rounded-xl border text-sm text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 resize-none", optionalFieldCls(description))} rows={4} placeholder="Ajoutez des notes internes..." value={description} onChange={(e) => setDescription(e.target.value)} />
           </section>
@@ -1979,13 +1979,13 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
         </div>
 
         {/* Footer */}
-        <div className="px-8 py-5 border-t border-[hsl(var(--border-subtle))] bg-[hsl(var(--bg-surface))] flex items-center justify-end gap-3">
-          <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-[hsl(var(--text-tertiary))] hover:bg-[hsl(var(--bg-elevated))] interactive press">Annuler</button>
-          <button disabled={busy} onClick={submitDraft} className={cn("inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[hsl(var(--border-default))] text-[hsl(var(--text-secondary))] text-sm font-medium hover:bg-[hsl(var(--bg-elevated))] interactive press", busy && "opacity-50 cursor-not-allowed")}>
+        <div className="px-8 py-5 border-t border-white/[0.06] bg-[hsl(var(--bg-surface))]/95 backdrop-blur-sm flex items-center justify-end gap-3">
+          <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-[hsl(var(--text-tertiary))] hover:bg-white/[0.05] transition-colors duration-200 interactive press">Annuler</button>
+          <button disabled={busy} onClick={submitDraft} className={cn("inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/[0.1] text-[hsl(var(--text-secondary))] text-sm font-medium hover:bg-white/[0.05] transition-all duration-200 interactive press", busy && "opacity-50 cursor-not-allowed")}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
             Enregistrer comme brouillon
           </button>
-          <button disabled={busy} onClick={submit} className={cn("inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[hsl(var(--text-primary))] text-[hsl(var(--bg-base))] text-sm font-semibold hover:opacity-90 interactive press shadow-lg", busy && "opacity-50 cursor-not-allowed")}>
+          <button disabled={busy} onClick={submit} className={cn("inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[hsl(var(--accent))] text-black text-sm font-semibold hover:shadow-[0_0_24px_hsl(var(--accent)/0.3)] hover:brightness-110 transition-all duration-300 interactive press shadow-lg", busy && "opacity-50 cursor-not-allowed")}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             Créer le retour
           </button>
@@ -2044,7 +2044,7 @@ function NewProductRow({ product, onChange, onRemove, canRemove = true }: { prod
   };
 
   return (
-    <div className="flex items-center gap-4 p-4 rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] group shadow-sm hover:shadow-md transition-shadow duration-200">
+    <div className="flex items-center gap-4 p-4 rounded-xl border border-white/[0.08] bg-[hsl(var(--bg-surface))]/80 backdrop-blur-sm group shadow-sm hover:shadow-md transition-all duration-200">
       <div className="relative flex-shrink-0 w-36">
         <input className="w-full h-10 px-3 rounded-lg text-sm font-mono border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Code" value={product.codeProduit} onChange={(e) => { onChange({ ...product, codeProduit: e.target.value }); setShowSuggestions(true); }} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} onKeyDown={onKeyDown} />
         {showSuggestions && suggestions.length > 0 && (
