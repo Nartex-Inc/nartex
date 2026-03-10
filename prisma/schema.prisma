@@ -85,6 +85,7 @@ model User {
   role UserRole @default(user)
 
   canManageTickets Boolean @default(false) @map("can_manage_tickets")
+  forceLogoutAt    DateTime? @map("force_logout_at")
 
   verificationToken        String?   @unique @map("verification_token")
   verificationTokenExpires DateTime? @map("verification_token_expires")

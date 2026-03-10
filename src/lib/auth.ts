@@ -293,7 +293,23 @@ export const authOptions: NextAuthOptions = {
         return token;
       }
 
-      // C) Subsequent requests — use cached token, zero DB queries
+      // C) Subsequent requests — check forceLogoutAt to allow admin session reset
+      if (token.id) {
+        try {
+          const u = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { forceLogoutAt: true },
+          });
+          const iat = (token as any).iat as number | undefined;
+          if (u?.forceLogoutAt && iat && u.forceLogoutAt.getTime() / 1000 > iat) {
+            // Token was issued before the forced logout — invalidate session
+            return {} as any;
+          }
+        } catch {
+          // Silently continue if column doesn't exist yet
+        }
+      }
+
       //    Safety net: one-time DB fallback if activeTenantId was never set
       if (!token.activeTenantId && token.email && !token._tenantChecked) {
         token._tenantChecked = true;

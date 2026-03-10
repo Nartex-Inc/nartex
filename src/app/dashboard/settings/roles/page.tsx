@@ -26,6 +26,7 @@ import {
   Plus,
   Trash2,
   Send,
+  LogOut,
 } from "lucide-react";
 
 // ============================================================================
@@ -435,7 +436,7 @@ function DeleteUserModal({ user, isOpen, onClose, onConfirm, isDeleting, accentC
   );
 }
 
-function UserRow({ user, currentUserEmail, onRoleChange, onTenantChange, onToggleTickets, onEditProfile, onDelete, isUpdating, allTenants, accentColor }: {
+function UserRow({ user, currentUserEmail, onRoleChange, onTenantChange, onToggleTickets, onEditProfile, onDelete, onForceLogout, isUpdating, allTenants, accentColor }: {
   user: UserData;
   currentUserEmail: string;
   onRoleChange: (userId: string, role: RoleValue) => void;
@@ -443,6 +444,7 @@ function UserRow({ user, currentUserEmail, onRoleChange, onTenantChange, onToggl
   onToggleTickets: (userId: string, value: boolean) => void;
   onEditProfile?: (userId: string) => void;
   onDelete?: (user: UserData) => void;
+  onForceLogout?: (userId: string) => void;
   isUpdating: boolean;
   allTenants: TenantInfo[];
   accentColor: string;
@@ -484,6 +486,15 @@ function UserRow({ user, currentUserEmail, onRoleChange, onTenantChange, onToggl
         )}
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
+        {onForceLogout && !isSelf && (
+          <button
+            onClick={() => onForceLogout(user.id)}
+            className="p-2 rounded-lg bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))] hover:border-[hsl(var(--warning))]/50 hover:bg-[hsl(var(--warning))]/10 transition-colors"
+            title="Réinitialiser session"
+          >
+            <LogOut className="w-4 h-4 text-[hsl(var(--text-muted))]" />
+          </button>
+        )}
         {onEditProfile && (
           <button
             onClick={() => onEditProfile(user.id)}
@@ -876,6 +887,30 @@ export default function RolesPage() {
     }
   };
 
+  const handleForceLogout = async (userId: string) => {
+    try {
+      setUpdatingUserId(userId);
+      setError(null);
+      setSuccessMessage(null);
+      const response = await fetch("/api/user/force-logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Erreur lors de la réinitialisation");
+      }
+      const targetUser = users.find((u) => u.id === userId);
+      setSuccessMessage(`Session de ${targetUser?.name || targetUser?.email || "l'utilisateur"} réinitialisée`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur inconnue");
+    } finally {
+      setUpdatingUserId(null);
+    }
+  };
+
   const handleDeleteUser = async () => {
     if (!deleteTarget) return;
     try {
@@ -1040,6 +1075,7 @@ export default function RolesPage() {
                 onRoleChange={handleRoleChange}
                 onTenantChange={handleTenantChange}
                 onToggleTickets={handleToggleTickets}
+                onForceLogout={userIsAdmin ? handleForceLogout : undefined}
                 onEditProfile={userIsAdmin ? (userId) => router.push(`/dashboard/settings/profile?userId=${userId}`) : undefined}
                 onDelete={userIsAdmin ? (u) => setDeleteTarget(u) : undefined}
                 isUpdating={updatingUserId === user.id}
