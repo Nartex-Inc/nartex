@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { parseReturnCode, formatReturnCode, getReturnStatus } from "@/types/returns";
 import type { ReturnRow } from "@/types/returns";
-import { requireTenant, requireRoles, normalizeRole } from "@/lib/auth-helpers";
+import { requireTenant, requireRoles, normalizeRole, isGestionnaire } from "@/lib/auth-helpers";
 import { UpdateReturnSchema } from "@/lib/validations";
 
 type RouteParams = { params: Promise<{ code: string }> };
@@ -275,6 +275,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const effectiveProductCount = incomingProductCount !== undefined ? incomingProductCount : existingProductCount;
     const hasProducts = effectiveProductCount > 0;
 
+    // Managers can save as active with only cause + expert (no order/client/products required)
+    const isManagerRole = isGestionnaire(user);
+    const effectiveCause = body.cause !== undefined ? body.cause : ret.cause;
+    const hasManagerMinFields = effectiveCause && effectiveExpert;
+
     if (body.forceDraft) {
       updateData.isDraft = true;
       if (ret.isVerified) {
@@ -285,7 +290,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         updateData.adminDraftBy = null;
       }
     } else {
-      updateData.isDraft = !(hasRequiredFields && hasProducts);
+      updateData.isDraft = isManagerRole ? !hasManagerMinFields : !(hasRequiredFields && hasProducts);
       // Clear admin draft lock on normal save
       updateData.adminDraftBy = null;
     }

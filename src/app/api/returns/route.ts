@@ -7,7 +7,7 @@ import { formatReturnCode, getReturnStatus } from "@/types/returns";
 import type { ReturnRow, Reporter, Cause } from "@/types/returns";
 import { Prisma } from "@prisma/client";
 import { notifyReturnCreated } from "@/lib/notifications";
-import { requireTenant, requireRoles, normalizeRole } from "@/lib/auth-helpers";
+import { requireTenant, requireRoles, normalizeRole, isGestionnaire } from "@/lib/auth-helpers";
 import { CreateReturnSchema } from "@/lib/validations";
 
 // User roles
@@ -343,7 +343,11 @@ export async function POST(request: NextRequest) {
       && body.products.length > 0
       && body.products.some((p) => (p.quantite ?? 0) > 0);
 
-    const isDraft = body.forceDraft ? true : !(hasRequiredFields && hasProducts);
+    // Managers can save as active with only cause + expert (no order/client/products required)
+    const isManagerRole = isGestionnaire(user);
+    const hasManagerMinFields = body.cause && body.expert;
+
+    const isDraft = body.forceDraft ? true : isManagerRole ? !hasManagerMinFields : !(hasRequiredFields && hasProducts);
 
     const lastReturn = await prisma.return.findFirst({
       select: { id: true },

@@ -917,7 +917,7 @@ function DetailModal({
 
   const handleSave = async () => {
     if (!canEdit && !canSaveVerified) return;
-    if ((draft.products ?? []).filter(p => p.codeProduit.trim()).length === 0) { alert("Veuillez ajouter au moins un produit."); return; }
+    if (!isManager && (draft.products ?? []).filter(p => p.codeProduit.trim()).length === 0) { alert("Veuillez ajouter au moins un produit."); return; }
     setBusy(true);
     try {
       await updateReturn(String(row.id), { ...draft });
@@ -932,7 +932,7 @@ function DetailModal({
 
   const handleSaveDraft = async () => {
     if (!canForceDraft) return;
-    if ((draft.products ?? []).filter(p => p.codeProduit.trim()).length === 0) { alert("Veuillez ajouter au moins un produit."); return; }
+    if (!isManager && (draft.products ?? []).filter(p => p.codeProduit.trim()).length === 0) { alert("Veuillez ajouter au moins un produit."); return; }
     setBusy(true);
     try {
       await updateReturn(String(row.id), { ...draft, forceDraft: true });
@@ -1837,8 +1837,14 @@ function NewReturnModal({ onClose, onCreated }: { onClose: () => void; onCreated
   });
 
   const submit = async () => {
-    if (!expert.trim() || !client.trim() || !reportedAt || !reporter || !cause) { alert("Expert, client, date, signalé par et cause sont requis."); return; }
-    if (products.filter(p => p.codeProduit.trim()).length === 0) { alert("Veuillez ajouter au moins un produit."); return; }
+    const normalizedUserRole = session?.user?.role?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() || "";
+    const isManagerRole = normalizedUserRole === "gestionnaire" || normalizedUserRole === "gestionnairetest" || normalizedUserRole === "administrateur" || session?.user?.email?.toLowerCase() === "n.labranche@sinto.ca";
+    if (isManagerRole) {
+      if (!cause || !expert.trim()) { alert("Cause et expert sont requis."); return; }
+    } else {
+      if (!expert.trim() || !client.trim() || !reportedAt || !reporter || !cause) { alert("Expert, client, date, signalé par et cause sont requis."); return; }
+      if (products.filter(p => p.codeProduit.trim()).length === 0) { alert("Veuillez ajouter au moins un produit."); return; }
+    }
     setBusy(true);
     try {
       const createdReturn = await createReturn(buildPayload());
