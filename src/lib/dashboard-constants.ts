@@ -32,3 +32,11 @@ export function isReturnsDashboardUser(role: string | undefined | null): boolean
   const normalized = role.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
   return RETURNS_DASHBOARD_ROLES.includes(normalized);
 }
+
+const DUAL_DASHBOARD_ROLES = ["gestionnaire", "gestionnairetest"];
+
+export function isDualDashboardUser(role: string | undefined | null): boolean {
+  if (!role) return false;
+  const normalized = role.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[-_\s]/g, "").trim();
+  return DUAL_DASHBOARD_ROLES.includes(normalized);
+}

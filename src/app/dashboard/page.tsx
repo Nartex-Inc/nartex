@@ -9,7 +9,7 @@ import { Calendar, RotateCcw } from "lucide-react";
 import { THEME, CHART_COLORS } from "@/lib/theme-tokens";
 import { useCurrentAccent } from "@/components/accent-color-provider";
 import { currency, percentage, formatNumber } from "@/lib/dashboard-formatters";
-import { RETENTION_THRESHOLD, NEW_CUSTOMER_MIN_SPEND, isUserAuthorized, isReturnsDashboardUser } from "@/lib/dashboard-constants";
+import { RETENTION_THRESHOLD, NEW_CUSTOMER_MIN_SPEND, isUserAuthorized, isReturnsDashboardUser, isDualDashboardUser } from "@/lib/dashboard-constants";
 import { totalsByRep, totalsByRepCustomer, totalsByKey } from "@/lib/dashboard-aggregators";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import type { SalesRecord, FilterState, PerfRow, YoyFilter } from "@/types/dashboard";
@@ -592,6 +592,41 @@ const DashboardContent = () => {
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════════
+   Dual Dashboard (Gestionnaire tab switcher)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+const DualDashboardView = () => {
+  const [activeTab, setActiveTab] = useState<"rma" | "sales">("sales");
+
+  return (
+    <div>
+      <div className="flex items-center gap-1 mb-8 p-1 rounded-xl bg-[hsl(var(--bg-muted))] border border-[hsl(var(--border-subtle))] w-fit">
+        <button
+          onClick={() => setActiveTab("sales")}
+          className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+            activeTab === "sales"
+              ? "bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))] shadow-sm"
+              : "text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-secondary))]"
+          }`}
+        >
+          Tableau de bord Ventes
+        </button>
+        <button
+          onClick={() => setActiveTab("rma")}
+          className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+            activeTab === "rma"
+              ? "bg-[hsl(var(--bg-surface))] text-[hsl(var(--text-primary))] shadow-sm"
+              : "text-[hsl(var(--text-tertiary))] hover:text-[hsl(var(--text-secondary))]"
+          }`}
+        >
+          Tableau de bord RMA
+        </button>
+      </div>
+      {activeTab === "sales" ? <DashboardContent /> : <ReturnsDashboard />}
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════════
    Page Export
    ═══════════════════════════════════════════════════════════════════════════════ */
 export default function DashboardPage() {
@@ -640,8 +675,9 @@ export default function DashboardPage() {
 
   // Returns-focused BI dashboard for non-sales roles
   const showReturnsDashboard = isReturnsDashboardUser(userRole);
+  const dualDashboard = isDualDashboardUser(userRole);
 
-  if (!showReturnsDashboard) {
+  if (!showReturnsDashboard && !dualDashboard) {
     const isAuthorized = isUserAuthorized(userRole, userEmail);
     if (status === "unauthenticated" || !isAuthorized) {
       return <AccessDenied role={userRole} email={userEmail} />;
@@ -652,7 +688,7 @@ export default function DashboardPage() {
     <main className="min-h-[100svh] bg-gradient-to-b from-transparent via-transparent to-[hsl(var(--accent)/0.03)]">
       <div className="px-4 md:px-8 lg:px-10 py-8 md:py-12">
         <div className="mx-auto w-full max-w-[1920px]">
-          {showReturnsDashboard ? <ReturnsDashboard /> : <DashboardContent />}
+          {dualDashboard ? <DualDashboardView /> : showReturnsDashboard ? <ReturnsDashboard /> : <DashboardContent />}
         </div>
       </div>
     </main>
