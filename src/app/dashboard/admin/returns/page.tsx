@@ -1684,6 +1684,8 @@ function ProductRow({ product, showVerificationFields, showFinalizationFields, c
 }) {
   const [suggestions, setSuggestions] = React.useState<ItemSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = React.useState(false);
+  const codeInputRef = React.useRef<HTMLInputElement>(null);
+  const [dropdownPos, setDropdownPos] = React.useState<{ top: number; left: number } | null>(null);
   const debouncedCode = useDebounced(product.codeProduit, 300);
 
   React.useEffect(() => {
@@ -1696,12 +1698,20 @@ function ProductRow({ product, showVerificationFields, showFinalizationFields, c
     return () => { active = false; };
   }, [debouncedCode, showSuggestions]);
 
+  React.useEffect(() => {
+    if (showSuggestions && suggestions.length > 0 && codeInputRef.current) {
+      const rect = codeInputRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom + 8, left: rect.left });
+    }
+  }, [showSuggestions, suggestions]);
+
   return (
     <div className="p-5 rounded-xl border border-white/[0.08] bg-[hsl(var(--bg-surface))]/80 backdrop-blur-sm space-y-4 group shadow-sm hover:shadow-md transition-all duration-200">
       {/* Base Product Info */}
       <div className="flex items-center gap-4">
         <div className="relative flex-shrink-0 w-36">
           <input
+            ref={codeInputRef}
             className={cn("w-full h-10 px-3 rounded-lg text-sm font-mono border focus:outline-none focus:ring-2 transition-all duration-200", !canEditBase ? "bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed" : "bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:ring-[hsl(var(--border-default))] focus:border-transparent")}
             placeholder="Code"
             value={product.codeProduit}
@@ -1709,8 +1719,8 @@ function ProductRow({ product, showVerificationFields, showFinalizationFields, c
             onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
             disabled={!canEditBase}
           />
-          {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute z-50 top-full left-0 mt-2 w-72 max-h-48 overflow-y-auto rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
+          {showSuggestions && suggestions.length > 0 && dropdownPos && (
+            <div className="fixed z-[9999] w-72 max-h-48 overflow-y-auto rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-xl" style={{ top: dropdownPos.top, left: dropdownPos.left }}>
               {suggestions.map((s) => (
                 <button key={s.code} className="w-full text-left px-4 py-3 text-sm hover:bg-[hsl(var(--bg-elevated))] border-b border-[hsl(var(--border-subtle))] last:border-0 transition-colors duration-150" onClick={() => { onChange({ ...product, codeProduit: s.code, descriptionProduit: s.descr || product.descriptionProduit }); setShowSuggestions(false); }}>
                   <div className="font-mono font-medium text-[hsl(var(--text-primary))]">{s.code}</div>
@@ -2026,6 +2036,8 @@ function NewProductRow({ product, onChange, onRemove, canRemove = true }: { prod
   const [showSuggestions, setShowSuggestions] = React.useState(false);
   const [highlightIdx, setHighlightIdx] = React.useState(-1);
   const listRef = React.useRef<HTMLDivElement>(null);
+  const codeInputRef = React.useRef<HTMLInputElement>(null);
+  const [dropdownPos, setDropdownPos] = React.useState<{ top: number; left: number } | null>(null);
   const debouncedCode = useDebounced(product.codeProduit, 300);
 
   React.useEffect(() => {
@@ -2047,6 +2059,13 @@ function NewProductRow({ product, onChange, onRemove, canRemove = true }: { prod
     }
   }, [highlightIdx]);
 
+  React.useEffect(() => {
+    if (showSuggestions && suggestions.length > 0 && codeInputRef.current) {
+      const rect = codeInputRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom + 8, left: rect.left });
+    }
+  }, [showSuggestions, suggestions]);
+
   const selectSuggestion = (s: ItemSuggestion) => {
     onChange({ ...product, codeProduit: s.code, descriptionProduit: s.descr || product.descriptionProduit });
     setShowSuggestions(false);
@@ -2063,9 +2082,9 @@ function NewProductRow({ product, onChange, onRemove, canRemove = true }: { prod
   return (
     <div className="flex items-center gap-4 p-4 rounded-xl border border-white/[0.08] bg-[hsl(var(--bg-surface))]/80 backdrop-blur-sm group shadow-sm hover:shadow-md transition-all duration-200">
       <div className="relative flex-shrink-0 w-36">
-        <input className="w-full h-10 px-3 rounded-lg text-sm font-mono border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Code" value={product.codeProduit} onChange={(e) => { onChange({ ...product, codeProduit: e.target.value }); setShowSuggestions(true); }} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} onKeyDown={onKeyDown} />
-        {showSuggestions && suggestions.length > 0 && (
-          <div ref={listRef} className="absolute z-50 top-full left-0 mt-2 w-72 max-h-48 overflow-y-auto rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-sm">
+        <input ref={codeInputRef} className="w-full h-10 px-3 rounded-lg text-sm font-mono border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-elevated))] text-[hsl(var(--text-primary))] placeholder:text-[hsl(var(--text-muted))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] focus:border-transparent transition-all duration-200" placeholder="Code" value={product.codeProduit} onChange={(e) => { onChange({ ...product, codeProduit: e.target.value }); setShowSuggestions(true); }} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} onKeyDown={onKeyDown} />
+        {showSuggestions && suggestions.length > 0 && dropdownPos && (
+          <div ref={listRef} className="fixed z-[9999] w-72 max-h-48 overflow-y-auto rounded-xl border border-[hsl(var(--border-default))] bg-[hsl(var(--bg-surface))] shadow-xl" style={{ top: dropdownPos.top, left: dropdownPos.left }}>
             {suggestions.map((s, idx) => (
               <button key={s.code} onMouseEnter={() => setHighlightIdx(idx)} className={cn("w-full text-left px-4 py-3 text-sm border-b border-[hsl(var(--border-subtle))] last:border-0 transition-colors duration-150", idx === highlightIdx ? "bg-[hsl(var(--bg-muted))] font-medium" : "hover:bg-[hsl(var(--bg-elevated))]")} onClick={() => selectSuggestion(s)}>
                 <div className="font-mono font-medium text-[hsl(var(--text-primary))]">{s.code}</div>
