@@ -1351,6 +1351,9 @@ function DetailModal({
                         const qteRecue = p.quantiteRecue ?? 0;
                         const qteDetruite = p.qteDetruite ?? 0;
                         const qteInv = p.qteInventaire ?? (qteRecue - qteDetruite);
+                        // For non-physical returns: max = Qté attendue; for physical: max = Qté reçue
+                        const isPhys = draft.physicalReturn === true || draft.returnPhysical === true;
+                        const maxQteDetruite = isPhys ? qteRecue : (p.quantite ?? 0);
                         return (
                           <tr key={p.id} className="bg-[hsl(var(--bg-surface))]">
                             <td className="px-3 py-2 font-mono text-xs text-[hsl(var(--text-primary))]">{p.codeProduit}</td>
@@ -1366,15 +1369,22 @@ function DetailModal({
                                 <input
                                   type="number"
                                   min={0}
-                                  max={!isPhysical ? (p.quantite ?? 0) : qteRecue}
+                                  max={maxQteDetruite}
                                   className="w-16 h-8 px-2 rounded-md text-xs text-center border bg-[hsl(var(--bg-elevated))] border-[hsl(var(--border-default))] text-[hsl(var(--text-primary))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--border-default))] transition-all duration-200"
                                   value={qteDetruite}
                                   onChange={(e) => {
-                                    const maxQte = !isPhysical ? (p.quantite ?? 0) : qteRecue;
-                                    const val = Math.max(0, Math.min(Number(e.target.value || 0), maxQte));
-                                    const arr = (draft.products ?? []).slice();
-                                    arr[idx] = { ...p, qteDetruite: val, qteInventaire: qteRecue - val };
-                                    setDraft({ ...draft, products: arr });
+                                    const inputVal = Number(e.target.value || 0);
+                                    setDraft(prev => {
+                                      const products = (prev.products ?? []).slice();
+                                      const product = products[idx];
+                                      if (!product) return prev;
+                                      const physical = prev.physicalReturn === true || prev.returnPhysical === true;
+                                      const qr = product.quantiteRecue ?? 0;
+                                      const cap = physical ? qr : (product.quantite ?? 0);
+                                      const val = Math.max(0, Math.min(inputVal, cap));
+                                      products[idx] = { ...product, qteDetruite: val, qteInventaire: qr - val };
+                                      return { ...prev, products };
+                                    });
                                   }}
                                 />
                               ) : (
@@ -1453,7 +1463,7 @@ function DetailModal({
                       className="w-full h-11 px-4 rounded-xl border text-sm bg-[hsl(var(--bg-muted))] border-[hsl(var(--border-default))] text-[hsl(var(--text-tertiary))] cursor-not-allowed"
                     />
                   </label>
-                  <Field label="Montant transport" value={draft.transportAmount != null ? Number(draft.transportAmount.toFixed(2)).toString() : ""} onChange={(v) => setDraft({ ...draft, transportAmount: v ? Number(v) : null })} type="number" icon={<DollarSign className="h-4 w-4" />} disabled={!canFinalize} />
+                  <Field label="Montant transport" value={draft.transportAmount != null ? Number(draft.transportAmount.toFixed(2)).toString() : ""} onChange={(v) => setDraft({ ...draft, transportAmount: v ? Number(v) : null })} type="number" step="0.01" icon={<DollarSign className="h-4 w-4" />} disabled={!canFinalize} />
                 </div>
                 <Switch
                   label="Facturer le transport"
@@ -1637,7 +1647,7 @@ function OptionToggle({ label, checked, onToggle, inputValue, onInputChange, inp
   );
 }
 
-function Field({ label, value, onChange, type = "text", icon, disabled }: { label: string; value: string; onChange: (v: string) => void; type?: string; icon?: React.ReactNode; disabled?: boolean }) {
+function Field({ label, value, onChange, type = "text", step, icon, disabled }: { label: string; value: string; onChange: (v: string) => void; type?: string; step?: string; icon?: React.ReactNode; disabled?: boolean }) {
   return (
     <label className="block">
       <span className="text-xs font-medium text-[hsl(var(--text-secondary))] uppercase tracking-wide mb-2 block">{label}</span>
@@ -1645,6 +1655,7 @@ function Field({ label, value, onChange, type = "text", icon, disabled }: { labe
         {icon && <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[hsl(var(--text-muted))]">{icon}</div>}
         <input
           type={type}
+          step={step}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
